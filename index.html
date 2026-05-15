@@ -1,0 +1,2336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>客服工作量 & 跟进管理系统 · 演示版</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+:root {
+  --bg: #fafaf9;
+  --bg-card: #ffffff;
+  --bg-elevated: #f5f5f4;
+  --bg-row: #ffffff;
+  --bg-row-active: #eff6ff;
+  --bg-row-hover: #fafaf9;
+  --border: #e7e5e4;
+  --border-subtle: #f5f5f4;
+  --border-input: #d6d3d1;
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-tertiary: #a8a29e;
+  --text-input: #292524;
+  --accent: #2563eb;
+  --accent-bright: #1d4ed8;
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #b91c1c;
+  --purple: #7c3aed;
+  --teal: #0d9488;
+  /* 状态颜色 */
+  --status-pending: #78716c;
+  --status-progress: #ca8a04;
+  --status-waiting: #2563eb;
+  --status-resolved: #15803d;
+  --status-overdue: #b91c1c;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 40px rgba(0,0,0,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Manrope', 'Noto Sans SC', -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(37, 99, 235, 0.04), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(124, 58, 237, 0.03), transparent);
+}
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* ============ Header ============ */
+.app-header {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 32px;
+  box-shadow: var(--shadow-sm);
+}
+.header-inner { max-width: 1480px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-icon { width: 32px; height: 32px; background: linear-gradient(135deg, #2563eb, #7c3aed); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: white; }
+.brand-text .name { font-size: 14px; font-weight: 700; }
+.brand-text .sub { font-size: 10px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace; letter-spacing: 1px; text-transform: uppercase; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+
+.btn {
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary);
+  padding: 7px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;
+  font-family: inherit; font-weight: 500; transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent-bright); }
+.btn.primary { background: var(--accent); color: white; border-color: var(--accent); font-weight: 600; }
+.btn.primary:hover { background: var(--accent-bright); color: white; }
+.btn.success { background: var(--success); color: white; border-color: var(--success); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.btn.ghost:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: transparent; }
+.btn.danger-text { color: var(--danger); border-color: transparent; }
+.btn.danger-text:hover { background: rgba(185,28,28,0.08); border-color: var(--danger); }
+.btn.sm { padding: 4px 10px; font-size: 11px; }
+
+.agent-pill { display: flex; align-items: center; gap: 8px; background: var(--bg-card); border: 1px solid var(--border); padding: 4px 4px 4px 12px; border-radius: 20px; cursor: pointer; }
+.agent-pill:hover { border-color: var(--accent); }
+.agent-pill .avatar { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #2563eb, #7c3aed); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; color: white; }
+.agent-pill .name { font-size: 12px; font-weight: 600; }
+.agent-pill .arrow { font-size: 10px; color: var(--text-tertiary); margin-right: 6px; }
+
+/* ============ Followup Banner ============ */
+.followup-banner {
+  max-width: 1480px;
+  margin: 24px auto 0;
+  padding: 0 32px;
+}
+.fb-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: var(--shadow-sm);
+  transition: padding 0.2s;
+}
+.fb-card.collapsed { padding: 12px 20px; }
+.fb-card.collapsed .fb-list { display: none; }
+.fb-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.fb-card.collapsed .fb-head { margin-bottom: 0; }
+.fb-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.fb-title .fb-total {
+  font-size: 11px;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+.fb-toggle {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  transition: transform 0.2s;
+  margin-left: 8px;
+  width: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.fb-card.collapsed .fb-toggle { transform: rotate(-90deg); }
+.fb-tabs { display: flex; gap: 4px; }
+.fb-tab {
+  padding: 5px 11px; font-size: 12px; border-radius: 6px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; color: var(--text-secondary);
+  font-weight: 500; display: inline-flex; align-items: center; gap: 6px;
+}
+.fb-tab:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.fb-tab.active { background: var(--bg-elevated); color: var(--text-primary); }
+.fb-tab .count { font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 1px 6px; border-radius: 8px; font-weight: 700; }
+.fb-tab.active.overdue .count { background: rgba(185,28,28,0.12); color: var(--danger); }
+.fb-tab.active.today .count { background: rgba(180,83,9,0.12); color: var(--warning); }
+.fb-tab.active.upcoming .count { background: rgba(37,99,235,0.1); color: var(--accent); }
+.fb-tab.active.waiting .count { background: rgba(37,99,235,0.1); color: var(--accent); }
+
+.fb-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; }
+.fb-item {
+  display: grid;
+  grid-template-columns: 12px 80px 1fr auto 100px 80px;
+  gap: 12px; align-items: center;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  font-size: 13px;
+}
+.fb-item:hover { border-color: var(--accent); background: var(--bg-row-active); }
+.fb-item .dot { width: 8px; height: 8px; border-radius: 50%; }
+.fb-item .from-date { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-tertiary); }
+.fb-item .email { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fb-item .badge { font-size: 10px; padding: 2px 8px; border-radius: 4px; background: var(--bg-card); color: var(--text-secondary); font-weight: 500; border: 1px solid var(--border); }
+.fb-item .next { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; text-align: right; }
+.fb-item .next.overdue { color: var(--danger); }
+.fb-item .next.today { color: var(--warning); }
+.fb-item .next.upcoming { color: var(--text-secondary); }
+.fb-item .action-btn { font-size: 11px; padding: 4px 10px; border-radius: 5px; background: var(--accent); color: white; font-weight: 600; cursor: pointer; border: none; }
+
+.fb-empty { text-align: center; padding: 32px; color: var(--text-tertiary); font-size: 13px; }
+
+/* ============ Stats bar ============ */
+.stats-bar {
+  max-width: 1480px; margin: 18px auto 0; padding: 0 32px;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+}
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 18px; position: relative; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0.6; }
+.stat-card.success::before { background: var(--success); }
+.stat-card.warning::before { background: var(--warning); }
+.stat-card.purple::before { background: var(--purple); }
+.stat-card.danger::before { background: var(--danger); }
+.stat-card .label { font-size: 10px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
+.stat-card .value { font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 700; line-height: 1; }
+.stat-card .unit { font-size: 12px; color: var(--text-tertiary); margin-left: 3px; }
+.stat-card .sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+/* ============ Date bar ============ */
+.date-bar {
+  max-width: 1480px; margin: 18px auto 0; padding: 0 32px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.date-pick { display: flex; align-items: center; gap: 10px; }
+.date-pick .date-display { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+.date-pick .weekday { font-size: 13px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace; margin-left: 8px; }
+.date-arrow { width: 28px; height: 28px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-secondary); font-size: 12px; }
+.date-arrow:hover { border-color: var(--accent); color: var(--accent); }
+.submitted-badge { font-size: 11px; background: rgba(21,128,61,0.08); color: var(--success); padding: 4px 10px; border-radius: 12px; font-weight: 600; margin-left: 12px; border: 1px solid rgba(21,128,61,0.25); }
+.form-control { width: 100%; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); padding: 10px 12px; border-radius: 6px; font-family: inherit; font-size: 13px; }
+.form-control:focus { outline: none; border-color: var(--accent); }
+
+/* ============ Records Table ============ */
+.records-container { max-width: 1480px; margin: 14px auto 0; padding: 0 32px 100px; }
+.records-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm); }
+
+.records-header {
+  display: grid;
+  grid-template-columns: 36px 72px minmax(240px, 1.5fr) 70px 95px 95px 54px 88px 108px 1fr 135px 38px;
+  gap: 8px;
+  padding: 14px 18px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+}
+.records-header div { padding: 0 2px; }
+
+.record-row {
+  display: grid;
+  grid-template-columns: 36px 72px minmax(240px, 1.5fr) 70px 95px 95px 54px 88px 108px 1fr 135px 38px;
+  gap: 8px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border-subtle);
+  align-items: center;
+  position: relative;
+  transition: background 0.1s;
+}
+.record-row:hover { background: var(--bg-row-hover); }
+.record-row.active { background: var(--bg-row-active); box-shadow: inset 3px 0 0 var(--accent); }
+.record-row.submitted { background: #fafaf9; opacity: 0.85; }
+
+/* 行的状态着色（左侧色条） */
+.record-row.s-pending { box-shadow: inset 4px 0 0 var(--status-pending); }
+.record-row.s-progress { box-shadow: inset 4px 0 0 var(--status-progress); background: rgba(202,138,4,0.03); }
+.record-row.s-waiting { box-shadow: inset 4px 0 0 var(--status-waiting); background: rgba(37,99,235,0.03); }
+.record-row.s-resolved { box-shadow: inset 4px 0 0 var(--status-resolved); }
+.record-row.s-overdue { box-shadow: inset 4px 0 0 var(--status-overdue); background: rgba(185,28,28,0.04); }
+
+.row-num { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-tertiary); text-align: center; }
+
+/* 状态选择器 */
+.status-cell { position: relative; }
+.status-pill {
+  width: 100%;
+  padding: 7px 6px;
+  font-size: 11.5px;
+  border-radius: 5px;
+  border: 1px solid;
+  background: var(--bg-card);
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  transition: all 0.1s;
+}
+.status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.status-pill.s-pending { color: var(--status-pending); border-color: rgba(120,113,108,0.3); }
+.status-pill.s-pending::before { background: var(--status-pending); }
+.status-pill.s-progress { color: var(--status-progress); border-color: rgba(202,138,4,0.3); background: rgba(202,138,4,0.06); }
+.status-pill.s-progress::before { background: var(--status-progress); }
+.status-pill.s-waiting { color: var(--status-waiting); border-color: rgba(37,99,235,0.3); background: rgba(37,99,235,0.06); }
+.status-pill.s-waiting::before { background: var(--status-waiting); }
+.status-pill.s-resolved { color: var(--status-resolved); border-color: rgba(21,128,61,0.3); background: rgba(21,128,61,0.06); }
+.status-pill.s-resolved::before { background: var(--status-resolved); }
+.status-pill.s-overdue { color: var(--status-overdue); border-color: rgba(185,28,28,0.3); background: rgba(185,28,28,0.06); }
+.status-pill.s-overdue::before { background: var(--status-overdue); }
+.status-pill:hover { box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+
+.status-menu {
+  display: none;
+  position: absolute; top: 100%; left: 0; margin-top: 4px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: var(--shadow-lg); z-index: 35;
+  padding: 4px;
+  min-width: 110px;
+  white-space: nowrap;
+}
+.status-menu.show { display: block; }
+.status-menu.up {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+.status-menu .item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; font-size: 12.5px; cursor: pointer; border-radius: 4px;
+  white-space: nowrap;
+}
+.status-menu .item:hover { background: var(--bg-elevated); }
+.status-menu .item .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.cell-input {
+  background: #fdfdfc;
+  border: 1px solid #ebe9e6;
+  color: var(--text-input);
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 13px;
+  width: 100%;
+  transition: all 0.1s;
+}
+.cell-input:hover { border-color: #d6d3d1; background: var(--bg-card); }
+.cell-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-card);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+.cell-input.mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+.cell-input::placeholder { color: #b8b4ae; font-size: 12px; }
+.cell-input[readonly] { color: var(--text-tertiary); cursor: not-allowed; background: #f5f5f4; }
+select.cell-input { cursor: pointer; appearance: none; padding-right: 24px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' stroke='%23a8a29e' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+select.cell-input option { background: var(--bg-card); color: var(--text-primary); }
+
+.duration-cell { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent-bright); text-align: center; font-weight: 700; padding: 6px 0; background: rgba(37,99,235,0.04); border-radius: 5px; }
+
+.difficulty-cell { display: flex; gap: 3px; align-items: center; }
+.diff-btn {
+  flex: 1; padding: 6px 0; font-size: 11.5px;
+  background: var(--bg-card); border: 1px solid #ebe9e6; color: var(--text-secondary);
+  border-radius: 4px; cursor: pointer; font-family: inherit; font-weight: 600;
+}
+.diff-btn:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+.diff-btn.active.easy { background: rgba(21,128,61,0.1); color: var(--success); border-color: var(--success); }
+.diff-btn.active.medium { background: rgba(180,83,9,0.1); color: var(--warning); border-color: var(--warning); }
+.diff-btn.active.hard { background: rgba(185,28,28,0.1); color: var(--danger); border-color: var(--danger); }
+/* 自动建议状态：虚线边框 + 略淡背景 */
+.diff-btn.active.suggested {
+  border-style: dashed;
+  position: relative;
+}
+.diff-btn.active.suggested::after {
+  content: '🤖';
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  font-size: 9px;
+  background: var(--accent);
+  color: white;
+  padding: 1px 4px;
+  border-radius: 8px;
+  line-height: 1.2;
+  border: 1px solid white;
+}
+.diff-btn.active.suggested:hover { border-style: solid; }
+
+/* 下次跟进 */
+.next-date-cell { position: relative; }
+.next-date-cell input {
+  background: #fdfdfc; border: 1px solid #ebe9e6;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  padding: 7px 4px;
+  border-radius: 5px;
+  width: 100%;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.next-date-cell input:hover { border-color: #d6d3d1; background: var(--bg-card); }
+.next-date-cell input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.next-date-cell input.overdue { color: var(--danger); font-weight: 700; }
+.next-date-cell input.today { color: var(--warning); font-weight: 700; }
+.next-date-cell input.upcoming { color: var(--accent); font-weight: 600; }
+
+/* 跟进按钮 */
+.followup-btn {
+  width: 100%;
+  padding: 7px 4px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  color: var(--text-secondary);
+  font-weight: 700;
+  transition: all 0.1s;
+}
+.followup-btn:hover { border-color: var(--accent); color: var(--accent); }
+.followup-btn.has-followups { background: rgba(37,99,235,0.05); border-color: rgba(37,99,235,0.3); color: var(--accent); }
+.followup-btn .ico { font-size: 12px; }
+.followup-btn .num { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+.row-del { background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 14px; padding: 4px 6px; border-radius: 4px; }
+.row-del:hover { color: var(--danger); background: rgba(185,28,28,0.08); }
+
+.add-row { padding: 14px 16px; text-align: center; background: var(--bg-elevated); cursor: pointer; font-size: 12px; color: var(--text-secondary); border-top: 1px dashed var(--border); }
+.add-row:hover { background: var(--bg-row-active); color: var(--accent); }
+
+.tips { margin-top: 12px; font-size: 11px; color: var(--text-tertiary); display: flex; gap: 18px; flex-wrap: wrap; padding: 0 4px; }
+.kbd { background: var(--bg-elevated); border: 1px solid var(--border); padding: 1px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-primary); }
+
+.action-bar {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px);
+  border: 1px solid var(--border); border-radius: 14px; padding: 10px 16px;
+  display: flex; gap: 10px; align-items: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12); z-index: 30;
+}
+.action-bar .info { font-size: 12px; color: var(--text-secondary); padding: 0 8px; }
+.action-bar .info b { color: var(--accent-bright); font-family: 'JetBrains Mono', monospace; }
+
+/* ============ Modal ============ */
+.modal-bg { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(28, 25, 23, 0.4); z-index: 100; backdrop-filter: blur(4px); }
+.modal-bg.show { display: flex; align-items: center; justify-content: center; }
+.modal {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 28px; width: 480px; max-width: 90vw; max-height: 85vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: modalIn 0.2s ease;
+}
+@keyframes modalIn { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal h2 { font-size: 20px; margin-bottom: 6px; }
+.modal .desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 24px; }
+.modal-close { position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-tertiary); border: none; background: transparent; }
+.modal-close:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+/* Big modal for followup */
+.modal.lg { width: 680px; }
+.modal { position: relative; }
+
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); margin-bottom: 6px; font-weight: 600; }
+.agent-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+.agent-option { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.agent-option:hover { border-color: var(--accent); }
+.agent-option .av { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 13px; }
+.agent-option .av.c0 { background: linear-gradient(135deg, #2563eb, #7c3aed); }
+.agent-option .av.c1 { background: linear-gradient(135deg, #15803d, #0d9488); }
+.agent-option .av.c2 { background: linear-gradient(135deg, #b45309, #ea580c); }
+.agent-option .av.c3 { background: linear-gradient(135deg, #be185d, #b91c1c); }
+.agent-option .nm { font-size: 13px; font-weight: 600; }
+.agent-option .ml { font-size: 10px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace; }
+.add-agent-input { display: flex; gap: 6px; }
+.add-agent-input input { flex: 1; }
+.tag-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-item { background: var(--bg-elevated); border: 1px solid var(--border); padding: 5px 10px; border-radius: 14px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+
+/* ============ Followup Modal Specific ============ */
+.fu-header {
+  background: var(--bg-elevated);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 18px;
+}
+.fu-header .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.fu-header .email-line { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; }
+.fu-header .meta { font-size: 11px; color: var(--text-secondary); display: flex; gap: 10px; margin-top: 4px; }
+.fu-header .meta span { display: inline-flex; align-items: center; gap: 4px; }
+.fu-header .original-note { margin-top: 10px; padding: 10px; background: var(--bg-card); border-radius: 6px; font-size: 12.5px; color: var(--text-primary); border-left: 3px solid var(--accent); }
+.fu-header .original-note b { font-size: 10px; color: var(--text-tertiary); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+.fu-section { margin-bottom: 18px; }
+.fu-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-tertiary); font-weight: 600; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+.fu-section-title .count { font-family: 'JetBrains Mono', monospace; color: var(--text-secondary); }
+
+.status-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.status-grid .status-pill { cursor: pointer; }
+.status-grid .status-pill.selected { box-shadow: 0 0 0 2px var(--accent); }
+
+.timeline { display: flex; flex-direction: column; gap: 12px; max-height: 280px; overflow-y: auto; padding-right: 4px; }
+.timeline-item {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 12px;
+  position: relative;
+}
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: 7px; top: 18px; bottom: -12px;
+  width: 2px;
+  background: var(--border);
+}
+.timeline-item:last-child::before { display: none; }
+.timeline-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; color: white; font-size: 9px; z-index: 1; }
+.timeline-content { background: var(--bg-elevated); padding: 10px 12px; border-radius: 6px; }
+.timeline-meta { font-size: 10px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace; margin-bottom: 4px; }
+.timeline-text { font-size: 12.5px; color: var(--text-primary); line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.timeline-screenshots { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.screenshot-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; cursor: pointer; border: 1px solid var(--border); transition: transform 0.15s; }
+.screenshot-thumb:hover { transform: scale(1.05); border-color: var(--accent); }
+.timeline-item .actions { display: flex; gap: 6px; margin-top: 6px; }
+.timeline-item .del-btn { font-size: 10px; color: var(--text-tertiary); cursor: pointer; background: none; border: none; padding: 2px 6px; border-radius: 3px; }
+.timeline-item .del-btn:hover { color: var(--danger); background: rgba(185,28,28,0.08); }
+
+.fu-add-area {
+  background: var(--bg-elevated);
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.fu-add-area textarea {
+  width: 100%; min-height: 80px; padding: 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-card); color: var(--text-primary);
+  font-family: inherit; font-size: 13px; resize: vertical;
+}
+.fu-add-area textarea:focus { outline: none; border-color: var(--accent); }
+
+.drop-zone {
+  border: 2px dashed var(--border-input);
+  border-radius: 8px;
+  padding: 14px;
+  text-align: center;
+  margin-top: 10px;
+  background: var(--bg-card);
+  transition: all 0.15s;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(37,99,235,0.04); color: var(--accent); }
+.drop-zone input[type=file] { display: none; }
+.drop-zone-thumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.drop-zone-thumb { position: relative; }
+.drop-zone-thumb img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); }
+.drop-zone-thumb .rm { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; background: var(--danger); color: white; border: none; cursor: pointer; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+
+.fu-add-bottom { display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-top: 10px; }
+.fu-add-bottom .date-input { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-tertiary); }
+.fu-add-bottom .date-input input { padding: 5px 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-card); font-family: 'JetBrains Mono', monospace; }
+
+/* Image viewer */
+.image-viewer { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); z-index: 200; align-items: center; justify-content: center; cursor: pointer; }
+.image-viewer.show { display: flex; }
+.image-viewer img { max-width: 90vw; max-height: 90vh; }
+.image-viewer .close { position: absolute; top: 20px; right: 20px; color: white; font-size: 24px; background: none; border: none; cursor: pointer; }
+
+/* ============ Toast ============ */
+.toast { position: fixed; top: 24px; right: 24px; background: var(--bg-card); border: 1px solid var(--border); border-left: 4px solid var(--success); border-radius: 10px; padding: 14px 22px; font-size: 13px; z-index: 200; box-shadow: var(--shadow-lg); animation: toastIn 0.3s ease; }
+.toast.err { border-left-color: var(--danger); }
+.toast.warn { border-left-color: var(--warning); }
+@keyframes toastIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+.empty-day { padding: 60px 32px; text-align: center; color: var(--text-tertiary); }
+.empty-day .icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
+.empty-day .text { font-size: 13px; }
+.empty-day button { margin-top: 16px; }
+
+/* History */
+.history-list { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
+.history-item { display: grid; grid-template-columns: 70px 1fr 70px 70px; gap: 10px; padding: 10px 12px; background: var(--bg-elevated); border: 1px solid transparent; border-radius: 8px; cursor: pointer; align-items: center; font-size: 12px; }
+.history-item:hover { border-color: var(--accent); }
+.history-item .h-date { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+.history-item .h-meta { color: var(--text-secondary); font-size: 11px; }
+.history-item .h-count { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent-bright); text-align: right; }
+.history-item .h-status { font-size: 10px; padding: 2px 6px; border-radius: 10px; text-align: center; font-weight: 600; }
+.s-submitted { background: rgba(21,128,61,0.1); color: var(--success); }
+.s-draft { background: rgba(180,83,9,0.1); color: var(--warning); }
+
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-icon">CS</div>
+      <div class="brand-text">
+        <div class="name">客服工作量 & 跟进系统</div>
+        <div class="sub">DEMO · WITH FOLLOWUP</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="agent-pill">
+        <div class="avatar" id="curAvatar">?</div>
+        <div class="name" id="curName">未登录</div>
+      </div>
+      <button class="btn ghost" onclick="openHistory()">📅 历史</button>
+      <button class="btn ghost" onclick="openSettings()">⚙</button>
+      <button class="btn ghost" onclick="exportDay('xlsx')">⬇ Excel</button>
+      <button class="btn ghost" onclick="doLogout()" title="退出登录">⏻</button>
+    </div>
+  </div>
+</div>
+
+<!-- Followup Banner -->
+<div class="followup-banner">
+  <div class="fb-card collapsed" id="fbCard">
+    <div class="fb-head" onclick="toggleFollowupBanner(event)">
+      <div class="fb-title">📌 跟进提醒<span class="fb-total" id="fbTotal">0</span></div>
+      <div class="fb-tabs" id="fbTabsContainer">
+        <div class="fb-tab overdue" data-tab="overdue" onclick="event.stopPropagation(); switchFBTab('overdue')">🔴 逾期 <span class="count" id="fbCntOverdue">0</span></div>
+        <div class="fb-tab today" data-tab="today" onclick="event.stopPropagation(); switchFBTab('today')">🟡 今日 <span class="count" id="fbCntToday">0</span></div>
+        <div class="fb-tab upcoming" data-tab="upcoming" onclick="event.stopPropagation(); switchFBTab('upcoming')">🔵 未来 <span class="count" id="fbCntUpcoming">0</span></div>
+        <div class="fb-tab waiting" data-tab="waiting" onclick="event.stopPropagation(); switchFBTab('waiting')">⏳ 等客户 <span class="count" id="fbCntWaiting">0</span></div>
+        <span class="fb-toggle">▼</span>
+      </div>
+    </div>
+    <div class="fb-list" id="fbList"></div>
+  </div>
+</div>
+
+<!-- Date bar -->
+<div class="date-bar">
+  <div class="date-pick">
+    <div class="date-arrow" onclick="changeDate(-1)">←</div>
+    <input type="date" id="datePicker" class="form-control" style="width: 160px; padding: 6px 10px;" onchange="onDateChange()">
+    <div class="date-arrow" onclick="changeDate(1)">→</div>
+    <span class="date-display" id="dateDisplay"></span>
+    <span class="weekday" id="weekday"></span>
+    <span id="submittedBadge"></span>
+  </div>
+  <div style="font-size: 11px; color: var(--text-tertiary);">
+    自动保存 · 上次更新 <span id="lastSave" class="mono">—</span>
+  </div>
+</div>
+
+<!-- Stats bar -->
+<div class="stats-bar">
+  <div class="stat-card">
+    <div class="label">今日邮件数</div>
+    <div class="value mono"><span id="sCount">0</span><span class="unit">封</span></div>
+    <div class="sub" id="sCountSub">尚未填写</div>
+  </div>
+  <div class="stat-card success">
+    <div class="label">总时长</div>
+    <div class="value mono"><span id="sMinutes">0</span><span class="unit">min</span></div>
+    <div class="sub" id="sAvgTime">—</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="label">难度分布</div>
+    <div class="value mono" style="font-size: 18px; margin-top: 4px;"><span id="sDiff">0 / 0 / 0</span></div>
+    <div class="sub">简 / 中 / 复</div>
+  </div>
+  <div class="stat-card purple">
+    <div class="label">跟进中</div>
+    <div class="value mono"><span id="sFollowing">0</span><span class="unit">单</span></div>
+    <div class="sub" id="sFollowingSub">未关闭工单</div>
+  </div>
+  <div class="stat-card danger">
+    <div class="label">逾期 / 今日</div>
+    <div class="value mono" style="font-size: 22px;"><span id="sOverdueCount">0</span> / <span id="sTodayCount">0</span></div>
+    <div class="sub" id="sUrgentSub">需立即处理</div>
+  </div>
+</div>
+
+<!-- Records -->
+<div class="records-container">
+  <div class="records-card">
+    <div class="records-header">
+      <div>#</div>
+      <div>状态</div>
+      <div>客户邮箱/联系方式</div>
+      <div>网站</div>
+      <div>开始</div>
+      <div>结束</div>
+      <div>时长</div>
+      <div>难度</div>
+      <div>咨询事项</div>
+      <div>订单号/备注</div>
+      <div>下次跟进</div>
+      <div></div>
+    </div>
+    <div id="recordsBody"></div>
+    <div class="add-row" onclick="addRow()">+ 添加一行 · 或在最后一行按 <span class="kbd">Enter</span></div>
+  </div>
+  
+  <div class="tips">
+    <span><span class="kbd">Tab</span> 切换字段</span>
+    <span><span class="kbd">Enter</span> 最后一行加新行</span>
+    <span>🤖 难度自动建议：≤5分简单 · 5-10分中等 · &gt;10分复杂</span>
+    <span>🎨 行左侧色条 = 跟进状态</span>
+    <span>📎 客户截图可在跟进窗口粘贴 / 拖拽</span>
+  </div>
+</div>
+
+<!-- Bottom action bar -->
+<div class="action-bar" id="actionBar" style="display: none;">
+  <div class="info">今日 <b id="abCount">0</b> 封 · <b id="abMin">0</b> min</div>
+  <button class="btn ghost" onclick="clearDay()">🗑 清空今日</button>
+  <button class="btn primary" id="submitBtn" onclick="submitDay()">✓ 提交今日工作</button>
+</div>
+
+<!-- ============ Followup Modal ============ -->
+<div class="modal-bg" id="fuModal">
+  <div class="modal lg">
+    <button class="modal-close" onclick="closeFu()">✕</button>
+    <h2>📋 工单跟进详情</h2>
+    <p class="desc">为这封邮件添加跟进记录，避免遗漏。</p>
+    
+    <div class="fu-header" id="fuHead"></div>
+    
+    <div class="fu-section">
+      <div class="fu-section-title">当前状态</div>
+      <div class="status-grid">
+        <div class="status-pill s-pending" data-st="pending" onclick="setFuStatus('pending')">待处理</div>
+        <div class="status-pill s-progress" data-st="progress" onclick="setFuStatus('progress')">跟进中</div>
+        <div class="status-pill s-waiting" data-st="waiting" onclick="setFuStatus('waiting')">等客户</div>
+        <div class="status-pill s-resolved" data-st="resolved" onclick="setFuStatus('resolved')">已解决</div>
+        <div class="status-pill s-overdue" data-st="overdue" onclick="setFuStatus('overdue')">逾期</div>
+      </div>
+    </div>
+    
+    <div class="fu-section">
+      <div class="fu-section-title">下次跟进日期</div>
+      <input type="date" id="fuNextDate" class="form-control" style="font-family: 'JetBrains Mono', monospace;" onchange="setFuNextDate()">
+    </div>
+    
+    <div class="fu-section">
+      <div class="fu-section-title">📎 问题反馈截图 <span class="count" id="fuOrigCount">0 张</span></div>
+      <div class="drop-zone-thumbs" id="fuOrigThumbs" style="margin-bottom: 8px;"></div>
+      <div class="drop-zone" id="fuOrigDropZone">
+        <input type="file" id="fuOrigFileInput" accept="image/*" multiple>
+        📎 拖拽 / Ctrl+V 粘贴 / <a style="color: var(--accent);" onclick="event.preventDefault(); document.getElementById('fuOrigFileInput').click();" href="#">点击选择</a> · 这里放客户反馈的截图
+      </div>
+    </div>
+    
+    <div class="fu-section">
+      <div class="fu-section-title">跟进时间线 <span class="count" id="fuTimelineCount">0 条</span></div>
+      <div class="timeline" id="fuTimeline"></div>
+    </div>
+    
+    <div class="fu-section">
+      <div class="fu-section-title">+ 添加新跟进</div>
+      <div class="fu-add-area">
+        <textarea id="fuNewNote" placeholder="跟进内容，例如：已联系供应商核实，等回复 / 客户确认收到退款 / ..."></textarea>
+        <div class="drop-zone" id="fuDropZone">
+          <input type="file" id="fuFileInput" accept="image/*" multiple>
+          📎 拖拽截图到这里 · 按 <span class="kbd">Ctrl+V</span> 粘贴 · 或<a style="color: var(--accent);" onclick="event.preventDefault(); document.getElementById('fuFileInput').click();" href="#">点击选择</a>
+        </div>
+        <div class="drop-zone-thumbs" id="fuNewThumbs"></div>
+        <div class="fu-add-bottom">
+          <div class="date-input">📅 跟进日期 <input type="date" id="fuNewDate"></div>
+          <button class="btn primary sm" onclick="addFollowup()">✓ 保存这条跟进</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Image Viewer ============ -->
+<div class="image-viewer" id="imageViewer" onclick="closeImageViewer()">
+  <button class="close" onclick="closeImageViewer()">✕</button>
+  <img id="imageViewerImg" src="">
+</div>
+
+<!-- ============ Login Modal ============ -->
+<div class="modal-bg" id="agentModal">
+  <div class="modal">
+    <h2>👋 登录</h2>
+    <p class="desc">输入主管发给你的邮箱和密码。</p>
+    <div class="form-group">
+      <label>邮箱</label>
+      <input type="email" class="form-control" id="loginEmail" placeholder="your@email.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" class="form-control" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div id="loginError" style="display:none; background: rgba(185,28,28,0.08); color: var(--danger); padding: 10px 12px; border-radius: 6px; font-size: 12px; margin-bottom: 12px;"></div>
+    <button class="btn primary" onclick="doLogin()" style="width: 100%; padding: 10px;">登录</button>
+    <p style="font-size: 11px; color: var(--text-tertiary); margin-top: 16px; text-align: center;">如果忘记密码，请联系主管重置</p>
+  </div>
+</div>
+
+<!-- ============ Settings Modal ============ -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('settingsModal')">✕</button>
+    <h2>⚙ 系统配置</h2>
+    <p class="desc">下拉选项的统一管理。</p>
+    <div class="form-group"><label>👥 客服名单</label><div class="tag-list" id="settingsAgents"></div></div>
+    <div class="form-group">
+      <label>🌐 网站列表</label>
+      <div class="add-agent-input" style="margin-bottom: 8px;">
+        <input type="text" class="form-control" id="newSite" placeholder="新增网站" maxlength="20">
+        <button class="btn primary" onclick="addOption('sites','newSite')">添加</button>
+      </div>
+      <div class="tag-list" id="settingsSites"></div>
+    </div>
+    <div class="form-group">
+      <label>🏷 咨询事项类型</label>
+      <div class="add-agent-input" style="margin-bottom: 8px;">
+        <input type="text" class="form-control" id="newCat" placeholder="新增类型" maxlength="20">
+        <button class="btn primary" onclick="addOption('categories','newCat')">添加</button>
+      </div>
+      <div class="tag-list" id="settingsCats"></div>
+    </div>
+    <div class="form-group">
+      <label>🤖 难度自动建议规则 <span style="text-transform: none; letter-spacing: 0; color: var(--text-tertiary); font-weight: normal; margin-left: 8px;">咨询事项 → 默认建议难度</span></label>
+      <div id="settingsDiffRules" style="background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 8px; padding: 12px; max-height: 240px; overflow-y: auto;"></div>
+      <div style="font-size: 11px; color: var(--text-tertiary); margin-top: 6px; line-height: 1.5;">💡 客服选了咨询事项会自动填这里设置的难度。客服仍可手动改单条记录的难度。</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn danger-text" onclick="resetAll()">🗑 重置所有数据</button>
+      <button class="btn primary" onclick="closeModal('settingsModal')">完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ History Modal ============ -->
+<div class="modal-bg" id="historyModal">
+  <div class="modal" style="width: 560px;">
+    <button class="modal-close" onclick="closeModal('historyModal')">✕</button>
+    <h2>📅 历史记录</h2>
+    <p class="desc">点击任意日期查看或继续编辑。</p>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</div>
+
+<script>
+// =========================================================================
+// 客服工作量 & 跟进系统 · 云端版（Supabase）
+// =========================================================================
+
+// ⚠️ 配置区：把你的 Supabase 信息填到下面两行
+// 这两个值在 Supabase Studio → Settings → API 页面能找到
+const SUPABASE_URL = 'https://kwrajryhwyytkjkkidor.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_6j-rSrv1V95FROe-iX6Yew_unE_Y6n9';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// 默认难度规则（首次使用 / 后端没配置时用）
+const DEFAULT_DIFFICULTY_RULES = {
+  '咨询': '简单', '物流': '简单', '查单': '简单', '核实': '简单', '安装说明': '简单', '改地址': '简单',
+  '退货': '中等', '报价': '中等', '售后': '中等', '补发': '中等', '取消订单': '中等', '定制咨询': '中等', '实拍': '中等',
+  '拒付': '复杂', '加急': '复杂',
+};
+
+// ========== 数据访问层 ==========
+const DATA = {
+  // 配置
+  async getConfig() {
+    const { data, error } = await sb.from('config').select('*');
+    if (error) { console.error(error); return defaultConfig(); }
+    const cfg = defaultConfig();
+    data.forEach(row => {
+      if (row.key === 'sites') cfg.sites = row.value;
+      else if (row.key === 'categories') cfg.categories = row.value;
+      else if (row.key === 'difficulty_rules') cfg.difficultyRules = row.value;
+    });
+    return cfg;
+  },
+  async saveConfig(cfg) {
+    // 把 config 拆成多行 upsert
+    const rows = [
+      { key: 'sites', value: cfg.sites },
+      { key: 'categories', value: cfg.categories },
+      { key: 'difficulty_rules', value: cfg.difficultyRules },
+    ];
+    const { error } = await sb.from('config').upsert(rows);
+    if (error) console.error(error);
+  },
+  
+  // 获取某客服某天的所有记录（含跟进、截图）
+  async getRecords(agentId, date) {
+    const { data: records, error } = await sb
+      .from('records')
+      .select(`
+        *,
+        followups (id, date, time, note, screenshots (id, storage_path)),
+        screenshots!screenshots_record_id_fkey (id, storage_path)
+      `)
+      .eq('agent_id', agentId)
+      .eq('date', date)
+      .order('row_idx');
+    
+    if (error) {
+      console.error('getRecords error:', error);
+      return { records: [], submitted: false, lastSave: null };
+    }
+    
+    // 转换：把 snake_case 转成 camelCase，把 storage_path 转为可访问 URL
+    const mapped = (records || []).map(r => recordFromDb(r));
+    const submitted = mapped.length > 0 && mapped.every(r => r._submitted);
+    const lastSave = mapped.reduce((max, r) => {
+      const t = r._updated_at;
+      return (!max || t > max) ? t : max;
+    }, null);
+    
+    return { records: mapped, submitted, lastSave };
+  },
+  
+  // 创建/更新一条记录
+  async upsertRecord(agentId, date, record, idx) {
+    const dbRow = recordToDb(record, agentId, date, idx);
+    if (record._id) {
+      const { data, error } = await sb.from('records').update(dbRow).eq('id', record._id).select().single();
+      if (error) { console.error(error); throw error; }
+      return data;
+    } else {
+      const { data, error } = await sb.from('records').insert(dbRow).select().single();
+      if (error) { console.error(error); throw error; }
+      record._id = data.id;
+      return data;
+    }
+  },
+  
+  async deleteRecord(recordId) {
+    if (!recordId) return;
+    await sb.from('records').delete().eq('id', recordId);
+  },
+  
+  // 提交/撤回某天所有记录
+  async setSubmitted(agentId, date, submitted) {
+    const { error } = await sb.from('records')
+      .update({ submitted })
+      .eq('agent_id', agentId).eq('date', date);
+    if (error) console.error(error);
+  },
+  
+  // 列出某客服有数据的所有日期
+  async listDates(agentId) {
+    const { data, error } = await sb
+      .from('records')
+      .select('date')
+      .eq('agent_id', agentId);
+    if (error) return [];
+    const dates = [...new Set(data.map(r => r.date))].sort().reverse();
+    return dates;
+  },
+  
+  // 获取所有未解决的工单（跨日期，用于跟进 banner）
+  async getOpenRecords(agentId) {
+    const { data, error } = await sb
+      .from('records')
+      .select(`*, followups (*, screenshots (id, storage_path)), screenshots!screenshots_record_id_fkey (id, storage_path)`)
+      .eq('agent_id', agentId)
+      .neq('status', 'resolved');
+    if (error) return [];
+    return (data || []).map(r => recordFromDb(r));
+  },
+  
+  // 跟进
+  async addFollowup(recordId, fu) {
+    const { data, error } = await sb.from('followups').insert({
+      record_id: recordId,
+      date: fu.date,
+      time: fu.time || '',
+      note: fu.note || '',
+    }).select().single();
+    if (error) { console.error(error); throw error; }
+    return data;
+  },
+  
+  async deleteFollowup(followupId) {
+    await sb.from('followups').delete().eq('id', followupId);
+  },
+  
+  // 上传截图到 Storage + 写入 screenshots 表
+  async uploadScreenshot(file, recordId = null, followupId = null) {
+    const userId = (await sb.auth.getUser()).data.user.id;
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${userId}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+    
+    const { error: upErr } = await sb.storage.from('screenshots').upload(path, file, { upsert: false });
+    if (upErr) { console.error(upErr); throw upErr; }
+    
+    const { data, error } = await sb.from('screenshots').insert({
+      record_id: recordId,
+      followup_id: followupId,
+      storage_path: path,
+    }).select().single();
+    if (error) { console.error(error); throw error; }
+    return data;
+  },
+  
+  async deleteScreenshot(screenshotId, storagePath) {
+    await sb.from('screenshots').delete().eq('id', screenshotId);
+    if (storagePath) await sb.storage.from('screenshots').remove([storagePath]);
+  },
+  
+  // 获取截图的可访问 URL（公开桶用 getPublicUrl，私有桶用 createSignedUrl）
+  async getScreenshotUrl(storagePath) {
+    const { data } = await sb.storage.from('screenshots').createSignedUrl(storagePath, 3600);
+    return data?.signedUrl || '';
+  },
+  
+  // 用户管理（主管功能）
+  async getCurrentUser() {
+    const { data } = await sb.auth.getUser();
+    if (!data.user) return null;
+    const { data: agent } = await sb.from('agents').select('*').eq('id', data.user.id).single();
+    return { ...data.user, agent };
+  },
+  
+  async signIn(email, password) {
+    return await sb.auth.signInWithPassword({ email, password });
+  },
+  
+  async signOut() {
+    return await sb.auth.signOut();
+  },
+};
+
+// ========== 数据转换辅助 ==========
+function defaultConfig() {
+  return {
+    sites: ['MJ', 'Df', 'MH', 'RS', 'LS', 'VK', 'WhatsApp', '其他'],
+    categories: ['咨询','物流','查单','售后','退货','报价','核实','补发','取消订单','改地址','安装说明','定制咨询','拒付','加急','其他'],
+    difficultyRules: { ...DEFAULT_DIFFICULTY_RULES },
+  };
+}
+
+function recordFromDb(r) {
+  return {
+    _id: r.id,
+    _submitted: r.submitted,
+    _updated_at: r.updated_at,
+    email: r.email || '',
+    site: r.site || '',
+    start: r.start_time || '',
+    end: r.end_time || '',
+    difficulty: r.difficulty || '',
+    category: r.category || '',
+    notes: r.notes || '',
+    _diffSuggested: r.diff_suggested || false,
+    status: r.status || 'pending',
+    nextFollow: r.next_follow || '',
+    screenshots: (r.screenshots || []).map(s => ({ id: s.id, storage_path: s.storage_path })),
+    followups: (r.followups || []).sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time)).map(f => ({
+      _id: f.id,
+      date: f.date,
+      time: f.time || '',
+      note: f.note || '',
+      screenshots: (f.screenshots || []).map(s => ({ id: s.id, storage_path: s.storage_path })),
+    })),
+  };
+}
+
+function recordToDb(r, agentId, date, idx) {
+  return {
+    agent_id: agentId,
+    date,
+    row_idx: idx,
+    email: r.email || '',
+    site: r.site || '',
+    start_time: r.start || '',
+    end_time: r.end || '',
+    difficulty: r.difficulty || '',
+    category: r.category || '',
+    notes: r.notes || '',
+    diff_suggested: r._diffSuggested || false,
+    status: r.status || 'pending',
+    next_follow: r.nextFollow || null,
+    submitted: r._submitted || false,
+  };
+}
+
+// 全局状态
+let CONFIG = null;
+let CURRENT_USER = null;   // 当前登录用户（含 agent 信息）
+let CURRENT_DATE = new Date().toISOString().slice(0, 10);
+let CURRENT_DAY = { records: [], submitted: false };
+let CURRENT_FB_TAB = 'overdue';
+let _currentFuRecord = null;
+let _newScreenshots = [];   // 待保存的新跟进截图（File 对象数组）
+
+// ============ 初始化 ============
+async function init() {
+  document.getElementById('datePicker').value = CURRENT_DATE;
+  document.getElementById('fuNewDate').value = CURRENT_DATE;
+  updateDateDisplay();
+  
+  // 检查 Supabase 配置
+  if (SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY.includes('YOUR-ANON')) {
+    showConfigError();
+    return;
+  }
+  
+  // 检查会话
+  const user = await DATA.getCurrentUser();
+  if (user && user.agent) {
+    CURRENT_USER = user;
+    await afterLogin();
+  } else {
+    openLoginModal();
+  }
+}
+
+function showConfigError() {
+  document.body.innerHTML = `
+    <div style="max-width: 600px; margin: 100px auto; padding: 40px; background: white; border: 1px solid #e7e5e4; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);">
+      <h2 style="color: #b91c1c; margin-bottom: 20px;">⚠ 需要配置 Supabase</h2>
+      <p style="line-height: 1.7; color: #57534e; font-size: 14px;">
+        请打开本 HTML 文件源代码，找到这两行并替换为你的 Supabase 项目信息：
+      </p>
+      <pre style="background: #f5f5f4; padding: 16px; border-radius: 8px; margin: 16px 0; font-size: 12px; overflow-x: auto;">const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';</pre>
+      <p style="line-height: 1.7; color: #57534e; font-size: 14px;">
+        在 Supabase Studio → Settings → API 页面能找到这两个值。
+      </p>
+    </div>
+  `;
+}
+
+async function afterLogin() {
+  // 加载配置
+  CONFIG = await DATA.getConfig();
+  
+  // 显示当前用户
+  document.getElementById('curAvatar').textContent = (CURRENT_USER.agent.name[0] || '?').toUpperCase();
+  document.getElementById('curName').textContent = CURRENT_USER.agent.name + (CURRENT_USER.agent.is_admin ? ' (主管)' : '');
+  
+  closeModal('agentModal');
+  await loadDay();
+  await refreshFollowupBanner();
+}
+
+function updateDateDisplay() {
+  const d = new Date(CURRENT_DATE + 'T00:00:00');
+  const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+  document.getElementById('dateDisplay').textContent = `${d.getMonth()+1}月${d.getDate()}日`;
+  document.getElementById('weekday').textContent = weekdays[d.getDay()];
+}
+
+// ============ 登录登出 ============
+function openLoginModal() {
+  document.getElementById('agentModal').classList.add('show');
+  setTimeout(() => document.getElementById('loginEmail').focus(), 100);
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errorBox = document.getElementById('loginError');
+  errorBox.style.display = 'none';
+  
+  if (!email || !password) {
+    errorBox.textContent = '请填写邮箱和密码';
+    errorBox.style.display = 'block';
+    return;
+  }
+  
+  const { data, error } = await DATA.signIn(email, password);
+  if (error) {
+    errorBox.textContent = error.message === 'Invalid login credentials' ? '邮箱或密码错误' : error.message;
+    errorBox.style.display = 'block';
+    return;
+  }
+  
+  CURRENT_USER = await DATA.getCurrentUser();
+  if (!CURRENT_USER || !CURRENT_USER.agent) {
+    errorBox.textContent = '账号资料未完成，请联系主管';
+    errorBox.style.display = 'block';
+    return;
+  }
+  
+  await afterLogin();
+  toast(`✓ 欢迎回来，${CURRENT_USER.agent.name}`);
+}
+
+async function doLogout() {
+  if (!confirm('确定退出登录？')) return;
+  await DATA.signOut();
+  CURRENT_USER = null;
+  CURRENT_DAY = { records: [], submitted: false };
+  document.getElementById('curAvatar').textContent = '?';
+  document.getElementById('curName').textContent = '未登录';
+  document.getElementById('actionBar').style.display = 'none';
+  document.getElementById('recordsBody').innerHTML = '';
+  document.getElementById('fbList').innerHTML = '<div class="fb-empty">请先登录</div>';
+  openLoginModal();
+}
+
+// 监听 Enter 键登录
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('agentModal').classList.contains('show')) {
+    doLogin();
+  }
+});
+
+async function loadDay() {
+  if (!CURRENT_USER) return;
+  CURRENT_DAY = await DATA.getRecords(CURRENT_USER.agent.id, CURRENT_DATE);
+  if (CURRENT_DAY.records.length === 0) CURRENT_DAY.records = [emptyRecord()];
+  await loadScreenshotUrls();
+  renderRecords();
+  updateStats();
+  updateSubmittedState();
+  document.getElementById('actionBar').style.display = 'flex';
+}
+
+// 把所有截图 storage_path 转为可访问 URL
+async function loadScreenshotUrls() {
+  const tasks = [];
+  for (const r of CURRENT_DAY.records) {
+    for (const s of (r.screenshots || [])) {
+      if (s.storage_path && !s.url) {
+        tasks.push(DATA.getScreenshotUrl(s.storage_path).then(url => { s.url = url; }));
+      }
+    }
+    for (const f of (r.followups || [])) {
+      for (const s of (f.screenshots || [])) {
+        if (s.storage_path && !s.url) {
+          tasks.push(DATA.getScreenshotUrl(s.storage_path).then(url => { s.url = url; }));
+        }
+      }
+    }
+  }
+  await Promise.all(tasks);
+}
+
+function updateSubmittedState() {
+  const badge = document.getElementById('submittedBadge');
+  if (CURRENT_DAY.submitted) {
+    badge.innerHTML = '<span class="submitted-badge">✓ 已提交</span>';
+    document.getElementById('submitBtn').textContent = '🔓 撤回提交';
+    document.getElementById('submitBtn').className = 'btn ghost';
+  } else {
+    badge.innerHTML = '';
+    document.getElementById('submitBtn').textContent = '✓ 提交今日工作';
+    document.getElementById('submitBtn').className = 'btn primary';
+  }
+  document.getElementById('lastSave').textContent = CURRENT_DAY.lastSave 
+    ? new Date(CURRENT_DAY.lastSave).toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'})
+    : '—';
+}
+
+function emptyRecord() {
+  return {
+    _id: null,
+    _submitted: false,
+    email: '', site: '', start: '', end: '',
+    difficulty: '', category: '', notes: '',
+    _diffSuggested: false,
+    status: 'pending',
+    nextFollow: '',
+    screenshots: [],
+    followups: [],
+  };
+}
+
+// ============ 状态/日期辅助 ============
+function getEffectiveStatus(record) {
+  if (record.status === 'resolved') return 'resolved';
+  if (record.nextFollow) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (record.nextFollow < today) return 'overdue';
+  }
+  return record.status || 'pending';
+}
+
+function getDateClass(dateStr) {
+  if (!dateStr) return '';
+  const today = new Date().toISOString().slice(0, 10);
+  if (dateStr < today) return 'overdue';
+  if (dateStr === today) return 'today';
+  return 'upcoming';
+}
+
+function diffDays(dateStr) {
+  if (!dateStr) return 0;
+  const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00');
+  const target = new Date(dateStr + 'T00:00:00');
+  return Math.round((target - today) / 86400000);
+}
+
+const STATUS_LABELS = {
+  pending: '待处理',
+  progress: '跟进中',
+  waiting: '等客户',
+  resolved: '已解决',
+  overdue: '逾期',
+};
+
+// ============ 渲染表格 ============
+function renderRecords() {
+  const body = document.getElementById('recordsBody');
+  body.innerHTML = '';
+  if (CURRENT_DAY.records.length === 0) {
+    body.innerHTML = '<div class="empty-day"><div class="icon">📭</div><div class="text">今天还没有记录。开始填写第一封邮件。</div><button class="btn primary" onclick="addRow()">+ 添加第一行</button></div>';
+    return;
+  }
+  
+  CURRENT_DAY.records.forEach((r, i) => {
+    const eff = getEffectiveStatus(r);
+    const row = document.createElement('div');
+    row.className = `record-row s-${eff}` + (CURRENT_DAY.submitted ? ' submitted' : '');
+    row.dataset.idx = i;
+    
+    const readonly = CURRENT_DAY.submitted ? 'readonly' : '';
+    const disabled = CURRENT_DAY.submitted ? 'disabled' : '';
+    
+    const siteOptions = '<option value="">选...</option>' + CONFIG.sites.map(s => `<option value="${s}" ${r.site === s ? 'selected' : ''}>${s}</option>`).join('');
+    const catOptions = '<option value="">选...</option>' + CONFIG.categories.map(c => `<option value="${c}" ${r.category === c ? 'selected' : ''}>${c}</option>`).join('');
+    
+    const dur = calcDuration(r.start, r.end);
+    const nextDateCls = getDateClass(r.nextFollow);
+    const fuCount = (r.followups || []).length;
+    const origScreenshots = (r.screenshots || []).length;
+    const fuScreenshots = (r.followups || []).reduce((s, f) => s + (f.screenshots || []).length, 0);
+    const totalScreenshots = origScreenshots + fuScreenshots;
+    const hasFu = fuCount > 0 || r.status !== 'pending' || r.nextFollow || totalScreenshots > 0;
+    
+    row.innerHTML = `
+      <div class="row-num">${i + 1}</div>
+      <div class="status-cell">
+        <button class="status-pill s-${eff}" onclick="toggleStatusMenu(${i})">${STATUS_LABELS[eff]}</button>
+        <div class="status-menu" id="statusMenu${i}">
+          <div class="item" onclick="setRowStatus(${i}, 'pending')"><span class="dot" style="background: var(--status-pending);"></span>待处理</div>
+          <div class="item" onclick="setRowStatus(${i}, 'progress')"><span class="dot" style="background: var(--status-progress);"></span>跟进中</div>
+          <div class="item" onclick="setRowStatus(${i}, 'waiting')"><span class="dot" style="background: var(--status-waiting);"></span>等客户</div>
+          <div class="item" onclick="setRowStatus(${i}, 'resolved')"><span class="dot" style="background: var(--status-resolved);"></span>已解决</div>
+        </div>
+      </div>
+      <input type="text" class="cell-input mono" placeholder="✉ 客户邮箱（点这里输入）" value="${escapeHtml(r.email)}" data-field="email" ${readonly}>
+      <select class="cell-input" data-field="site" ${disabled}>${siteOptions}</select>
+      <input type="time" class="cell-input mono" value="${r.start}" data-field="start" ${readonly}>
+      <input type="time" class="cell-input mono" value="${r.end}" data-field="end" ${readonly}>
+      <div class="duration-cell">${dur !== null ? dur.toFixed(1) : '—'}</div>
+      <div class="difficulty-cell">
+        <button class="diff-btn easy ${r.difficulty === '简单' ? 'active' : ''} ${r.difficulty === '简单' && r._diffSuggested ? 'suggested' : ''}" data-diff="简单" ${disabled} title="${r.difficulty === '简单' && r._diffSuggested ? '🤖 自动建议（点击确认或换其他选项）' : '简单'}">易</button>
+        <button class="diff-btn medium ${r.difficulty === '中等' ? 'active' : ''} ${r.difficulty === '中等' && r._diffSuggested ? 'suggested' : ''}" data-diff="中等" ${disabled} title="${r.difficulty === '中等' && r._diffSuggested ? '🤖 自动建议（点击确认或换其他选项）' : '中等'}">中</button>
+        <button class="diff-btn hard ${r.difficulty === '复杂' ? 'active' : ''} ${r.difficulty === '复杂' && r._diffSuggested ? 'suggested' : ''}" data-diff="复杂" ${disabled} title="${r.difficulty === '复杂' && r._diffSuggested ? '🤖 自动建议（点击确认或换其他选项）' : '复杂'}">复</button>
+      </div>
+      <select class="cell-input" data-field="category" ${disabled}>${catOptions}</select>
+      <input type="text" class="cell-input" placeholder="订单号或备注" value="${escapeHtml(r.notes)}" data-field="notes" ${readonly}>
+      <div class="next-date-cell">
+        <input type="date" value="${r.nextFollow || ''}" data-field="nextFollow" ${readonly} class="${nextDateCls}" title="下次跟进日期">
+      </div>
+      <div>
+        <button class="followup-btn ${hasFu ? 'has-followups' : ''}" onclick="openFu(${i})" title="跟进详情${totalScreenshots > 0 ? ' · ' + totalScreenshots + ' 张截图' : ''}">
+          ${totalScreenshots > 0 ? `<span style="font-size: 11px;">📎</span><span class="num">${totalScreenshots}</span>` : ''}
+          ${fuCount > 0 ? `<span class="num">${fuCount}</span>` : ''}
+          ${(totalScreenshots === 0 && fuCount === 0) ? '<span class="ico">📋</span>' : ''}
+        </button>
+      </div>
+    `;
+    body.appendChild(row);
+  });
+  
+  // 事件绑定
+  if (!CURRENT_DAY.submitted) {
+    body.querySelectorAll('input, select').forEach(el => {
+      el.addEventListener('change', onCellChange);
+      el.addEventListener('input', onCellChange);
+      el.addEventListener('focus', onCellFocus);
+      el.addEventListener('keydown', onCellKey);
+    });
+    body.querySelectorAll('.diff-btn').forEach(el => {
+      el.addEventListener('click', onDiffClick);
+    });
+  }
+}
+
+function onCellChange(e) {
+  const row = e.target.closest('.record-row');
+  const idx = +row.dataset.idx;
+  const field = e.target.dataset.field;
+  if (!field) return;
+  CURRENT_DAY.records[idx][field] = e.target.value;
+  
+  // 🤖 自动建议难度（类别）：选了咨询事项立即建议
+  if (field === 'category' && e.target.value) {
+    const cur = CURRENT_DAY.records[idx].difficulty;
+    // 只在难度为空或之前是自动建议时更新
+    if (!cur || CURRENT_DAY.records[idx]._diffSuggested) {
+      // 如果已经有时长，时长优先（在下面的逻辑里处理）
+      const dur = calcDuration(CURRENT_DAY.records[idx].start, CURRENT_DAY.records[idx].end);
+      if (dur === null) {
+        const suggested = CONFIG.difficultyRules[e.target.value];
+        if (suggested && CURRENT_DAY.records[idx].difficulty !== suggested) {
+          CURRENT_DAY.records[idx].difficulty = suggested;
+          CURRENT_DAY.records[idx]._diffSuggested = true;
+          renderRecords();
+          toast(`💡 根据「${e.target.value}」建议难度：${suggested}`);
+        }
+      }
+    }
+  }
+  
+  // 结束时间自动填到下一行的开始时间
+  if (field === 'end' && e.target.value) {
+    if (idx < CURRENT_DAY.records.length - 1 && !CURRENT_DAY.records[idx + 1].start) {
+      CURRENT_DAY.records[idx + 1].start = e.target.value;
+      renderRecords();
+    }
+  }
+  
+  // 🤖 自动建议难度（时长）：填完开始+结束时间后按时长建议（覆盖类别建议）
+  if (field === 'start' || field === 'end') {
+    const dur = calcDuration(CURRENT_DAY.records[idx].start, CURRENT_DAY.records[idx].end);
+    row.querySelector('.duration-cell').textContent = dur !== null ? dur.toFixed(1) : '—';
+    
+    // 时长 → 难度（≤5简单 / 5-10中等 / >10复杂）
+    if (dur !== null) {
+      const cur = CURRENT_DAY.records[idx].difficulty;
+      if (!cur || CURRENT_DAY.records[idx]._diffSuggested) {
+        let byDur;
+        if (dur <= 5) byDur = '简单';
+        else if (dur <= 10) byDur = '中等';
+        else byDur = '复杂';
+        
+        if (CURRENT_DAY.records[idx].difficulty !== byDur) {
+          CURRENT_DAY.records[idx].difficulty = byDur;
+          CURRENT_DAY.records[idx]._diffSuggested = true;
+          renderRecords();
+          toast(`💡 时长 ${dur.toFixed(1)} 分 → 建议难度：${byDur}`);
+        }
+      }
+    }
+  }
+  
+  if (field === 'nextFollow') {
+    if (e.target.value && CURRENT_DAY.records[idx].status === 'pending') {
+      CURRENT_DAY.records[idx].status = 'progress';
+    }
+    renderRecords();
+    refreshFollowupBanner();
+  }
+  saveRecord(idx);
+  updateStats();
+}
+
+function onCellFocus(e) {
+  document.querySelectorAll('.record-row.active').forEach(r => r.classList.remove('active'));
+  const row = e.target.closest('.record-row');
+  if (row) row.classList.add('active');
+}
+
+function onCellKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey && e.target.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    const row = e.target.closest('.record-row');
+    const idx = +row.dataset.idx;
+    if (idx === CURRENT_DAY.records.length - 1) {
+      addRow();
+      setTimeout(() => {
+        const newRow = document.querySelector(`.record-row[data-idx="${idx + 1}"]`);
+        if (newRow) newRow.querySelector('input[data-field="email"]').focus();
+      }, 0);
+    } else {
+      const field = e.target.dataset.field;
+      const nextRow = document.querySelector(`.record-row[data-idx="${idx + 1}"]`);
+      if (nextRow) {
+        const next = nextRow.querySelector(`[data-field="${field}"]`);
+        if (next) next.focus();
+      }
+    }
+  }
+}
+
+function onDiffClick(e) {
+  const row = e.target.closest('.record-row');
+  const idx = +row.dataset.idx;
+  const diff = e.target.dataset.diff;
+  CURRENT_DAY.records[idx].difficulty = CURRENT_DAY.records[idx].difficulty === diff ? '' : diff;
+  CURRENT_DAY.records[idx]._diffSuggested = false;
+  renderRecords();
+  saveRecord(idx);
+  updateStats();
+}
+
+// ============ 状态切换 ============
+function toggleStatusMenu(idx) {
+  document.querySelectorAll('.status-menu.show').forEach(m => { m.classList.remove('show'); m.classList.remove('up'); });
+  const menu = document.getElementById(`statusMenu${idx}`);
+  menu.classList.add('show');
+  // 自动判断：如果菜单底部会被遮挡（接近视口底部或 action-bar），向上弹
+  const rect = menu.getBoundingClientRect();
+  const viewportHeight = window.innerHeight;
+  if (rect.bottom > viewportHeight - 90) {  // 90 = action-bar 高度 + 余量
+    menu.classList.add('up');
+  }
+}
+
+function setRowStatus(idx, status) {
+  CURRENT_DAY.records[idx].status = status;
+  if (status === 'resolved') CURRENT_DAY.records[idx].nextFollow = '';
+  renderRecords();
+  saveRecord(idx);
+  updateStats();
+  refreshFollowupBanner();
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.status-cell')) {
+    document.querySelectorAll('.status-menu.show').forEach(m => m.classList.remove('show'));
+  }
+});
+
+// ============ 行操作 ============
+function addRow() {
+  if (CURRENT_DAY.submitted) {
+    toast('已提交不能修改，请先撤回', 'warn');
+    return;
+  }
+  const newRec = emptyRecord();
+  if (CURRENT_DAY.records.length > 0) {
+    const last = CURRENT_DAY.records[CURRENT_DAY.records.length - 1];
+    if (last.end) newRec.start = last.end;
+  }
+  CURRENT_DAY.records.push(newRec);
+  renderRecords();
+  updateStats();
+  setTimeout(() => {
+    const last = document.querySelector(`.record-row[data-idx="${CURRENT_DAY.records.length - 1}"]`);
+    if (last) last.querySelector('input[data-field="email"]').focus();
+  }, 0);
+}
+
+async function delRow(idx) {
+  if (!confirm('确定删除这一行？')) return;
+  const r = CURRENT_DAY.records[idx];
+  if (r._id) {
+    await DATA.deleteRecord(r._id);
+  }
+  CURRENT_DAY.records.splice(idx, 1);
+  if (CURRENT_DAY.records.length === 0) CURRENT_DAY.records.push(emptyRecord());
+  renderRecords();
+  updateStats();
+}
+
+async function clearDay() {
+  if (CURRENT_DAY.submitted) { toast('已提交不能清空', 'warn'); return; }
+  if (!confirm('确定清空今日所有记录？此操作不可恢复。')) return;
+  // 删除所有有 _id 的记录
+  const toDelete = CURRENT_DAY.records.filter(r => r._id).map(r => r._id);
+  for (const id of toDelete) {
+    await DATA.deleteRecord(id);
+  }
+  CURRENT_DAY.records = [emptyRecord()];
+  renderRecords();
+  updateStats();
+}
+
+// 自动保存（防抖按行保存）
+const _saveTimers = {};
+function saveRecord(idx) {
+  if (!CURRENT_USER) return;
+  clearTimeout(_saveTimers[idx]);
+  _saveTimers[idx] = setTimeout(async () => {
+    try {
+      const r = CURRENT_DAY.records[idx];
+      if (!r) return;
+      // 没有有效内容的空行不保存
+      if (!r._id && !r.email && !r.difficulty && !r.category && !r.notes && !r.start && !r.end) return;
+      await DATA.upsertRecord(CURRENT_USER.agent.id, CURRENT_DATE, r, idx);
+      CURRENT_DAY.lastSave = new Date().toISOString();
+      document.getElementById('lastSave').textContent = new Date().toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit'});
+    } catch (err) {
+      console.error('保存失败:', err);
+      toast('⚠ 保存失败，请检查网络', 'err');
+    }
+  }, 500);
+}
+
+// 兼容旧调用 - 保存所有记录
+function saveCurrentDay() {
+  if (!CURRENT_USER) return;
+  CURRENT_DAY.records.forEach((_, i) => saveRecord(i));
+}
+
+function calcDuration(start, end) {
+  if (!start || !end) return null;
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const diff = (eh * 60 + em) - (sh * 60 + sm);
+  return diff > 0 ? diff : null;
+}
+
+// ============ 统计 ============
+function updateStats() {
+  const valid = CURRENT_DAY.records.filter(r => r.email || r.difficulty || r.category);
+  let minutes = 0, simple = 0, medium = 0, complex = 0;
+  valid.forEach(r => {
+    const d = calcDuration(r.start, r.end);
+    if (d) minutes += d;
+    if (r.difficulty === '简单') simple++;
+    else if (r.difficulty === '中等') medium++;
+    else if (r.difficulty === '复杂') complex++;
+  });
+  
+  document.getElementById('sCount').textContent = valid.length;
+  document.getElementById('sMinutes').textContent = Math.round(minutes);
+  document.getElementById('sDiff').textContent = `${simple} / ${medium} / ${complex}`;
+  document.getElementById('sAvgTime').textContent = valid.length > 0 ? `单封均 ${(minutes/valid.length).toFixed(1)} 分` : '—';
+  
+  let countSub = '尚未填写';
+  if (valid.length >= 80) countSub = '✅ 工作量优秀';
+  else if (valid.length >= 50) countSub = '✓ 工作量正常';
+  else if (valid.length >= 30) countSub = '✓ 工作量良好';
+  else if (valid.length > 0) countSub = '⚠ 偏低';
+  document.getElementById('sCountSub').textContent = countSub;
+  
+  // 跟进统计：跨所有日期（异步加载，统计可能稍后才出来）
+  if (CURRENT_USER) {
+    DATA.getOpenRecords(CURRENT_USER.agent.id).then(allRecords => {
+      const today = new Date().toISOString().slice(0, 10);
+      let following = 0, overdue = 0, todayCount = 0;
+      allRecords.forEach(r => {
+        const eff = getEffectiveStatus(r);
+        if (eff !== 'resolved') {
+          following++;
+          if (r.nextFollow && r.nextFollow < today) overdue++;
+          else if (r.nextFollow === today) todayCount++;
+        }
+      });
+      document.getElementById('sFollowing').textContent = following;
+      document.getElementById('sFollowingSub').textContent = following > 0 ? '未关闭工单' : '✓ 暂无待处理';
+      document.getElementById('sOverdueCount').textContent = overdue;
+      document.getElementById('sTodayCount').textContent = todayCount;
+      document.getElementById('sUrgentSub').textContent = overdue > 0 ? '🔴 立即处理' : todayCount > 0 ? '🟡 今日跟进' : '✓ 无紧急';
+    });
+  }
+  
+  document.getElementById('abCount').textContent = valid.length;
+  document.getElementById('abMin').textContent = Math.round(minutes);
+}
+
+// ============ 跟进 Banner ============
+async function refreshFollowupBanner() {
+  if (!CURRENT_USER) return;
+  const all = await DATA.getOpenRecords(CURRENT_USER.agent.id);
+  const today = new Date().toISOString().slice(0, 10);
+  const buckets = { overdue: [], today: [], upcoming: [], waiting: [] };
+  
+  // 给每条记录添加 _date 字段（用于跳转）
+  all.forEach((r, i) => {
+    // 从数据库的 date 字段读
+    r._date = r._date || r.date;
+  });
+  
+  // 重新查 records 表获取 date 字段
+  const { data: recs } = await sb
+    .from('records')
+    .select('id, date')
+    .eq('agent_id', CURRENT_USER.agent.id)
+    .neq('status', 'resolved');
+  const dateMap = {};
+  (recs || []).forEach(r => dateMap[r.id] = r.date);
+  all.forEach(r => { r._date = dateMap[r._id] || CURRENT_DATE; });
+  
+  all.forEach(r => {
+    const eff = getEffectiveStatus(r);
+    if (eff === 'resolved') return;
+    if (eff === 'waiting' || r.status === 'waiting') {
+      buckets.waiting.push(r);
+    }
+    if (r.nextFollow) {
+      if (r.nextFollow < today) buckets.overdue.push(r);
+      else if (r.nextFollow === today) buckets.today.push(r);
+      else buckets.upcoming.push(r);
+    }
+  });
+  
+  buckets.overdue.sort((a, b) => a.nextFollow.localeCompare(b.nextFollow));
+  buckets.upcoming.sort((a, b) => a.nextFollow.localeCompare(b.nextFollow));
+  
+  document.getElementById('fbCntOverdue').textContent = buckets.overdue.length;
+  document.getElementById('fbCntToday').textContent = buckets.today.length;
+  document.getElementById('fbCntUpcoming').textContent = buckets.upcoming.length;
+  document.getElementById('fbCntWaiting').textContent = buckets.waiting.length;
+  
+  // 总数 + 智能折叠
+  const totalSet = new Set();
+  [...buckets.overdue, ...buckets.today, ...buckets.upcoming, ...buckets.waiting].forEach(r => totalSet.add(r._id));
+  document.getElementById('fbTotal').textContent = `共 ${totalSet.size} 单`;
+  const fbCard = document.getElementById('fbCard');
+  if (!fbCard.dataset.userToggled) {
+    if (buckets.overdue.length > 0 || buckets.today.length > 0) {
+      fbCard.classList.remove('collapsed');
+    } else {
+      fbCard.classList.add('collapsed');
+    }
+  }
+  
+  const order = ['overdue', 'today', 'upcoming', 'waiting'];
+  if (buckets[CURRENT_FB_TAB].length === 0) {
+    for (const t of order) {
+      if (buckets[t].length > 0) { CURRENT_FB_TAB = t; break; }
+    }
+  }
+  
+  document.querySelectorAll('.fb-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === CURRENT_FB_TAB);
+  });
+  
+  const list = document.getElementById('fbList');
+  const items = buckets[CURRENT_FB_TAB];
+  
+  if (items.length === 0) {
+    list.innerHTML = `<div class="fb-empty">✓ ${
+      CURRENT_FB_TAB === 'overdue' ? '没有逾期工单' :
+      CURRENT_FB_TAB === 'today' ? '今天没有需要跟进的工单' :
+      CURRENT_FB_TAB === 'upcoming' ? '没有未来的跟进计划' :
+      '没有等客户回复的工单'
+    }</div>`;
+    return;
+  }
+  
+  list.innerHTML = items.slice(0, 8).map(r => {
+    const eff = getEffectiveStatus(r);
+    const dotColor = `var(--status-${eff})`;
+    let nextLabel = r.nextFollow || '—';
+    let nextCls = '';
+    if (r.nextFollow) {
+      const days = diffDays(r.nextFollow);
+      if (days < 0) { nextLabel = `逾期 ${-days} 天`; nextCls = 'overdue'; }
+      else if (days === 0) { nextLabel = '今日跟进'; nextCls = 'today'; }
+      else { nextLabel = `${days} 天后`; nextCls = 'upcoming'; }
+    }
+    return `
+      <div class="fb-item" onclick="jumpToRecord('${r._date}', '${r._id}')">
+        <div class="dot" style="background: ${dotColor};"></div>
+        <div class="from-date">${(r._date || '').slice(5).replace('-', '.')}</div>
+        <div class="email">${escapeHtml(r.email || '(未填邮箱)')}</div>
+        <div class="badge">${escapeHtml(r.category || '—')}</div>
+        <div class="next ${nextCls}">${nextLabel}</div>
+        <button class="action-btn" onclick="event.stopPropagation(); jumpToRecord('${r._date}', '${r._id}')">处理</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function switchFBTab(tab) {
+  CURRENT_FB_TAB = tab;
+  document.getElementById('fbCard').classList.remove('collapsed');
+  refreshFollowupBanner();
+}
+
+function toggleFollowupBanner(e) {
+  if (e && e.target.closest('.fb-tab')) return;
+  const card = document.getElementById('fbCard');
+  card.classList.toggle('collapsed');
+  card.dataset.userToggled = '1';
+}
+
+async function jumpToRecord(date, recordId) {
+  CURRENT_DATE = date;
+  document.getElementById('datePicker').value = date;
+  updateDateDisplay();
+  await loadDay();
+  // 找到该 recordId 对应的 idx
+  const idx = CURRENT_DAY.records.findIndex(r => r._id === recordId);
+  if (idx >= 0) {
+    setTimeout(() => {
+      openFu(idx);
+      const row = document.querySelector(`.record-row[data-idx="${idx}"]`);
+      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  }
+}
+
+// ============ 跟进 Modal ============
+function openFu(idx) {
+  if (!CURRENT_DAY.records[idx]) return;
+  _currentFuRecord = { idx, ref: CURRENT_DAY.records[idx] };
+  _newScreenshots = [];
+  renderFuModal();
+  document.getElementById('fuModal').classList.add('show');
+  setTimeout(() => document.getElementById('fuNewNote').focus(), 100);
+}
+
+function closeFu() {
+  document.getElementById('fuModal').classList.remove('show');
+  _currentFuRecord = null;
+  _newScreenshots = [];
+  document.getElementById('fuNewNote').value = '';
+  document.getElementById('fuNewThumbs').innerHTML = '';
+}
+
+function renderFuModal() {
+  if (!_currentFuRecord) return;
+  const r = _currentFuRecord.ref;
+  const eff = getEffectiveStatus(r);
+  
+  // Header
+  document.getElementById('fuHead').innerHTML = `
+    <div class="top">
+      <div class="email-line">${escapeHtml(r.email || '(未填邮箱)')}</div>
+      <div style="font-size: 11px; color: var(--text-tertiary); font-family: 'JetBrains Mono', monospace;">创建于 ${CURRENT_DATE.slice(5).replace('-','.')} ${r.start || ''}</div>
+    </div>
+    <div class="meta">
+      ${r.site ? `<span>🌐 ${escapeHtml(r.site)}</span>` : ''}
+      ${r.category ? `<span>🏷 ${escapeHtml(r.category)}</span>` : ''}
+      ${r.difficulty ? `<span>⚖ ${escapeHtml(r.difficulty)}</span>` : ''}
+      ${r.notes ? `<span>📝 ${escapeHtml(r.notes)}</span>` : ''}
+    </div>
+  `;
+  
+  // 状态
+  document.querySelectorAll('#fuModal .status-grid .status-pill').forEach(p => {
+    p.classList.toggle('selected', p.dataset.st === eff);
+  });
+  
+  // 下次跟进
+  document.getElementById('fuNextDate').value = r.nextFollow || '';
+  
+  // 问题反馈截图（主记录）
+  const origs = r.screenshots || [];
+  document.getElementById('fuOrigCount').textContent = `${origs.length} 张`;
+  document.getElementById('fuOrigThumbs').innerHTML = origs.map((s, i) => `
+    <div class="drop-zone-thumb">
+      <img src="${s.url || ''}" onclick="viewImage('${s.url || ''}')">
+      <button class="rm" onclick="rmOrigScreenshot(${i})" title="移除">×</button>
+    </div>
+  `).join('');
+  
+  // 时间线
+  const fu = r.followups || [];
+  document.getElementById('fuTimelineCount').textContent = `${fu.length} 条`;
+  const timeline = document.getElementById('fuTimeline');
+  if (fu.length === 0) {
+    timeline.innerHTML = '<div style="color: var(--text-tertiary); font-size: 12px; text-align: center; padding: 20px;">还没有跟进记录</div>';
+  } else {
+    timeline.innerHTML = fu.map((f, i) => `
+      <div class="timeline-item">
+        <div class="timeline-dot">${i + 1}</div>
+        <div class="timeline-content">
+          <div class="timeline-meta">📅 ${f.date} · 🕐 ${f.time || ''}</div>
+          <div class="timeline-text">${escapeHtml(f.note || '')}</div>
+          ${(f.screenshots && f.screenshots.length > 0) ? `<div class="timeline-screenshots">${f.screenshots.map(s => `<img src="${s.url || ''}" class="screenshot-thumb" onclick="viewImage('${s.url || ''}')">`).join('')}</div>` : ''}
+          <div class="actions"><button class="del-btn" onclick="delFollowup(${i})">删除此条</button></div>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function rmOrigScreenshot_old_REMOVED() {
+  // 已删除，使用 async 版本
+}
+
+async function setFuStatus(status) {
+  if (!_currentFuRecord) return;
+  _currentFuRecord.ref.status = status;
+  if (status === 'resolved') _currentFuRecord.ref.nextFollow = '';
+  // 先保存到云端
+  saveRecord(_currentFuRecord.idx);
+  renderFuModal();
+  renderRecords();
+  updateStats();
+  await refreshFollowupBanner();
+}
+
+async function setFuNextDate() {
+  if (!_currentFuRecord) return;
+  _currentFuRecord.ref.nextFollow = document.getElementById('fuNextDate').value;
+  if (_currentFuRecord.ref.nextFollow && _currentFuRecord.ref.status === 'pending') {
+    _currentFuRecord.ref.status = 'progress';
+  }
+  saveRecord(_currentFuRecord.idx);
+  renderFuModal();
+  renderRecords();
+  await refreshFollowupBanner();
+}
+
+async function addFollowup() {
+  if (!_currentFuRecord) return;
+  const note = document.getElementById('fuNewNote').value.trim();
+  const date = document.getElementById('fuNewDate').value;
+  if (!note && _newScreenshots.length === 0) {
+    toast('请输入跟进内容或上传截图', 'warn');
+    return;
+  }
+  
+  // 确保主记录已保存（获得 _id）
+  const r = _currentFuRecord.ref;
+  if (!r._id) {
+    await DATA.upsertRecord(CURRENT_USER.agent.id, CURRENT_DATE, r, _currentFuRecord.idx);
+  }
+  
+  // 创建跟进记录
+  const fuData = await DATA.addFollowup(r._id, {
+    date: date || CURRENT_DATE,
+    time: new Date().toTimeString().slice(0, 5),
+    note,
+  });
+  
+  // 上传截图（关联到这条跟进）
+  const newFuObj = {
+    _id: fuData.id,
+    date: fuData.date,
+    time: fuData.time,
+    note: fuData.note,
+    screenshots: [],
+  };
+  
+  for (const file of _newScreenshots) {
+    try {
+      const s = await DATA.uploadScreenshot(file, null, fuData.id);
+      const url = await DATA.getScreenshotUrl(s.storage_path);
+      newFuObj.screenshots.push({ id: s.id, storage_path: s.storage_path, url });
+    } catch (err) {
+      console.error('截图上传失败:', err);
+      toast('截图上传失败', 'err');
+    }
+  }
+  
+  if (!r.followups) r.followups = [];
+  r.followups.push(newFuObj);
+  
+  // 自动状态
+  if (r.status === 'pending') {
+    r.status = 'progress';
+    saveRecord(_currentFuRecord.idx);
+  }
+  
+  document.getElementById('fuNewNote').value = '';
+  document.getElementById('fuNewThumbs').innerHTML = '';
+  _newScreenshots = [];
+  
+  renderFuModal();
+  renderRecords();
+  updateStats();
+  await refreshFollowupBanner();
+  toast('✓ 跟进已记录');
+}
+
+async function delFollowup(idx) {
+  if (!_currentFuRecord) return;
+  if (!confirm('删除这条跟进记录？')) return;
+  const fu = _currentFuRecord.ref.followups[idx];
+  if (fu._id) {
+    await DATA.deleteFollowup(fu._id);
+  }
+  _currentFuRecord.ref.followups.splice(idx, 1);
+  renderFuModal();
+  renderRecords();
+  await refreshFollowupBanner();
+}
+
+// ============ 截图上传 ============
+let _pasteTarget = 'followup';  // 'orig' 或 'followup'，决定粘贴时存到哪
+
+function setupScreenshotHandlers() {
+  // 跟进新记录的截图区
+  const dz1 = document.getElementById('fuDropZone');
+  const fi1 = document.getElementById('fuFileInput');
+  dz1.addEventListener('click', () => fi1.click());
+  fi1.addEventListener('change', e => handleFiles(e.target.files, 'followup'));
+  dz1.addEventListener('dragover', e => { e.preventDefault(); dz1.classList.add('dragover'); _pasteTarget = 'followup'; });
+  dz1.addEventListener('dragleave', () => dz1.classList.remove('dragover'));
+  dz1.addEventListener('drop', e => {
+    e.preventDefault();
+    dz1.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files, 'followup');
+  });
+  dz1.addEventListener('focusin', () => { _pasteTarget = 'followup'; });
+  
+  // 主记录的截图区
+  const dz2 = document.getElementById('fuOrigDropZone');
+  const fi2 = document.getElementById('fuOrigFileInput');
+  dz2.addEventListener('click', () => fi2.click());
+  fi2.addEventListener('change', e => handleFiles(e.target.files, 'orig'));
+  dz2.addEventListener('dragover', e => { e.preventDefault(); dz2.classList.add('dragover'); _pasteTarget = 'orig'; });
+  dz2.addEventListener('dragleave', () => dz2.classList.remove('dragover'));
+  dz2.addEventListener('drop', e => {
+    e.preventDefault();
+    dz2.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files, 'orig');
+  });
+  dz2.addEventListener('mouseenter', () => { _pasteTarget = 'orig'; });
+  dz1.addEventListener('mouseenter', () => { _pasteTarget = 'followup'; });
+  
+  // 粘贴 - 根据最近 hover 的区域决定目标
+  document.addEventListener('paste', e => {
+    if (!document.getElementById('fuModal').classList.contains('show')) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) handleFiles([file], _pasteTarget);
+      }
+    }
+  });
+}
+
+async function handleFiles(files, target = 'followup') {
+  for (const file of files) {
+    if (!file.type.startsWith('image/')) {
+      toast(`${file.name} 不是图片`, 'err');
+      continue;
+    }
+    try {
+      // 先压缩
+      const compressed = await compressImageFile(file);
+      
+      if (target === 'orig') {
+        // 主截图：立刻上传到 Storage
+        if (!_currentFuRecord) continue;
+        const r = _currentFuRecord.ref;
+        // 确保主记录已保存
+        if (!r._id) {
+          await DATA.upsertRecord(CURRENT_USER.agent.id, CURRENT_DATE, r, _currentFuRecord.idx);
+        }
+        const s = await DATA.uploadScreenshot(compressed, r._id, null);
+        const url = await DATA.getScreenshotUrl(s.storage_path);
+        if (!r.screenshots) r.screenshots = [];
+        r.screenshots.push({ id: s.id, storage_path: s.storage_path, url });
+        renderFuModal();
+        renderRecords();
+        toast('✓ 已添加问题截图');
+      } else {
+        // 跟进截图：暂存到 _newScreenshots（File 对象），保存跟进时再传
+        _newScreenshots.push(compressed);
+        renderNewThumbs();
+      }
+    } catch (err) {
+      console.error(err);
+      toast('图片上传失败: ' + (err.message || ''), 'err');
+    }
+  }
+}
+
+// 压缩为 File 对象（不是 base64）
+function compressImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 1400;
+        let { width, height } = img;
+        if (width > maxW) {
+          height = height * (maxW / width);
+          width = maxW;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob(blob => {
+          const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+          resolve(compressed);
+        }, 'image/jpeg', 0.8);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// 旧版本兼容（不再使用）
+function compressImage(file) { return compressImageFile(file); }
+
+function renderNewThumbs() {
+  const thumbsEl = document.getElementById('fuNewThumbs');
+  thumbsEl.innerHTML = '';
+  _newScreenshots.forEach((file, i) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const div = document.createElement('div');
+      div.className = 'drop-zone-thumb';
+      div.innerHTML = `<img src="${e.target.result}" onclick="viewImage('${e.target.result}')">
+        <button class="rm" onclick="rmNewThumb(${i})" title="移除">×</button>`;
+      thumbsEl.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function rmNewThumb(i) {
+  _newScreenshots.splice(i, 1);
+  renderNewThumbs();
+}
+
+async function rmOrigScreenshot(i) {
+  if (!_currentFuRecord) return;
+  const s = _currentFuRecord.ref.screenshots[i];
+  if (s.id) {
+    await DATA.deleteScreenshot(s.id, s.storage_path);
+  }
+  _currentFuRecord.ref.screenshots.splice(i, 1);
+  renderFuModal();
+  renderRecords();
+}
+
+function viewImage(src) {
+  document.getElementById('imageViewerImg').src = src;
+  document.getElementById('imageViewer').classList.add('show');
+}
+
+function closeImageViewer() {
+  document.getElementById('imageViewer').classList.remove('show');
+}
+
+// ============ 提交 ============
+async function submitDay() {
+  if (CURRENT_DAY.submitted) {
+    if (!confirm('撤回提交？')) return;
+    await DATA.setSubmitted(CURRENT_USER.agent.id, CURRENT_DATE, false);
+    CURRENT_DAY.submitted = false;
+    CURRENT_DAY.records.forEach(r => r._submitted = false);
+    renderRecords();
+    updateSubmittedState();
+    toast('已撤回提交');
+    return;
+  }
+  const valid = CURRENT_DAY.records.filter(r => r.email || r.difficulty);
+  if (valid.length === 0) {
+    toast('今天还没有有效记录', 'err');
+    return;
+  }
+  // 确保所有行先保存
+  for (let i = 0; i < CURRENT_DAY.records.length; i++) {
+    const r = CURRENT_DAY.records[i];
+    if (r.email || r.difficulty || r.category) {
+      await DATA.upsertRecord(CURRENT_USER.agent.id, CURRENT_DATE, r, i);
+    }
+  }
+  await DATA.setSubmitted(CURRENT_USER.agent.id, CURRENT_DATE, true);
+  CURRENT_DAY.submitted = true;
+  CURRENT_DAY.records.forEach(r => r._submitted = true);
+  renderRecords();
+  updateSubmittedState();
+  toast(`✓ 今日 ${valid.length} 封邮件已提交`);
+}
+
+// ============ 日期 ============
+async function onDateChange() {
+  CURRENT_DATE = document.getElementById('datePicker').value;
+  document.getElementById('fuNewDate').value = CURRENT_DATE;
+  updateDateDisplay();
+  await loadDay();
+}
+
+async function changeDate(delta) {
+  const d = new Date(CURRENT_DATE + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  CURRENT_DATE = d.toISOString().slice(0, 10);
+  document.getElementById('datePicker').value = CURRENT_DATE;
+  document.getElementById('fuNewDate').value = CURRENT_DATE;
+  updateDateDisplay();
+  await loadDay();
+}
+
+// ============ Agent Picker (已废弃，云端版用 doLogin) ============
+// 保留空函数以兼容历史调用
+function openAgentPicker() { openLoginModal(); }
+
+// ============ 设置 ============
+function openSettings() { renderSettings(); document.getElementById('settingsModal').classList.add('show'); }
+
+function renderSettings() {
+  // 客服名单：从 agents 表读取（不再用 CONFIG.agents）
+  loadAgentList();
+  
+  const renderTags = (id, list, type) => {
+    document.getElementById(id).innerHTML = list.map(item => `
+      <span class="tag-item">${item}
+        <button class="row-del" onclick="removeOption('${type}', '${item.replace(/'/g, "\\'")}')" style="margin: 0 -4px 0 4px; padding: 0 4px; font-size: 12px;">✕</button>
+      </span>
+    `).join('');
+  };
+  renderTags('settingsSites', CONFIG.sites, 'sites');
+  renderTags('settingsCats', CONFIG.categories, 'categories');
+  renderDifficultyRules();
+}
+
+async function loadAgentList() {
+  const { data } = await sb.from('agents').select('id, name, is_admin').order('name');
+  const html = (data || []).map(a => 
+    `<span class="tag-item">${escapeHtml(a.name)}${a.is_admin ? ' 👑' : ''}</span>`
+  ).join('');
+  document.getElementById('settingsAgents').innerHTML = html || '<span style="color: var(--text-tertiary); font-size: 12px;">还没有客服账号</span>';
+}
+
+function renderDifficultyRules() {
+  const html = CONFIG.categories.map(cat => {
+    const current = CONFIG.difficultyRules[cat] || '';
+    return `
+      <div style="display: grid; grid-template-columns: 1fr auto 110px; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-subtle);">
+        <span style="font-size: 13px;">${escapeHtml(cat)}</span>
+        <span style="color: var(--text-tertiary); font-size: 11px;">→</span>
+        <select onchange="setDiffRule('${cat.replace(/'/g, "\\'")}', this.value)"
+                style="padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg-card); font-size: 12px; font-family: inherit;
+                ${current === '简单' ? 'color: var(--success); font-weight: 600;' : ''}
+                ${current === '中等' ? 'color: var(--warning); font-weight: 600;' : ''}
+                ${current === '复杂' ? 'color: var(--danger); font-weight: 600;' : ''}">
+          <option value="">不建议</option>
+          <option value="简单" ${current === '简单' ? 'selected' : ''}>简单</option>
+          <option value="中等" ${current === '中等' ? 'selected' : ''}>中等</option>
+          <option value="复杂" ${current === '复杂' ? 'selected' : ''}>复杂</option>
+        </select>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('settingsDiffRules').innerHTML = html || '<div style="color: var(--text-tertiary); padding: 10px; font-size: 12px;">先添加咨询事项类型</div>';
+}
+
+async function setDiffRule(category, difficulty) {
+  if (difficulty) {
+    CONFIG.difficultyRules[category] = difficulty;
+  } else {
+    delete CONFIG.difficultyRules[category];
+  }
+  await DATA.saveConfig(CONFIG);
+  renderDifficultyRules();
+  toast(`✓ 「${category}」规则已${difficulty ? `设为「${difficulty}」` : '取消'}`);
+}
+
+async function addOption(type, inputId) {
+  const input = document.getElementById(inputId);
+  const val = input.value.trim();
+  if (!val) return;
+  if (CONFIG[type].includes(val)) { toast('已存在', 'warn'); return; }
+  CONFIG[type].push(val);
+  await DATA.saveConfig(CONFIG);
+  input.value = '';
+  renderSettings();
+  if (CURRENT_USER) renderRecords();
+}
+
+async function removeOption(type, value) {
+  if (!CURRENT_USER || !CURRENT_USER.agent.is_admin) {
+    toast('只有主管可以修改', 'err');
+    return;
+  }
+  CONFIG[type] = CONFIG[type].filter(x => x !== value);
+  if (type === 'categories' && CONFIG.difficultyRules[value]) {
+    delete CONFIG.difficultyRules[value];
+  }
+  await DATA.saveConfig(CONFIG);
+  renderSettings();
+  if (CURRENT_USER) renderRecords();
+}
+
+function resetAll() {
+  toast('云端版不支持一键重置，请联系主管在 Supabase 后台操作', 'warn');
+}
+
+// ============ 历史 ============
+async function openHistory() {
+  if (!CURRENT_USER) return;
+  const dates = await DATA.listDates(CURRENT_USER.agent.id);
+  const list = document.getElementById('historyList');
+  if (dates.length === 0) {
+    list.innerHTML = '<div style="text-align:center; color: var(--text-tertiary); padding: 40px;">暂无历史记录</div>';
+  } else {
+    list.innerHTML = '<div style="text-align:center; color: var(--text-tertiary); padding: 20px; font-size: 12px;">加载中...</div>';
+    document.getElementById('historyModal').classList.add('show');
+    
+    // 异步加载每一天的统计
+    const items = [];
+    for (const date of dates) {
+      const d = await DATA.getRecords(CURRENT_USER.agent.id, date);
+      const valid = d.records.filter(r => r.email || r.difficulty);
+      let minutes = 0;
+      valid.forEach(r => { const dur = calcDuration(r.start, r.end); if (dur) minutes += dur; });
+      items.push({ date, count: valid.length, minutes: Math.round(minutes), submitted: d.submitted });
+    }
+    
+    list.innerHTML = items.map(it => `
+      <div class="history-item" onclick="jumpToDate('${it.date}')">
+        <div class="h-date">${it.date.slice(5).replace('-', '.')}</div>
+        <div class="h-meta">${it.count} 封 · ${it.minutes} min</div>
+        <div class="h-count">${it.count}</div>
+        <div class="h-status ${it.submitted ? 's-submitted' : 's-draft'}">${it.submitted ? '已提交' : '草稿'}</div>
+      </div>
+    `).join('');
+    return;
+  }
+  document.getElementById('historyModal').classList.add('show');
+}
+
+async function jumpToDate(date) {
+  CURRENT_DATE = date;
+  document.getElementById('datePicker').value = date;
+  document.getElementById('fuNewDate').value = date;
+  updateDateDisplay();
+  await loadDay();
+  closeModal('historyModal');
+}
+
+// ============ 导出 ============
+function exportDay(format) {
+  const valid = CURRENT_DAY.records.filter(r => r.email || r.difficulty || r.category);
+  if (valid.length === 0) { toast('当前没有记录', 'err'); return; }
+  
+  const headers = ['序号','邮箱','网站','开始','结束','时长(min)','难度','咨询事项','订单号/备注','状态','下次跟进','跟进次数','最新跟进'];
+  const rows = valid.map((r, i) => {
+    const latestFu = r.followups && r.followups.length > 0 ? r.followups[r.followups.length - 1] : null;
+    return [
+      i + 1, r.email, r.site, r.start, r.end,
+      calcDuration(r.start, r.end) || 0,
+      r.difficulty, r.category, r.notes,
+      STATUS_LABELS[getEffectiveStatus(r)],
+      r.nextFollow || '',
+      (r.followups || []).length,
+      latestFu ? `${latestFu.date}: ${latestFu.note}` : '',
+    ];
+  });
+  
+  const filename = `${CURRENT_USER ? CURRENT_USER.agent.name : 'export'}_${CURRENT_DATE}`;
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws['!cols'] = [{wch:5},{wch:30},{wch:10},{wch:8},{wch:8},{wch:8},{wch:8},{wch:12},{wch:25},{wch:10},{wch:12},{wch:10},{wch:40}];
+  XLSX.utils.book_append_sheet(wb, ws, CURRENT_DATE);
+  XLSX.writeFile(wb, `${filename}.xlsx`);
+  toast(`✓ 已导出 ${valid.length} 条`);
+}
+
+// ============ Utils ============
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+document.querySelectorAll('.modal-bg').forEach(bg => {
+  bg.addEventListener('click', e => {
+    if (e.target === bg && bg.id !== 'agentModal') bg.classList.remove('show');
+  });
+});
+
+function toast(msg, type) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (type === 'err' ? ' err' : type === 'warn' ? ' warn' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2800);
+}
+
+// 启动
+init();
+setupScreenshotHandlers();
+</script>
+</body>
+</html>
