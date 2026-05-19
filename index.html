@@ -2198,10 +2198,16 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
     setGeminiTesting(true);
     setGeminiTestResult('');
     try {
-      const { data } = await CLOUD.client.from('kb_team_config').select('value').eq('key', 'gemini_api_key').maybeSingle();
-      const encrypted = data?.value?.encrypted || '';
-      const key = encrypted ? _xorDecrypt(encrypted) : '';
-      if (!key) { setGeminiTestResult('❌ 尚未配置 key'); setGeminiTesting(false); return; }
+      // 优先用输入框里的 key，否则从云端读
+      let key = geminiKey.trim();
+      let source = '输入框';
+      if (!key) {
+        const { data } = await CLOUD.client.from('kb_team_config').select('value').eq('key', 'gemini_api_key').maybeSingle();
+        const encrypted = data?.value?.encrypted || '';
+        key = encrypted ? _xorDecrypt(encrypted) : '';
+        source = '云端';
+      }
+      if (!key) { setGeminiTestResult('❌ 请先输入 key 或先点「保存到云端」'); setGeminiTesting(false); return; }
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ contents:[{parts:[{text:'用一句中文回答：你能听到我吗？'}]}] }),
@@ -2212,7 +2218,7 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
       }
       const j = await resp.json();
       const txt = j.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      setGeminiTestResult(`✓ 连通成功: "${txt.slice(0,40)}..."`);
+      setGeminiTestResult(`✓ 连通成功 (key 来自${source}): "${txt.slice(0,40).trim()}..."`);
     } catch(e) { setGeminiTestResult('❌ ' + e.message); }
     setGeminiTesting(false);
   };

@@ -14793,31 +14793,79 @@ function attachEvents() {
   $('#gemini-save-btn')?.addEventListener('click', async () => {
     const key = $('#setting-gemini-key').value.trim();
     if (!key) { alert('请输入 Gemini API key'); return; }
+    if (!key.startsWith('AIza')) {
+      if (!confirm('这个 key 看起来不像 Gemini key（通常以 AIza 开头）。继续保存吗？')) return;
+    }
     if (!confirm('保存 Gemini API key 到云端？\n\n会用 XOR 加密后存储到 Supabase 团队配置表，所有团队成员都能使用此 key 调用 AI。')) return;
     const btn = $('#gemini-save-btn');
     btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> 保存中...';
-    const ok = await KB_DAO.saveGeminiKey(key);
-    btn.disabled = false; btn.innerHTML = '<i class="ti ti-key"></i> 保存到云端（加密）';
-    if (ok) {
-      GEMINI.setKey(key);
-      $('#setting-gemini-key').value = '';
-      showToast('✓ Gemini key 已加密保存（全团队可用）');
-      refreshGeminiStatus();
-    } else {
-      showToast('❌ 保存失败', 'warn');
+    try {
+      const ok = await KB_DAO.saveGeminiKey(key);
+      if (ok) {
+        GEMINI.setKey(key);
+        $('#setting-gemini-key').value = '';
+        showToast('✓ Gemini key 已加密保存（全团队可用）');
+        refreshGeminiStatus();
+        console.log('[GEMINI] save success, encrypted to kb_team_config');
+      } else {
+        showToast('❌ 保存失败（看 F12 控制台获取详情）', 'warn');
+        console.error('[GEMINI] save returned false. Check Supabase kb_team_config table RLS.');
+      }
+    } catch(e) {
+      showToast('❌ 保存错误: ' + e.message, 'warn');
+      console.error('[GEMINI] save error:', e);
     }
+    btn.disabled = false; btn.innerHTML = '<i class="ti ti-key"></i> 保存到云端（加密）';
   });
   
   $('#gemini-test-btn')?.addEventListener('click', async () => {
     const resultEl = $('#gemini-test-result');
     const btn = $('#gemini-test-btn');
-    resultEl.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> 测试中...';
     btn.disabled = true;
+    
+    // 优先用输入框里的 key 测试（如果用户填了但还没保存）
+    const inputKey = $('#setting-gemini-key').value.trim();
+    let testKey = inputKey;
+    let source = '输入框';
+    
+    // 如果输入框是空的，从云端拉
+    if (!testKey) {
+      resultEl.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> 从云端读取 key...';
+      try {
+        testKey = await KB_DAO.getGeminiKey();
+        source = '云端';
+      } catch(e) {
+        resultEl.innerHTML = `<span style="color:#b91c1c;">❌ 读取云端 key 失败: ${e.message}</span>`;
+        btn.disabled = false;
+        return;
+      }
+    }
+    
+    if (!testKey) {
+      resultEl.innerHTML = '<span style="color:#b91c1c;">❌ 请先输入 key 或先点「保存到云端」</span>';
+      btn.disabled = false;
+      return;
+    }
+    
+    resultEl.innerHTML = `<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> 测试 (key 来自${source})...`;
     try {
-      const r = await GEMINI.generate('用一句话回答：你能听到我吗？');
-      resultEl.innerHTML = `<span style="color:#15803d;">✓ 连通成功</span> "${r.slice(0, 30)}..."`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${testKey}`;
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: '用一句中文回答：你能听到我吗？' }] }] }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${resp.status}`);
+      }
+      const j = await resp.json();
+      const reply = j.candidates?.[0]?.content?.parts?.[0]?.text || '(空)';
+      resultEl.innerHTML = `<span style="color:#15803d;">✓ 连通成功 (${source})</span> "${reply.slice(0, 50).trim()}..."`;
+      console.log('[GEMINI] test success from', source, ':', reply);
     } catch(e) {
       resultEl.innerHTML = `<span style="color:#b91c1c;">❌ ${e.message}</span>`;
+      console.error('[GEMINI] test failed:', e);
     }
     btn.disabled = false;
   });
