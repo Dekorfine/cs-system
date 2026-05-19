@@ -12465,7 +12465,7 @@ const UI = {
 // ============================================================
 // SUPABASE 云同步 + GEMINI API + 加密层（团队协同核心）
 // ============================================================
-const SB_URL = 'https://kwrajryhwyytkjkkidor.supabase.co';
+const SB_URL = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co';
 const SB_KEY = 'sb_publishable_6j-rSrv1V95FROe-iX6Yew_unE_Y6n9';
 const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
 
@@ -13501,23 +13501,37 @@ function updateModalFavBtn() {
 let lightboxImages = [];
 let lightboxIndex = 0;
 
+// 从 Supabase Storage 加载图片
+// 部署：在 Supabase Storage 创建公开 bucket "kb-images"，把 kb_images.zip 解压上传
+const KB_STORAGE_URL = `${SB_URL}/storage/v1/object/public/kb-images/`;
+const KB_IMAGE_MAP = {"1001":["kb-1001-1.png","kb-1001-2.png"],"1002":["kb-1002-1.png","kb-1002-2.png"],"1003":["kb-1003-1.png"],"1030":["kb-1030-1.png"],"1087":["kb-1087-1.png"],"1100":["kb-1100-1.png","kb-1100-2.png","kb-1100-3.png","kb-1100-4.png"],"1112":["kb-1112-1.png"],"1132":["kb-1132-1.png"],"1135":["kb-1135-1.png"],"1138":["kb-1138-1.png"],"1149":["kb-1149-1.png"],"1153":["kb-1153-1.png"],"1168":["kb-1168-1.png"],"1169":["kb-1169-1.png"],"1170":["kb-1170-1.png"],"1173":["kb-1173-1.png"],"1174":["kb-1174-1.png"],"1177":["kb-1177-1.png"],"1178":["kb-1178-1.png"],"1179":["kb-1179-1.png"],"1181":["kb-1181-1.png"],"1184":["kb-1184-1.png"],"1185":["kb-1185-1.png"],"1186":["kb-1186-1.png"],"1187":["kb-1187-1.png"],"1188":["kb-1188-1.png"],"1189":["kb-1189-1.png"],"1190":["kb-1190-1.png"],"1191":["kb-1191-1.png"],"1192":["kb-1192-1.png"],"1194":["kb-1194-1.png","kb-1194-2.png"],"1196":["kb-1196-1.png","kb-1196-2.png"],"1198":["kb-1198-1.png"],"1202":["kb-1202-1.png"],"1204":["kb-1204-1.png"],"1212":["kb-1212-1.png","kb-1212-2.png","kb-1212-3.png"],"1214":["kb-1214-1.png"],"1218":["kb-1218-1.png"]};
+
+function getEntryImages(entryId) {
+  const files = KB_IMAGE_MAP[entryId] || KB_IMAGE_MAP[String(entryId)] || [];
+  return files.map(name => KB_STORAGE_URL + name);
+}
+
 function renderScenarioImages(id) {
   const e = getEntry(id);
   const panel = $('#scenario-images');
-  if (!e || !e.images || e.images.length === 0) {
+  // 从 Storage 映射获取，覆盖原 entry.images 里的 svg placeholder
+  const images = getEntryImages(id);
+  if (!e || images.length === 0) {
     panel.style.display = 'none';
     return;
   }
   panel.style.display = '';
   $('#scenario-images-title').textContent = state.lang === 'cn' ? '场景图片' : 'Scenario Photos';
   $('#scenario-images-hint').textContent = state.lang === 'cn'
-    ? `${e.images.length} 张 · 点击放大`
-    : `${e.images.length} ${e.images.length > 1 ? 'photos' : 'photo'} · click to enlarge`;
-  $('#scenario-images-grid').innerHTML = e.images.map((src, i) => `
+    ? `${images.length} 张 · 点击放大`
+    : `${images.length} ${images.length > 1 ? 'photos' : 'photo'} · click to enlarge`;
+  $('#scenario-images-grid').innerHTML = images.map((src, i) => `
     <div class="scenario-image" data-img-idx="${i}">
-      <img src="${src}" alt="场景图 ${i + 1}" loading="lazy" />
+      <img src="${src}" alt="场景图 ${i + 1}" loading="lazy" onerror="this.parentElement.style.display='none';" />
     </div>
   `).join('');
+  // 把 images 数组挂到 entry 上方便 lightbox 用
+  e._cloudImages = images;
 }
 
 function openLightbox(images, idx) {
@@ -14663,7 +14677,9 @@ function attachEvents() {
     if (!item) return;
     const idx = parseInt(item.dataset.imgIdx);
     const entry = getEntry(state.currentModal);
-    if (entry && entry.images) openLightbox(entry.images, idx);
+    // 优先用 _cloudImages（来自 Supabase Storage），fallback 到原 entry.images
+    const images = (entry && entry._cloudImages && entry._cloudImages.length) ? entry._cloudImages : (entry?.images || []);
+    if (images.length > 0) openLightbox(images, idx);
   });
 
   // ===== Lightbox controls =====
