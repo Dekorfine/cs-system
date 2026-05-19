@@ -2080,6 +2080,11 @@ input, textarea { font-family: inherit; color: var(--ink); }
 
   <div class="topbar-search">
     <i class="ti ti-search icon-search" aria-hidden="true"></i>
+    <!-- Chrome 自动填充蜜罐：把保存的账号密码"吸"到这两个隐藏字段，真正的搜索框就清净了 -->
+    <input type="text" name="username" autocomplete="username"
+      style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;" tabindex="-1" aria-hidden="true" />
+    <input type="password" name="password" autocomplete="current-password"
+      style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;left:-9999px;" tabindex="-1" aria-hidden="true" />
     <input type="text" id="search-input" placeholder="搜索问题、标签、内容…"
       autocomplete="off"
       autocorrect="off"
@@ -2087,12 +2092,13 @@ input, textarea { font-family: inherit; color: var(--ink); }
       spellcheck="false"
       role="searchbox"
       aria-autocomplete="none"
-      name="kb-search-q-no-fill"
+      name="q_kb_lookup_xyz"
       data-form-type="other"
       data-lpignore="true"
       data-1p-ignore="true"
+      data-bwignore="true"
       readonly
-      onfocus="this.removeAttribute('readonly');this.removeAttribute('onfocus');" />
+      onfocus="this.removeAttribute('readonly');this.removeAttribute('onfocus');this.dataset.userTyped='1';" />
     <span class="kbd">/</span>
   </div>
 
@@ -12629,16 +12635,28 @@ const KB_DAO = {
 // Gemini AI 直接调用（不再跳转浏览器）
 const GEMINI = {
   _apiKey: null,
-  async loadKey() {
-    this._apiKey = await KB_DAO.getGeminiKey();
-    return !!this._apiKey;
+  _lastLoadAt: 0,
+  async loadKey(force = false) {
+    // 强制刷新 或 5 秒内已加载过则用 cache
+    if (!force && this._apiKey && (Date.now() - this._lastLoadAt < 5000)) return !!this._apiKey;
+    try {
+      this._apiKey = await KB_DAO.getGeminiKey();
+      this._lastLoadAt = Date.now();
+      console.log('[GEMINI] loadKey:', this._apiKey ? `✓ 已加载 ${this._apiKey.slice(0,8)}...` : '✗ 表里没数据');
+      return !!this._apiKey;
+    } catch(e) {
+      console.error('[GEMINI] loadKey 失败:', e);
+      this._apiKey = null;
+      throw new Error('读取 Gemini key 失败: ' + e.message);
+    }
   },
   setKey(k) { this._apiKey = k; },
   hasKey() { return !!this._apiKey; },
   async generate(prompt, model = 'gemini-2.0-flash') {
+    // 总是强制刷新一次，避免 iframe 缓存导致的"已保存但读不到"问题
+    await this.loadKey(true);
     if (!this._apiKey) {
-      await this.loadKey();
-      if (!this._apiKey) throw new Error('Gemini API key 未配置（请管理员在设置里添加）');
+      throw new Error('Gemini API key 未配置。请到 [统一工作台 → 设置 → ✨ Gemini AI] 添加 key（添加后会自动同步到此处）');
     }
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this._apiKey}`;
     const resp = await fetch(url, {
@@ -12657,6 +12675,20 @@ const GEMINI = {
     return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
 };
+
+// 监听父窗口（工作台）的 Gemini key 更新通知
+if (window.parent !== window) {
+  window.addEventListener('message', (e) => {
+    if (e.data?.type === 'reload-gemini-key') {
+      console.log('[GEMINI] 收到父窗口的 key 更新通知，强制重载...');
+      GEMINI.loadKey(true).then(ok => {
+        if (typeof showToast === 'function') {
+          showToast(ok ? '✓ Gemini key 已更新' : '⚠ 重载失败', ok ? null : 'warn');
+        }
+      });
+    }
+  });
+}
 
 // ===== State =====
 const state = {
@@ -13677,12 +13709,16 @@ async function openAIRewrite(provider, tone) {
 
   if (provider === 'gemini') {
     // ✨ 直接调用 Gemini API，不再跳转浏览器
+    // 总是强制刷新一次，避免 iframe 缓存
+    try {
+      await GEMINI.loadKey(true);
+    } catch(err) {
+      showToast('⚠ ' + err.message, 'warn');
+      return;
+    }
     if (!GEMINI.hasKey()) {
-      const ok = await GEMINI.loadKey();
-      if (!ok) {
-        showToast('⚠ Gemini API key 未配置 — 请管理员在设置里添加', 'warn');
-        return;
-      }
+      showToast('⚠ Gemini API key 未配置 — 请到 [统一工作台 → 设置 → ✨ Gemini AI] 添加 key', 'warn');
+      return;
     }
     // 显示加载状态
     const aiContainer = $('#ai-result-container');
@@ -14391,9 +14427,30 @@ function renderSmartMatch(text) {
 // ===== Event handlers =====
 function attachEvents() {
   // Search
-  $('#search-input').addEventListener('input', (e) => {
-    state.search = e.target.value;
+  const searchInput = $('#search-input');
+  searchInput.addEventListener('input', (e) => {
+    const v = e.target.value;
+    // 自动填充检测：如果用户没真正聚焦过却出现了内容（被 Chrome 自动填充塞进去）
+    // 通常是 email 或一长串密文，自动清空
+    if (!e.target.dataset.userTyped) {
+      const looksLikeAutofill = /@/.test(v) || v.length > 30;
+      if (looksLikeAutofill) {
+        e.target.value = '';
+        return;
+      }
+    }
+    state.search = v;
     renderArticleList();
+  });
+  // 真实用户输入键盘事件后，标记 userTyped 解除清空保护
+  searchInput.addEventListener('keydown', (e) => { e.target.dataset.userTyped = '1'; });
+  // 失焦时如果是 email/密文则清空
+  searchInput.addEventListener('blur', (e) => {
+    if (!e.target.dataset.userTyped && /@|password/i.test(e.target.value)) {
+      e.target.value = '';
+      state.search = '';
+      renderArticleList();
+    }
   });
 
   // Smart paste

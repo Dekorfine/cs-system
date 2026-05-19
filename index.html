@@ -2131,7 +2131,91 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
   const [editingId, setEditingId] = useState(null);
   const [newEmp, setNewEmp] = useState({ name:'', alias:'', sites:'', password:'123456', role:'staff' });
   const [showNew, setShowNew] = useState(false);
-  const [section, setSection] = useState('cloud');  // cloud | employees
+  const [section, setSection] = useState('cloud');  // cloud | employees | gemini
+  
+  // Gemini key 配置（直接调用 kb.html 同款 Supabase 表 kb_team_config）
+  const [geminiKey, setGeminiKey] = useState('');
+  const [geminiStatus, setGeminiStatus] = useState('检查中...');
+  const [geminiTesting, setGeminiTesting] = useState(false);
+  const [geminiTestResult, setGeminiTestResult] = useState('');
+  
+  // 简单加密（与 kb.html 完全一致）
+  const _SECRET = 'wk2024-radilum-cs-team';
+  const _xorEncrypt = (text) => {
+    let r = '';
+    for (let i = 0; i < text.length; i++) r += String.fromCharCode(text.charCodeAt(i) ^ _SECRET.charCodeAt(i % _SECRET.length));
+    return btoa(unescape(encodeURIComponent(r)));
+  };
+  const _xorDecrypt = (b64) => {
+    try {
+      const s = decodeURIComponent(escape(atob(b64)));
+      let r = '';
+      for (let i = 0; i < s.length; i++) r += String.fromCharCode(s.charCodeAt(i) ^ _SECRET.charCodeAt(i % _SECRET.length));
+      return r;
+    } catch(e) { return ''; }
+  };
+  
+  const loadGeminiKey = async () => {
+    if (!CLOUD.client) { setGeminiStatus('❌ 云同步未启用'); return; }
+    try {
+      const { data } = await CLOUD.client.from('kb_team_config').select('value').eq('key', 'gemini_api_key').maybeSingle();
+      if (!data) { setGeminiStatus('未配置'); return; }
+      const encrypted = data.value?.encrypted || '';
+      const decoded = encrypted ? _xorDecrypt(encrypted) : '';
+      if (decoded) {
+        setGeminiStatus(`✓ 已配置 (${decoded.slice(0,8)}...)`);
+      } else {
+        setGeminiStatus('未配置');
+      }
+    } catch(e) { setGeminiStatus('❌ 读取失败: ' + e.message); }
+  };
+  
+  useEffect(() => { if (section === 'gemini') loadGeminiKey(); }, [section]);
+  
+  const saveGeminiKey = async () => {
+    if (!geminiKey.trim()) { toast('⚠ 请输入 Gemini API key'); return; }
+    if (!CLOUD.client) { toast('❌ 云同步未启用'); return; }
+    if (!confirm('保存 Gemini API key 到云端？\n会用 XOR 加密后存储到 Supabase，所有团队成员都能使用此 key。')) return;
+    try {
+      const encrypted = _xorEncrypt(geminiKey.trim());
+      const { error } = await CLOUD.client.from('kb_team_config').upsert({
+        key: 'gemini_api_key',
+        value: { encrypted, hint: geminiKey.slice(0,8) + '...' },
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      toast('✓ Gemini key 已加密保存 · 知识库可立即使用');
+      setGeminiKey('');
+      loadGeminiKey();
+      // 通知所有 kb iframe 重载 key（不需要刷新整页）
+      document.querySelectorAll('iframe[title="知识库"]').forEach(f => {
+        try { f.contentWindow.postMessage({ type:'reload-gemini-key' }, '*'); } catch(e) {}
+      });
+    } catch(e) { toast('❌ 保存失败: ' + e.message); }
+  };
+  
+  const testGemini = async () => {
+    setGeminiTesting(true);
+    setGeminiTestResult('');
+    try {
+      const { data } = await CLOUD.client.from('kb_team_config').select('value').eq('key', 'gemini_api_key').maybeSingle();
+      const encrypted = data?.value?.encrypted || '';
+      const key = encrypted ? _xorDecrypt(encrypted) : '';
+      if (!key) { setGeminiTestResult('❌ 尚未配置 key'); setGeminiTesting(false); return; }
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ contents:[{parts:[{text:'用一句中文回答：你能听到我吗？'}]}] }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(()=>({}));
+        throw new Error(err.error?.message || `HTTP ${resp.status}`);
+      }
+      const j = await resp.json();
+      const txt = j.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      setGeminiTestResult(`✓ 连通成功: "${txt.slice(0,40)}..."`);
+    } catch(e) { setGeminiTestResult('❌ ' + e.message); }
+    setGeminiTesting(false);
+  };
 
   const addEmployee = () => {
     if (!newEmp.name.trim()) { toast('⚠ 姓名必填'); return; }
@@ -2177,12 +2261,79 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
       <div className="paper rounded-2xl p-4">
         <div className="flex items-center gap-2 flex-wrap">
           <button className={`tab-btn ${section==='cloud'?'active':''}`} onClick={() => setSection('cloud')}>☁ 云同步设置</button>
+          <button className={`tab-btn ${section==='gemini'?'active':''}`} onClick={() => setSection('gemini')}>✨ Gemini AI</button>
           <button className={`tab-btn ${section==='employees'?'active':''}`} onClick={() => setSection('employees')}>👥 员工管理 ({employees.length})</button>
         </div>
       </div>
 
       {section === 'cloud' && (
         <CloudSettingsCard cfg={cloudCfg} setCfg={setCloudCfg} toast={toast} onApply={onCloudApply} />
+      )}
+
+      {section === 'gemini' && (
+        <div className="paper rounded-2xl p-6">
+          <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:8}}>
+            <span style={{fontSize:24}}>✨</span>
+            <div>
+              <div className="font-display" style={{fontSize:18, fontWeight:600, letterSpacing:'-.022em'}}>Gemini AI 配置</div>
+              <div style={{fontSize:13, color:'var(--ink-3)'}}>知识库的 AI 一键优化模板功能需要 Gemini API key</div>
+            </div>
+          </div>
+          
+          <div className="rounded-lg p-3 mt-4" style={{background:'var(--accent-soft)', color:'var(--accent)', fontSize:13, lineHeight:1.65}}>
+            <strong>📋 申请步骤：</strong><br/>
+            1. 访问 <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style={{color:'var(--accent)', textDecoration:'underline'}}>aistudio.google.com/apikey</a><br/>
+            2. 用 Google 账号登录 → 点 <strong>Create API key</strong> → 选择 Google Cloud 项目（或新建）<br/>
+            3. 复制生成的 key（以 <code className="font-mono px-1 rounded" style={{background:'white'}}>AIzaSy...</code> 开头，约 39 字符）<br/>
+            4. 粘贴到下方输入框 → 保存到云端（XOR 加密，全团队共享）
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-5">
+            <div>
+              <label className="block text-[12px] mb-2" style={{color:'var(--ink-3)', fontWeight:500}}>Gemini API Key</label>
+              <input
+                type="password"
+                value={geminiKey}
+                onChange={e => setGeminiKey(e.target.value)}
+                placeholder="AIzaSy..."
+                autoComplete="off"
+                name="gemini-api-key-no-fill"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                style={{fontFamily:'SF Mono, monospace', fontSize:13}}
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] mb-2" style={{color:'var(--ink-3)', fontWeight:500}}>当前 Key 状态</label>
+              <div style={{padding:'10px 14px', borderRadius:'var(--radius-sm)', background:'var(--bg-elevated)', fontSize:13, color: geminiStatus.startsWith('✓') ? 'var(--good)' : (geminiStatus.startsWith('❌') ? 'var(--bad)' : 'var(--ink-3)')}}>
+                {geminiStatus}
+              </div>
+            </div>
+          </div>
+
+          <div style={{display:'flex', gap:10, marginTop:18, alignItems:'center', flexWrap:'wrap'}}>
+            <button className="btn-pri" onClick={saveGeminiKey} disabled={!geminiKey.trim()}>
+              🔐 保存到云端（加密）
+            </button>
+            <button className="btn-sec" onClick={testGemini} disabled={geminiTesting}>
+              {geminiTesting ? '⏳ 测试中...' : '🧪 测试连通性'}
+            </button>
+            {geminiTestResult && (
+              <span style={{fontSize:13, color: geminiTestResult.startsWith('✓') ? 'var(--good)' : 'var(--bad)'}}>
+                {geminiTestResult}
+              </span>
+            )}
+          </div>
+
+          <div className="rounded-lg p-3 mt-5" style={{background:'var(--bg-elevated)', fontSize:12, color:'var(--ink-3)', lineHeight:1.65}}>
+            <strong>🔐 加密说明：</strong>API key 经 XOR + Base64 加密后存储在 Supabase 的 <code className="font-mono">kb_team_config</code> 表里。
+            即使有人通过开发者工具看到表内容，也只会看到加密字符串。但请注意：**这只能防 plain text 泄漏，不能防有心人**——所以一定不要把 key 分享到公开渠道。
+          </div>
+
+          <div className="rounded-lg p-3 mt-3" style={{background:'#fef3c7', fontSize:12, color:'#92400e', lineHeight:1.65}}>
+            <strong>💡 谁来配置？</strong>建议**只让主管 Miya 配置一次**——配好后全团队所有人在知识库点击 "用 Gemini 改写" 都能立即使用，无需各自配置。
+          </div>
+        </div>
       )}
 
       {section === 'employees' && (
