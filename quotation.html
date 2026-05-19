@@ -1,0 +1,2885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quotation / PO / PI / Packing List Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+/* ============================================================
+   APPLE DESIGN SYSTEM
+   ============================================================ */
+:root {
+  --bg-page: #fbfbfd;
+  --bg-card: #ffffff;
+  --bg-elevated: #f5f5f7;
+  --bg-soft: #fafafc;
+  --ink: #1d1d1f;
+  --ink-2: #424245;
+  --ink-3: #6e6e73;
+  --ink-4: #86868b;
+  --line: rgba(0,0,0,.085);
+  --line-soft: rgba(0,0,0,.05);
+  --line-strong: rgba(0,0,0,.15);
+  --accent: #0071e3;
+  --accent-hover: #0077ed;
+  --accent-soft: rgba(0,113,227,.08);
+  --good: #34c759;
+  --good-soft: #e8f8eb;
+  --warn: #ff9500;
+  --warn-soft: #fff4e5;
+  --bad: #ff3b30;
+  --bad-soft: #ffe9e7;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-pill: 980px;
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 2px 8px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.08);
+  --shadow-lg: 0 10px 40px rgba(0,0,0,.12);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  background: var(--bg-page);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: -.003em;
+  font-feature-settings: "kern","liga","calt";
+}
+button { font-family: inherit; cursor: pointer; }
+input, textarea, select { font-family: inherit; }
+.hidden { display: none !important; }
+
+/* ============================================================
+   TOP BAR — Apple frosted glass header
+   ============================================================ */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(251,251,253,.85);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  color: var(--ink);
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.topbar-left { display: flex; align-items: center; gap: 16px; }
+.topbar-title { font-size: 17px; font-weight: 600; letter-spacing: -.022em; color: var(--ink); }
+.topbar-link { color: var(--accent); font-size: 13px; text-decoration: none; font-weight: 400; }
+.topbar-link:hover { text-decoration: underline; }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.status-pill {
+  font-size: 11px; font-weight: 500; color: var(--ink-3);
+  background: var(--bg-elevated); padding: 4px 12px; border-radius: var(--radius-pill);
+  white-space: nowrap; letter-spacing: -.003em;
+}
+.status-pill.ok   { color: #1a7e35; background: var(--good-soft); }
+.status-pill.err  { color: #c5251c; background: var(--bad-soft); }
+.status-pill.busy { color: #a85e00; background: var(--warn-soft); }
+.btn-cloud {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent); color: #fff; border: none;
+  padding: 8px 18px; border-radius: var(--radius-pill);
+  font-size: 14px; font-weight: 500; letter-spacing: -.003em;
+  transition: all 0.2s;
+}
+.btn-cloud:hover { background: var(--accent-hover); transform: translateY(-.5px); }
+.btn-cloud:active { transform: translateY(0); }
+.btn-cloud .kbd {
+  font-size: 11px; opacity: 0.75; border: 1px solid rgba(255,255,255,0.3);
+  padding: 1px 5px; border-radius: 4px;
+}
+.user-chip {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--bg-elevated);
+  padding: 4px 12px 4px 4px; border-radius: var(--radius-pill);
+  font-size: 13px; color: var(--ink); font-weight: 500;
+}
+.user-avatar {
+  width: 26px; height: 26px; background: var(--accent);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600; color: #fff;
+}
+.btn-icon {
+  background: transparent; border: none; color: var(--ink-3);
+  padding: 7px 9px; border-radius: 50%;
+  font-size: 15px; transition: all 0.15s;
+}
+.btn-icon:hover { background: var(--bg-elevated); color: var(--ink); }
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.page {
+  max-width: 1280px; margin: 0 auto; padding: 24px;
+}
+.alert-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  background: var(--warn-soft); border: 1px solid rgba(255,149,0,.3); border-radius: var(--radius);
+  padding: 14px 18px; margin-bottom: 18px;
+  color: #a85e00; font-size: 14px; font-weight: 400;
+}
+.alert-banner .btn-setup {
+  background: var(--warn); color: #fff; border: none;
+  padding: 7px 18px; border-radius: var(--radius-pill); font-size: 13px; font-weight: 500;
+  white-space: nowrap; cursor: pointer; transition: all .2s;
+}
+.alert-banner .btn-setup:hover { background: #e08500; transform: translateY(-.5px); }
+
+/* ============================================================
+   CARD / SECTION
+   ============================================================ */
+.card {
+  background: var(--bg-card); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  margin-bottom: 18px; overflow: hidden;
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 22px; border-bottom: 1px solid var(--line);
+  background: var(--bg-card);
+}
+.card-header h2 {
+  margin: 0; font-size: 16px; font-weight: 600; color: var(--ink);
+  display: flex; align-items: center; gap: 8px;
+  letter-spacing: -.022em;
+}
+.card-header .icon { font-size: 16px; }
+.card-body { padding: 20px 22px; }
+.card-collapsible .card-header { cursor: pointer; user-select: none; }
+.card-collapsible .card-header::after {
+  content: '›'; color: var(--ink-3); font-size: 18px; transition: transform 0.2s;
+  font-weight: 300;
+}
+.card-collapsible.collapsed .card-header::after { transform: rotate(90deg); }
+.card-collapsible:not(.collapsed) .card-header::after { transform: rotate(-90deg); }
+.card-collapsible.collapsed .card-body { display: none; }
+
+/* ============================================================
+   FORM CONTROLS — Apple style
+   ============================================================ */
+.form-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.form-grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.form-row { display: flex; flex-direction: column; gap: 6px; }
+.form-row label {
+  font-size: 12px; font-weight: 500; color: var(--ink-3);
+  letter-spacing: -.003em;
+}
+.form-row .hint { font-size: 11px; color: var(--ink-4); font-weight: 400; }
+.form-row input,
+.form-row textarea,
+.form-row select {
+  width: 100%; padding: 9px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font-size: 14px; background: var(--bg-card); color: var(--ink);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  letter-spacing: -.003em;
+}
+.form-row input:focus,
+.form-row textarea:focus,
+.form-row select:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.form-row textarea { resize: vertical; min-height: 70px; font-family: inherit; }
+.form-row.span-2 { grid-column: span 2; }
+@media (max-width: 700px) { .form-row.span-2 { grid-column: auto; } }
+
+/* Select dropdown arrow */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+}
+
+/* fieldset (Order Info / Buyer / Shipping) */
+fieldset {
+  border: 1px solid var(--line) !important;
+  border-radius: var(--radius) !important;
+  padding: 14px !important;
+}
+fieldset legend {
+  font-size: 12px !important; font-weight: 500 !important;
+  color: var(--ink-3) !important; padding: 0 8px !important;
+  letter-spacing: -.003em;
+}
+
+/* ============================================================
+   ITEM TABLE
+   ============================================================ */
+.item-table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--line); }
+#item-table {
+  width: 100%; border-collapse: collapse; min-width: 900px;
+}
+#item-table th {
+  background: var(--bg-elevated); font-size: 11px; font-weight: 500;
+  color: var(--ink-3); letter-spacing: -.003em;
+  padding: 10px 8px; border-bottom: 1px solid var(--line);
+  text-align: left; text-transform: none;
+}
+#item-table td {
+  padding: 8px; border-bottom: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+#item-table input, #item-table textarea {
+  width: 100%; padding: 6px 9px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  font-size: 13px; background: var(--bg-soft);
+  transition: all .15s;
+}
+#item-table input:hover, #item-table textarea:hover { background: var(--bg-elevated); }
+#item-table input:focus, #item-table textarea:focus {
+  outline: none; border-color: var(--accent); background: var(--bg-card);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+#item-table textarea { resize: vertical; min-height: 40px; font-family: inherit; }
+.paste-area {
+  border: 1.5px dashed var(--line-strong); border-radius: var(--radius-sm);
+  min-height: 50px; min-width: 60px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-4); font-size: 10px; text-align: center;
+  cursor: pointer; padding: 4px; background: var(--bg-soft);
+  transition: all .15s;
+}
+.paste-area:hover { border-color: var(--accent); background: var(--accent-soft); }
+.paste-area:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+.paste-area img { max-width: 100%; max-height: 48px; object-fit: contain; }
+.btn-row-remove {
+  background: var(--bad-soft); color: var(--bad); border: none;
+  padding: 6px 10px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 500;
+  cursor: pointer; transition: all .15s;
+}
+.btn-row-remove:hover { background: #ffd6d4; }
+.btn-row-remove-img {
+  background: none; color: var(--bad); border: none;
+  font-size: 10px; padding: 2px 4px; margin-top: 2px; cursor: pointer;
+}
+.btn-add-item {
+  background: var(--accent); color: #fff; border: none;
+  padding: 9px 20px; border-radius: var(--radius-pill);
+  font-size: 14px; font-weight: 500; margin-top: 14px;
+  display: inline-flex; align-items: center; gap: 6px;
+  cursor: pointer; transition: all .2s; letter-spacing: -.003em;
+}
+.btn-add-item:hover { background: var(--accent-hover); transform: translateY(-.5px); }
+
+/* ============================================================
+   SAVE/LOAD PANEL TABS — Apple segmented control
+   ============================================================ */
+.tabs {
+  display: flex; gap: 2px;
+  background: var(--bg-elevated); border-radius: var(--radius-sm); padding: 3px;
+  margin-bottom: 14px;
+}
+.tabs button {
+  flex: 1; padding: 8px 12px;
+  background: transparent; border: none; border-radius: 6px;
+  font-size: 13px; font-weight: 500; color: var(--ink-3);
+  cursor: pointer; transition: all 0.15s; letter-spacing: -.003em;
+}
+.tabs button:hover { color: var(--ink); }
+.tabs button.active { background: var(--bg-card); color: var(--ink); box-shadow: var(--shadow-xs); }
+
+/* My Quotes / Team toggle */
+.cloud-view-toggle {
+  display: flex; gap: 2px;
+  background: var(--bg-elevated); border-radius: var(--radius-sm); padding: 3px;
+  margin-bottom: 10px;
+}
+.view-mode-btn {
+  flex: 1; padding: 8px 12px;
+  background: transparent; border: none; border-radius: 6px;
+  font-size: 13px; font-weight: 500; color: var(--ink-3);
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: all 0.15s; cursor: pointer; letter-spacing: -.003em;
+}
+.view-mode-btn:hover { color: var(--ink); }
+.view-mode-btn.active { background: var(--bg-card); color: var(--accent); box-shadow: var(--shadow-xs); }
+.count-badge {
+  display: inline-block; background: var(--bg-elevated); color: var(--ink-3);
+  font-size: 11px; font-weight: 500; border-radius: var(--radius-pill);
+  padding: 1px 8px; min-width: 18px; text-align: center;
+}
+.view-mode-btn.active .count-badge { background: var(--accent-soft); color: var(--accent); }
+
+/* Currently loaded indicator */
+.cloud-list-item.is-current {
+  background: var(--accent-soft);
+}
+.current-pill {
+  display: inline-block; background: var(--accent); color: white;
+  font-size: 10px; font-weight: 500; border-radius: var(--radius-pill);
+  padding: 1px 8px; margin-left: 6px; vertical-align: middle;
+  letter-spacing: -.003em;
+}
+
+/* Status filter chips */
+.status-filter-row {
+  display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;
+}
+.status-chip {
+  background: var(--bg-elevated); color: var(--ink-3); border: none;
+  padding: 5px 14px; border-radius: var(--radius-pill);
+  font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+  letter-spacing: -.003em;
+}
+.status-chip:hover { background: #e8e8ed; color: var(--ink); }
+.status-chip.active { background: var(--accent); color: white; }
+
+/* Cloud filter row */
+.cloud-filter-row {
+  display: flex; gap: 8px; align-items: center; margin-bottom: 10px;
+}
+.cloud-filter-row select {
+  flex: 1; padding: 7px 32px 7px 12px; border: 1px solid var(--line);
+  border-radius: var(--radius-sm); font-size: 13px; background: var(--bg-card);
+}
+.btn-refresh {
+  background: var(--bg-elevated); border: none; padding: 7px 12px;
+  border-radius: var(--radius-sm); font-size: 14px; color: var(--ink-3);
+  cursor: pointer; transition: all .15s;
+}
+.btn-refresh:hover { background: #e8e8ed; color: var(--ink); }
+
+/* Cloud toolbar */
+.cloud-toolbar {
+  display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap;
+}
+.toolbar-btn {
+  background: var(--bg-elevated); color: var(--ink); border: none;
+  padding: 7px 14px; border-radius: var(--radius-pill);
+  font-size: 12px; font-weight: 500; cursor: pointer; transition: all .15s;
+  letter-spacing: -.003em;
+}
+.toolbar-btn:hover { background: #e8e8ed; }
+
+/* Cloud list */
+.cloud-list {
+  max-height: 360px; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--bg-card);
+}
+.cloud-list-empty {
+  padding: 40px 20px; text-align: center; color: var(--ink-4); font-size: 13px;
+}
+.cloud-list-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-bottom: 1px solid var(--line-soft);
+  cursor: pointer; transition: background .15s;
+}
+.cloud-list-item:last-child { border-bottom: none; }
+.cloud-list-item:hover { background: var(--bg-soft); }
+.cloud-list-item.selected { background: var(--accent-soft); }
+.cloud-list-item.is-trashed { opacity: 0.6; }
+.cloud-item-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 600; color: white;
+  flex-shrink: 0;
+}
+.cloud-item-info { flex: 1; min-width: 0; }
+.cloud-item-name {
+  font-size: 14px; font-weight: 500; color: var(--ink);
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  letter-spacing: -.003em;
+}
+.cloud-item-meta { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.cloud-item-secondary { font-size: 11px; color: var(--ink-4); margin-top: 1px; font-family: "SF Mono",ui-monospace,monospace; }
+.cloud-item-del {
+  background: transparent; border: none; color: var(--ink-3);
+  padding: 4px 8px; border-radius: 50%; cursor: pointer;
+  font-size: 14px; transition: all .15s;
+}
+.cloud-item-del:hover { background: var(--bad-soft); color: var(--bad); }
+
+.status-tag {
+  display: inline-block; padding: 2px 8px; border-radius: var(--radius-pill);
+  font-size: 10px; font-weight: 500; text-transform: capitalize;
+  letter-spacing: -.003em;
+}
+.status-tag.draft { background: var(--bg-elevated); color: var(--ink-3); }
+.status-tag.sent { background: var(--accent-soft); color: var(--accent); }
+.status-tag.won { background: var(--good-soft); color: #1a7e35; }
+.status-tag.lost { background: var(--bad-soft); color: var(--bad); }
+.status-tag.archived { background: rgba(94,92,230,.1); color: #5e5ce6; }
+
+/* Status selector in form */
+.form-status-row { display: flex; gap: 4px; flex-wrap: wrap; }
+.status-btn {
+  padding: 5px 12px; border-radius: var(--radius-pill);
+  font-size: 12px; font-weight: 500; border: 1px solid var(--line);
+  background: var(--bg-card); color: var(--ink-3); cursor: pointer;
+  transition: all .15s; letter-spacing: -.003em;
+}
+.status-btn:hover { border-color: var(--line-strong); color: var(--ink); }
+.status-btn.active.draft { background: var(--ink-3); color: white; border-color: var(--ink-3); }
+.status-btn.active.sent { background: var(--accent); color: white; border-color: var(--accent); }
+.status-btn.active.won { background: var(--good); color: white; border-color: var(--good); }
+.status-btn.active.lost { background: var(--bad); color: white; border-color: var(--bad); }
+.status-btn.active.archived { background: #5e5ce6; color: white; border-color: #5e5ce6; }
+
+/* Cloud action row */
+.cloud-action-row {
+  display: flex; gap: 10px; margin-top: 12px;
+}
+.btn-cloud-load, .btn-cloud-save {
+  flex: 1; background: var(--accent); color: white; border: none;
+  padding: 10px 20px; border-radius: var(--radius-pill);
+  font-size: 14px; font-weight: 500; cursor: pointer; transition: all .2s;
+  letter-spacing: -.003em;
+}
+.btn-cloud-load { background: var(--bg-elevated); color: var(--ink); }
+.btn-cloud-load:hover:not(:disabled) { background: #e8e8ed; }
+.btn-cloud-save:hover { background: var(--accent-hover); transform: translateY(-.5px); }
+.btn-cloud-load:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Cloud status message */
+.cloud-status-msg {
+  font-size: 12px; color: var(--ink-3); margin: 10px 0 0;
+  padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-soft);
+}
+.cloud-status-msg.ok { color: #1a7e35; background: var(--good-soft); }
+.cloud-status-msg.err { color: var(--bad); background: var(--bad-soft); }
+
+/* Local save slots */
+.local-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.local-row input { flex: 1; min-width: 160px; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; }
+.local-row select { flex: 1.5; min-width: 200px; padding: 8px 32px 8px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 13px; }
+.local-row button {
+  background: var(--bg-elevated); color: var(--ink); border: none;
+  padding: 8px 16px; border-radius: var(--radius-pill);
+  font-size: 13px; font-weight: 500; cursor: pointer; transition: all .15s;
+  letter-spacing: -.003em;
+}
+.local-row button:hover { background: #e8e8ed; }
+#save_button { background: var(--accent); color: white; }
+#save_button:hover { background: var(--accent-hover); }
+#delete_button { background: var(--bad-soft); color: var(--bad); }
+#delete_button:hover { background: #ffd6d4; }
+
+/* Loading spinner */
+.loading-spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid rgba(0,113,227,.2); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.6s linear infinite;
+  vertical-align: middle; margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============================================================
+   PREVIEW TABS (Apple segmented control style)
+   ============================================================ */
+.preview-card { padding: 0; overflow: visible; }
+.preview-tabs {
+  display: flex; align-items: stretch; gap: 0;
+  background: var(--bg-card); border-bottom: 1px solid var(--line);
+  overflow-x: auto; padding: 0 16px;
+}
+.preview-tab {
+  position: relative; flex: 1; min-width: 110px;
+  background: none; border: none;
+  padding: 16px 18px; font-size: 14px; font-weight: 500;
+  color: var(--ink-3); transition: color 0.15s;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap; cursor: pointer; letter-spacing: -.003em;
+}
+.preview-tab:hover { color: var(--ink); }
+.preview-tab.active { color: var(--ink); font-weight: 500; }
+.preview-tab.active::after {
+  content: ''; position: absolute; left: 18px; right: 18px; bottom: -1px;
+  height: 2px; background: var(--accent); border-radius: 1px;
+}
+.preview-tab .tab-icon { margin-right: 6px; }
+.preview-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 22px; background: var(--bg-card);
+  border-bottom: 1px solid var(--line); gap: 12px; flex-wrap: wrap;
+}
+.preview-toolbar-info {
+  font-size: 13px; color: var(--ink-3); letter-spacing: -.003em;
+}
+.preview-toolbar-info strong { color: var(--ink); font-weight: 500; }
+.preview-toolbar-actions { display: flex; gap: 8px; }
+.btn-export {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent); color: #fff; border: none;
+  padding: 9px 20px; border-radius: var(--radius-pill);
+  font-size: 14px; font-weight: 500; letter-spacing: -.003em;
+  transition: all 0.2s; cursor: pointer;
+}
+.btn-export:hover { background: var(--accent-hover); transform: translateY(-.5px); }
+.btn-export-all {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg-elevated); color: var(--ink); border: none;
+  padding: 9px 18px; border-radius: var(--radius-pill);
+  font-size: 14px; font-weight: 500; cursor: pointer; letter-spacing: -.003em;
+  transition: all .15s;
+}
+.btn-export-all:hover { background: #e8e8ed; }
+.preview-stage {
+  background: var(--bg-elevated); padding: 30px; min-height: 400px;
+  display: flex; justify-content: center;
+}
+.preview-doc-wrap {
+  width: 100%; max-width: 8.5in;
+  background: #fff;
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+/* ============================================================
+   DOCUMENTS (PDF CONTENT) — KEEP PROFESSIONAL/BUSINESS STYLE
+   These are the actual quote PDFs sent to clients - DO NOT make too Apple-soft
+   ============================================================ */
+.document-container {
+  padding: 0.6in; min-height: 11in;
+  font-size: 12px; color: #1f2937; line-height: 1.4;
+}
+.document-container.is-hidden-preview { display: none; }
+.document-title {
+  font-size: 24px; font-weight: 700;
+  text-align: center; margin: 0 0 18px;
+  color: #1a202c; letter-spacing: 0.01em;
+  transition: color 0.3s;
+}
+.info-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 14px;
+}
+.info-box {
+  border: 1px solid #e2e8f0; padding: 10px 12px;
+  border-radius: 4px; display: flex; flex-direction: column;
+}
+.info-box h3 {
+  margin: 0 0 6px; font-size: 11px; font-weight: 700;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 4px; transition: border-color 0.3s;
+  color: #475569;
+}
+.info-box p, .info-box div {
+  margin: 2px 0; font-size: 11.5px;
+  line-height: 1.4; color: #374151;
+  white-space: pre-wrap; word-wrap: break-word;
+}
+.info-box .manual-input {
+  font-size: 11px; padding: 4px 6px;
+  border: 1px solid #d1d5db; border-radius: 3px;
+  width: 100%; margin-top: 2px; font-family: inherit;
+}
+.doc-table {
+  width: 100%; border-collapse: collapse; margin-top: 12px;
+  table-layout: fixed;
+}
+.doc-table th, .doc-table td {
+  border: 1px solid #e2e8f0; padding: 7px;
+  text-align: left; font-size: 11px;
+  vertical-align: top; word-wrap: break-word; overflow-wrap: break-word;
+}
+.doc-table th {
+  background: #f8fafc; font-weight: 700; font-size: 10.5px;
+  color: #475569; transition: background-color 0.3s;
+}
+.quote-item-image { max-width: 55px; max-height: 55px; object-fit: contain; }
+.total-section { margin-top: 14px; text-align: right; }
+.total-section p {
+  font-size: 12px; margin: 4px 0; font-weight: 600; color: #1f2937;
+}
+.total-section p.grand {
+  font-size: 14px; padding-top: 6px;
+  border-top: 1px solid #1f2937; margin-top: 6px;
+}
+.signature-block {
+  margin-top: 32px; padding-top: 16px;
+  border-top: 1px solid #e2e8f0; text-align: right;
+}
+.signature-block .label { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; }
+.signature-block .name { font-size: 13px; font-weight: 700; margin-top: 6px; color: #1f2937; }
+
+/* Theme variants for documents */
+.theme-blue   .document-title { color: #2b6cb0; }
+.theme-blue   .info-box h3    { border-bottom-color: #4299e1; color: #2b6cb0; }
+.theme-blue   .doc-table th   { background: #ebf8ff; }
+.theme-green  .document-title { color: #2f855a; }
+.theme-green  .info-box h3    { border-bottom-color: #48bb78; color: #2f855a; }
+.theme-green  .doc-table th   { background: #f0fff4; }
+.theme-gray   .document-title { color: #4a5568; }
+.theme-gray   .info-box h3    { border-bottom-color: #a0aec0; color: #4a5568; }
+.theme-gray   .doc-table th   { background: #f7fafc; }
+.theme-purple .document-title { color: #553c9a; }
+.theme-purple .info-box h3    { border-bottom-color: #805ad5; color: #553c9a; }
+.theme-purple .doc-table th   { background: #faf5ff; }
+.theme-red    .document-title { color: #c53030; }
+.theme-red    .info-box h3    { border-bottom-color: #f56565; color: #c53030; }
+.theme-red    .doc-table th   { background: #fff5f5; }
+
+/* ============================================================
+   SETTINGS MODAL — Apple style
+   ============================================================ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal {
+  background: var(--bg-card); border-radius: var(--radius-xl);
+  padding: 36px 40px; width: 100%; max-width: 460px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--line);
+}
+.modal h3 {
+  margin: 0 0 6px; font-size: 22px; font-weight: 600; color: var(--ink);
+  letter-spacing: -.022em;
+}
+.modal p { margin: 0 0 22px; font-size: 14px; color: var(--ink-3); line-height: 1.5; }
+.modal label {
+  display: block; font-size: 12px; font-weight: 500;
+  color: var(--ink-3); margin: 12px 0 6px; letter-spacing: -.003em;
+}
+.modal input {
+  width: 100%; padding: 11px 14px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font-size: 15px; transition: border-color .2s, box-shadow .2s;
+  font-family: inherit;
+}
+.modal input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.modal-tip {
+  background: var(--accent-soft); border: none;
+  border-radius: var(--radius); padding: 12px 16px; margin-top: 16px;
+  font-size: 13px; color: var(--accent); line-height: 1.5;
+}
+.modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+.btn-modal-primary {
+  flex: 1; background: var(--accent); color: #fff;
+  padding: 12px; border: none; border-radius: var(--radius-pill);
+  font-size: 15px; font-weight: 500; cursor: pointer; transition: all .2s;
+  letter-spacing: -.003em;
+}
+.btn-modal-primary:hover { background: var(--accent-hover); transform: translateY(-.5px); }
+.btn-modal-cancel {
+  background: var(--bg-elevated); color: var(--ink);
+  padding: 12px 22px; border: none;
+  border-radius: var(--radius-pill); font-size: 15px; font-weight: 500;
+  cursor: pointer; transition: all .15s; letter-spacing: -.003em;
+}
+.btn-modal-cancel:hover { background: #e8e8ed; }
+.modal-note { font-size: 12px; color: var(--ink-4); margin-top: 14px; line-height: 1.5; }
+.security-warning {
+  background: var(--warn-soft); border-radius: var(--radius); padding: 12px 16px;
+  margin-top: 14px; font-size: 12px; color: #a85e00; line-height: 1.5;
+}
+
+/* ============================================================
+   TOAST — Apple pill
+   ============================================================ */
+.toast {
+  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+  background: var(--ink); color: #fff;
+  padding: 12px 22px; border-radius: var(--radius-pill);
+  font-size: 14px; font-weight: 500; box-shadow: var(--shadow-lg);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 1000; letter-spacing: -.003em;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+.toast.err { background: var(--bad); }
+.toast.ok { background: var(--good); color: white; }
+
+/* ============================================================
+   PRINT — preserved untouched (critical for PDF output)
+   ============================================================ */
+@media print {
+  @page { size: A4; margin: 0.8cm; }
+  html, body {
+    margin: 0 !important; padding: 0 !important;
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .topbar, .page > .card:not(.preview-card),
+  .preview-tabs, .preview-toolbar,
+  .alert-banner, .modal-overlay, .toast {
+    display: none !important;
+  }
+  .preview-card, .preview-stage, .preview-doc-wrap {
+    background: #fff !important; padding: 0 !important; margin: 0 !important;
+    box-shadow: none !important; border: none !important;
+    max-width: none !important; width: 100% !important;
+  }
+  .page { padding: 0 !important; margin: 0 !important; max-width: none !important; }
+  .card.preview-card { border: none; border-radius: 0; margin: 0; }
+
+  .document-container.is-hidden-preview { display: block !important; }
+
+  body.print-only-quotation #po-section,
+  body.print-only-quotation #pi-section,
+  body.print-only-quotation #packing-list-section { display: none !important; }
+  body.print-only-po #quotation-section,
+  body.print-only-po #pi-section,
+  body.print-only-po #packing-list-section { display: none !important; }
+  body.print-only-pi #quotation-section,
+  body.print-only-pi #po-section,
+  body.print-only-pi #packing-list-section { display: none !important; }
+  body.print-only-packing #quotation-section,
+  body.print-only-packing #po-section,
+  body.print-only-packing #pi-section { display: none !important; }
+
+  .document-container {
+    padding: 0 !important; min-height: 0 !important;
+    page-break-after: always; page-break-inside: avoid;
+  }
+  .document-container:last-of-type { page-break-after: auto; }
+
+  .document-title { font-size: 18px !important; margin-bottom: 10px !important; }
+  .info-grid { gap: 6px !important; margin-bottom: 8px !important; }
+  .info-box { padding: 6px 8px !important; page-break-inside: avoid; }
+  .info-box h3 { font-size: 10.5px !important; margin-bottom: 3px !important; padding-bottom: 3px !important; }
+  .info-box p, .info-box div { font-size: 10.5px !important; line-height: 1.3 !important; }
+  .doc-table { margin-top: 6px !important; }
+  .doc-table th, .doc-table td {
+    padding: 3px 4px !important; font-size: 10px !important; line-height: 1.25 !important;
+  }
+  .doc-table tr { page-break-inside: avoid; }
+  .total-section { margin-top: 6px !important; padding-right: 3px !important; }
+  .total-section p { font-size: 10.5px !important; margin: 1.5px 0 !important; }
+  .signature-block { margin-top: 18px !important; padding-top: 10px !important; }
+  .quote-item-image { max-width: 38px !important; max-height: 38px !important; }
+  .manual-input { border-color: transparent !important; background: transparent !important; }
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 720px) {
+  .page { padding: 14px; }
+  .topbar { padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
+  .topbar-left { flex-wrap: wrap; }
+  .preview-stage { padding: 14px; }
+  .document-container { padding: 20px; }
+  .info-grid { grid-template-columns: 1fr; }
+  .preview-toolbar { flex-direction: column; align-items: stretch; }
+  .preview-toolbar-actions { width: 100%; }
+  .btn-export, .btn-export-all { flex: 1; justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     TOP BAR
+     ============================================================ -->
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title">📄 Quotation Tool</span>
+    <a href="index.html" class="topbar-link">← Back to Home</a>
+  </div>
+  <div class="topbar-right">
+    <span class="status-pill" id="status-pill">Not set up</span>
+    <button class="btn-cloud" onclick="quickSave()" title="Save current quote to cloud (Ctrl+S)">
+      ☁ Save to Cloud <span class="kbd">Ctrl+S</span>
+    </button>
+    <div class="user-chip">
+      <span class="user-avatar" id="user-avatar">?</span>
+      <span id="user-name-label">Guest</span>
+    </div>
+    <button class="btn-icon" onclick="openSettings()">⚙</button>
+  </div>
+</div>
+
+<div class="page">
+
+<!-- Setup prompt -->
+<div class="alert-banner" id="setup-banner" style="display:none;">
+  <span>⚠️ Please enter your name to enable cloud sync (Supabase).</span>
+  <button class="btn-setup" onclick="openSettings()">Setup Now →</button>
+</div>
+
+<!-- ============================================================
+     SAVE & LOAD
+     ============================================================ -->
+<div class="card card-collapsible collapsed">
+  <div class="card-header" onclick="toggleCard(this)">
+    <h2><span class="icon">💾</span> Save / Load <span id="autosave-mini" style="font-size:11px;color:#16a34a;font-weight:500;margin-left:8px;">● Draft auto-saved</span></h2>
+  </div>
+  <div class="card-body">
+    <div class="tabs">
+      <button class="active" id="tab-btn-cloud" onclick="switchTab('cloud',this)">☁️ Cloud Records</button>
+      <button id="tab-btn-local" onclick="switchTab('local',this)">💻 Local Browser</button>
+    </div>
+
+    <!-- Cloud tab -->
+    <div id="tab-cloud" class="tab-pane">
+      <!-- View mode segmented control: My / Team / Trash -->
+      <div class="cloud-view-toggle">
+        <button class="view-mode-btn active" data-view="mine" onclick="setCloudViewMode('mine')">
+          👤 My Quotes <span class="count-badge" id="count-mine">0</span>
+        </button>
+        <button class="view-mode-btn" data-view="all" onclick="setCloudViewMode('all')">
+          👥 Team <span class="count-badge" id="count-all">0</span>
+        </button>
+        <button class="view-mode-btn trash-mode" data-view="trash" onclick="setCloudViewMode('trash')">
+          🗑 Trash <span class="count-badge" id="count-trash">0</span>
+        </button>
+      </div>
+
+      <!-- Status filter chips -->
+      <div class="status-filter-row" id="status-filter-row">
+        <button class="status-chip active" data-status="" onclick="setStatusFilter('')">All</button>
+        <button class="status-chip" data-status="draft" onclick="setStatusFilter('draft')">Draft</button>
+        <button class="status-chip" data-status="sent" onclick="setStatusFilter('sent')">Sent</button>
+        <button class="status-chip" data-status="won" onclick="setStatusFilter('won')">Won</button>
+        <button class="status-chip" data-status="lost" onclick="setStatusFilter('lost')">Lost</button>
+        <button class="status-chip" data-status="archived" onclick="setStatusFilter('archived')">Archived</button>
+      </div>
+
+      <div class="cloud-filter-row">
+        <input type="text" id="cloud-search" placeholder="Customer, PI no, or SKU…" oninput="renderCloudList()">
+        <select id="cloud-date-filter" onchange="renderCloudList()" title="Filter by date">
+          <option value="all">All dates</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="week">Last 7 days</option>
+          <option value="month">Last 30 days</option>
+        </select>
+        <select id="cloud-user-filter" onchange="renderCloudList()" title="Filter by team member" style="display:none;">
+          <option value="">All members</option>
+        </select>
+        <button class="btn-refresh" onclick="loadCloudList()" title="Refresh">↺</button>
+      </div>
+
+      <!-- Action toolbar: Duplicate, Export, Empty Trash -->
+      <div class="cloud-toolbar">
+        <button class="toolbar-btn" onclick="duplicateAsNew()" title="Copy current quote as a new draft with auto-incremented PI">📋 Duplicate as New</button>
+        <button class="toolbar-btn" onclick="exportCSV()" title="Export filtered list to CSV">📊 Export CSV</button>
+        <button class="toolbar-btn" id="btn-empty-trash" onclick="emptyTrash()" style="display:none;color:#b91c1c;">🗑 Empty Trash</button>
+      </div>
+
+      <div class="cloud-list" id="cloud-list">
+        <div class="cloud-list-empty">Click ↺ to load cloud records</div>
+      </div>
+      <div class="cloud-action-row">
+        <button class="btn-cloud-load" id="btn-cloud-load" onclick="cloudLoad()" disabled>⬇ Load Selected</button>
+        <button class="btn-cloud-save" onclick="cloudSave()">⬆ Save to Cloud</button>
+      </div>
+      <p class="cloud-status-msg" id="cloud-status"></p>
+    </div>
+
+    <!-- Local tab -->
+    <div id="tab-local" class="tab-pane" style="display:none;">
+      <div class="form-row" style="margin-bottom:8px;">
+        <label>Filter</label>
+        <input type="text" id="save_search" placeholder="Filter by name…" oninput="filterSaveSlots()">
+      </div>
+      <div class="local-row">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#475569;">Saved Entries <span id="save-count-badge" class="save-count">0</span></label>
+          <select id="save_slots"></select>
+        </div>
+        <button id="load_button" class="btn-local load">Load</button>
+        <button id="save_button" class="btn-local save">Save</button>
+        <button id="delete_button" class="btn-local delete">Delete</button>
+      </div>
+      <p class="feedback-msg" id="feedback_message"></p>
+    </div>
+
+    <button class="btn-icon" style="background:#fff;color:#475569;border:1px solid #cbd5e1;margin-top:10px;" onclick="newQuote()">＋ New Quote (clear all)</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     MASTER FORM
+     ============================================================ -->
+<div class="card">
+  <div class="card-header">
+    <h2><span class="icon">📝</span> Master Input Form</h2>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <label style="font-size:12px;color:#64748b;font-weight:500;">Language</label>
+      <select id="language_select" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">
+        <option value="en">English</option>
+        <option value="bilingual">English / 中文</option>
+        <option value="es">Spanish</option>
+        <option value="de">German</option>
+        <option value="fr">French</option>
+        <option value="ar">Arabic</option>
+        <option value="ru">Russian</option>
+      </select>
+    </div>
+  </div>
+  <div class="card-body">
+    <!-- Seller -->
+    <div class="form-row" style="margin-bottom:14px;">
+      <label data-lang-key="select_seller">Select Seller Website</label>
+      <select id="seller_website"></select>
+    </div>
+
+    <!-- Order / Buyer / Shipping -->
+    <div class="form-grid cols-3" style="margin-bottom:14px;">
+      <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" data-lang-key="order_info">Order Information</legend>
+        <div class="form-row"><label data-lang-key="quote_no">Quote No.</label><input type="text" id="quote_number"></div>
+        <div class="form-row" style="margin-top:6px;"><label data-lang-key="invoice_no">Invoice No.</label><input type="text" id="pi_number"></div>
+        <div class="form-row" style="margin-top:6px;"><label data-lang-key="po_no">PO No.</label><input type="text" id="po_number"></div>
+        <div class="form-row" style="margin-top:6px;"><label data-lang-key="date_of_issue">Date of Issue</label><input type="date" id="date_of_issue"></div>
+        <div class="form-row" style="margin-top:6px;"><label data-lang-key="valid_until">Valid Until</label><input type="date" id="valid_until"></div>
+        <div class="form-row" style="margin-top:6px;"><label data-lang-key="currency">Currency</label>
+          <select id="currency">
+            <option value="USD">USD ($)</option>
+            <option value="CNY">RMB (¥)</option>
+            <option value="EUR">Euro (€)</option>
+            <option value="GBP">GBP (£)</option>
+            <option value="AUD">AUD (A$)</option>
+            <option value="CAD">CAD (C$)</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin-top:8px;">
+          <label>Status</label>
+          <div class="form-status-row" id="status-selector">
+            <button type="button" class="status-btn active draft" data-status="draft" onclick="setQuoteStatus('draft')">Draft</button>
+            <button type="button" class="status-btn sent" data-status="sent" onclick="setQuoteStatus('sent')">Sent</button>
+            <button type="button" class="status-btn won" data-status="won" onclick="setQuoteStatus('won')">Won</button>
+            <button type="button" class="status-btn lost" data-status="lost" onclick="setQuoteStatus('lost')">Lost</button>
+            <button type="button" class="status-btn archived" data-status="archived" onclick="setQuoteStatus('archived')">Archive</button>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" data-lang-key="buyer_info">Buyer Information</legend>
+        <div class="form-row"><label data-lang-key="buyer_name_address">Buyer Name & Address</label><textarea id="buyer_info" rows="5"></textarea></div>
+        <div class="form-row" style="margin-top:6px;"><label data-lang-key="buyer_email">Buyer Email</label><input type="email" id="buyer_email"></div>
+      </fieldset>
+
+      <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" data-lang-key="shipping_info">Shipping Information</legend>
+        <div class="form-row"><label data-lang-key="ship_to_name_address">Ship To Name & Address</label><textarea id="shipping_info" rows="5"></textarea></div>
+        <div class="form-row" style="margin-top:6px;"><label data-lang-key="shipping_tel">Shipping Tel</label><input type="text" id="shipping_tel"></div>
+        <div class="form-row" style="margin-top:6px;"><label data-lang-key="freight_cost">Freight Cost (in USD)</label><input type="number" id="freight_cost" value="0" min="0" step="0.01"></div>
+      </fieldset>
+    </div>
+
+    <!-- Seller info (editable, collapsible) -->
+    <div class="card card-collapsible collapsed" style="margin-bottom:14px;">
+      <div class="card-header" onclick="toggleCard(this)">
+        <h2 style="font-size:13px;"><span class="icon">🏢</span> <span data-lang-key="seller_info_editable">Seller Information (Editable)</span></h2>
+      </div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div class="form-row"><label data-lang-key="seller_name">Seller Name</label><input type="text" id="seller_name"></div>
+          <div class="form-row"><label data-lang-key="seller_phone">Seller Phone</label><input type="text" id="seller_phone"></div>
+          <div class="form-row span-2"><label data-lang-key="seller_address">Seller Address</label><textarea id="seller_address" rows="2"></textarea></div>
+          <div class="form-row"><label data-lang-key="seller_email">Seller Email</label><input type="email" id="seller_email"></div>
+          <div class="form-row"><label data-lang-key="seller_website">Seller Website</label><input type="text" id="seller_website_url"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Items -->
+    <div style="margin-bottom:14px;">
+      <h3 style="font-size:13px;font-weight:700;color:#334155;margin:0 0 8px;" data-lang-key="product_items_packing">📦 Product Items & Packing Details</h3>
+      <div class="item-table-wrap">
+        <table id="item-table">
+          <thead>
+            <tr>
+              <th data-lang-key="th_sku">SKU</th>
+              <th data-lang-key="th_description" style="min-width:200px;">Description</th>
+              <th data-lang-key="th_image" style="width:80px;">Image</th>
+              <th data-lang-key="th_qty" style="width:60px;">Qty</th>
+              <th id="master-unit-price-header" style="width:90px;">Unit Price (USD)</th>
+              <th data-lang-key="th_carton_no" style="width:80px;">Carton No.</th>
+              <th data-lang-key="th_nw" style="width:70px;">N.W. (kgs)</th>
+              <th data-lang-key="th_gw" style="width:70px;">G.W. (kgs)</th>
+              <th data-lang-key="th_meas" style="width:70px;">Meas (cbm)</th>
+              <th style="width:60px;"></th>
+            </tr>
+          </thead>
+          <tbody id="master-items"></tbody>
+        </table>
+      </div>
+      <button class="btn-add-item" onclick="addItem()">＋ <span data-lang-key="add_item">Add Item</span></button>
+    </div>
+
+    <!-- Discount + Terms -->
+    <div class="form-grid">
+      <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" data-lang-key="discount">Discount</legend>
+        <div class="form-row"><label data-lang-key="discount_perc">Discount (%)</label><input type="number" id="discount_percentage" value="0" min="0" max="100"></div>
+      </fieldset>
+      <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;grid-column:span 2;">
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" data-lang-key="terms_conditions">Terms & Conditions</legend>
+        <div class="form-row">
+          <label data-lang-key="select_preset">Select a Preset</label>
+          <select id="terms_preset" style="margin-bottom:6px;">
+            <option value="standard">Standard Terms</option>
+            <option value="full_payment">Full Payment for Small Orders</option>
+            <option value="custom_product">Custom Products</option>
+            <option value="exw">EXW Price</option>
+          </select>
+          <textarea id="terms_conditions" rows="5"></textarea>
+        </div>
+      </fieldset>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PREVIEW WITH TABS  —  THE KEY UX
+     ============================================================ -->
+<div class="card preview-card">
+  <div class="preview-tabs">
+    <button class="preview-tab active" data-doc="quotation" onclick="switchPreview('quotation')">
+      <span class="tab-icon">💼</span><span data-doc-key="quotation_title">QUOTATION</span>
+    </button>
+    <button class="preview-tab" data-doc="po" onclick="switchPreview('po')">
+      <span class="tab-icon">🧾</span><span data-doc-key="po_title">PURCHASE ORDER</span>
+    </button>
+    <button class="preview-tab" data-doc="pi" onclick="switchPreview('pi')">
+      <span class="tab-icon">💰</span><span data-doc-key="pi_title">PROFORMA INVOICE</span>
+    </button>
+    <button class="preview-tab" data-doc="packing" onclick="switchPreview('packing')">
+      <span class="tab-icon">📦</span><span data-doc-key="pl_title">PACKING LIST</span>
+    </button>
+  </div>
+
+  <div class="preview-toolbar">
+    <div class="preview-toolbar-info">
+      Currently viewing: <strong id="preview-name">Quotation</strong>
+      <span style="margin-left:8px;color:#94a3b8;">·  what you see is what gets exported</span>
+    </div>
+    <div class="preview-toolbar-actions">
+      <button class="btn-export-all" onclick="exportPDF('all')" title="Print all 4 documents (one per page)">
+        📄 Export All
+      </button>
+      <button class="btn-export" id="btn-export-current" onclick="exportCurrent()">
+        📥 Export This PDF
+      </button>
+    </div>
+  </div>
+
+  <div class="preview-stage">
+    <div class="preview-doc-wrap">
+      <!-- Quotation -->
+      <div class="document-container" id="quotation-section">
+        <h1 class="document-title" data-doc-key="quotation_title">QUOTATION</h1>
+        <div class="info-grid">
+          <div class="info-box"><h3 data-doc-key="from">From:</h3><div id="quote_seller_info"></div></div>
+          <div class="info-box"><h3 data-doc-key="to">To:</h3><div id="quote_buyer_info"></div></div>
+          <div class="info-box" style="grid-column:span 2;"><h3 data-doc-key="quotation_info">Quotation Info:</h3>
+            <p><strong data-doc-key="quote_no">Quote No.:</strong> <span id="quote_number_display"></span></p>
+            <p><strong data-doc-key="date">Date:</strong> <span id="quote_date"></span></p>
+            <p><strong data-doc-key="valid_until">Valid Until:</strong> <span id="quote_valid_until"></span></p>
+          </div>
+        </div>
+        <table class="doc-table">
+          <thead><tr>
+            <th style="width:14%;" data-doc-key="th_image">Image</th>
+            <th style="width:14%;" data-doc-key="th_sku">SKU</th>
+            <th style="width:40%;" data-doc-key="th_description">Description</th>
+            <th style="width:10%;" data-doc-key="th_qty">Qty</th>
+            <th style="width:11%;" id="quote-unit-price-header">Unit Price</th>
+            <th style="width:11%;" id="quote-total-header">Total</th>
+          </tr></thead>
+          <tbody id="quote-items-table"></tbody>
+        </table>
+        <div class="total-section">
+          <p><span data-doc-key="subtotal">SUBTOTAL</span>: <span id="quote-currency-symbol-1"></span><span id="quote-subtotal">0.00</span></p>
+          <p id="quote-discount-line"><span data-doc-key="discount">Discount</span> (<span id="quote-discount-perc">0</span>%): − <span id="quote-currency-symbol-2"></span><span id="quote-discount-amount">0.00</span></p>
+          <p><span data-doc-key="freight">Freight</span>: <span id="quote-currency-symbol-3"></span><span id="quote-freight">0.00</span></p>
+          <p class="grand"><strong><span data-doc-key="total">TOTAL</span>: <span id="quote-currency-symbol-4"></span><span id="quote-total">0.00</span></strong></p>
+        </div>
+        <div class="info-box" style="margin-top:14px;">
+          <h3 data-doc-key="terms_conditions">Terms & Conditions:</h3>
+          <div id="quote_terms_conditions"></div>
+        </div>
+        <div class="signature-block">
+          <div class="label" data-doc-key="auth_sig">Authorized Signature</div>
+          <div class="name" id="quote_auth_signature"></div>
+        </div>
+      </div>
+
+      <!-- PO -->
+      <div class="document-container is-hidden-preview" id="po-section">
+        <h1 class="document-title" data-doc-key="po_title">PURCHASE ORDER</h1>
+        <div class="info-grid">
+          <div class="info-box"><h3 data-doc-key="buyer">Buyer:</h3><div id="po_buyer_info"></div></div>
+          <div class="info-box"><h3 data-doc-key="seller">Seller:</h3><div id="po_seller_info"></div></div>
+          <div class="info-box"><h3 data-doc-key="ship_to">Ship To:</h3><div id="po_shipping_info"></div><p style="margin-top:4px;"><strong data-doc-key="tel">Tel:</strong> <span id="po_shipping_tel"></span></p></div>
+          <div class="info-box"><h3 data-doc-key="order_info">Order Info:</h3>
+            <p><strong data-doc-key="po_no">PO Number:</strong> <span id="po_po_number"></span></p>
+            <p><strong data-doc-key="date_of_issue">Date of Issue:</strong> <span id="po_date"></span></p>
+            <p><strong data-doc-key="ref_pi_no">Ref PI No.:</strong> <span id="po_pi_ref"></span></p>
+          </div>
+        </div>
+        <table class="doc-table">
+          <thead><tr>
+            <th style="width:18%;" data-doc-key="th_sku">SKU</th>
+            <th style="width:50%;" data-doc-key="th_description">Description</th>
+            <th style="width:10%;" data-doc-key="th_qty">Qty</th>
+            <th style="width:11%;" id="po-unit-price-header">Unit Price</th>
+            <th style="width:11%;" id="po-total-header">Total</th>
+          </tr></thead>
+          <tbody id="po-items-table"></tbody>
+        </table>
+        <div class="total-section">
+          <p><span data-doc-key="subtotal">SUBTOTAL</span>: <span id="po-currency-symbol-1"></span><span id="po-subtotal">0.00</span></p>
+          <p id="po-discount-line"><span data-doc-key="discount">Discount</span> (<span id="po-discount-perc">0</span>%): − <span id="po-currency-symbol-2"></span><span id="po-discount-amount">0.00</span></p>
+          <p><span data-doc-key="freight">Freight</span>: <span id="po-currency-symbol-3"></span><span id="po-freight">0.00</span></p>
+          <p class="grand"><strong><span data-doc-key="total">TOTAL</span>: <span id="po-currency-symbol-4"></span><span id="po-total">0.00</span></strong></p>
+        </div>
+        <div class="info-box" style="margin-top:14px;">
+          <h3 data-doc-key="terms_conditions">Terms & Conditions:</h3>
+          <div id="po_terms_conditions"></div>
+        </div>
+        <div class="signature-block">
+          <div class="label" data-doc-key="auth_sig">Authorized Signature</div>
+          <div class="name" id="po_auth_signature"></div>
+        </div>
+      </div>
+
+      <!-- PI -->
+      <div class="document-container is-hidden-preview" id="pi-section">
+        <h1 class="document-title" data-doc-key="pi_title">PROFORMA INVOICE</h1>
+        <div class="info-grid">
+          <div class="info-box"><h3 data-doc-key="seller">Seller:</h3><div id="pi_seller_info"></div></div>
+          <div class="info-box"><h3 data-doc-key="buyer">Buyer:</h3><div id="pi_buyer_info"></div></div>
+          <div class="info-box"><h3 data-doc-key="ship_to">Ship To:</h3><div id="pi_shipping_info"></div><p style="margin-top:4px;"><strong data-doc-key="tel">Tel:</strong> <span id="pi_shipping_tel"></span></p></div>
+          <div class="info-box"><h3 data-doc-key="invoice_info">Invoice Info:</h3>
+            <p><strong data-doc-key="invoice_no">Invoice No.:</strong> <span id="pi_pi_number"></span></p>
+            <p><strong data-doc-key="date_of_issue">Date of Issue:</strong> <span id="pi_date"></span></p>
+            <p><strong data-doc-key="ref_po_no">Ref PO No.:</strong> <span id="pi_po_ref"></span></p>
+          </div>
+        </div>
+        <table class="doc-table">
+          <thead><tr>
+            <th style="width:18%;" data-doc-key="th_sku">SKU</th>
+            <th style="width:50%;" data-doc-key="th_description">Description</th>
+            <th style="width:10%;" data-doc-key="th_qty">Qty</th>
+            <th style="width:11%;" id="pi-unit-price-header">Unit Price</th>
+            <th style="width:11%;" id="pi-total-header">Total</th>
+          </tr></thead>
+          <tbody id="pi-items-table"></tbody>
+        </table>
+        <div class="total-section">
+          <p><span data-doc-key="subtotal">SUBTOTAL</span>: <span id="pi-currency-symbol-1"></span><span id="pi-subtotal">0.00</span></p>
+          <p id="pi-discount-line"><span data-doc-key="discount">Discount</span> (<span id="pi-discount-perc">0</span>%): − <span id="pi-currency-symbol-2"></span><span id="pi-discount-amount">0.00</span></p>
+          <p><span data-doc-key="freight">Freight</span>: <span id="pi-currency-symbol-3"></span><span id="pi-freight">0.00</span></p>
+          <p class="grand"><strong><span data-doc-key="total_due">TOTAL AMOUNT DUE</span>: <span id="pi-currency-symbol-4"></span><span id="pi-total">0.00</span></strong></p>
+        </div>
+        <div class="info-box" style="margin-top:14px;">
+          <h3 data-doc-key="bank_info">BENEFICIARY BANK INFORMATION:</h3>
+          <label data-doc-key="bank_name" style="font-size:11px;font-weight:600;margin-top:4px;">Bank Name:</label>
+          <input type="text" id="pi_bank_name" class="manual-input" placeholder="Manual Entry">
+          <label data-doc-key="bank_address" style="font-size:11px;font-weight:600;margin-top:4px;">Bank Address:</label>
+          <input type="text" id="pi_bank_address" class="manual-input" placeholder="Manual Entry">
+          <label data-doc-key="account_name" style="font-size:11px;font-weight:600;margin-top:4px;">Account Name:</label>
+          <input type="text" id="pi_account_name" class="manual-input" placeholder="Manual Entry">
+          <label data-doc-key="account_number" style="font-size:11px;font-weight:600;margin-top:4px;">Account Number:</label>
+          <input type="text" id="pi_account_number" class="manual-input" placeholder="Manual Entry">
+          <label data-doc-key="swift_code" style="font-size:11px;font-weight:600;margin-top:4px;">Swift Code or ABA:</label>
+          <input type="text" id="pi_swift_code" class="manual-input" placeholder="Manual Entry">
+          <p style="margin-top:6px;"><strong data-doc-key="notes">Notes:</strong> <span data-doc-key="notes_text">Please include Invoice No.</span> <strong id="pi_notes_ref"></strong> <span data-doc-key="notes_text_2">in payment reference.</span></p>
+        </div>
+        <div class="signature-block">
+          <div class="label" data-doc-key="auth_sig">Authorized Signature</div>
+          <div class="name" id="pi_auth_signature"></div>
+        </div>
+      </div>
+
+      <!-- Packing List -->
+      <div class="document-container is-hidden-preview" id="packing-list-section">
+        <h1 class="document-title" data-doc-key="pl_title">PACKING LIST</h1>
+        <div class="info-grid">
+          <div class="info-box"><h3 data-doc-key="shipper">Shipper:</h3><div id="pl_shipper_info"></div></div>
+          <div class="info-box"><h3 data-doc-key="consignee">Consignee:</h3><div id="pl_consignee_info"></div></div>
+          <div class="info-box" style="grid-column:span 2;">
+            <h3 data-doc-key="shipping_details">Shipping Details:</h3>
+            <p><strong data-doc-key="invoice_no">Invoice No.:</strong> <span id="pl_pi_number"></span></p>
+            <p><strong data-doc-key="date">Date:</strong> <span id="pl_date"></span></p>
+          </div>
+        </div>
+        <table class="doc-table">
+          <thead><tr>
+            <th data-doc-key="th_carton_no">Carton No.</th>
+            <th data-doc-key="th_item_desc_sku">Item Description / SKU</th>
+            <th data-doc-key="th_qty_pcs">Quantity (PCS)</th>
+            <th data-doc-key="th_nw_kgs">Net Weight (KGS)</th>
+            <th data-doc-key="th_gw_kgs">Gross Weight (KGS)</th>
+            <th data-doc-key="th_meas_cbm">Measurement (CBM)</th>
+          </tr></thead>
+          <tbody id="packing-list-items-table"></tbody>
+          <tfoot>
+            <tr style="font-weight:700;background:#f8fafc;">
+              <td colspan="2"><span data-doc-key="total_pl">TOTAL</span>:</td>
+              <td id="pl-total-qty">0</td>
+              <td id="pl-total-nw">0.00</td>
+              <td id="pl-total-gw">0.00</td>
+              <td id="pl-total-cbm">0.000</td>
+            </tr>
+          </tfoot>
+        </table>
+        <div class="info-box" style="margin-top:14px;">
+          <h3 data-doc-key="remarks">Remarks:</h3>
+          <textarea id="pl_remarks" class="manual-input" rows="3" placeholder="Manual Entry" style="width:100%;"></textarea>
+        </div>
+        <div class="signature-block">
+          <div class="label" data-doc-key="auth_sig">Authorized Signature</div>
+          <div class="name" id="pl_auth_signature"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /.page -->
+
+<!-- Settings modal -->
+<div class="modal-overlay hidden" id="settings-overlay" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <h3>👤 Account Setup</h3>
+    <p>Enter your name. Quotes you save will be labeled with this name. Data is synced via <strong>Supabase</strong> — all team members see each other's quotes in Team view.</p>
+    <label>Your Name * <span style="font-weight:400;color:#94a3b8;">(used to label quotes you save)</span></label>
+    <input type="text" id="setup-name" placeholder="e.g., Miya, Hazelle, Sally…">
+    <p id="setup-name-locked-warning" style="display:none;font-size:11px;color:#b91c1c;margin:4px 0 0;">⚠ Changing your name will orphan your existing cloud quotes (they will still be visible under the old name in Team view).</p>
+    <input type="hidden" id="setup-token">
+    <div class="modal-tip">
+      💡 After setup, click <strong>☁ Save to Cloud</strong> at the top of the page or press <kbd style="background:#e0f2fe;border:1px solid #bae6fd;padding:1px 4px;border-radius:3px;font-size:11px;">Ctrl+S</kbd> to save quickly.
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-primary" onclick="saveSetup()">✓ Save & Continue</button>
+      <button class="btn-modal-cancel" onclick="closeSettings()">Cancel</button>
+    </div>
+    <p class="modal-note">🔒 Your name is stored in your browser only. Quote data syncs to Supabase cloud (shared with team).</p>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+
+<script>
+/* ============================================================
+   DATA  (preserved from original — translations / sellers /
+   exchange rates / terms presets)
+   ============================================================ */
+const translations = {
+  en: {
+    select_seller:"Select Seller Website", order_info:"Order Information", quote_no:"Quote No.", invoice_no:"Invoice No.", po_no:"PO No.",
+    date_of_issue:"Date of Issue", valid_until:"Valid Until", currency:"Currency",
+    buyer_info:"Buyer Information", buyer_name_address:"Buyer Name & Address", buyer_email:"Buyer Email",
+    shipping_info:"Shipping Information", ship_to_name_address:"Ship To Name & Address", shipping_tel:"Shipping Tel", freight_cost:"Freight Cost (in USD)",
+    seller_info_editable:"Seller Information (Editable)", seller_name:"Seller Name", seller_address:"Seller Address", seller_phone:"Seller Phone", seller_email:"Seller Email", seller_website:"Seller Website",
+    product_items_packing:"Product Items & Packing Details", th_sku:"SKU", th_description:"Description", th_image:"Image", th_qty:"Qty",
+    th_unit_price_usd:"Unit Price", th_carton_no:"Carton No.", th_nw:"N.W. (kgs)", th_gw:"G.W. (kgs)", th_meas:"Meas (cbm)",
+    add_item:"Add Item", discount:"Discount", discount_perc:"Discount (%)",
+    terms_conditions:"Terms & Conditions", select_preset:"Select a Preset"
+  },
+  bilingual: {
+    select_seller:"Select Seller Website / 选择卖家网站", order_info:"Order Information / 订单信息", quote_no:"Quote No. / 报价单号", invoice_no:"Invoice No. / 发票号", po_no:"PO No. / 采购订单号",
+    date_of_issue:"Date of Issue / 签发日期", valid_until:"Valid Until / 有效期至", currency:"Currency / 货币",
+    buyer_info:"Buyer Information / 买家信息", buyer_name_address:"Buyer Name & Address / 买家名称和地址", buyer_email:"Buyer Email / 买家邮箱",
+    shipping_info:"Shipping Information / 运输信息", ship_to_name_address:"Ship To Name & Address / 收货人名称和地址", shipping_tel:"Shipping Tel / 收货电话", freight_cost:"Freight Cost (in USD) / 运费 (美元)",
+    seller_info_editable:"Seller Information (Editable) / 卖家信息 (可编辑)", seller_name:"Seller Name / 卖家名称", seller_address:"Seller Address / 卖家地址", seller_phone:"Seller Phone / 卖家电话", seller_email:"Seller Email / 卖家邮箱", seller_website:"Seller Website / 卖家网站",
+    product_items_packing:"Product Items & Packing Details / 产品项目和包装细节", th_sku:"SKU / 产品编号", th_description:"Description / 描述", th_image:"Image / 图片", th_qty:"Qty / 数量",
+    th_unit_price_usd:"Unit Price / 单价", th_carton_no:"Carton No. / 箱号", th_nw:"N.W. (kgs) / 净重 (公斤)", th_gw:"G.W. (kgs) / 毛重 (公斤)", th_meas:"Meas (cbm) / 体积 (立方米)",
+    add_item:"Add Item / 添加项目", discount:"Discount / 折扣", discount_perc:"Discount (%) / 折扣 (%)",
+    terms_conditions:"Terms & Conditions / 条款和条件", select_preset:"Select a Preset / 选择预设"
+  },
+  es: {
+    select_seller:"Seleccionar Sitio Web del Vendedor", order_info:"Información del Pedido", quote_no:"Nº de Cotización", invoice_no:"Nº de Factura", po_no:"Nº de Pedido (PO)",
+    date_of_issue:"Fecha de Emisión", valid_until:"Válido Hasta", currency:"Moneda",
+    buyer_info:"Información del Comprador", buyer_name_address:"Nombre y Dirección del Comprador", buyer_email:"Email del Comprador",
+    shipping_info:"Información de Envío", ship_to_name_address:"Nombre y Dirección de Envío", shipping_tel:"Teléfono de Envío", freight_cost:"Costo de Flete (en USD)",
+    seller_info_editable:"Información del Vendedor (Editable)", seller_name:"Nombre del Vendedor", seller_address:"Dirección del Vendedor", seller_phone:"Teléfono del Vendedor", seller_email:"Email del Vendedor", seller_website:"Sitio Web del Vendedor",
+    product_items_packing:"Artículos del Producto y Detalles de Embalaje", th_sku:"SKU", th_description:"Descripción", th_image:"Imagen", th_qty:"Cant.",
+    th_unit_price_usd:"Precio Unitario", th_carton_no:"Nº de Caja", th_nw:"P.N. (kgs)", th_gw:"P.B. (kgs)", th_meas:"Med. (cbm)",
+    add_item:"Añadir Artículo", discount:"Descuento", discount_perc:"Descuento (%)",
+    terms_conditions:"Términos y Condiciones", select_preset:"Seleccionar un Preajuste"
+  },
+  de: {
+    select_seller:"Verkäufer-Website Auswählen", order_info:"Bestellinformationen", quote_no:"Angebot Nr.", invoice_no:"Rechnung Nr.", po_no:"Bestell-Nr.",
+    date_of_issue:"Ausstellungsdatum", valid_until:"Gültig Bis", currency:"Währung",
+    buyer_info:"Käuferinformationen", buyer_name_address:"Name & Adresse des Käufers", buyer_email:"Käufer-E-Mail",
+    shipping_info:"Versandinformationen", ship_to_name_address:"Lieferadresse", shipping_tel:"Versand-Telefon", freight_cost:"Frachtkosten (in USD)",
+    seller_info_editable:"Verkäuferinformationen (Bearbeitbar)", seller_name:"Name des Verkäufers", seller_address:"Adresse des Verkäufers", seller_phone:"Telefon des Verkäufers", seller_email:"E-Mail des Verkäufers", seller_website:"Website des Verkäufers",
+    product_items_packing:"Produktartikel & Verpackungsdetails", th_sku:"SKU", th_description:"Beschreibung", th_image:"Bild", th_qty:"Menge",
+    th_unit_price_usd:"Stückpreis", th_carton_no:"Karton Nr.", th_nw:"N.G. (kg)", th_gw:"B.G. (kg)", th_meas:"Maß (cbm)",
+    add_item:"Artikel Hinzufügen", discount:"Rabatt", discount_perc:"Rabatt (%)",
+    terms_conditions:"Allgemeine Geschäftsbedingungen", select_preset:"Voreinstellung Auswählen"
+  },
+  fr: {
+    select_seller:"Sélectionner le Site Web du Vendeur", order_info:"Informations sur la Commande", quote_no:"N° de Devis", invoice_no:"N° de Facture", po_no:"N° de Bon de Commande",
+    date_of_issue:"Date d'Émission", valid_until:"Valable Jusqu'au", currency:"Devise",
+    buyer_info:"Informations sur l'Acheteur", buyer_name_address:"Nom et Adresse de l'Acheteur", buyer_email:"Email de l'Acheteur",
+    shipping_info:"Informations d'Expédition", ship_to_name_address:"Nom et Adresse de Livraison", shipping_tel:"Tél. de Livraison", freight_cost:"Frais de Transport (en USD)",
+    seller_info_editable:"Informations sur le Vendeur (Modifiables)", seller_name:"Nom du Vendeur", seller_address:"Adresse du Vendeur", seller_phone:"Téléphone du Vendeur", seller_email:"Email du Vendeur", seller_website:"Site Web du Vendeur",
+    product_items_packing:"Articles de Produit et Détails d'Emballage", th_sku:"SKU", th_description:"Description", th_image:"Image", th_qty:"Qté",
+    th_unit_price_usd:"Prix Unitaire", th_carton_no:"N° de Carton", th_nw:"P.N. (kgs)", th_gw:"P.B. (kgs)", th_meas:"Mes. (cbm)",
+    add_item:"Ajouter un Article", discount:"Remise", discount_perc:"Remise (%)",
+    terms_conditions:"Termes et Conditions", select_preset:"Sélectionner un Préréglage"
+  },
+  ar: {
+    select_seller:"تحديد موقع البائع", order_info:"معلومات الطلب", quote_no:"رقم عرض السعر", invoice_no:"رقم الفاتورة", po_no:"رقم طلب الشراء",
+    date_of_issue:"تاريخ الإصدار", valid_until:"صالح حتى", currency:"العملة",
+    buyer_info:"معلومات المشتري", buyer_name_address:"اسم وعنوان المشتري", buyer_email:"البريد الإلكتروني للمشتري",
+    shipping_info:"معلومات الشحن", ship_to_name_address:"اسم وعنوان المستلم", shipping_tel:"هاتف المستلم", freight_cost:"تكلفة الشحن (بالدولار الأمريكي)",
+    seller_info_editable:"معلومات البائع (قابلة للتعديل)", seller_name:"اسم البائع", seller_address:"عنوان البائع", seller_phone:"هاتف البائع", seller_email:"البريد الإلكتروني للبائع", seller_website:"موقع البائع",
+    product_items_packing:"بنود المنتج وتفاصيل التغليف", th_sku:"SKU", th_description:"الوصف", th_image:"الصورة", th_qty:"الكمية",
+    th_unit_price_usd:"سعر الوحدة", th_carton_no:"رقم الكرتون", th_nw:"الوزن الصافي (كجم)", th_gw:"الوزن الإجمالي (كجم)", th_meas:"القياس (متر مكعب)",
+    add_item:"إضافة بند", discount:"خصم", discount_perc:"الخصم (%)",
+    terms_conditions:"الشروط والأحكام", select_preset:"تحديد إعداد مسبق"
+  },
+  ru: {
+    select_seller:"Выберите Сайт Продавца", order_info:"Информация о Заказе", quote_no:"№ Предложения", invoice_no:"№ Счета", po_no:"№ Заказа на Покупку",
+    date_of_issue:"Дата Выдачи", valid_until:"Действительно До", currency:"Валюта",
+    buyer_info:"Информация о Покупателе", buyer_name_address:"Имя и Адрес Покупателя", buyer_email:"Email Покупателя",
+    shipping_info:"Информация о Доставке", ship_to_name_address:"Имя и Адрес Получателя", shipping_tel:"Телефон для Доставки", freight_cost:"Стоимость Фрахта (в USD)",
+    seller_info_editable:"Информация о Продавце (Редактируемая)", seller_name:"Имя Продавца", seller_address:"Адрес Продавца", seller_phone:"Телефон Продавца", seller_email:"Email Продавца", seller_website:"Веб-сайт Продавца",
+    product_items_packing:"Информация о Продукте и Упаковке", th_sku:"SKU", th_description:"Описание", th_image:"Изображение", th_qty:"Кол-во",
+    th_unit_price_usd:"Цена за Ед.", th_carton_no:"№ Коробки", th_nw:"Вес Нетто (кг)", th_gw:"Вес Брутто (кг)", th_meas:"Объем (м³)",
+    add_item:"Добавить Товар", discount:"Скидка", discount_perc:"Скидка (%)",
+    terms_conditions:"Условия и Положения", select_preset:"Выберите Шаблон"
+  },
+  doc: {
+    en: {
+      quotation_title:"QUOTATION", po_title:"PURCHASE ORDER", pi_title:"PROFORMA INVOICE", pl_title:"PACKING LIST",
+      from:"From:", to:"To:", seller:"Seller:", buyer:"Buyer:", ship_to:"Ship To:", shipper:"Shipper:", consignee:"Consignee:",
+      quotation_info:"Quotation Info:", order_info:"Order Info:", invoice_info:"Invoice Info:", shipping_details:"Shipping Details:",
+      quote_no:"Quote No.:", po_no:"PO Number:", invoice_no:"Invoice No.:", date:"Date:", valid_until:"Valid Until:", date_of_issue:"Date of Issue:",
+      ref_pi_no:"Ref PI No.:", ref_po_no:"Ref PO No.:", tel:"Tel:",
+      th_image:"Image", th_sku:"SKU", th_description:"Description", th_qty:"Qty", th_unit_price:"Unit Price", th_total:"Total",
+      subtotal:"SUBTOTAL", discount:"Discount", freight:"Freight", total:"TOTAL", total_due:"TOTAL AMOUNT DUE",
+      terms_conditions:"Terms & Conditions:", auth_sig:"Authorized Signature",
+      bank_info:"BENEFICIARY BANK INFORMATION:", bank_name:"Bank Name:", bank_address:"Bank Address:", account_name:"Account Name:", account_number:"Account Number:", swift_code:"Swift Code or ABA:",
+      notes:"Notes:", notes_text:"Please include Invoice No.", notes_text_2:"in payment reference.",
+      th_carton_no:"Carton No.", th_item_desc_sku:"Item Description / SKU", th_qty_pcs:"Quantity (PCS)", th_nw_kgs:"Net Weight (KGS)", th_gw_kgs:"Gross Weight (KGS)", th_meas_cbm:"Measurement (CBM)",
+      total_pl:"TOTAL", remarks:"Remarks:"
+    },
+    bilingual: {
+      quotation_title:"QUOTATION / 报价单", po_title:"PURCHASE ORDER / 采购订单", pi_title:"PROFORMA INVOICE / 形式发票", pl_title:"PACKING LIST / 装箱单",
+      from:"From / 发件人:", to:"To / 收件人:", seller:"Seller / 卖家:", buyer:"Buyer / 买家:", ship_to:"Ship To / 收货地址:", shipper:"Shipper / 发货人:", consignee:"Consignee / 收货人:",
+      quotation_info:"Quotation Info / 报价信息:", order_info:"Order Info / 订单信息:", invoice_info:"Invoice Info / 发票信息:", shipping_details:"Shipping Details / 运输详情:",
+      quote_no:"Quote No. / 报价单号:", po_no:"PO Number / 采购订单号:", invoice_no:"Invoice No. / 发票号:", date:"Date / 日期:", valid_until:"Valid Until / 有效期至:", date_of_issue:"Date of Issue / 签发日期:",
+      ref_pi_no:"Ref PI No. / 参考发票号:", ref_po_no:"Ref PO No. / 参考订单号:", tel:"Tel / 电话:",
+      th_image:"Image / 图片", th_sku:"SKU / 产品编号", th_description:"Description / 描述", th_qty:"Qty / 数量", th_unit_price:"Unit Price / 单价", th_total:"Total / 总计",
+      subtotal:"SUBTOTAL / 小计", discount:"Discount / 折扣", freight:"Freight / 运费", total:"TOTAL / 总计", total_due:"TOTAL AMOUNT DUE / 应付总额",
+      terms_conditions:"Terms & Conditions / 条款和条件:", auth_sig:"Authorized Signature / 授权签名",
+      bank_info:"BENEFICIARY BANK INFORMATION / 收款银行信息:", bank_name:"Bank Name / 银行名称:", bank_address:"Bank Address / 银行地址:", account_name:"Account Name / 账户名称:", account_number:"Account Number / 账号:", swift_code:"Swift Code or ABA / 国际代码:",
+      notes:"Notes / 备注:", notes_text:"Please include Invoice No.", notes_text_2:"in payment reference. / 请在付款备注中注明发票号。",
+      th_carton_no:"Carton No. / 箱号", th_item_desc_sku:"Item Description / SKU / 描述/产品编号", th_qty_pcs:"Quantity (PCS) / 数量 (件)", th_nw_kgs:"Net Weight (KGS) / 净重 (公斤)", th_gw_kgs:"Gross Weight (KGS) / 毛重 (公斤)", th_meas_cbm:"Measurement (CBM) / 体积 (立方米)",
+      total_pl:"TOTAL / 总计", remarks:"Remarks / 备注:"
+    },
+    es: {
+      quotation_title:"COTIZACIÓN", po_title:"ORDEN DE COMPRA", pi_title:"FACTURA PROFORMA", pl_title:"LISTA DE EMPAQUE",
+      from:"De:", to:"Para:", seller:"Vendedor:", buyer:"Comprador:", ship_to:"Enviar A:", shipper:"Remitente:", consignee:"Destinatario:",
+      quotation_info:"Información de Cotización:", order_info:"Información del Pedido:", invoice_info:"Información de Factura:", shipping_details:"Detalles de Envío:",
+      quote_no:"Nº de Cotización:", po_no:"Nº de Pedido (PO):", invoice_no:"Nº de Factura:", date:"Fecha:", valid_until:"Válido Hasta:", date_of_issue:"Fecha de Emisión:",
+      ref_pi_no:"Ref. Factura Proforma:", ref_po_no:"Ref. Orden de Compra:", tel:"Tel:",
+      th_image:"Imagen", th_sku:"SKU", th_description:"Descripción", th_qty:"Cant.", th_unit_price:"Precio Unit.", th_total:"Total",
+      subtotal:"SUBTOTAL", discount:"Descuento", freight:"Flete", total:"TOTAL", total_due:"IMPORTE TOTAL A PAGAR",
+      terms_conditions:"Términos y Condiciones:", auth_sig:"Firma Autorizada",
+      bank_info:"INFORMACIÓN BANCARIA DEL BENEFICIARIO:", bank_name:"Nombre del Banco:", bank_address:"Dirección del Banco:", account_name:"Nombre de la Cuenta:", account_number:"Número de Cuenta:", swift_code:"Código Swift o ABA:",
+      notes:"Notas:", notes_text:"Por favor incluya el Nº de Factura", notes_text_2:"en la referencia de pago.",
+      th_carton_no:"Nº de Caja", th_item_desc_sku:"Descripción del Artículo / SKU", th_qty_pcs:"Cantidad (PCS)", th_nw_kgs:"Peso Neto (KGS)", th_gw_kgs:"Peso Bruto (KGS)", th_meas_cbm:"Medida (CBM)",
+      total_pl:"TOTAL", remarks:"Observaciones:"
+    },
+    de: {
+      quotation_title:"ANGEBOT", po_title:"BESTELLUNG", pi_title:"PROFORMA-RECHNUNG", pl_title:"PACKLISTE",
+      from:"Von:", to:"An:", seller:"Verkäufer:", buyer:"Käufer:", ship_to:"Lieferadresse:", shipper:"Absender:", consignee:"Empfänger:",
+      quotation_info:"Angebotsinfo:", order_info:"Bestellinfo:", invoice_info:"Rechnungsinfo:", shipping_details:"Versanddetails:",
+      quote_no:"Angebot Nr.:", po_no:"Bestell-Nr.:", invoice_no:"Rechnung Nr.:", date:"Datum:", valid_until:"Gültig Bis:", date_of_issue:"Ausstellungsdatum:",
+      ref_pi_no:"Ref. Proforma-Nr.:", ref_po_no:"Ref. Bestell-Nr.:", tel:"Tel:",
+      th_image:"Bild", th_sku:"SKU", th_description:"Beschreibung", th_qty:"Menge", th_unit_price:"Stückpreis", th_total:"Gesamt",
+      subtotal:"ZWISCHENSUMME", discount:"Rabatt", freight:"Fracht", total:"GESAMT", total_due:"FÄLLIGER GESAMTBETRAG",
+      terms_conditions:"Allgemeine Geschäftsbedingungen:", auth_sig:"Autorisierte Unterschrift",
+      bank_info:"BANKVERBINDUNG DES BEGÜNSTIGTEN:", bank_name:"Name der Bank:", bank_address:"Adresse der Bank:", account_name:"Kontoinhaber:", account_number:"Kontonummer:", swift_code:"Swift-Code oder ABA:",
+      notes:"Hinweise:", notes_text:"Bitte Rechnungs-Nr.", notes_text_2:"als Verwendungszweck angeben.",
+      th_carton_no:"Karton Nr.", th_item_desc_sku:"Artikelbeschreibung / SKU", th_qty_pcs:"Menge (Stk.)", th_nw_kgs:"Nettogewicht (KG)", th_gw_kgs:"Bruttogewicht (KG)", th_meas_cbm:"Maß (CBM)",
+      total_pl:"GESAMT", remarks:"Anmerkungen:"
+    },
+    fr: {
+      quotation_title:"DEVIS", po_title:"BON DE COMMANDE", pi_title:"FACTURE PROFORMA", pl_title:"LISTE DE COLISAGE",
+      from:"De:", to:"À:", seller:"Vendeur:", buyer:"Acheteur:", ship_to:"Livrer À:", shipper:"Expéditeur:", consignee:"Destinataire:",
+      quotation_info:"Informations du Devis:", order_info:"Informations de la Commande:", invoice_info:"Informations de la Facture:", shipping_details:"Détails de Livraison:",
+      quote_no:"N° de Devis:", po_no:"N° de Commande:", invoice_no:"N° de Facture:", date:"Date:", valid_until:"Valable Jusqu'au:", date_of_issue:"Date d'Émission:",
+      ref_pi_no:"Réf. Facture Proforma:", ref_po_no:"Réf. Bon de Commande:", tel:"Tél:",
+      th_image:"Image", th_sku:"SKU", th_description:"Description", th_qty:"Qté", th_unit_price:"Prix Unitaire", th_total:"Total",
+      subtotal:"SOUS-TOTAL", discount:"Remise", freight:"Transport", total:"TOTAL", total_due:"MONTANT TOTAL DÛ",
+      terms_conditions:"Termes et Conditions:", auth_sig:"Signature Autorisée",
+      bank_info:"INFORMATIONS BANCAIRES DU BÉNÉFICIAIRE:", bank_name:"Nom de la Banque:", bank_address:"Adresse de la Banque:", account_name:"Nom du Compte:", account_number:"Numéro de Compte:", swift_code:"Code Swift ou ABA:",
+      notes:"Notes:", notes_text:"Veuillez inclure le N° de Facture", notes_text_2:"dans la référence de paiement.",
+      th_carton_no:"N° de Carton", th_item_desc_sku:"Description de l'Article / SKU", th_qty_pcs:"Quantité (PCS)", th_nw_kgs:"Poids Net (KGS)", th_gw_kgs:"Poids Brut (KGS)", th_meas_cbm:"Mesure (CBM)",
+      total_pl:"TOTAL", remarks:"Remarques:"
+    },
+    ar: {
+      quotation_title:"عرض سعر", po_title:"طلب شراء", pi_title:"فاتورة أولية", pl_title:"قائمة التعبئة",
+      from:"من:", to:"إلى:", seller:"البائع:", buyer:"المشتري:", ship_to:"الشحن إلى:", shipper:"الشاحن:", consignee:"المرسل إليه:",
+      quotation_info:"معلومات عرض السعر:", order_info:"معلومات الطلب:", invoice_info:"معلومات الفاتورة:", shipping_details:"تفاصيل الشحن:",
+      quote_no:"رقم عرض السعر:", po_no:"رقم طلب الشراء:", invoice_no:"رقم الفاتورة:", date:"التاريخ:", valid_until:"صالح حتى:", date_of_issue:"تاريخ الإصدار:",
+      ref_pi_no:"مرجع الفاتورة الأولية:", ref_po_no:"مرجع طلب الشراء:", tel:"الهاتف:",
+      th_image:"الصورة", th_sku:"SKU", th_description:"الوصف", th_qty:"الكمية", th_unit_price:"سعر الوحدة", th_total:"المجموع",
+      subtotal:"المجموع الفرعي", discount:"خصم", freight:"الشحن", total:"المجموع", total_due:"المبلغ الإجمالي المستحق",
+      terms_conditions:"الشروط والأحكام:", auth_sig:"التوقيع المعتمد",
+      bank_info:"معلومات البنك المستفيد:", bank_name:"اسم البنك:", bank_address:"عنوان البنك:", account_name:"اسم الحساب:", account_number:"رقم الحساب:", swift_code:"رمز سويفت أو ABA:",
+      notes:"ملاحظات:", notes_text:"يرجى تضمين رقم الفاتورة", notes_text_2:"في مرجع الدفع.",
+      th_carton_no:"رقم الكرتون", th_item_desc_sku:"وصف الصنف / SKU", th_qty_pcs:"الكمية (قطعة)", th_nw_kgs:"الوزن الصافي (كجم)", th_gw_kgs:"الوزن الإجمالي (كجم)", th_meas_cbm:"القياس (متر مكعب)",
+      total_pl:"المجموع", remarks:"ملاحظات:"
+    },
+    ru: {
+      quotation_title:"КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ", po_title:"ЗАКАЗ НА ПОКУПКУ", pi_title:"СЧЕТ-ПРОФОРМА", pl_title:"УПАКОВОЧНЫЙ ЛИСТ",
+      from:"От:", to:"Кому:", seller:"Продавец:", buyer:"Покупатель:", ship_to:"Грузополучатель:", shipper:"Отправитель:", consignee:"Получатель:",
+      quotation_info:"Информация о Предложении:", order_info:"Информация о Заказе:", invoice_info:"Информация о Счете:", shipping_details:"Детали Доставки:",
+      quote_no:"№ Предложения:", po_no:"№ Заказа:", invoice_no:"№ Счета:", date:"Дата:", valid_until:"Действительно До:", date_of_issue:"Дата Выдачи:",
+      ref_pi_no:"№ Счета-Проформы:", ref_po_no:"№ Заказа:", tel:"Тел:",
+      th_image:"Изображение", th_sku:"SKU", th_description:"Описание", th_qty:"Кол-во", th_unit_price:"Цена за Ед.", th_total:"Итого",
+      subtotal:"ПОДЫТОГ", discount:"Скидка", freight:"Фрахт", total:"ИТОГО", total_due:"ИТОГОВАЯ СУММА К ОПЛАТЕ",
+      terms_conditions:"Условия и Положения:", auth_sig:"Авторизованная Подпись",
+      bank_info:"БАНКОВСКАЯ ИНФОРМАЦИЯ БЕНЕФИЦИАРА:", bank_name:"Название Банка:", bank_address:"Адрес Банка:", account_name:"Имя Счета:", account_number:"Номер Счета:", swift_code:"Swift-Код или ABA:",
+      notes:"Примечания:", notes_text:"Пожалуйста, укажите № Счета", notes_text_2:"в назначении платежа.",
+      th_carton_no:"№ Коробки", th_item_desc_sku:"Описание Товара / SKU", th_qty_pcs:"Количество (ШТ)", th_nw_kgs:"Вес Нетто (КГ)", th_gw_kgs:"Вес Брутто (КГ)", th_meas_cbm:"Объем (КУБ. М)",
+      total_pl:"ИТОГО", remarks:"Примечания:"
+    }
+  }
+};
+
+const sellerData = {
+  vakkerlight:     { name:"Vakkerlight",     prefix:"VK",  address:"1520 Caton Center Dr. Suite L-M, Baltimore, MD 21227",                 phone:"+1 800-715-2593",  website:"vakkerlight.com", email:"info@vakkerlight.com",     theme:"theme-blue"   },
+  dekorfine:       { name:"Dekorfine",       prefix:"DF",  address:"1710 KELLER PKWY STE 5511 KELLER, TX 76248",                          phone:"+1 800-715-9483",  website:"dekorfine.com",   email:"support@dekorfine.com",    theme:"theme-green"  },
+  docos:           { name:"Docos",           prefix:"DC",  address:"1111 Sulphur Spring Rd. #113 Halethorpe, MD 21227",                   phone:"+1 800-716-3167",  website:"docos.us",        email:"info@docos.us",            theme:"theme-gray"   },
+  radilum:         { name:"Radilum",         prefix:"RD",  address:"177 Joe Routt Blvd, College Station, TX 77840",                        phone:"+1 800-761-1037",  website:"radilum.com",     email:"support@radilum.com",      theme:"theme-purple" },
+  mooijane:        { name:"Mooijane",        prefix:"MJ",  address:"1586 Sulphur Spring Rd. #113 Halethorpe, MD 21227",                   phone:"+1 800-770-1693",  website:"mooijane.com",    email:"support@mooijane.com",     theme:"theme-blue"   },
+  mooiehome:       { name:"Mooiehome",       prefix:"MH",  address:"1520 Caton Center Dr. Suite L-M, Baltimore, MD 21227 USA",            phone:"+1 800-867-5009",  website:"mooiehome.com",   email:"support@mooiehome.com",    theme:"theme-green"  },
+  brillilume:      { name:"Brillilume",      prefix:"BL",  address:"1520 Caton Center Dr. Suite L-M, Baltimore MD 21227 USA",             phone:"+1 800-867-5009",  website:"brillilume.com",  email:"support@brillilume.com",   theme:"theme-gray"   },
+  mooielight:      { name:"Mooielight",      prefix:"ML",  address:"1500 Caton Center Dr, Arbutus, MD 21227",                              phone:"+1 800-953-1356",  website:"mooielight.com",  email:"admin@mooielight.com",     theme:"theme-purple" },
+  pinlighting:     { name:"Pinlighting",     prefix:"PL",  address:"1833 Wind Gate Rd, Baltimore, MD 21227",                               phone:"+1 800-953-1356",  website:"pinlighting.com", email:"info@pinlighting.com",     theme:"theme-blue"   },
+  rayonshine:      { name:"Rayonshine",      prefix:"RS",  address:"2435 Sulphur Spring Rd, Baltimore, MD 21227",                          phone:"+1 800-978-5754",  website:"rayonshine.com",  email:"support@rayonshine.com",   theme:"theme-green"  },
+  lumioshine:      { name:"Lumioshine",      prefix:"LS",  address:"1520 Caton Center Dr. Suite L-M, Baltimore MD 21227 USA",             phone:"+1 800-978-5754",  website:"lumioshine.com",  email:"service@lumioshine.com",   theme:"theme-gray"   },
+  jiangmen_radilum:{ name:"Radilum Inc",     prefix:"JRI", address:"Room 301, Building 3, No. 80, Longxi Road, Jianghai District, Jiangmen City, China", phone:"+8615876099121", website:"n/a", email:"",                          theme:"theme-red"    },
+  jiangmen_vakker: { name:"Vakker Limited",  prefix:"JVL", address:"Room 401, Building 3, No. 80, Longxi Road, Jianghai District, Jiangmen City, China", phone:"+8615876099121", website:"n/a", email:"info@vakkerlimited.com", theme:"theme-blue"  }
+};
+
+const exchangeRates = {
+  USD:{rate:1,    symbol:'$' },
+  CNY:{rate:7.25, symbol:'¥' },
+  EUR:{rate:0.92, symbol:'€' },
+  GBP:{rate:0.79, symbol:'£' },
+  AUD:{rate:1.51, symbol:'A$'},
+  CAD:{rate:1.37, symbol:'C$'}
+};
+
+const allTermsPresets = {
+  en: {
+    standard:`1. Prices are quoted in USD and do not include customs duties or taxes.\n2. This quotation is valid for 30 days.\n3. Payment Terms: For orders over $1000, a 30% deposit is required upon order confirmation, with the 70% balance due before shipment.\n4. Lead Time: 4-6 weeks upon receipt of deposit.`,
+    full_payment:`1. Prices are quoted in USD and do not include customs duties or taxes.\n2. This quotation is valid for 30 days.\n3. Payment Terms: 100% full payment is required upon order confirmation.\n4. Lead Time: 4-6 weeks upon receipt of full payment.`,
+    custom_product:`1. Prices are quoted in USD and do not include customs duties or taxes.\n2. This quotation is valid for 30 days.\n3. Payment Terms: 50% non-refundable deposit is required upon order confirmation, with the 50% balance due before shipment.\n4. All custom products are non-returnable and non-exchangeable once production has begun.\n5. Lead Time: 6-8 weeks upon receipt of deposit.`,
+    exw:`1. Prices are quoted on an Ex-Works (EXW) basis in USD.\n2. All costs related to shipping, insurance, customs duties, and taxes are the sole responsibility of the buyer.\n3. This quotation is valid for 30 days.\n4. Payment Terms: 100% full payment is required before the goods are released for collection.\n5. Goods will be ready for collection within 4-6 weeks upon receipt of full payment.`
+  },
+  bilingual: {
+    standard:`1. Prices are quoted in USD and do not include customs duties or taxes.\n2. This quotation is valid for 30 days.\n3. Payment Terms: For orders over $1000, a 30% deposit is required upon order confirmation, with the 70% balance due before shipment.\n4. Lead Time: 4-6 weeks upon receipt of deposit.`,
+    full_payment:`1. Prices are quoted in USD and do not include customs duties or taxes.\n2. This quotation is valid for 30 days.\n3. Payment Terms: 100% full payment is required upon order confirmation.\n4. Lead Time: 4-6 weeks upon receipt of full payment.`,
+    custom_product:`1. Prices are quoted in USD and do not include customs duties or taxes.\n2. This quotation is valid for 30 days.\n3. Payment Terms: 50% non-refundable deposit is required upon order confirmation, with the 50% balance due before shipment.\n4. All custom products are non-returnable and non-exchangeable once production has begun.\n5. Lead Time: 6-8 weeks upon receipt of deposit.`,
+    exw:`1. Prices are quoted on an Ex-Works (EXW) basis in USD.\n2. All costs related to shipping, insurance, customs duties, and taxes are the sole responsibility of the buyer.\n3. This quotation is valid for 30 days.\n4. Payment Terms: 100% full payment is required before the goods are released for collection.\n5. Goods will be ready for collection within 4-6 weeks upon receipt of full payment.`
+  },
+  es: {
+    standard:`1. Los precios se cotizan en USD y no incluyen derechos de aduana ni impuestos.\n2. Esta cotización es válida por 30 días.\n3. Condiciones de Pago: Para pedidos superiores a $1000, se requiere un depósito del 30% al confirmar el pedido, y el saldo del 70% debe pagarse antes del envío.\n4. Plazo de Entrega: 4-6 semanas tras la recepción del depósito.`,
+    full_payment:`1. Los precios se cotizan en USD y no incluyen derechos de aduana ni impuestos.\n2. Esta cotización es válida por 30 días.\n3. Condiciones de Pago: Se requiere el pago completo del 100% al confirmar el pedido.\n4. Plazo de Entrega: 4-6 semanas tras la recepción del pago completo.`,
+    custom_product:`1. Los precios se cotizan en USD y no incluyen derechos de aduana ni impuestos.\n2. Esta cotización es válida por 30 días.\n3. Condiciones de Pago: Se requiere un depósito no reembolsable del 50% al confirmar el pedido, y el saldo del 50% debe pagarse antes del envío.\n4. Todos los productos personalizados no admiten devoluciones ni cambios una vez iniciada la producción.\n5. Plazo de Entrega: 6-8 semanas tras la recepción del depósito.`,
+    exw:`1. Los precios se cotizan en base Ex-Works (EXW) en USD.\n2. Todos los costos relacionados con el envío, seguro, derechos de aduana e impuestos son responsabilidad exclusiva del comprador.\n3. Esta cotización es válida por 30 días.\n4. Condiciones de Pago: Se requiere el pago completo del 100% antes de que la mercancía sea liberada para su recolección.\n5. La mercancía estará lista para su recolección dentro de 4-6 semanas tras la recepción del pago completo.`
+  },
+  de: {
+    standard:`1. Die Preise sind in USD angegeben und enthalten keine Zollgebühren oder Steuern.\n2. Dieses Angebot ist 30 Tage gültig.\n3. Zahlungsbedingungen: Bei Bestellungen über 1000 $ ist eine Anzahlung von 30% bei Auftragsbestätigung erforderlich, der Restbetrag von 70% ist vor dem Versand fällig.\n4. Lieferzeit: 4-6 Wochen nach Eingang der Anzahlung.`,
+    full_payment:`1. Die Preise sind in USD angegeben und enthalten keine Zollgebühren oder Steuern.\n2. Dieses Angebot ist 30 Tage gültig.\n3. Zahlungsbedingungen: 100% Vorauszahlung ist bei Auftragsbestätigung erforderlich.\n4. Lieferzeit: 4-6 Wochen nach Eingang der vollständigen Zahlung.`,
+    custom_product:`1. Die Preise sind in USD angegeben und enthalten keine Zollgebühren oder Steuern.\n2. Dieses Angebot ist 30 Tage gültig.\n3. Zahlungsbedingungen: Eine nicht erstattungsfähige Anzahlung von 50% ist bei Auftragsbestätigung erforderlich, der Restbetrag von 50% ist vor dem Versand fällig.\n4. Alle kundenspezifischen Produkte sind vom Umtausch ausgeschlossen, sobald die Produktion begonnen hat.\n5. Lieferzeit: 6-8 Wochen nach Eingang der Anzahlung.`,
+    exw:`1. Die Preise verstehen sich ab Werk (EXW) in USD.\n2. Alle Kosten im Zusammenhang mit Versand, Versicherung, Zollgebühren und Steuern liegen in der alleinigen Verantwortung des Käufers.\n3. Dieses Angebot ist 30 Tage gültig.\n4. Zahlungsbedingungen: 100% Vorauszahlung ist erforderlich, bevor die Ware zur Abholung freigegeben wird.\n5. Die Ware ist innerhalb von 4-6 Wochen nach Eingang der vollständigen Zahlung abholbereit.`
+  },
+  fr: {
+    standard:`1. Les prix sont indiqués en USD et n'incluent pas les droits de douane ni les taxes.\n2. Ce devis est valable 30 jours.\n3. Conditions de Paiement : Pour les commandes supérieures à 1000 $, un acompte de 30% est requis à la confirmation de la commande, le solde de 70% étant dû avant l'expédition.\n4. Délai de Livraison : 4-6 semaines après réception de l'acompte.`,
+    full_payment:`1. Les prix sont indiqués en USD et n'incluent pas les droits de douane ni les taxes.\n2. Ce devis est valable 30 jours.\n3. Conditions de Paiement : Un paiement complet de 100% est requis à la confirmation de la commande.\n4. Délai de Livraison : 4-6 semaines après réception du paiement complet.`,
+    custom_product:`1. Les prix sont indiqués en USD et n'incluent pas les droits de douane ni les taxes.\n2. Ce devis est valable 30 jours.\n3. Conditions de Paiement : Un acompte non remboursable de 50% est requis à la confirmation de la commande, le solde de 50% étant dû avant l'expédition.\n4. Tous les produits personnalisés ne sont ni repris ni échangés une fois la production commencée.\n5. Délai de Livraison : 6-8 semaines après réception de l'acompte.`,
+    exw:`1. Les prix sont indiqués Ex-Works (EXW) en USD.\n2. Tous les coûts liés à l'expédition, l'assurance, aux droits de douane et aux taxes sont à la charge exclusive de l'acheteur.\n3. Ce devis est valable 30 jours.\n4. Conditions de Paiement : Un paiement complet de 100% est requis avant que les marchandises ne soient mises à disposition pour enlèvement.\n5. Les marchandises seront prêtes à être enlevées dans un délai de 4-6 semaines après réception du paiement complet.`
+  },
+  ar: {
+    standard:`1. الأسعار مقومة بالدولار الأمريكي ولا تشمل الرسوم الجمركية أو الضرائب.\n2. عرض السعر هذا صالح لمدة 30 يومًا.\n3. شروط الدفع: للطلبات التي تزيد عن 1000 دولار، يلزم دفع عربون 30% عند تأكيد الطلب، مع دفع الرصيد 70% قبل الشحن.\n4. مهلة التسليم: 4-6 أسابيع من تاريخ استلام العربون.`,
+    full_payment:`1. الأسعار مقومة بالدولار الأمريكي ولا تشمل الرسوم الجمركية أو الضرائب.\n2. عرض السعر هذا صالح لمدة 30 يومًا.\n3. شروط الدفع: يلزم دفع 100% من المبلغ كاملاً عند تأكيد الطلب.\n4. مهلة التسليم: 4-6 أسابيع من تاريخ استلام المبلغ كاملاً.`,
+    custom_product:`1. الأسعار مقومة بالدولار الأمريكي ولا تشمل الرسوم الجمركية أو الضرائب.\n2. عرض السعر هذا صالح لمدة 30 يومًا.\n3. شروط الدفع: يلزم دفع عربون 50% غير قابل للاسترداد عند تأكيد الطلب، مع دفع الرصيد 50% قبل الشحن.\n4. جميع المنتجات المخصصة غير قابلة للإرجاع أو الاستبدال بمجرد بدء الإنتاج.\n5. مهلة التسليم: 6-8 أسابيع من تاريخ استلام العربون.`,
+    exw:`1. الأسعار مقومة على أساس تسليم المصنع (EXW) بالدولار الأمريكي.\n2. جميع التكاليف المتعلقة بالشحن والتأمين والرسوم الجمركية والضرائب هي مسؤولية المشتري وحده.\n3. عرض السعر هذا صالح لمدة 30 يومًا.\n4. شروط الدفع: يلزم دفع 100% من المبلغ كاملاً قبل إتاحة البضائع للاستلام.\n5. ستكون البضائع جاهزة للاستلام في غضون 4-6 أسابيع من تاريخ استلام المبلغ كاملاً.`
+  },
+  ru: {
+    standard:`1. Цены указаны в долларах США и не включают таможенные пошлины или налоги.\n2. Данное предложение действительно в течение 30 дней.\n3. Условия Оплаты: Для заказов на сумму свыше 1000 долларов США требуется 30% предоплата при подтверждении заказа, оставшиеся 70% оплачиваются перед отгрузкой.\n4. Срок Выполнения: 4-6 недель с момента получения предоплаты.`,
+    full_payment:`1. Цены указаны в долларах США и не включают таможенные пошлины или налоги.\n2. Данное предложение действительно в течение 30 дней.\n3. Условия Оплаты: Требуется 100% полная оплата при подтверждении заказа.\n4. Срок Выполнения: 4-6 недель с момента получения полной оплаты.`,
+    custom_product:`1. Цены указаны в долларах США и не включают таможенные пошлины или налоги.\n2. Данное предложение действительно в течение 30 дней.\n3. Условия Оплаты: Требуется 50% невозвратный депозит при подтверждении заказа, оставшиеся 50% оплачиваются перед отгрузкой.\n4. Все индивидуальные заказы не подлежат возврату или обмену после начала производства.\n5. Срок Выполнения: 6-8 недель с момента получения депозита.`,
+    exw:`1. Цены указаны на условиях Ex-Works (EXW) в долларах США.\n2. Все расходы, связанные с доставкой, страхованием, таможенными пошлинами и налогами, несет покупатель.\n3. Данное предложение действительно в течение 30 дней.\n4. Условия Оплаты: Требуется 100% полная оплата до момента отгрузки товара для самовывоза.\n5. Товар будет готов к самовывозу в течение 4-6 недель с момента получения полной оплаты.`
+  }
+};
+
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let orderNumberPart = '1001';
+let termsManuallyEdited = false;
+let currentPreviewDoc = 'quotation';
+let syncTimer = null;
+let autoSaveTimer = null;
+let currentQuoteStatus = 'draft';      // status of the quote currently in the form
+let currentCreatedAt = null;            // ISO timestamp; preserved across saves of the same quote
+let currentLoadedSha = null;            // sha of the loaded record (for conflict detection)
+let statusFilter = '';                  // active status filter in cloud list ('' = all)
+const storageKey = 'quoteGeneratorSaves_v4';
+const draftKey   = 'quoteGenerator_draft_v1';
+const SETTINGS_KEY = 'quoteToolSettings_v1';
+const TRASH_PATH = 'quotes/_trash';     // soft-delete location
+
+/* ============================================================
+   UTILITY
+   ============================================================ */
+function $(id) { return document.getElementById(id); }
+
+/* Set the active status (also updates buttons UI). Triggers autosave. */
+function setQuoteStatus(status) {
+  const valid = ['draft','sent','won','lost','archived'];
+  if (!valid.includes(status)) status = 'draft';
+  currentQuoteStatus = status;
+  document.querySelectorAll('#status-selector .status-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.status === status);
+  });
+  scheduleSync();
+}
+function showToast(msg, type) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2500);
+}
+function showFeedback(msg) {
+  const el = $('feedback_message');
+  if (el) { el.textContent = msg; setTimeout(() => el.textContent = '', 3000); }
+}
+function nameToColor(n) {
+  const c = ['#3b82f6','#8b5cf6','#ec4899','#f97316','#14b8a6','#10b981','#f59e0b','#6366f1'];
+  let h = 0; for (let i = 0; i < n.length; i++) h = n.charCodeAt(i) + ((h<<5)-h);
+  return c[Math.abs(h) % c.length];
+}
+function toggleCard(headerEl) {
+  headerEl.parentElement.classList.toggle('collapsed');
+}
+function switchTab(name, btn) {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  $('tab-cloud').style.display  = name === 'cloud' ? 'block' : 'none';
+  $('tab-local').style.display  = name === 'local' ? 'block' : 'none';
+}
+
+/* ============================================================
+   PREVIEW TAB SWITCHING — the key new UX
+   ============================================================ */
+function switchPreview(doc) {
+  currentPreviewDoc = doc;
+  document.querySelectorAll('.preview-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.doc === doc);
+  });
+  // Show only the active doc in the preview area; print logic is separate.
+  const map = { quotation:'quotation-section', po:'po-section', pi:'pi-section', packing:'packing-list-section' };
+  Object.entries(map).forEach(([k, id]) => {
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle('is-hidden-preview', k !== doc);
+  });
+  const label = { quotation:'Quotation', po:'Purchase Order', pi:'Proforma Invoice', packing:'Packing List' }[doc];
+  $('preview-name').textContent = label;
+  $('btn-export-current').innerHTML = '📥 Export ' + label + ' PDF';
+}
+
+/* ============================================================
+   PDF EXPORT — single doc OR all docs
+   ============================================================ */
+function exportCurrent() { exportPDF(currentPreviewDoc); }
+
+function exportPDF(which) {
+  // 'quotation' | 'po' | 'pi' | 'packing' | 'all'
+  // 1. Make every document visible in DOM so CSS @media print sees them
+  document.querySelectorAll('.document-container').forEach(d => d.classList.remove('is-hidden-preview'));
+
+  // 2. Apply print-only-X class (or nothing for 'all')
+  document.body.className = which === 'all' ? '' : ('print-only-' + which);
+
+  // 3. Use rAF so the class actually paints before window.print is called
+  const cleanup = () => {
+    document.body.className = '';
+    // Restore preview state
+    switchPreview(currentPreviewDoc);
+    window.removeEventListener('afterprint', cleanup);
+  };
+  window.addEventListener('afterprint', cleanup);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.print();
+      // Some browsers don't fire afterprint reliably; cleanup as fallback.
+      setTimeout(cleanup, 1500);
+    });
+  });
+}
+
+/* ============================================================
+   LANGUAGE SWITCH
+   ============================================================ */
+function setLanguage(lang) {
+  document.querySelectorAll('[data-lang-key]').forEach(el => {
+    const key = el.getAttribute('data-lang-key');
+    const dict = translations[lang] || translations.en;
+    if (dict[key]) el.innerText = dict[key];
+    else if (translations.en[key]) el.innerText = translations.en[key];
+  });
+  // If user had manually edited terms, ask before regenerating in the new language
+  if (termsManuallyEdited) {
+    const currentTerms = $('terms_conditions').value.trim();
+    // Only ask if the current content actually differs from the preset (heuristic to avoid spurious prompts)
+    if (currentTerms && currentTerms.length > 0) {
+      const regenerate = confirm(
+        'You have manually edited the Terms & Conditions.\n\n' +
+        'OK = regenerate terms in the new language (your edits will be lost)\n' +
+        'Cancel = keep your edits as-is (they will stay in the previous language)'
+      );
+      if (regenerate) {
+        termsManuallyEdited = false;
+        const preset = $('terms_preset').value;
+        const set = allTermsPresets[lang] || allTermsPresets.en;
+        $('terms_conditions').value = set[preset];
+      }
+    }
+  }
+  syncAndCalculate();
+}
+
+/* ============================================================
+   SELLERS & ORDER NUMBERS
+   ============================================================ */
+function populateSellerDropdown() {
+  const sel = $('seller_website');
+  for (const k in sellerData) {
+    const o = document.createElement('option');
+    o.value = k; o.textContent = sellerData[k].name;
+    sel.appendChild(o);
+  }
+}
+function updateOrderNumbers() {
+  const prefix = sellerData[$('seller_website').value].prefix;
+  $('quote_number').value = `Q-${prefix}-${orderNumberPart}`;
+  $('pi_number').value    = `${prefix}-${orderNumberPart}`;
+  $('po_number').value    = `JDI-${prefix}-${orderNumberPart}`;
+}
+function autoFillSellerInfo() {
+  const key = $('seller_website').value;
+  const s = sellerData[key];
+  $('seller_name').value = s.name;
+  $('seller_address').value = s.address;
+  $('seller_phone').value = s.phone;
+  $('seller_email').value = s.email;
+  $('seller_website_url').value = s.website;
+
+  const radilumBank = {
+    bank_name: "China Merchants Bank Co., Ltd., Zhongshan Guzhen Branch",
+    bank_address: "No. 17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong Province",
+    account_name: "Radilum INC",
+    account_number: "76090192D632009",
+    swift_code: "CMBCCNBSXXX"
+  };
+  const radilumBuyer = "JANEDECOR INC\n424 LINDSEY LN, TYLER, TX 75701-1590,\nUnited States";
+  const bankAutoFill  = { jiangmen_radilum: radilumBank };
+  const buyerAutoFill = { jiangmen_radilum: radilumBuyer };
+  const bd = bankAutoFill[key] || { bank_name:"",bank_address:"",account_name:"",account_number:"",swift_code:"" };
+  $('pi_bank_name').value      = bd.bank_name;
+  $('pi_bank_address').value   = bd.bank_address;
+  $('pi_account_name').value   = bd.account_name;
+  $('pi_account_number').value = bd.account_number;
+  $('pi_swift_code').value     = bd.swift_code;
+  $('buyer_info').value        = buyerAutoFill[key] || "";
+}
+
+/* ============================================================
+   THE CORE SYNC: master form → 4 documents
+   (debounced for performance)
+   ============================================================ */
+function syncAndCalculate() {
+  // The previous code ran this synchronously on every keystroke and
+  // re-rendered four full tables. Here we still do the work, but we
+  // skip duplicate frames thanks to the debounce in attachListeners.
+
+  const lang = $('language_select').value;
+  const docLang = (translations.doc[lang] || translations.doc.en);
+
+  // Document-level static text
+  document.querySelectorAll('[data-doc-key]').forEach(el => {
+    const k = el.getAttribute('data-doc-key');
+    if (docLang[k]) el.innerText = docLang[k];
+  });
+
+  const currency = $('currency').value;
+  const { rate, symbol } = exchangeRates[currency];
+
+  // Master form header reflects currency
+  const dict = translations[lang] || translations.en;
+  $('master-unit-price-header').innerText = `${dict.th_unit_price_usd} (${currency})`;
+
+  // Read values once
+  const sellerName    = $('seller_name').value;
+  const sellerAddress = $('seller_address').value;
+  const sellerPhone   = $('seller_phone').value;
+  const sellerEmail   = $('seller_email').value;
+  const sellerWebsite = $('seller_website_url').value;
+  const theme         = sellerData[$('seller_website').value].theme;
+  const quoteNumber   = $('quote_number').value;
+  const piNumber      = $('pi_number').value;
+  const poNumber      = $('po_number').value;
+  const date          = $('date_of_issue').value;
+  const validUntil    = $('valid_until').value;
+  const buyerInfo     = $('buyer_info').value;
+  const buyerEmail    = $('buyer_email').value;
+  const shippingInfo  = $('shipping_info').value;
+  const shippingTel   = $('shipping_tel').value;
+  const freightCostUSD = parseFloat($('freight_cost').value) || 0;
+  const discountPct    = parseFloat($('discount_percentage').value) || 0;
+
+  // Terms: simpler than before — manual edit just freezes user text.
+  let processedTerms;
+  if (termsManuallyEdited) {
+    processedTerms = $('terms_conditions').value;
+  } else {
+    const preset = $('terms_preset').value;
+    const presetSet = allTermsPresets[lang] || allTermsPresets.en;
+    let baseTerms = presetSet[preset];
+    if (freightCostUSD > 0) {
+      // Same lead-time tweak as before (when freight already settled in USD)
+      baseTerms = baseTerms
+        .replace(/Lead Time: 4-6 weeks/g, "Lead Time: 1-3 weeks")
+        .replace(/Lead Time: 6-8 weeks/g, "Lead Time: 1-3 weeks")
+        .replace(/collection within 4-6 weeks/g, "collection within 1-3 weeks");
+    }
+    processedTerms = baseTerms;
+    $('terms_conditions').value = processedTerms;
+  }
+
+  // Buyer composite
+  let fullBuyerInfo = buyerInfo;
+  if (buyerEmail) fullBuyerInfo += `\nEmail: ${buyerEmail}`;
+  const buyerNameOnly = buyerInfo.split('\n')[0];
+
+  // Apply theme to all docs
+  document.querySelectorAll('.document-container').forEach(c => {
+    c.className = 'document-container ' + theme +
+      (c.classList.contains('is-hidden-preview') ? ' is-hidden-preview' : '');
+  });
+
+  const sellerInfoHTML = `<strong>${sellerName}</strong><p>${sellerAddress}</p><p>Phone: ${sellerPhone}</p>${sellerEmail ? `<p>Email: ${sellerEmail}</p>` : ''}`;
+  const sellerInfoWithWebsiteHTML = `<strong>${sellerName}</strong><p>${sellerAddress}</p><p>Phone: ${sellerPhone}</p>${sellerWebsite && sellerWebsite !== 'n/a' ? `<p>Website: ${sellerWebsite}</p>` : ''}${sellerEmail ? `<p>Email: ${sellerEmail}</p>` : ''}`;
+
+  // PO
+  $('po_seller_info').innerHTML = sellerInfoHTML;
+  $('po_buyer_info').innerText = fullBuyerInfo;
+  $('po_shipping_info').innerText = shippingInfo;
+  $('po_shipping_tel').innerText = shippingTel;
+  $('po_po_number').innerText = poNumber;
+  $('po_date').innerText = date;
+  $('po_pi_ref').innerText = piNumber;
+  $('po_terms_conditions').innerText = processedTerms;
+  $('po_auth_signature').innerText = buyerNameOnly;
+
+  // PI
+  $('pi_seller_info').innerHTML = sellerInfoWithWebsiteHTML;
+  $('pi_buyer_info').innerText = fullBuyerInfo;
+  $('pi_shipping_info').innerText = shippingInfo;
+  $('pi_shipping_tel').innerText = shippingTel;
+  $('pi_pi_number').innerText = piNumber;
+  $('pi_date').innerText = date;
+  $('pi_po_ref').innerText = poNumber;
+  $('pi_notes_ref').innerText = piNumber;
+  $('pi_auth_signature').innerText = sellerName;
+
+  // Quotation
+  $('quote_seller_info').innerHTML = sellerInfoWithWebsiteHTML;
+  $('quote_buyer_info').innerText = fullBuyerInfo;
+  $('quote_number_display').innerText = quoteNumber;
+  $('quote_date').innerText = date;
+  $('quote_valid_until').innerText = validUntil;
+  $('quote_auth_signature').innerText = sellerName;
+  $('quote_terms_conditions').innerText = processedTerms;
+
+  // Packing list
+  $('pl_shipper_info').innerHTML = sellerInfoHTML;
+  $('pl_consignee_info').innerText = fullBuyerInfo;
+  $('pl_pi_number').innerText = piNumber;
+  $('pl_date').innerText = date;
+  $('pl_auth_signature').innerText = sellerName;
+
+  // Items — build all 4 tables in one pass via array join (fast)
+  const poRows = [];
+  const piRows = [];
+  const quoteRows = [];
+  const plRows = [];
+
+  let subtotalUSD = 0;
+  let totalQty = 0, totalNw = 0, totalGw = 0, totalCbm = 0;
+
+  document.querySelectorAll('#master-items tr').forEach(row => {
+    const sku = row.querySelector('.sku').value;
+    const description = row.querySelector('.description').value;
+    const qty = parseFloat(row.querySelector('.qty').value) || 0;
+    const priceInSelectedCurrency = parseFloat(row.querySelector('.price').value) || 0;
+    const priceUSD = priceInSelectedCurrency / rate;
+    const imageSrc = row.dataset.imageSrc || '';
+    const cartonNo = row.querySelector('.carton-no').value;
+    const nw = parseFloat(row.querySelector('.nw').value) || 0;
+    const gw = parseFloat(row.querySelector('.gw').value) || 0;
+    const cbm = parseFloat(row.querySelector('.cbm').value) || 0;
+
+    const lineTotalUSD = qty * priceUSD;
+    subtotalUSD += lineTotalUSD;
+    totalQty += qty; totalNw += nw; totalGw += gw; totalCbm += cbm;
+
+    const convertedPrice = priceUSD * rate;
+    const convertedLineTotal = lineTotalUSD * rate;
+    const safeDesc = description.replace(/</g, '&lt;');
+    const safeSku  = sku.replace(/</g, '&lt;');
+    const safeCarton = cartonNo.replace(/</g, '&lt;');
+
+    poRows.push(`<tr><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
+    piRows.push(`<tr><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
+    quoteRows.push(`<tr><td>${imageSrc ? `<img src="${imageSrc}" class="quote-item-image">` : ''}</td><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
+    plRows.push(`<tr><td>${safeCarton}</td><td>${safeDesc}<br><strong>SKU: ${safeSku}</strong></td><td>${qty}</td><td>${nw.toFixed(2)}</td><td>${gw.toFixed(2)}</td><td>${cbm.toFixed(3)}</td></tr>`);
+  });
+
+  $('po-items-table').innerHTML = poRows.join('');
+  $('pi-items-table').innerHTML = piRows.join('');
+  $('quote-items-table').innerHTML = quoteRows.join('');
+  $('packing-list-items-table').innerHTML = plRows.join('');
+
+  const discountAmtUSD = subtotalUSD * (discountPct / 100);
+  const totalAfterDisc = subtotalUSD - discountAmtUSD;
+  const finalTotalUSD  = totalAfterDisc + freightCostUSD;
+
+  const convSubtotal = subtotalUSD * rate;
+  const convDiscount = discountAmtUSD * rate;
+  const convFreight  = freightCostUSD * rate;
+  const convTotal    = finalTotalUSD * rate;
+
+  ['quote','po','pi'].forEach(doc => {
+    $(`${doc}-unit-price-header`).innerText = `${docLang.th_unit_price || 'Unit Price'} (${currency})`;
+    $(`${doc}-total-header`).innerText = `${docLang.th_total || 'Total'} (${currency})`;
+    $(`${doc}-subtotal`).innerText = convSubtotal.toFixed(2);
+    const discLine = $(`${doc}-discount-line`);
+    if (discountPct > 0) {
+      discLine.style.display = '';
+      $(`${doc}-discount-perc`).innerText = discountPct;
+      $(`${doc}-discount-amount`).innerText = convDiscount.toFixed(2);
+    } else {
+      discLine.style.display = 'none';
+    }
+    $(`${doc}-freight`).innerText = convFreight.toFixed(2);
+    $(`${doc}-total`).innerText = convTotal.toFixed(2);
+    for (let i = 1; i <= 4; i++) {
+      const sym = $(`${doc}-currency-symbol-${i}`);
+      if (sym) sym.innerText = symbol;
+    }
+  });
+
+  $('pl-total-qty').innerText = totalQty;
+  $('pl-total-nw').innerText  = totalNw.toFixed(2);
+  $('pl-total-gw').innerText  = totalGw.toFixed(2);
+  $('pl-total-cbm').innerText = totalCbm.toFixed(3);
+
+  triggerAutoSave();
+}
+
+// Debounced version used by input listeners
+function scheduleSync() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncAndCalculate, 200);
+}
+
+/* ============================================================
+   ITEMS
+   ============================================================ */
+function addItem(item) {
+  item = item || { sku:'', description:'', qty:1, price:0.00, imageSrc:'', cartonNo:'', nw:0, gw:0, cbm:0 };
+  const tbody = $('master-items');
+  const tr = document.createElement('tr');
+  tr.dataset.imageSrc = item.imageSrc || '';
+  tr.innerHTML = `
+    <td><input type="text" class="sku" placeholder="SKU" value="${item.sku || ''}"></td>
+    <td><textarea rows="2" class="description">${item.description || ''}</textarea></td>
+    <td>
+      <div class="paste-area" contenteditable="true" title="Click then paste (Ctrl+V) an image">${item.imageSrc ? `<img src="${item.imageSrc}">` : 'Paste'}</div>
+      <button onclick="removeImage(this)" class="btn-row-remove-img${item.imageSrc ? '' : ' hidden'}">Remove img</button>
+    </td>
+    <td><input type="number" value="${item.qty}" class="qty"></td>
+    <td><input type="number" value="${parseFloat(item.price || 0).toFixed(2)}" class="price" step="0.01"></td>
+    <td><input type="text" class="carton-no" value="${item.cartonNo || ''}"></td>
+    <td><input type="number" value="${parseFloat(item.nw || 0).toFixed(2)}" class="nw" step="0.01"></td>
+    <td><input type="number" value="${parseFloat(item.gw || 0).toFixed(2)}" class="gw" step="0.01"></td>
+    <td><input type="number" value="${parseFloat(item.cbm || 0).toFixed(3)}" class="cbm" step="0.001"></td>
+    <td><button onclick="removeItem(this)" class="btn-row-remove">✕</button></td>`;
+  tbody.appendChild(tr);
+
+  // Bind listeners ONLY to this row (no global re-bind)
+  tr.querySelectorAll('input, textarea').forEach(inp => {
+    inp.addEventListener('input', scheduleSync);
+  });
+  scheduleSync();
+}
+function removeItem(btn) { btn.closest('tr').remove(); scheduleSync(); }
+function removeImage(btn) {
+  const td = btn.parentElement;
+  const area = td.querySelector('.paste-area');
+  const tr = td.closest('tr');
+  area.innerHTML = 'Paste';
+  tr.dataset.imageSrc = '';
+  btn.classList.add('hidden');
+  scheduleSync();
+}
+function handlePaste(event) {
+  const area = event.target.closest('.paste-area');
+  if (!area) return;
+  const tr = area.closest('tr');
+  const removeBtn = area.nextElementSibling;
+  const items = (event.clipboardData || window.clipboardData).items;
+  let file = null;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.indexOf('image') !== -1) { file = items[i].getAsFile(); break; }
+  }
+  if (file) {
+    event.preventDefault();
+    const reader = new FileReader();
+    reader.onload = e => {
+      area.innerHTML = `<img src="${e.target.result}">`;
+      tr.dataset.imageSrc = e.target.result;
+      removeBtn.classList.remove('hidden');
+      scheduleSync();
+    };
+    reader.readAsDataURL(file);
+  }
+}
+function updateTerms() {
+  termsManuallyEdited = false;
+  const preset = $('terms_preset').value;
+  const lang = $('language_select').value;
+  const set = allTermsPresets[lang] || allTermsPresets.en;
+  $('terms_conditions').value = set[preset];
+  scheduleSync();
+}
+
+/* ============================================================
+   FORM DATA COLLECT / RESTORE
+   ============================================================ */
+function collectFormData() {
+  const items = [];
+  document.querySelectorAll('#master-items tr').forEach(row => {
+    items.push({
+      sku:        row.querySelector('.sku').value,
+      description:row.querySelector('.description').value,
+      qty:        row.querySelector('.qty').value,
+      price:      row.querySelector('.price').value,
+      imageSrc:   row.dataset.imageSrc || '',
+      cartonNo:   row.querySelector('.carton-no').value,
+      nw:         row.querySelector('.nw').value,
+      gw:         row.querySelector('.gw').value,
+      cbm:        row.querySelector('.cbm').value,
+    });
+  });
+  const bankFields = [];
+  document.querySelectorAll('#pi-section .manual-input').forEach(inp => bankFields.push(inp.value));
+
+  // Compute total in USD for indexing (currency-agnostic so list shows comparable amounts)
+  let subtotalUSD = 0;
+  const rate = exchangeRates[$('currency').value]?.rate || 1;
+  items.forEach(it => {
+    const qty = parseFloat(it.qty) || 0;
+    const priceUSD = (parseFloat(it.price) || 0) / rate;
+    subtotalUSD += qty * priceUSD;
+  });
+  const discountPct = parseFloat($('discount_percentage').value) || 0;
+  const freightUSD = parseFloat($('freight_cost').value) || 0;
+  const totalUSD = subtotalUSD * (1 - discountPct / 100) + freightUSD;
+
+  return {
+    language_select:    $('language_select').value,
+    seller_website:     $('seller_website').value,
+    quote_number:       $('quote_number').value,
+    pi_number:          $('pi_number').value,
+    po_number:          $('po_number').value,
+    date_of_issue:      $('date_of_issue').value,
+    valid_until:        $('valid_until').value,
+    currency:           $('currency').value,
+    buyer_info:         $('buyer_info').value,
+    buyer_email:        $('buyer_email').value,
+    shipping_info:      $('shipping_info').value,
+    shipping_tel:       $('shipping_tel').value,
+    freight_cost:       $('freight_cost').value,
+    seller_name:        $('seller_name').value,
+    seller_address:     $('seller_address').value,
+    seller_phone:       $('seller_phone').value,
+    seller_email:       $('seller_email').value,
+    seller_website_url: $('seller_website_url').value,
+    discount_percentage:$('discount_percentage').value,
+    terms_preset:       $('terms_preset').value,
+    terms_conditions:   $('terms_conditions').value,
+    pl_remarks:         ($('pl_remarks') || {}).value || '',
+    // Metadata for cloud indexing & lifecycle
+    _status:            currentQuoteStatus || 'draft',
+    _total_usd:         Math.round(totalUSD * 100) / 100,
+    _created_at:        currentCreatedAt || new Date().toISOString(),
+    _updated_at:        new Date().toISOString(),
+    _sku_list:          items.map(i => (i.sku || '').trim()).filter(Boolean).join(','),
+    bankFields, items
+  };
+}
+function restoreDataToForm(d) {
+  // Set metadata FIRST so any sync triggered by form changes below has correct values
+  currentCreatedAt = d._created_at || new Date().toISOString();
+  // (we set status AFTER form is populated so the UI buttons reflect it; safe since collectFormData reads currentQuoteStatus directly)
+
+  const skip = new Set(['items','bankFields','pl_remarks','_status','_total_usd','_created_at','_updated_at','_sku_list']);
+  for (const k in d) {
+    if (skip.has(k)) continue;
+    if (k.startsWith('_')) continue;
+    const el = $(k);
+    if (el) el.value = d[k];
+  }
+  if (d.bankFields) {
+    document.querySelectorAll('#pi-section .manual-input').forEach((inp, i) => {
+      if (d.bankFields[i] !== undefined) inp.value = d.bankFields[i];
+    });
+  }
+  const r = $('pl_remarks');
+  if (r && d.pl_remarks) r.value = d.pl_remarks;
+  $('master-items').innerHTML = '';
+  (d.items || []).forEach(it => addItem(it));
+  const lang = d.language_select || 'en';
+  $('language_select').value = lang;
+  // Set status before setLanguage to ensure any sync triggered has the correct status
+  setQuoteStatus(d._status || 'draft');
+  setLanguage(lang);
+}
+
+/* ============================================================
+   AUTO-SAVE DRAFT
+   ============================================================ */
+function setAutoSaveStatus(state) {
+  const el = $('autosave-mini');
+  if (!el) return;
+  if (state === 'saving')   { el.style.color = '#ca8a04'; el.textContent = '● Saving draft…'; }
+  if (state === 'saved')    { el.style.color = '#16a34a'; el.textContent = '● Draft auto-saved'; }
+  if (state === 'restored') { el.style.color = '#0369a1'; el.textContent = '● Restored from last session'; }
+}
+function triggerAutoSave() {
+  setAutoSaveStatus('saving');
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ savedAt: new Date().toISOString(), data: collectFormData() }));
+      setAutoSaveStatus('saved');
+    } catch(e) { console.warn('Auto-save failed', e); }
+  }, 800);
+}
+function restoreFromDraft() {
+  try {
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.data) return false;
+    restoreDataToForm(parsed.data);
+    setAutoSaveStatus('restored');
+    return true;
+  } catch(e) { return false; }
+}
+function newQuote() {
+  if (!confirm('Start a new quote? This clears the current form and the saved draft.')) return;
+  localStorage.removeItem(draftKey);
+  currentLoadedPath = null;
+  currentLoadedSha = null;
+  currentCreatedAt = new Date().toISOString();
+  setQuoteStatus('draft');
+  $('master-items').innerHTML = '';
+  ['buyer_info','buyer_email','shipping_info','shipping_tel'].forEach(id => { const e = $(id); if (e) e.value = ''; });
+  ['freight_cost','discount_percentage'].forEach(id => { const e = $(id); if (e) e.value = 0; });
+  document.querySelectorAll('#pi-section .manual-input').forEach(el => el.value = '');
+  if ($('pl_remarks')) $('pl_remarks').value = '';
+  const today = new Date();
+  $('date_of_issue').valueAsDate = today;
+  const v = new Date(); v.setDate(today.getDate() + 30);
+  $('valid_until').valueAsDate = v;
+  termsManuallyEdited = false;
+  addItem();
+  autoFillSellerInfo();
+  updateOrderNumbers();
+  updateTerms();
+  syncAndCalculate();
+  setAutoSaveStatus('saved');
+  showToast('New quote started', 'ok');
+}
+
+/* ============================================================
+   LOCAL NAMED SAVES
+   ============================================================ */
+function getSavedData() { return JSON.parse(localStorage.getItem(storageKey)) || {}; }
+function updateSaveSlotsDropdown(filter) {
+  const data = getSavedData();
+  const sel = $('save_slots');
+  const keys = Object.keys(data).filter(k => !filter || k.toLowerCase().includes(filter.toLowerCase()));
+  sel.innerHTML = '';
+  const badge = $('save-count-badge');
+  if (badge) badge.textContent = Object.keys(data).length;
+  if (keys.length === 0) {
+    const o = document.createElement('option');
+    o.textContent = filter ? 'No matches' : 'No saved entries';
+    o.disabled = true;
+    sel.appendChild(o);
+  } else keys.forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = k; sel.appendChild(o); });
+}
+function filterSaveSlots() { updateSaveSlotsDropdown($('save_search').value); }
+function saveData() {
+  const data = collectFormData();
+  const buyerName = getBuyerNameFromData(data) || $('pi_number').value || 'Quote';
+  const defaultName = `${buyerName} - ${new Date().toLocaleDateString()}`;
+  const name = prompt('Enter a name for this entry:', defaultName);
+  if (!name) return;
+  const savedData = getSavedData();
+  savedData[name] = data;
+  localStorage.setItem(storageKey, JSON.stringify(savedData));
+  updateSaveSlotsDropdown();
+  showFeedback(`Saved as "${name}"!`);
+}
+function loadData() {
+  const sel = $('save_slots');
+  const name = sel.value;
+  if (!name || sel.options[sel.selectedIndex].disabled) { showFeedback('Please select an entry to load.'); return; }
+  const d = getSavedData()[name];
+  if (!d) { showFeedback('Error loading.'); return; }
+  restoreDataToForm(d);
+  showFeedback(`Loaded "${name}"!`);
+}
+function deleteData() {
+  const sel = $('save_slots');
+  const name = sel.value;
+  if (!name || sel.options[sel.selectedIndex].disabled) { showFeedback('Please select an entry to delete.'); return; }
+  if (!confirm(`Delete "${name}"?`)) return;
+  const data = getSavedData();
+  delete data[name];
+  localStorage.setItem(storageKey, JSON.stringify(data));
+  updateSaveSlotsDropdown();
+  showFeedback(`Deleted "${name}"`);
+}
+
+/* ============================================================
+   SUPABASE CLOUD SAVE
+   ============================================================ */
+const SB_URL = 'https://kwrajryhwyytkjkkidor.supabase.co';
+const SB_KEY = 'sb_publishable_6j-rSrv1V95FROe-iX6Yew_unE_Y6n9';
+const SB_TABLE = 'quotation_records';
+const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+
+/* Sanitize a string into a filename-safe token.
+   Keeps Unicode letters/digits, replaces whitespace + path separators
+   with hyphens, removes URL-unsafe characters and quotes. Truncates to 50 chars. */
+function sanitizeForFilename(s) {
+  if (!s) return '';
+  const first = String(s).split('\n')[0].trim();
+  return first
+    .replace(/[\\\/\?<>:\*\|"'#%&\.`]/g, '')  // strip URL-unsafe, quotes, dot, backtick
+    .replace(/[\s_]+/g, '-')                   // whitespace & underscore → hyphen
+    .replace(/-+/g, '-')                       // collapse repeated hyphens
+    .replace(/^-+|-+$/g, '')                   // trim hyphens
+    .slice(0, 50) || '';
+}
+
+/* Extract a display name for the buyer (first non-empty line of buyer_info,
+   falling back to email local-part). Used as the primary filename token. */
+function getBuyerNameFromData(d) {
+  const info = (d.buyer_info || '').trim();
+  if (info) {
+    const firstLine = info.split('\n')[0].trim();
+    if (firstLine) return firstLine;
+  }
+  const email = (d.buyer_email || '').trim();
+  if (email && email.includes('@')) return email.split('@')[0];
+  return '';
+}
+
+/* Duplicate the currently-loaded quote as a new draft: auto-increment PI,
+   reset status to draft, reset created_at, and clear the loaded-record link. */
+function duplicateAsNew() {
+  // Bump PI number locally so the duplicate gets the next free slot
+  const cur = $('pi_number').value;
+  const m = cur.match(/^(.*?)(\d+)$/);
+  if (m) {
+    const incremented = (parseInt(m[2], 10) + 1).toString().padStart(m[2].length, '0');
+    $('pi_number').value = m[1] + incremented;
+    // Mirror to quote_number / po_number based on seller prefix
+    const sellerKey = $('seller_website').value;
+    const prefix = sellerData[sellerKey]?.prefix || '';
+    if (prefix && incremented) {
+      $('quote_number').value = `Q-${prefix}-${incremented}`;
+      $('po_number').value    = `JDI-${prefix}-${incremented}`;
+      orderNumberPart = incremented;
+    }
+  } else {
+    showToast('Could not parse current PI number — please set it manually', 'err');
+  }
+  // Reset state markers so save creates a NEW record
+  currentLoadedPath = null;
+  currentLoadedSha = null;
+  currentCreatedAt = new Date().toISOString();
+  setQuoteStatus('draft');
+  // Update date to today
+  const today = new Date();
+  $('date_of_issue').valueAsDate = today;
+  const v = new Date(); v.setDate(today.getDate() + 30);
+  $('valid_until').valueAsDate = v;
+  scheduleSync();
+  showToast('Duplicated as new draft. Save when ready.', 'ok');
+}
+
+/* Export the currently filtered cloud list to a CSV file. */
+function exportCSV() {
+  if (!cloudRecords.length) { showToast('No records loaded — refresh first', 'err'); return; }
+  // Re-apply same filters as renderCloudList by reading filter inputs
+  const search = ($('cloud-search')?.value || '').toLowerCase();
+  const uf = $('cloud-user-filter')?.value || '';
+  const dateFilter = $('cloud-date-filter')?.value || 'all';
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday); startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - 6);
+  const startOfMonth = new Date(startOfToday); startOfMonth.setDate(startOfMonth.getDate() - 29);
+  function passesDate(rec) {
+    if (dateFilter === 'all') return true;
+    if (!rec.date) return false;
+    const iso = rec.date.replace(/T(\d{2})-(\d{2})/, 'T$1:$2');
+    const d = new Date(iso);
+    if (isNaN(d)) return false;
+    if (dateFilter === 'today') return d >= startOfToday;
+    if (dateFilter === 'yesterday') return d >= startOfYesterday && d < startOfToday;
+    if (dateFilter === 'week') return d >= startOfWeek;
+    if (dateFilter === 'month') return d >= startOfMonth;
+    return true;
+  }
+  const rows = cloudRecords.filter(r => {
+    if (uf && r.user !== uf) return false;
+    if (!passesDate(r)) return false;
+    if (statusFilter && r.status !== statusFilter) return false;
+    if (search) {
+      const hay = `${r.buyerName} ${r.piNo} ${r.user} ${r.status}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+  if (!rows.length) { showToast('Nothing to export (filtered list is empty)', 'err'); return; }
+
+  // Build CSV (RFC 4180-compatible)
+  const escape = v => {
+    if (v == null) return '';
+    const s = String(v);
+    return /["\n,]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lines = [['Date','User','Customer','PI No.','Status','Amount (USD)','View'].join(',')];
+  rows.forEach(r => {
+    const dateDisplay = r.date ? r.date.replace('T',' ').replace(/-(\d{2})$/, ':$1').slice(0,16) : '';
+    const viewUrl = r.downloadUrl || '';
+    lines.push([dateDisplay, r.user, r.buyerName, r.piNo, r.status, r.amount, viewUrl].map(escape).join(','));
+  });
+  const csv = '\uFEFF' + lines.join('\n'); // BOM so Excel reads UTF-8 correctly
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `quotes-export-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${rows.length} record(s) to CSV`, 'ok');
+}
+
+/* Set PI auto-increment to (max-existing + 1) within the currently-selected seller.
+   Called after a fresh cloud list load to avoid PI number collisions. */
+function refreshPiAutoIncrement() {
+  const sellerKey = $('seller_website').value;
+  const prefix = sellerData[sellerKey]?.prefix;
+  if (!prefix) return;
+  // Match piNo strings like "RD-1023" or "JRI-1024" — pull the numeric tail
+  let maxNum = 1000; // baseline so first record is 1001
+  cloudRecords.forEach(r => {
+    if (!r.piNo) return;
+    // Accept records where the piNo contains the seller prefix
+    if (!r.piNo.includes(prefix)) return;
+    const tail = r.piNo.match(/(\d+)\s*$/);
+    if (tail) {
+      const n = parseInt(tail[1], 10);
+      if (n > maxNum) maxNum = n;
+    }
+  });
+  // Only update if user hasn't already manually set something higher
+  const current = parseInt(orderNumberPart, 10) || 0;
+  if (maxNum >= current) {
+    orderNumberPart = (maxNum + 1).toString();
+    // Only auto-update the visible fields if this is a fresh quote (no loaded record)
+    if (!currentLoadedPath) updateOrderNumbers();
+  }
+}
+
+function getSettings()  { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch(e) { return {}; } }
+function getToken()     { return getSettings().token || 'supabase'; } // Legacy; kept for compatibility
+function getUsername()  {
+  // 优先读 URL hash (?user=xxx)，方便工作台带参跳转过来
+  const hash = window.location.hash.match(/user=([^&]+)/);
+  if (hash) {
+    const u = decodeURIComponent(hash[1]);
+    if (u) {
+      const cur = getSettings();
+      if (cur.username !== u) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...cur, username: u }));
+      }
+      return u;
+    }
+  }
+  return getSettings().username || '';
+}
+function saveSetup() {
+  const name = $('setup-name').value.trim();
+  if (!name) { alert('Please enter your name.'); return; }
+  const prev = getSettings();
+  if (prev.username && prev.username !== name) {
+    const hasMyRecords = cloudRecords.some(r => r.user === prev.username);
+    if (hasMyRecords) {
+      const proceed = confirm(
+        `You are about to change your name from "${prev.username}" to "${name}".\n\n` +
+        `Your existing ${cloudRecords.filter(r => r.user === prev.username).length} quote(s) will remain under "${prev.username}" in Team view, ` +
+        `and new saves will go under "${name}". Continue?`
+      );
+      if (!proceed) return;
+    }
+  }
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ username: name }));
+  closeSettings();
+  renderUserBar();
+  loadCloudList();
+}
+function openSettings() {
+  const s = getSettings();
+  $('setup-name').value  = s.username || '';
+  if ($('setup-token')) $('setup-token').value = '';
+  const warning = $('setup-name-locked-warning');
+  if (warning) {
+    const hasExistingName = !!s.username;
+    const hasMyRecords = cloudRecords.some(r => r.user === s.username);
+    warning.style.display = (hasExistingName && hasMyRecords) ? '' : 'none';
+  }
+  $('settings-overlay').classList.remove('hidden');
+}
+function closeSettings() { $('settings-overlay').classList.add('hidden'); }
+function renderUserBar() {
+  const name = getUsername();
+  const avatar = $('user-avatar');
+  const nameLabel = $('user-name-label');
+  const pill = $('status-pill');
+  const banner = $('setup-banner');
+  if (name) {
+    avatar.textContent = name.charAt(0).toUpperCase();
+    avatar.style.background = nameToColor(name);
+    nameLabel.textContent = name;
+    pill.textContent = '☁ Supabase Cloud';
+    pill.className = 'status-pill ok';
+    banner.style.display = 'none';
+  } else {
+    avatar.textContent = '?';
+    nameLabel.textContent = 'Guest';
+    pill.textContent = 'Not set up';
+    pill.className = 'status-pill';
+    banner.style.display = 'flex';
+  }
+}
+
+/* ============================================================
+   Supabase 数据访问层
+   - 替代原 GitHub Contents API
+   - 表 quotation_records: id / username / pi_no / buyer_name / status / amount / trashed / data(JSONB) / created_at / updated_at
+   ============================================================ */
+async function sbList(opts = {}) {
+  if (!sb) { setCloudStatus('Supabase SDK not loaded', 'err'); return []; }
+  try {
+    let q = sb.from(SB_TABLE).select('*').order('updated_at', { ascending: false });
+    if (opts.username) q = q.eq('username', opts.username);
+    if (typeof opts.trashed === 'boolean') q = q.eq('trashed', opts.trashed);
+    const { data, error } = await q;
+    if (error) throw error;
+    return data || [];
+  } catch(e) { setCloudStatus('Load error: ' + e.message, 'err'); return []; }
+}
+async function sbUpsert(row) {
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb.from(SB_TABLE).upsert(row).select().single();
+    if (error) throw error;
+    return data;
+  } catch(e) { setCloudStatus('Save error: ' + e.message, 'err'); return null; }
+}
+async function sbUpdate(id, patch) {
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb.from(SB_TABLE).update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  } catch(e) { setCloudStatus('Update error: ' + e.message, 'err'); return null; }
+}
+async function sbDelete(id) {
+  if (!sb) return false;
+  try {
+    const { error } = await sb.from(SB_TABLE).delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  } catch(e) { setCloudStatus('Delete error: ' + e.message, 'err'); return false; }
+}
+
+// 兼容函数：旧代码调用 ghAPI，我们 stub 掉避免崩
+async function ghAPI(path, method, body) {
+  console.warn('[Deprecated] ghAPI called, but data layer is now Supabase');
+  return null;
+}
+let cloudRecords = [];
+let selectedCloudItem = null;
+let cloudViewMode = 'mine';        // 'mine' | 'all'
+let currentLoadedPath = null;       // track currently-loaded record
+let teamUserCounts = {};            // for team-mode count
+
+function setCloudViewMode(mode) {
+  cloudViewMode = mode;
+  document.querySelectorAll('.view-mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === mode);
+  });
+  // Show team-member filter only in 'all' mode
+  const uf = $('cloud-user-filter');
+  if (uf) uf.style.display = mode === 'all' ? '' : 'none';
+  // Show Empty Trash button only in trash mode
+  const trashBtn = $('btn-empty-trash');
+  if (trashBtn) trashBtn.style.display = mode === 'trash' ? '' : 'none';
+  loadCloudList();
+}
+
+function setStatusFilter(status) {
+  statusFilter = status;
+  document.querySelectorAll('.status-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.status === status);
+  });
+  renderCloudList();
+}
+
+async function loadCloudList() {
+  const me = getUsername();
+  if (!me) { openSettings(); return; }
+  setCloudStatus('<span class="loading-spinner"></span> Loading from Supabase…', '');
+  $('cloud-list').innerHTML = '<div class="cloud-list-empty"><span class="loading-spinner"></span> Fetching records…</div>';
+  cloudRecords = [];
+
+  if (cloudViewMode === 'mine') {
+    const rows = await sbList({ username: me, trashed: false });
+    cloudRecords = rows.map(r => rowToCloudRecord(r));
+    $('count-mine').textContent = cloudRecords.length;
+  } else if (cloudViewMode === 'trash') {
+    const rows = await sbList({ trashed: true });
+    cloudRecords = rows.map(r => { const cr = rowToCloudRecord(r); cr.trashed = true; return cr; });
+    $('count-trash').textContent = cloudRecords.length;
+  } else {
+    const rows = await sbList({ trashed: false });
+    cloudRecords = rows.map(r => rowToCloudRecord(r));
+    teamUserCounts = {};
+    cloudRecords.forEach(r => { teamUserCounts[r.user] = (teamUserCounts[r.user] || 0) + 1; });
+    const uf = $('cloud-user-filter');
+    const cur = uf.value;
+    uf.innerHTML = '<option value="">All members</option>';
+    Object.keys(teamUserCounts).sort().forEach(u => {
+      const o = document.createElement('option');
+      o.value = u; o.textContent = `${u} (${teamUserCounts[u]})`;
+      uf.appendChild(o);
+    });
+    if (cur) uf.value = cur;
+    $('count-mine').textContent = (teamUserCounts[me] || 0);
+    $('count-all').textContent = cloudRecords.length;
+  }
+  cloudRecords.sort((a,b) => b.date.localeCompare(a.date));
+
+  refreshPiAutoIncrement();
+  renderCloudList();
+  setCloudStatus(`✓ ${cloudRecords.length} record(s) loaded`, 'ok');
+}
+
+// 把 Supabase row 转换成 UI 需要的 cloud record 结构
+function rowToCloudRecord(row) {
+  const displayName = (row.buyer_name || '(unnamed customer)').replace(/-/g, ' ');
+  return {
+    user: row.username,
+    id: row.id,
+    path: row.id,                  // 兼容旧代码用 path
+    sha: row.updated_at,           // 用 updated_at 做冲突检测
+    rawData: row.data || {},
+    buyerName: displayName,
+    piNo: row.pi_no || '',
+    date: (row.updated_at || '').slice(0,16).replace('T','-').replace(':','-'),
+    status: row.status || 'draft',
+    amount: Number(row.amount) || 0,
+    quoteName: displayName,
+    trashed: !!row.trashed,
+  };
+}
+
+// 兼容性：旧代码可能调用 parseCloudFile
+function parseCloudFile(f, user) {
+  return rowToCloudRecord(f);
+}
+function renderCloudList() {
+  const search = ($('cloud-search')?.value || '').toLowerCase();
+  const uf = $('cloud-user-filter')?.value || '';
+  const dateFilter = $('cloud-date-filter')?.value || 'all';
+  const list = $('cloud-list');
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfYesterday = new Date(startOfToday); startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+  const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - 6);
+  const startOfMonth = new Date(startOfToday); startOfMonth.setDate(startOfMonth.getDate() - 29);
+
+  function passesDateFilter(rec) {
+    if (dateFilter === 'all') return true;
+    if (!rec.date) return false;
+    const iso = rec.date.replace(/T(\d{2})-(\d{2})/, 'T$1:$2');
+    const d = new Date(iso);
+    if (isNaN(d)) return false;
+    if (dateFilter === 'today') return d >= startOfToday;
+    if (dateFilter === 'yesterday') return d >= startOfYesterday && d < startOfToday;
+    if (dateFilter === 'week') return d >= startOfWeek;
+    if (dateFilter === 'month') return d >= startOfMonth;
+    return true;
+  }
+
+  const filtered = cloudRecords.filter(r => {
+    if (uf && r.user !== uf) return false;
+    if (!passesDateFilter(r)) return false;
+    if (statusFilter && r.status !== statusFilter) return false;
+    if (search) {
+      // Search across buyerName, piNo, user, status
+      const hay = `${r.buyerName} ${r.piNo} ${r.user} ${r.status}`.toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  if (!filtered.length) {
+    const baseMsg = cloudRecords.length === 0
+      ? (cloudViewMode === 'mine' ? 'No quotes yet. Click ⬆ Save to Cloud to create your first one.' :
+         cloudViewMode === 'trash' ? 'Trash is empty.' : 'No team records yet.')
+      : 'No matches for current filters.';
+    list.innerHTML = `<div class="cloud-list-empty">${baseMsg}</div>`;
+    selectedCloudItem = null; $('btn-cloud-load').disabled = true;
+    return;
+  }
+
+  list.innerHTML = '';
+  filtered.forEach(r => {
+    const isCurrent = currentLoadedPath && currentLoadedPath === r.path;
+    const div = document.createElement('div');
+    div.className = 'cloud-list-item'
+      + (selectedCloudItem?.path === r.path ? ' selected' : '')
+      + (isCurrent ? ' is-current' : '')
+      + (r.trashed ? ' is-trashed' : '');
+    const dateDisplay = r.date ? r.date.replace('T',' ').replace(/-(\d{2})$/, ':$1').slice(0,16) : '—';
+    const amountDisplay = r.amount ? `$${r.amount.toLocaleString('en-US', {maximumFractionDigits: 0})}` : '';
+    // Strip ALL quotes from name BEFORE injecting into JS onclick arg (avoids breaking the string literal)
+    const safeName = (r.buyerName || '').replace(/['"]/g, '');
+    const delBtn = r.trashed
+      ? `<button class="cloud-item-del" title="Restore" onclick="event.stopPropagation();restoreFromTrash('${r.path}','${r.sha}','${safeName}')">↺</button>
+         <button class="cloud-item-del" title="Permanently delete" onclick="event.stopPropagation();permanentDelete('${r.path}','${r.sha}','${safeName}')">✕</button>`
+      : `<button class="cloud-item-del" title="Move to trash" onclick="event.stopPropagation();cloudDelete('${r.path}','${r.sha}','${safeName}')">✕</button>`;
+    div.innerHTML = `
+      <div class="cloud-item-avatar" style="background:${nameToColor(r.user)}">${r.user.charAt(0).toUpperCase()}</div>
+      <div class="cloud-item-info">
+        <div class="cloud-item-name">
+          ${escapeHTML(r.buyerName)}
+          <span class="status-tag ${r.status}">${r.status}</span>
+          ${isCurrent ? '<span class="current-pill">CURRENT</span>' : ''}
+        </div>
+        <div class="cloud-item-meta">${escapeHTML(r.user)} · ${dateDisplay}${amountDisplay ? ` · <strong>${amountDisplay}</strong>` : ''}</div>
+        <div class="cloud-item-secondary">PI: ${escapeHTML(r.piNo)}</div>
+      </div>
+      <div style="display:flex;gap:2px;">${delBtn}</div>`;
+    div.addEventListener('click', () => {
+      selectedCloudItem = r;
+      document.querySelectorAll('.cloud-list-item').forEach(e => e.classList.remove('selected'));
+      div.classList.add('selected');
+      $('btn-cloud-load').disabled = false;
+    });
+    list.appendChild(div);
+  });
+}
+
+function escapeHTML(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function cloudSave() {
+  const username = getUsername();
+  if (!username) { openSettings(); return; }
+  const data = collectFormData();
+  const piNo = sanitizeForFilename(data.pi_number || 'QUOTE') || 'QUOTE';
+  const buyerName = sanitizeForFilename(getBuyerNameFromData(data)) || 'Unnamed';
+  const buyerNameDisplay = (getBuyerNameFromData(data) || 'Unnamed').split('\n')[0].slice(0, 100);
+  const status = data._status || 'draft';
+  const amount = Number(data._total_usd) || 0;
+
+  // 大小检查（Supabase 单行 JSON 默认 ~50MB 上限，但 PostgREST 实际更小）
+  const payload = JSON.stringify(data);
+  const sizeKB = Math.round(payload.length / 1024);
+  if (sizeKB > 5000) {
+    if (!confirm(`This quote is ${sizeKB}KB (mostly from pasted images). Saving may be slow. Continue?`)) return;
+  }
+
+  setCloudStatus('<span class="loading-spinner"></span> Saving to Supabase…', '');
+
+  // 复用已加载记录的 id；否则新建
+  let recordId = currentLoadedPath;  // 重用变量名兼容旧代码
+  if (!recordId) {
+    // 生成新 id
+    recordId = `qt_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
+  }
+
+  // 冲突检测：检查 updated_at（用 sha 字段保存）
+  if (currentLoadedPath && currentLoadedSha) {
+    const { data: cur } = await sb.from(SB_TABLE).select('updated_at').eq('id', recordId).single();
+    if (cur && cur.updated_at !== currentLoadedSha) {
+      const proceed = confirm(
+        '⚠ Conflict detected!\n\n' +
+        'This quote has been modified in the cloud since you loaded it ' +
+        '(possibly by another team member).\n\n' +
+        'OK = overwrite their changes with yours\n' +
+        'Cancel = abort save (recommended: refresh the list and reload)'
+      );
+      if (!proceed) {
+        setCloudStatus('Save cancelled — please reload to see latest changes.', 'err');
+        return;
+      }
+    }
+  }
+
+  const row = {
+    id: recordId,
+    username: username,
+    pi_no: piNo,
+    buyer_name: buyerNameDisplay,
+    status: status,
+    amount: amount,
+    trashed: false,
+    data: data,
+    updated_at: new Date().toISOString(),
+  };
+  if (!currentLoadedPath) row.created_at = new Date().toISOString();
+
+  const saved = await sbUpsert(row);
+  if (saved) {
+    setCloudStatus(`✓ Saved: ${buyerNameDisplay || piNo} [${status}]`, 'ok');
+    showToast('Saved to cloud', 'ok');
+    currentLoadedPath = saved.id;
+    currentLoadedSha = saved.updated_at;
+    loadCloudList();
+  }
+}
+
+async function cloudLoad() {
+  if (!selectedCloudItem) return;
+  if (selectedCloudItem.trashed) {
+    showToast('This is a trashed record. Restore it first to edit.', 'err');
+    return;
+  }
+  setCloudStatus('<span class="loading-spinner"></span> Loading…', '');
+  try {
+    // Supabase 版本：直接用 rawData (已经在 loadCloudList 中预加载)
+    let data = selectedCloudItem.rawData;
+    // 如果 rawData 为空（理论上不会），再去拉一次
+    if (!data || Object.keys(data).length === 0) {
+      const { data: row, error } = await sb.from(SB_TABLE).select('data, updated_at').eq('id', selectedCloudItem.id).single();
+      if (error) throw error;
+      data = row.data;
+    }
+    restoreDataToForm(data);
+    currentLoadedPath = selectedCloudItem.id;
+    currentLoadedSha = selectedCloudItem.sha;
+    setCloudStatus(`✓ Loaded: ${selectedCloudItem.buyerName || selectedCloudItem.piNo}`, 'ok');
+    showToast('Loaded from cloud', 'ok');
+    renderCloudList();
+  } catch(e) { setCloudStatus('Failed to load: ' + e.message, 'err'); }
+}
+
+// 软删除：把记录的 trashed 设为 true（不删除行）
+async function cloudDelete(id, sha, name) {
+  if (!confirm(`Move "${name}" to Trash? You can restore it later.`)) return;
+  setCloudStatus('<span class="loading-spinner"></span> Moving to trash…', '');
+  const updated = await sbUpdate(id, { trashed: true });
+  if (updated) {
+    cloudRecords = cloudRecords.filter(r => r.id !== id);
+    if (selectedCloudItem?.id === id) { selectedCloudItem = null; $('btn-cloud-load').disabled = true; }
+    if (currentLoadedPath === id) { currentLoadedPath = null; currentLoadedSha = null; }
+    setCloudStatus(`✓ Moved "${name}" to trash`, 'ok');
+    showToast('Moved to trash (restore from 🗑 Trash view)', 'ok');
+    renderCloudList();
+  }
+}
+
+async function restoreFromTrash(id, sha, name) {
+  if (!confirm(`Restore "${name}" from trash?`)) return;
+  setCloudStatus('<span class="loading-spinner"></span> Restoring…', '');
+  const updated = await sbUpdate(id, { trashed: false });
+  if (updated) {
+    setCloudStatus(`✓ Restored "${name}"`, 'ok');
+    showToast('Restored from trash', 'ok');
+    loadCloudList();
+  }
+}
+
+async function permanentDelete(id, sha, name) {
+  if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+  if (!confirm('Are you absolutely sure? This will erase the record forever.')) return;
+  setCloudStatus('<span class="loading-spinner"></span> Permanently deleting…', '');
+  const ok = await sbDelete(id);
+  if (ok) {
+    cloudRecords = cloudRecords.filter(r => r.id !== id);
+    setCloudStatus(`✓ Permanently deleted "${name}"`, 'ok');
+    renderCloudList();
+  }
+}
+
+async function emptyTrash() {
+  const trashedRecords = cloudRecords.filter(r => r.trashed);
+  if (!trashedRecords.length) { showToast('Trash is already empty', 'ok'); return; }
+  if (!confirm(`Permanently delete ALL ${trashedRecords.length} item(s) in the trash? This cannot be undone.`)) return;
+  if (!confirm('This will erase everything in the trash. Really proceed?')) return;
+  setCloudStatus(`<span class="loading-spinner"></span> Emptying trash (${trashedRecords.length})…`, '');
+  let successCount = 0;
+  for (const r of trashedRecords) {
+    const ok = await sbDelete(r.id);
+    if (ok) successCount++;
+  }
+  setCloudStatus(`✓ Emptied trash (${successCount}/${trashedRecords.length} deleted)`, 'ok');
+  showToast('Trash emptied', 'ok');
+  loadCloudList();
+}
+
+function setCloudStatus(html, type) {
+  const el = $('cloud-status');
+  if (!el) return;
+  el.innerHTML = html;
+  el.className = 'cloud-status-msg' + (type ? ' ' + type : '');
+}
+async function quickSave() {
+  if (!getUsername()) { openSettings(); return; }
+  const pill = $('status-pill');
+  pill.textContent = 'Saving…'; pill.className = 'status-pill busy';
+  await cloudSave();
+  const cs = $('cloud-status').textContent;
+  if (cs.startsWith('✓')) { pill.textContent = 'Saved'; pill.className = 'status-pill ok'; }
+  else { pill.textContent = 'Failed'; pill.className = 'status-pill err'; }
+  setTimeout(() => { pill.textContent = getUsername() ? 'Cloud Ready' : 'Not set up'; pill.className = 'status-pill' + (getUsername()?' ok':''); }, 2400);
+}
+
+/* ============================================================
+   GLOBAL EVENT LISTENERS
+   ============================================================ */
+function attachListeners() {
+  // Master-form scalars
+  ['quote_number','pi_number','po_number','date_of_issue','valid_until','currency',
+   'buyer_info','buyer_email','shipping_info','shipping_tel','freight_cost',
+   'seller_name','seller_address','seller_phone','seller_email','seller_website_url',
+   'discount_percentage'].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('input', scheduleSync);
+  });
+
+  // Paste handler on the items table
+  $('master-items').addEventListener('paste', handlePaste);
+
+  // Special inputs
+  $('pi_number').addEventListener('input', function() {
+    const m = this.value.match(/-(\d+)$/);
+    if (m) { orderNumberPart = m[1]; updateOrderNumbers(); }
+  });
+  $('seller_website').addEventListener('change', () => {
+    autoFillSellerInfo(); updateOrderNumbers(); scheduleSync();
+  });
+  $('language_select').addEventListener('change', e => setLanguage(e.target.value));
+  $('terms_preset').addEventListener('change', updateTerms);
+  $('terms_conditions').addEventListener('input', () => { termsManuallyEdited = true; scheduleSync(); });
+
+  // PI bank fields + packing remarks
+  document.querySelectorAll('#pi-section .manual-input').forEach(inp => inp.addEventListener('input', () => { scheduleSync(); }));
+  const r = $('pl_remarks');
+  if (r) r.addEventListener('input', scheduleSync);
+
+  // Ctrl+S → cloud save; Ctrl+P intercept could route here but we leave native print
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); quickSave(); }
+  });
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+document.addEventListener('DOMContentLoaded', function() {
+  populateSellerDropdown();
+  const today = new Date();
+  $('date_of_issue').valueAsDate = today;
+  const v = new Date(); v.setDate(today.getDate() + 30);
+  $('valid_until').valueAsDate = v;
+
+  attachListeners();
+  updateSaveSlotsDropdown();
+  $('save_button').addEventListener('click', saveData);
+  $('load_button').addEventListener('click', loadData);
+  $('delete_button').addEventListener('click', deleteData);
+
+  renderUserBar();
+
+  // Initialize created_at for new quotes
+  if (!currentCreatedAt) currentCreatedAt = new Date().toISOString();
+
+  // Restore draft if any, else fresh state
+  const restored = restoreFromDraft();
+  if (!restored) {
+    autoFillSellerInfo();
+    updateOrderNumbers();
+    updateTerms();
+    addItem();
+    setLanguage('en');
+    setQuoteStatus('draft');
+  }
+
+  switchPreview('quotation');
+
+  // First-visit setup prompt
+  if (getUsername()) loadCloudList();
+  else openSettings();
+});
+</script>
+
+</body>
+</html>
