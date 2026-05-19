@@ -2593,62 +2593,29 @@ const FinanceModule = ({ toast }) => {
 // 报价单模块 v2 - 调用独立 quotation.html (Supabase 同步)
 // ============================================================
 const QuoteModule = ({ user, toast }) => {
-  // 检测 quotation.html 是否在同目录或可用
   const userParam = encodeURIComponent((user.name || '') + (user.alias ? ' ' + user.alias : ''));
   const sameDirUrl = `quotation.html#user=${userParam}`;
-  const ghPagesUrl = `https://dekorfine.github.io/cs-system/quotation.html#user=${userParam}`;
+  const [openExternal, setOpenExternal] = useState(false);
+  const iframeRef = React.useRef(null);
 
   return (
-    <div className="space-y-5 fade-in">
-      <div className="paper rounded-2xl p-6">
-        <div className="flex items-start gap-4 mb-4">
-          <div style={{fontSize:'3rem', lineHeight:1}}>📄</div>
-          <div className="flex-1">
-            <div className="font-display text-xl font-bold mb-1">Quotation / PI / PO / Packing List</div>
-            <div className="text-sm" style={{color:'var(--ink-3)', lineHeight:1.6}}>
-              专业英文报价单系统 · 12 家公司预设 · 7 种语言 · 4 种文档类型<br/>
-              数据通过 Supabase 全团队共享，My / Team / Trash 三视图，状态流转完整
-            </div>
-          </div>
+    <div className="fade-in" style={{margin:'-20px -24px -20px'}}>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 24px', background:'var(--bg-elevated)', borderBottom:'1px solid var(--line)'}}>
+        <div style={{fontSize:13, color:'var(--ink-3)'}}>
+          <strong style={{color:'var(--ink)'}}>📄 报价单</strong>
+          <span style={{marginLeft:8}}>· 12 家公司预设 · 7 种语言 · 4 种文档 · 数据云同步</span>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-5">
-          <a href={sameDirUrl} target="_blank" rel="noopener" className="block">
-            <div className="paper rounded-xl p-4 hover:shadow-lg transition-all cursor-pointer" style={{borderLeft:'3px solid var(--accent)', cursor:'pointer'}}>
-              <div className="font-display text-base font-bold mb-1" style={{color:'var(--accent)'}}>📂 同目录打开 →</div>
-              <div className="text-xs" style={{color:'var(--ink-3)', lineHeight:1.55}}>
-                如果 quotation.html 和工作台在同一文件夹（推荐）
-              </div>
-              <div className="text-[10px] mt-2 font-mono" style={{color:'var(--ink-4)'}}>./quotation.html</div>
-            </div>
-          </a>
-          <a href={ghPagesUrl} target="_blank" rel="noopener" className="block">
-            <div className="paper rounded-xl p-4 hover:shadow-lg transition-all" style={{borderLeft:'3px solid var(--info)', cursor:'pointer'}}>
-              <div className="font-display text-base font-bold mb-1" style={{color:'var(--info)'}}>☁ GitHub Pages 打开 →</div>
-              <div className="text-xs" style={{color:'var(--ink-3)', lineHeight:1.55}}>
-                如果你部署到了 GitHub Pages
-              </div>
-              <div className="text-[10px] mt-2 font-mono" style={{color:'var(--ink-4)'}}>dekorfine.github.io/cs-system/</div>
-            </div>
-          </a>
-        </div>
-
-        <div className="rounded-lg p-3 mt-5 text-xs" style={{background:'var(--bg)', color:'var(--ink-2)', lineHeight:1.7}}>
-          <div className="font-bold mb-1" style={{color:'var(--accent)'}}>💡 自动登录</div>
-          点击上方按钮后，报价单会自动用你的姓名 <strong>{user.name}{user.alias ? ' ' + user.alias : ''}</strong> 登录，不需要再次填写。
-          <br/>
-          所有员工的报价单数据通过 Supabase 同步，主管在「Team」视图可看到全部 11 人的报价记录。
+        <div style={{display:'flex', gap:8}}>
+          <button className="btn-sec" onClick={() => iframeRef.current?.contentWindow?.location?.reload()} title="刷新">🔄</button>
+          <a href={sameDirUrl} target="_blank" rel="noopener" className="btn-sec" style={{textDecoration:'none'}}>↗ 新窗口打开</a>
         </div>
       </div>
-
-      <div className="paper rounded-2xl p-4" style={{background:'#fef3c7', borderColor:'#fbbf24'}}>
-        <div className="text-xs" style={{color:'#92400e', lineHeight:1.65}}>
-          <strong>📌 首次使用提示：</strong><br/>
-          1. 在 Supabase SQL Editor 跑 <code className="font-mono px-1 rounded" style={{background:'white'}}>quotation_table.sql</code> 建表（仅需一次）<br/>
-          2. 把 <code className="font-mono px-1 rounded" style={{background:'white'}}>quotation.html</code> 放到工作台同目录，或上传到 GitHub Pages<br/>
-          3. 点击上方按钮即可开始使用 — 全员数据自动同步
-        </div>
-      </div>
+      <iframe
+        ref={iframeRef}
+        src={sameDirUrl}
+        style={{width:'100%', height:'calc(100vh - 160px)', border:'none', background:'#fff', display:'block'}}
+        title="报价单"
+      />
     </div>
   );
 };
@@ -3069,67 +3036,28 @@ const TicketDetailModal = ({ ticket, user, employees, onClose, onUpdateStatus, o
 const KbModule = ({ user, toast }) => {
   const userParam = encodeURIComponent((user.name || '') + (user.alias ? ' ' + user.alias : ''));
   const sameDirUrl = `kb.html#user=${userParam}`;
-  const ghPagesUrl = `https://dekorfine.github.io/cs-system/kb.html#user=${userParam}`;
+  const iframeRef = React.useRef(null);
   const isAdmin = user.role === 'admin';
 
   return (
-    <div className="space-y-5 fade-in">
-      <div className="paper rounded-2xl p-6">
-        <div className="flex items-start gap-4 mb-4">
-          <div style={{fontSize:'3rem', lineHeight:1}}>📚</div>
-          <div className="flex-1">
-            <div className="font-display text-xl font-bold mb-1">知识库 · Q&A 智能助手</div>
-            <div className="text-sm" style={{color:'var(--ink-3)', lineHeight:1.6}}>
-              280+ 条中英双语 Q&A · 智能搜索（BM25+同义词+意图识别）· 占位符自动填充<br/>
-              收藏 / 点赞 / Gemini AI 优化 / 团队级智能汇总 / 主管编辑同步
-            </div>
-          </div>
+    <div className="fade-in" style={{margin:'-20px -24px -20px'}}>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 24px', background:'var(--bg-elevated)', borderBottom:'1px solid var(--line)'}}>
+        <div style={{fontSize:13, color:'var(--ink-3)'}}>
+          <strong style={{color:'var(--ink)'}}>📚 知识库</strong>
+          <span style={{marginLeft:8}}>· 280+ Q&A · 智能搜索 · Gemini AI · 团队协同</span>
+          {isAdmin && <span style={{marginLeft:8, color:'var(--accent)', fontWeight:600}}>· 👑 主管模式</span>}
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-5">
-          <a href={sameDirUrl} target="_blank" rel="noopener" className="block">
-            <div className="paper rounded-xl p-4 hover:shadow-lg transition-all" style={{borderLeft:'3px solid var(--accent)', cursor:'pointer'}}>
-              <div className="font-display text-base font-bold mb-1" style={{color:'var(--accent)'}}>📂 同目录打开 →</div>
-              <div className="text-xs" style={{color:'var(--ink-3)', lineHeight:1.55}}>
-                kb.html 和工作台在同一文件夹（推荐）
-              </div>
-              <div className="text-[10px] mt-2 font-mono" style={{color:'var(--ink-4)'}}>./kb.html</div>
-            </div>
-          </a>
-          <a href={ghPagesUrl} target="_blank" rel="noopener" className="block">
-            <div className="paper rounded-xl p-4 hover:shadow-lg transition-all" style={{borderLeft:'3px solid var(--info)', cursor:'pointer'}}>
-              <div className="font-display text-base font-bold mb-1" style={{color:'var(--info)'}}>☁ GitHub Pages 打开 →</div>
-              <div className="text-xs" style={{color:'var(--ink-3)', lineHeight:1.55}}>
-                已部署到 GitHub Pages
-              </div>
-              <div className="text-[10px] mt-2 font-mono" style={{color:'var(--ink-4)'}}>dekorfine.github.io/cs-system/kb.html</div>
-            </div>
-          </a>
-        </div>
-
-        <div className="rounded-lg p-3 mt-5 text-xs" style={{background:'var(--bg)', color:'var(--ink-2)', lineHeight:1.7}}>
-          <div className="font-bold mb-1" style={{color:'var(--accent)'}}>✨ 核心功能</div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-            <span>🔍 智能搜索（中英同义词 + BM25）</span>
-            <span>⭐ 一键收藏（全团队共享）</span>
-            <span>👍 点赞 / 👎 踩 / 🚩 升级</span>
-            <span>📊 团队智能汇总（哪条最常问）</span>
-            <span>✨ Gemini AI 一键优化模板</span>
-            <span>📝 占位符自动填充</span>
-            {isAdmin && <span style={{color:'var(--accent)', fontWeight:600}}>👑 主管：可编辑全员模板</span>}
-          </div>
+        <div style={{display:'flex', gap:8}}>
+          <button className="btn-sec" onClick={() => iframeRef.current?.contentWindow?.location?.reload()} title="刷新">🔄</button>
+          <a href={sameDirUrl} target="_blank" rel="noopener" className="btn-sec" style={{textDecoration:'none'}}>↗ 新窗口打开</a>
         </div>
       </div>
-
-      <div className="paper rounded-2xl p-4" style={{background:'#fef3c7', borderColor:'#fbbf24'}}>
-        <div className="text-xs" style={{color:'#92400e', lineHeight:1.65}}>
-          <strong>📌 首次使用提示：</strong><br/>
-          1. 在 Supabase SQL Editor 跑 <code className="font-mono px-1 rounded" style={{background:'white'}}>03_kb_extras.sql</code> 建知识库扩展表（收藏 / 评分 / 编辑 / 统计 / Gemini key）<br/>
-          2. 把 <code className="font-mono px-1 rounded" style={{background:'white'}}>kb.html</code> 放到工作台同目录或 GitHub Pages<br/>
-          3. 主管首次打开 → 设置 → "我是主管"（验证码：<code className="font-mono px-1 rounded" style={{background:'white'}}>kb-admin-2024</code>）→ 添加 Gemini API key<br/>
-          4. 员工打开即可使用，无需任何配置（数据自动云同步）
-        </div>
-      </div>
+      <iframe
+        ref={iframeRef}
+        src={sameDirUrl}
+        style={{width:'100%', height:'calc(100vh - 160px)', border:'none', background:'#fff', display:'block'}}
+        title="知识库"
+      />
     </div>
   );
 };
@@ -3290,8 +3218,23 @@ const App = () => {
     return () => clearTimeout(t);
   }, [records, cloudOn, user]);
 
-  // tab
-  const [activeTab, setActiveTab] = useState('cs');
+  // tab - 持久化到 localStorage，刷新后保留
+  const [activeTab, setActiveTab] = useState(() => {
+    // URL hash 优先 (#tab=kb)，其次 localStorage，最后默认 cs
+    const hashMatch = window.location.hash.match(/tab=([a-z]+)/);
+    if (hashMatch) return hashMatch[1];
+    return localStorage.getItem('ws_active_tab') || 'cs';
+  });
+  // tab 切换时写入 localStorage + URL hash
+  useEffect(() => {
+    localStorage.setItem('ws_active_tab', activeTab);
+    // 仅当 tab 不是默认才写 hash，避免普通用户看到难看的 hash
+    if (activeTab !== 'cs') {
+      window.history.replaceState(null, '', `#tab=${activeTab}`);
+    } else if (window.location.hash.includes('tab=')) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [activeTab]);
 
   // Toast
   const [toast, toastNode] = useToast();

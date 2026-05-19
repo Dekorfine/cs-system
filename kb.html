@@ -14844,10 +14844,9 @@ function attachEvents() {
     }
     if (e.key === '/' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); $('#search-input').focus(); }
     else if (e.key === 'Escape') {
-      if ($('#settings-modal').classList.contains('show')) $('#settings-modal').classList.remove('show');
-      else if ($('#team-modal').classList.contains('show')) $('#team-modal').classList.remove('show');
-      else if ($('#stats-modal').classList.contains('show')) $('#stats-modal').classList.remove('show');
-      else if ($('#help-modal').classList.contains('show')) $('#help-modal').classList.remove('show');
+      if ($('#settings-modal')?.classList.contains('show')) $('#settings-modal').classList.remove('show');
+      else if ($('#stats-modal')?.classList.contains('show')) $('#stats-modal').classList.remove('show');
+      else if ($('#help-modal')?.classList.contains('show')) $('#help-modal').classList.remove('show');
       else if (state.currentModal) closeModal();
     }
     else if ((e.key === '?' || (e.key === '/' && e.shiftKey))) { e.preventDefault(); $('#help-modal').classList.toggle('show'); }
@@ -14880,14 +14879,14 @@ function attachEvents() {
 
 // ===== Init =====
 async function init() {
-  applyTheme();
-  renderUI();
-  renderCategoryNav();
-  renderTagNav();
-  renderScenarios();
-  renderArticleList();
-  updateFavBadge();
-  attachEvents();
+  try { applyTheme(); } catch(e) { console.error('applyTheme:', e); }
+  try { renderUI(); } catch(e) { console.error('renderUI:', e); }
+  try { renderCategoryNav(); } catch(e) { console.error('renderCategoryNav:', e); }
+  try { renderTagNav(); } catch(e) { console.error('renderTagNav:', e); }
+  try { renderScenarios(); } catch(e) { console.error('renderScenarios:', e); }
+  try { renderArticleList(); } catch(e) { console.error('renderArticleList:', e); }
+  try { updateFavBadge(); } catch(e) { console.error('updateFavBadge:', e); }
+  try { attachEvents(); } catch(e) { console.error('attachEvents:', e); }
 
   // Supabase 数据加载（异步，不阻塞首屏）
   const user = KB_DAO.getUser();
@@ -14897,9 +14896,9 @@ async function init() {
       document.documentElement.dataset.kbUser = user;
       // 并行加载 favorites + ratings + edits + Gemini key
       const [favs, ratings, edits] = await Promise.all([
-        KB_DAO.loadFavorites(user),
-        KB_DAO.loadRatings(),
-        KB_DAO.loadEdits(),
+        KB_DAO.loadFavorites(user).catch(() => []),
+        KB_DAO.loadRatings().catch(() => ({})),
+        KB_DAO.loadEdits().catch(() => ({})),
       ]);
       // 合并到 state
       state.favorites = new Set(favs);
@@ -14912,10 +14911,10 @@ async function init() {
       updateFavBadge();
       renderArticleList();
       // 后台加载 Gemini key（非阻塞）
-      GEMINI.loadKey();
+      GEMINI.loadKey().catch(()=>{});
       console.log('[KB] Supabase sync complete:', favs.length, 'favs,', Object.keys(ratings).length, 'rated entries,', Object.keys(edits).length, 'edits');
     } catch(e) {
-      console.warn('[KB] Supabase sync error:', e);
+      console.warn('[KB] Supabase sync error (non-fatal):', e);
     }
   }
 }
@@ -14998,9 +14997,23 @@ async function bootApp() {
   const savedTheme = localStorage.getItem('kb_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   document.documentElement.dataset.theme = savedTheme;
 
+  // 🆕 从工作台跳转过来（URL 含 #user=xxx）：自动跳过密码（用户已经在工作台登录过）
+  const fromWorkspace = (window.location.hash && window.location.hash.includes('user=')) ||
+                        (window.location.search && window.location.search.includes('user='));
+  if (fromWorkspace) {
+    // 自动通过密码验证
+    if (CONFIG.ACCESS_PASSWORD_HASH) {
+      localStorage.setItem('kb_auth_verified', '1');
+      localStorage.setItem('kb_auth_hash', CONFIG.ACCESS_PASSWORD_HASH);
+    }
+    try { await init(); } catch(e) { console.error('[KB] init error:', e); }
+    autoSyncEdits();
+    return;
+  }
+
   // No password configured - allow open access
   if (!CONFIG.ACCESS_PASSWORD_HASH) {
-    init();
+    try { await init(); } catch(e) { console.error('[KB] init error:', e); }
     autoSyncEdits();
     return;
   }
@@ -15011,7 +15024,7 @@ async function bootApp() {
 
   if (verified === '1' && savedHash === CONFIG.ACCESS_PASSWORD_HASH) {
     // Previous verification still valid
-    init();
+    try { await init(); } catch(e) { console.error('[KB] init error:', e); }
     autoSyncEdits();
     return;
   }
