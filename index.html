@@ -11,271 +11,346 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{
-  --bg:#fafaf7;
+  /* Apple 风格：极简灰白 + 苹果蓝 */
+  --bg:#fbfbfd;
+  --bg-page:#fbfbfd;
   --paper:#ffffff;
-  --ink:#1a1a17;
-  --ink-2:#3a3a35;
-  --ink-3:#7a7a72;
-  --ink-4:#a8a8a0;
-  --line:#e8e6e0;
-  --line-soft:#f0eee8;
-  --accent:#7c2d12;
-  --accent-soft:rgba(124,45,18,.08);
-  --accent-mid:rgba(124,45,18,.16);
-  --good:#15803d;
-  --good-soft:#dcfce7;
-  --warn:#b45309;
-  --warn-soft:#fef3c7;
-  --bad:#b91c1c;
-  --bad-soft:#fee2e2;
-  --info:#1d4ed8;
-  --info-soft:#dbeafe;
-  --gold:#a16207;
-  --gold-soft:#fef9c3;
+  --bg-elevated:#f5f5f7;
+  --bg-soft:#fafafc;
+  --ink:#1d1d1f;
+  --ink-2:#424245;
+  --ink-3:#6e6e73;
+  --ink-4:#86868b;
+  --line:rgba(0,0,0,.085);
+  --line-soft:rgba(0,0,0,.05);
+  --line-strong:rgba(0,0,0,.15);
+  --accent:#0071e3;
+  --accent-hover:#0077ed;
+  --accent-soft:rgba(0,113,227,.08);
+  --accent-mid:rgba(0,113,227,.15);
+  --good:#34c759;
+  --good-soft:#e8f8eb;
+  --warn:#ff9500;
+  --warn-soft:#fff4e5;
+  --bad:#ff3b30;
+  --bad-soft:#ffe9e7;
+  --info:#0071e3;
+  --info-soft:rgba(0,113,227,.08);
+  --gold:#ff9500;
+  --gold-soft:#fff4e5;
+  --radius-sm:8px;
+  --radius:12px;
+  --radius-lg:18px;
+  --radius-xl:22px;
+  --radius-pill:980px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,.04);
+  --shadow-sm:0 1px 3px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
+  --shadow-md:0 4px 16px rgba(0,0,0,.08);
+  --shadow-lg:0 10px 40px rgba(0,0,0,.12);
 }
-*{box-sizing:border-box}
+*{box-sizing:border-box;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 html,body{margin:0;padding:0}
 body{
   background:var(--bg);
   color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
-  font-weight:500;
-  -webkit-font-smoothing:antialiased;
-  background-image:
-    radial-gradient(circle at 18% 8%,rgba(124,45,18,.025) 0%,transparent 42%),
-    radial-gradient(circle at 82% 92%,rgba(180,83,9,.025) 0%,transparent 42%);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  font-weight:400;
+  letter-spacing:-.003em;
   min-height:100vh;
+  font-feature-settings:"kern","liga","calt";
 }
-.font-display{font-family:'Georgia','PingFang SC',serif;letter-spacing:.02em}
-.font-mono{font-family:'JetBrains Mono','SF Mono',Consolas,'Courier New',monospace;font-feature-settings:'tnum' on}
+.font-display{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","PingFang SC",sans-serif;letter-spacing:-.022em;font-weight:600}
+.font-mono{font-family:"SF Mono",ui-monospace,"JetBrains Mono",Consolas,monospace;font-feature-settings:'tnum' on}
 .tabular-nums{font-variant-numeric:tabular-nums}
 
 .paper{
   background:var(--paper);
   border:1px solid var(--line);
-  box-shadow:0 1px 0 rgba(0,0,0,.02),0 1px 2px rgba(0,0,0,.02);
+  border-radius:var(--radius-lg);
 }
 
-/* === Inputs === */
+/* === Inputs - Apple style === */
 input,select,textarea{
   font-family:inherit;
   color:var(--ink);
   background:var(--paper);
-  border:1.5px solid var(--line);
-  border-radius:8px;
-  padding:8px 12px;
-  font-weight:600;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:9px 12px;
+  font-weight:400;
   outline:none;
-  transition:all .15s;
+  transition:border-color .2s,box-shadow .2s;
   width:100%;
-  font-size:13px;
+  font-size:14px;
+  letter-spacing:-.003em;
 }
 input:focus,select:focus,textarea:focus{
   border-color:var(--accent);
-  box-shadow:0 0 0 3px var(--accent-soft);
+  box-shadow:0 0 0 4px var(--accent-soft);
 }
 input::placeholder,textarea::placeholder{color:var(--ink-4);font-weight:400}
-.input-mono{font-family:'JetBrains Mono',monospace;font-feature-settings:'tnum' on}
-input[type=checkbox]{width:auto;cursor:pointer}
-
-/* === Buttons === */
-.btn-pri{
-  background:var(--accent);color:white;font-weight:700;padding:8px 18px;
-  border-radius:8px;border:none;cursor:pointer;transition:all .15s;
-  font-family:inherit;font-size:13px;
+input[type=checkbox]{width:auto;cursor:pointer;accent-color:var(--accent)}
+select{
+  appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236e6e73' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  padding-right:32px;
 }
-.btn-pri:hover{background:#5c1f0d;transform:translateY(-1px);box-shadow:0 2px 8px rgba(124,45,18,.25)}
+
+/* === Buttons - Apple pill style === */
+.btn-pri{
+  background:var(--accent);color:white;font-weight:500;padding:9px 20px;
+  border-radius:var(--radius-pill);border:none;cursor:pointer;transition:all .2s;
+  font-family:inherit;font-size:14px;letter-spacing:-.003em;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.btn-pri:hover{background:var(--accent-hover);transform:translateY(-.5px)}
+.btn-pri:active{transform:translateY(0)}
 .btn-pri:disabled{opacity:.4;cursor:not-allowed;transform:none}
 .btn-sec{
-  background:white;color:var(--ink);font-weight:600;padding:6px 14px;
-  border-radius:6px;border:1.5px solid var(--line);cursor:pointer;transition:all .15s;
-  font-size:12px;font-family:inherit;
+  background:var(--bg-elevated);color:var(--ink);font-weight:500;padding:7px 16px;
+  border-radius:var(--radius-pill);border:none;cursor:pointer;transition:all .2s;
+  font-size:13px;font-family:inherit;letter-spacing:-.003em;
+  display:inline-flex;align-items:center;gap:5px;
 }
-.btn-sec:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
-.btn-danger{background:var(--bad);color:white;font-weight:600;padding:6px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-family:inherit}
-.btn-danger:hover{background:#7f1212}
-.btn-ghost{background:transparent;color:var(--ink-3);font-weight:600;padding:6px 12px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-family:inherit;transition:all .15s}
-.btn-ghost:hover{background:var(--line-soft);color:var(--ink)}
+.btn-sec:hover{background:#e8e8ed;color:var(--ink)}
+.btn-danger{background:var(--bad);color:white;font-weight:500;padding:7px 16px;border-radius:var(--radius-pill);border:none;cursor:pointer;font-size:13px;font-family:inherit;transition:all .2s}
+.btn-danger:hover{background:#e0342a;transform:translateY(-.5px)}
+.btn-ghost{background:transparent;color:var(--accent);font-weight:500;padding:7px 12px;border-radius:var(--radius-pill);border:none;cursor:pointer;font-size:13px;font-family:inherit;transition:all .15s;letter-spacing:-.003em}
+.btn-ghost:hover{background:var(--accent-soft)}
 
 /* === Misc === */
-.divider-h{height:1px;background:linear-gradient(to right,transparent,var(--line) 30%,var(--line) 70%,transparent)}
+.divider-h{height:1px;background:var(--line)}
 .label-num{
   display:inline-flex;align-items:center;justify-content:center;
-  width:22px;height:22px;border-radius:50%;
-  background:var(--accent);color:white;font-weight:800;font-size:11px;
-  font-family:'JetBrains Mono',monospace;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--accent);color:white;font-weight:600;font-size:11px;
 }
 .code-block{
-  background:var(--bg);border:1px dashed var(--line);
-  padding:10px 14px;border-radius:8px;
-  font-family:'JetBrains Mono',monospace;font-size:12px;
+  background:var(--bg-elevated);
+  padding:12px 14px;border-radius:var(--radius-sm);
+  font-family:"SF Mono",ui-monospace,monospace;font-size:12px;
   color:var(--ink-2);line-height:1.6;
   white-space:pre-wrap;word-break:break-all;
 }
 
-/* === Tags === */
-.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace}
-.tag-good{background:var(--good-soft);color:var(--good)}
-.tag-warn{background:var(--warn-soft);color:var(--warn)}
-.tag-bad{background:var(--bad-soft);color:var(--bad)}
-.tag-info{background:var(--info-soft);color:var(--info)}
-.tag-gold{background:var(--gold-soft);color:var(--gold)}
-.tag-neutral{background:var(--line-soft);color:var(--ink-3)}
+/* === Tags - softer rounded pills === */
+.tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--radius-pill);font-size:11px;font-weight:500;letter-spacing:-.003em}
+.tag-good{background:var(--good-soft);color:#1a7e35}
+.tag-warn{background:var(--warn-soft);color:#a85e00}
+.tag-bad{background:var(--bad-soft);color:#c5251c}
+.tag-info{background:var(--accent-soft);color:var(--accent)}
+.tag-gold{background:var(--gold-soft);color:#a85e00}
+.tag-neutral{background:var(--bg-elevated);color:var(--ink-3)}
 
 /* === Status colors for CS rows === */
-.status-bar{width:4px;border-radius:2px;align-self:stretch}
-.status-pending{background:#a8a8a0}
-.status-following{background:#eab308}
-.status-waiting{background:#3b82f6}
-.status-resolved{background:#22c55e}
-.status-overdue{background:#ef4444}
+.status-bar{width:3px;border-radius:2px;align-self:stretch}
+.status-pending{background:#86868b}
+.status-following{background:#ff9500}
+.status-waiting{background:#0071e3}
+.status-resolved{background:#34c759}
+.status-overdue{background:#ff3b30}
 
 /* === Scrollbar === */
-.scrollbar-thin::-webkit-scrollbar{height:8px;width:8px}
-.scrollbar-thin::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
-.scrollbar-thin::-webkit-scrollbar-thumb:hover{background:var(--ink-4)}
+.scrollbar-thin::-webkit-scrollbar{height:6px;width:6px}
+.scrollbar-thin::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);border-radius:3px}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.32)}
 .scrollbar-thin::-webkit-scrollbar-track{background:transparent}
 
-/* === Tabs === */
+/* === Tabs - Apple segmented style === */
 .tab-btn{
-  padding:10px 18px;border:none;background:transparent;
-  font-family:'Georgia','PingFang SC',serif;font-size:14px;font-weight:700;
-  color:var(--ink-3);cursor:pointer;border-bottom:2px solid transparent;
-  transition:all .15s;letter-spacing:.02em;
+  padding:8px 16px;border:none;background:transparent;
+  font-family:inherit;font-size:14px;font-weight:500;
+  color:var(--ink-3);cursor:pointer;border-radius:var(--radius-pill);
+  transition:all .2s;letter-spacing:-.003em;
   display:inline-flex;align-items:center;gap:6px;
 }
-.tab-btn:hover{color:var(--ink)}
-.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-btn:hover{color:var(--ink);background:var(--bg-elevated)}
+.tab-btn.active{color:var(--ink);background:var(--paper);box-shadow:0 0 0 1px var(--line),var(--shadow-xs)}
 .tab-btn .badge{
   display:inline-flex;align-items:center;justify-content:center;
   min-width:18px;height:18px;padding:0 5px;
-  background:var(--bad);color:white;border-radius:9px;
-  font-size:10px;font-weight:800;font-family:'JetBrains Mono',monospace;
+  background:var(--bad);color:white;border-radius:var(--radius-pill);
+  font-size:10px;font-weight:600;
 }
 
-/* === Login screen === */
+/* === Top nav tabs (different style: underline) === */
+.nav-tab{
+  padding:18px 4px;margin:0 12px;border:none;background:transparent;
+  font-family:inherit;font-size:14px;font-weight:400;
+  color:var(--ink-3);cursor:pointer;
+  border-bottom:2px solid transparent;
+  transition:color .15s;letter-spacing:-.003em;
+  display:inline-flex;align-items:center;gap:6px;
+  position:relative;
+}
+.nav-tab:hover{color:var(--ink)}
+.nav-tab.active{color:var(--ink);font-weight:500}
+.nav-tab.active::after{
+  content:'';position:absolute;left:0;right:0;bottom:-1px;
+  height:2px;background:var(--accent);border-radius:1px;
+}
+
+/* === Login screen - Apple style minimal === */
 .login-bg{
   position:fixed;inset:0;
-  background:
-    radial-gradient(circle at 30% 20%,rgba(124,45,18,.08) 0%,transparent 50%),
-    radial-gradient(circle at 70% 80%,rgba(180,83,9,.06) 0%,transparent 50%),
-    var(--bg);
+  background:var(--bg);
   display:flex;align-items:center;justify-content:center;
   z-index:100;
+  padding:24px;
+}
+.login-card{
+  background:var(--paper);
+  border-radius:var(--radius-xl);
+  box-shadow:var(--shadow-lg);
+  border:1px solid var(--line);
+  max-width:920px;width:100%;
+  overflow:hidden;
+}
+.emp-card{
+  background:var(--bg-elevated);
+  border-radius:var(--radius-lg);
+  padding:18px 14px;
+  text-align:center;
+  cursor:pointer;
+  transition:all .2s;
+  border:1px solid transparent;
+}
+.emp-card:hover{
+  background:var(--paper);
+  border-color:var(--line);
+  transform:translateY(-2px);
+  box-shadow:var(--shadow-md);
+}
+.emp-card.selected{
+  background:var(--paper);
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-soft),var(--shadow-md);
+}
+.emp-avatar-lg{
+  width:56px;height:56px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:600;color:white;
+  margin-bottom:8px;
 }
 
 /* === Animations === */
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.fade-in{animation:fadeIn .25s ease}
-@keyframes pulse-soft{0%,100%{opacity:1}50%{opacity:.6}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .3s cubic-bezier(.4,0,.2,1)}
+@keyframes pulse-soft{0%,100%{opacity:1}50%{opacity:.5}}
 .pulse-soft{animation:pulse-soft 2s ease-in-out infinite}
 
 /* === Modal === */
 .modal-backdrop{
-  position:fixed;inset:0;background:rgba(26,26,23,.5);
+  position:fixed;inset:0;background:rgba(0,0,0,.4);
   display:flex;align-items:center;justify-content:center;
-  z-index:50;padding:20px;backdrop-filter:blur(2px);
+  z-index:50;padding:20px;backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
 }
 .modal-card{
-  background:white;border-radius:16px;max-width:90vw;max-height:90vh;
-  overflow-y:auto;animation:fadeIn .2s ease;
-  box-shadow:0 20px 60px rgba(0,0,0,.2);
+  background:var(--paper);
+  border-radius:var(--radius-xl);
+  max-width:90vw;max-height:90vh;
+  overflow-y:auto;animation:fadeIn .25s cubic-bezier(.4,0,.2,1);
+  box-shadow:var(--shadow-lg);
+  border:1px solid var(--line);
 }
 
 /* === Row hover === */
-.row-hover{transition:background .12s}
-.row-hover:hover{background:var(--accent-soft)}
+.row-hover{transition:background .15s}
+.row-hover:hover{background:var(--bg-soft)}
 
 /* === Toast === */
 .toast{
-  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
-  background:var(--ink);color:white;padding:10px 20px;
-  border-radius:8px;font-size:13px;font-weight:600;
-  z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.2);
-  animation:fadeIn .25s ease;
+  position:fixed;bottom:32px;left:50%;transform:translateX(-50%);
+  background:var(--ink);color:white;padding:12px 22px;
+  border-radius:var(--radius-pill);font-size:14px;font-weight:500;
+  z-index:200;box-shadow:var(--shadow-lg);
+  animation:fadeIn .3s cubic-bezier(.4,0,.2,1);
+  letter-spacing:-.003em;
 }
 
 /* === Mini chart bars === */
-.bar-track{
-  height:8px;background:var(--line-soft);border-radius:4px;overflow:hidden;
-}
-.bar-fill{height:100%;background:var(--accent);transition:width .3s ease}
+.bar-track{height:6px;background:var(--bg-elevated);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;background:var(--accent);transition:width .3s ease;border-radius:3px}
 
 /* === Drop zone === */
 .dropzone{
-  border:2px dashed var(--line);border-radius:10px;
-  padding:18px;text-align:center;
-  background:var(--bg);transition:all .15s;cursor:pointer;
+  border:1.5px dashed var(--line-strong);border-radius:var(--radius);
+  padding:24px;text-align:center;
+  background:var(--bg-soft);transition:all .2s;cursor:pointer;
 }
 .dropzone:hover,.dropzone.dragover{
   border-color:var(--accent);background:var(--accent-soft);
 }
 .thumb{
-  width:64px;height:64px;border-radius:6px;object-fit:cover;
-  border:1.5px solid var(--line);cursor:pointer;
+  width:64px;height:64px;border-radius:var(--radius-sm);object-fit:cover;
+  border:1px solid var(--line);cursor:pointer;
   transition:transform .15s;
 }
-.thumb:hover{transform:scale(1.05);border-color:var(--accent)}
+.thumb:hover{transform:scale(1.04);border-color:var(--accent)}
 
 /* === Difficulty buttons === */
 .diff-btn{
-  padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;
-  border:1.5px solid var(--line);background:white;cursor:pointer;
-  font-family:inherit;transition:all .1s;
+  padding:5px 12px;border-radius:var(--radius-pill);font-size:12px;font-weight:500;
+  border:1px solid var(--line);background:var(--paper);cursor:pointer;
+  font-family:inherit;transition:all .15s;color:var(--ink-3);
 }
+.diff-btn:hover{border-color:var(--line-strong);color:var(--ink)}
 .diff-btn.active-easy{background:var(--good);color:white;border-color:var(--good)}
 .diff-btn.active-mid{background:var(--gold);color:white;border-color:var(--gold)}
 .diff-btn.active-hard{background:var(--bad);color:white;border-color:var(--bad)}
-.diff-btn.suggested{border-style:dashed;border-color:var(--accent);color:var(--accent)}
+.diff-btn.suggested{border-style:dashed;border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 
 /* === Tabular === */
 table{width:100%;border-collapse:collapse}
-th,td{padding:10px 8px;text-align:left;font-size:12px}
-th{background:var(--bg);color:var(--ink-3);font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.06em;border-bottom:1.5px solid var(--line)}
+th,td{padding:12px 10px;text-align:left;font-size:13px}
+th{background:var(--bg-soft);color:var(--ink-3);font-weight:500;font-size:11px;letter-spacing:-.003em;border-bottom:1px solid var(--line)}
 td{border-bottom:1px solid var(--line-soft)}
-tr:hover td{background:var(--accent-soft)}
+tr:hover td{background:var(--bg-soft)}
 
 /* === 报价单 / PI / 发票样式 === */
-.invoice-doc{background:white;color:#1a1a17;font-family:'Inter','Noto Sans SC',-apple-system,sans-serif;padding:48px;max-width:880px;margin:0 auto;box-shadow:0 2px 12px rgba(0,0,0,.06)}
-.invoice-doc h1{font-family:Georgia,serif;font-size:32px;font-weight:700;letter-spacing:.02em;margin:0 0 4px 0}
-.invoice-doc h2{font-family:Georgia,serif;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#7c2d12;margin:24px 0 8px 0;padding-bottom:4px;border-bottom:1px solid #e8e6e0}
-.invoice-doc table{font-family:'Inter',sans-serif;font-size:12px}
-.invoice-doc th{background:#f5f3ee;color:#3a3a35;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.05em;border-bottom:2px solid #7c2d12;padding:10px 8px}
-.invoice-doc td{border-bottom:1px solid #e8e6e0;padding:10px 8px;vertical-align:top}
-.invoice-doc .seller-block{padding:16px;background:#fafaf7;border-left:3px solid #7c2d12;border-radius:4px}
-.invoice-doc .field-label{font-size:10px;text-transform:uppercase;color:#7a7a72;letter-spacing:.06em;font-weight:600;margin-bottom:3px}
-.invoice-doc .field-value{font-size:13px;color:#1a1a17;font-weight:500}
-.invoice-doc .product-img{width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid #e8e6e0}
-.invoice-doc .totals-row td{padding:6px 8px;font-size:13px}
-.invoice-doc .totals-row.subtotal td{border-top:1.5px solid #1a1a17}
-.invoice-doc .totals-row.grand td{font-weight:700;font-size:16px;border-top:2px solid #1a1a17;border-bottom:3px double #1a1a17;background:#fafaf7}
+.invoice-doc{background:white;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",sans-serif;padding:48px;max-width:880px;margin:0 auto;box-shadow:var(--shadow-md);border-radius:var(--radius-lg)}
+.invoice-doc h1{font-family:inherit;font-size:36px;font-weight:600;letter-spacing:-.022em;margin:0 0 4px 0;color:var(--ink)}
+.invoice-doc h2{font-family:inherit;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin:24px 0 8px 0;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.invoice-doc table{font-family:inherit;font-size:13px}
+.invoice-doc th{background:var(--bg-elevated);color:var(--ink-2);font-weight:500;font-size:11px;letter-spacing:-.003em;border-bottom:1.5px solid var(--accent);padding:10px 8px;text-transform:none}
+.invoice-doc td{border-bottom:1px solid var(--line-soft);padding:10px 8px;vertical-align:top}
+.invoice-doc .seller-block{padding:16px;background:var(--bg-elevated);border-radius:var(--radius);border-left:none}
+.invoice-doc .field-label{font-size:11px;color:var(--ink-3);font-weight:400;margin-bottom:3px;letter-spacing:-.003em}
+.invoice-doc .field-value{font-size:14px;color:var(--ink);font-weight:500}
+.invoice-doc .product-img{width:60px;height:60px;object-fit:cover;border-radius:var(--radius-sm);border:1px solid var(--line)}
+.invoice-doc .totals-row td{padding:6px 8px;font-size:14px}
+.invoice-doc .totals-row.subtotal td{border-top:1px solid var(--line)}
+.invoice-doc .totals-row.grand td{font-weight:600;font-size:18px;border-top:1px solid var(--ink-3);border-bottom:none;background:transparent}
 
 /* === 工单状态 === */
-.ticket-status-pending{background:#fef3c7;color:#92400e;border:1px solid #fbbf24}
-.ticket-status-accepted{background:#dbeafe;color:#1e40af;border:1px solid #60a5fa}
-.ticket-status-processing{background:#e0e7ff;color:#3730a3;border:1px solid #818cf8}
-.ticket-status-resolved{background:#dcfce7;color:#166534;border:1px solid #4ade80}
-.ticket-status-rejected{background:#fee2e2;color:#991b1b;border:1px solid #f87171}
-.ticket-pri-low{background:#f1f5f9;color:#475569}
-.ticket-pri-mid{background:#fef3c7;color:#92400e}
-.ticket-pri-high{background:#fee2e2;color:#991b1b;font-weight:700}
+.ticket-status-pending{background:var(--warn-soft);color:#a85e00}
+.ticket-status-accepted{background:var(--accent-soft);color:var(--accent)}
+.ticket-status-processing{background:rgba(94,92,230,.1);color:#5e5ce6}
+.ticket-status-resolved{background:var(--good-soft);color:#1a7e35}
+.ticket-status-rejected{background:var(--bad-soft);color:#c5251c}
+.ticket-pri-low{background:var(--bg-elevated);color:var(--ink-3)}
+.ticket-pri-mid{background:var(--warn-soft);color:#a85e00}
+.ticket-pri-high{background:var(--bad-soft);color:#c5251c;font-weight:600}
 
 /* === 知识库样式 === */
-.kb-card{background:white;border:1px solid var(--line);border-radius:10px;padding:14px;transition:all .15s}
-.kb-card:hover{border-color:var(--accent-mid);box-shadow:0 2px 8px rgba(124,45,18,.06)}
-.kb-answer{background:var(--bg);border-left:3px solid var(--accent);padding:12px 14px;border-radius:0 6px 6px 0;font-size:13px;line-height:1.65;white-space:pre-wrap;font-family:inherit;color:var(--ink-2)}
-.kb-placeholder{background:rgba(180,83,9,.12);color:#b45309;padding:1px 4px;border-radius:2px;font-weight:600}
-.kb-cat-tag{display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.kb-card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:16px;transition:all .15s}
+.kb-card:hover{border-color:var(--line-strong);box-shadow:var(--shadow-xs)}
+.kb-answer{background:var(--bg-elevated);border-radius:var(--radius-sm);padding:14px 16px;font-size:13px;line-height:1.65;white-space:pre-wrap;font-family:inherit;color:var(--ink-2)}
+.kb-placeholder{background:var(--accent-soft);color:var(--accent);padding:1px 6px;border-radius:4px;font-weight:500}
+.kb-cat-tag{display:inline-block;padding:3px 10px;border-radius:var(--radius-pill);font-size:11px;font-weight:500;letter-spacing:-.003em}
 
 /* === 云同步状态条 === */
-.cloud-status{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:10px;font-family:'JetBrains Mono',monospace}
-.cloud-status.ok{background:#dcfce7;color:#166534}
-.cloud-status.local{background:#f1f5f9;color:#475569}
-.cloud-status.err{background:#fee2e2;color:#991b1b}
+.cloud-status{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--radius-pill);font-size:11px;font-weight:500;letter-spacing:-.003em}
+.cloud-status.ok{background:var(--good-soft);color:#1a7e35}
+.cloud-status.local{background:var(--bg-elevated);color:var(--ink-3)}
+.cloud-status.err{background:var(--bad-soft);color:#c5251c}
 .cloud-status .dot{width:6px;height:6px;border-radius:50%;display:inline-block}
-.cloud-status.ok .dot{background:#22c55e;animation:pulse 2s infinite}
-.cloud-status.local .dot{background:#94a3b8}
-.cloud-status.err .dot{background:#ef4444}
+.cloud-status.ok .dot{background:#34c759;animation:pulse 2s infinite}
+.cloud-status.local .dot{background:#86868b}
+.cloud-status.err .dot{background:#ff3b30}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 
 /* === Print-friendly quote === */
@@ -283,12 +358,12 @@ tr:hover td{background:var(--accent-soft)}
   .no-print{display:none !important}
   body{background:white}
   .paper{box-shadow:none;border:none}
-  .invoice-doc{padding:24px;box-shadow:none;max-width:none}
+  .invoice-doc{padding:24px;box-shadow:none;max-width:none;border-radius:0}
   @page{size:A4;margin:12mm}
 }
 
 /* === Sticky table === */
-.sticky-th{position:sticky;top:0;z-index:5;background:var(--bg)}
+.sticky-th{position:sticky;top:0;z-index:5;background:var(--bg-soft)}
 </style>
 </head>
 <body>
@@ -389,9 +464,9 @@ const STORE = {
 // ============================================================
 // 云同步层 (Supabase)
 // ============================================================
-// 默认配置（用户可在"设置"页修改后保存到 localStorage）
+// 已预埋默认配置，团队成员打开即用，无需各自填写
 const DEFAULT_SB_URL = 'https://kwrajryhwyytkjkkidor.supabase.co';
-const DEFAULT_SB_KEY = '';  // 由用户在设置页填入
+const DEFAULT_SB_KEY = 'sb_publishable_6j-rSrv1V95FROe-iX6Yew_unE_Y6n9';
 
 const CLOUD = {
   client: null,
@@ -634,7 +709,7 @@ const useToast = () => {
 // 登录 / Session
 // ============================================================
 const LoginScreen = ({ employees, onLogin }) => {
-  const [selectedId, setSelectedId] = useState(employees[0]?.id || '');
+  const [selectedId, setSelectedId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
@@ -646,61 +721,99 @@ const LoginScreen = ({ employees, onLogin }) => {
     onLogin(sel);
   };
 
+  // 员工头像配色 (Apple system colors)
+  const avatarColors = ['#0071e3','#34c759','#ff9500','#ff3b30','#5e5ce6','#af52de','#ff2d55','#5ac8fa','#ffcc00','#a2845e','#8e8e93'];
+  const colorOf = (id) => {
+    const idx = (employees.findIndex(e => e.id === id) || 0) % avatarColors.length;
+    return avatarColors[idx];
+  };
+
   return (
     <div className="login-bg">
-      <div className="paper rounded-2xl p-8 w-full max-w-md fade-in" style={{maxWidth:'420px'}}>
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{background:'var(--accent)', color:'white'}}>
-            <Icon name="doc" className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="font-display text-xl font-bold">统一工作台</div>
-            <div className="text-xs" style={{color:'var(--ink-3)'}}>客服跟进 · 财务卖价 · 报价单</div>
+      <div className="login-card fade-in">
+        {/* Header */}
+        <div style={{padding:'48px 48px 24px', textAlign:'center', borderBottom:'1px solid var(--line)'}}>
+          <div className="font-display" style={{fontSize:'40px', fontWeight:600, letterSpacing:'-.022em', marginBottom:'6px'}}>统一工作台</div>
+          <div style={{color:'var(--ink-3)', fontSize:'15px', fontWeight:400}}>选择你的账号继续</div>
+        </div>
+
+        {/* Employee grid */}
+        <div style={{padding:'32px 48px'}}>
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-3" style={{gap:'14px'}}>
+            {employees.map(e => {
+              const isSelected = selectedId === e.id;
+              const initials = (e.name || '?').slice(-1);
+              return (
+                <div
+                  key={e.id}
+                  className={`emp-card${isSelected ? ' selected' : ''}`}
+                  onClick={() => { setSelectedId(e.id); setError(''); setPassword(''); }}
+                >
+                  <div className="emp-avatar-lg" style={{background: colorOf(e.id)}}>{initials}</div>
+                  <div style={{fontSize:'14px', fontWeight:500, color:'var(--ink)', letterSpacing:'-.003em'}}>
+                    {e.name}{e.alias && <span style={{color:'var(--ink-3)', fontWeight:400, marginLeft:4}}>{e.alias}</span>}
+                  </div>
+                  {e.role === 'admin' && <div style={{fontSize:'11px', color:'var(--accent)', marginTop:2, fontWeight:500}}>👑 主管</div>}
+                  {e.sites && <div style={{fontSize:'11px', color:'var(--ink-4)', marginTop:3}}>{e.sites}</div>}
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-[11px] font-bold mb-1.5" style={{color:'var(--ink-2)'}}>选择账号</label>
-            <select value={selectedId} onChange={e => { setSelectedId(e.target.value); setError(''); }}>
-              {employees.map(e => (
-                <option key={e.id} value={e.id}>
-                  {e.name}{e.alias && ` (${e.alias})`}{e.role === 'admin' && ' · 主管'}
-                </option>
-              ))}
-            </select>
-            {sel?.sites && (
-              <div className="text-[10px] font-mono mt-1" style={{color:'var(--ink-4)'}}>负责：{sel.sites}</div>
-            )}
-          </div>
+        {/* Password */}
+        {sel && (
+          <div style={{padding:'0 48px 40px', borderTop:'1px solid var(--line)', paddingTop:'28px'}}>
+            <div style={{display:'flex', alignItems:'center', gap:'14px', marginBottom:'18px'}}>
+              <div className="emp-avatar-lg" style={{background:colorOf(sel.id), width:48, height:48, fontSize:18, margin:0}}>
+                {(sel.name || '?').slice(-1)}
+              </div>
+              <div>
+                <div style={{fontSize:'17px', fontWeight:500, color:'var(--ink)', letterSpacing:'-.003em'}}>
+                  欢迎，{sel.name}{sel.alias && ` ${sel.alias}`}
+                </div>
+                <div style={{fontSize:'13px', color:'var(--ink-3)'}}>
+                  {sel.role === 'admin' ? '主管账号' : '员工账号'}
+                </div>
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-[11px] font-bold mb-1.5" style={{color:'var(--ink-2)'}}>密码</label>
             <input
               type="password"
               value={password}
               onChange={e => { setPassword(e.target.value); setError(''); }}
               onKeyDown={e => e.key === 'Enter' && tryLogin()}
-              placeholder="请输入密码"
+              placeholder="输入密码"
               autoFocus
+              style={{fontSize:'15px', padding:'12px 16px', borderRadius:'12px'}}
             />
-            <div className="text-[10px] font-mono mt-1" style={{color:'var(--ink-4)'}}>
+
+            {error && (
+              <div style={{marginTop:'10px', fontSize:'13px', color:'var(--bad)', fontWeight:500}}>
+                {error}
+              </div>
+            )}
+
+            <div style={{display:'flex', gap:'10px', marginTop:'18px', alignItems:'center'}}>
+              <button className="btn-pri" onClick={tryLogin} style={{flex:1, padding:'12px 24px', fontSize:'15px', fontWeight:500}}>
+                继续 →
+              </button>
+              <button className="btn-sec" onClick={() => { setSelectedId(''); setPassword(''); setError(''); }}>
+                取消
+              </button>
+            </div>
+
+            <div style={{marginTop:'14px', fontSize:'12px', color:'var(--ink-4)', textAlign:'center'}}>
               默认密码：主管 admin123 · 员工 123456
             </div>
           </div>
+        )}
 
-          {error && (
-            <div className="text-xs px-3 py-2 rounded" style={{background:'var(--bad-soft)', color:'var(--bad)', fontWeight:600}}>
-              {error}
-            </div>
-          )}
-
-          <button className="btn-pri w-full" onClick={tryLogin}>登录进入</button>
-        </div>
-
-        <div className="mt-6 pt-4 border-t text-[10px] font-mono text-center" style={{borderColor:'var(--line)', color:'var(--ink-4)'}}>
-          数据保存在浏览器本地 · 不上传服务器
-        </div>
+        {!sel && (
+          <div style={{padding:'0 48px 40px', textAlign:'center', color:'var(--ink-4)', fontSize:'13px'}}>
+            ↑ 选择一个账号开始
+          </div>
+        )}
       </div>
     </div>
   );
@@ -712,78 +825,116 @@ const LoginScreen = ({ employees, onLogin }) => {
 const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn }) => {
   const isAdmin = user.role === 'admin';
   const tabs = [
-    { key:'cs', label:'客服跟进', icon:'cs', badge: stats.overdue },
-    { key:'kb', label:'知识库', icon:'doc' },
-    { key:'report', label:'汇报', icon:'pin', badge: stats.ticketInbox },
-    { key:'quote', label:'报价单', icon:'doc' },
-    { key:'finance', label:'财务卖价', icon:'cash' },
-    { key:'dashboard', label:'数据看板', icon:'chart' },
-    { key:'trash', label:'回收站', icon:'trash', badge: stats.trashCount, badgeColor:'#a8a8a0' },
+    { key:'cs', label:'客服跟进', badge: stats.overdue },
+    { key:'kb', label:'知识库' },
+    { key:'report', label:'汇报', badge: stats.ticketInbox },
+    { key:'quote', label:'报价单' },
+    { key:'finance', label:'财务' },
+    { key:'dashboard', label:'数据看板' },
+    { key:'trash', label:'回收站', badge: stats.trashCount, badgeColor:'#86868b' },
   ];
-  if (isAdmin) tabs.push({ key:'admin', label:'设置', icon:'users' });
+  if (isAdmin) tabs.push({ key:'admin', label:'设置' });
 
   const bellTotal = (stats.overdue || 0) + (stats.dueToday || 0);
   const bellLabel = notifPerm === 'granted'
     ? `桌面通知已开启${bellTotal > 0 ? ` · ${stats.overdue} 逾期 + ${stats.dueToday} 今日到期` : ' · 暂无到期'}`
     : notifPerm === 'denied'
-    ? '通知已被浏览器禁用（请在浏览器地址栏左侧锁图标处开启）'
-    : '点击开启桌面通知，到期跟进自动提醒';
+    ? '通知已被浏览器禁用'
+    : '点击开启桌面通知';
+
+  // 头像配色
+  const avatarColors = ['#0071e3','#34c759','#ff9500','#ff3b30','#5e5ce6','#af52de','#ff2d55','#5ac8fa','#ffcc00','#a2845e','#8e8e93'];
+  const idx = (user.name || '').charCodeAt(0) % avatarColors.length;
+  const avatarColor = avatarColors[idx];
+  const initials = (user.name || '?').slice(-1);
 
   return (
-    <div className="border-b" style={{borderColor:'var(--line)', background:'var(--paper)', position:'sticky', top:0, zIndex:20}}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4 flex-wrap">
+    <div style={{
+      borderBottom:'1px solid var(--line)',
+      background:'rgba(251,251,253,.85)',
+      backdropFilter:'saturate(180%) blur(20px)',
+      WebkitBackdropFilter:'saturate(180%) blur(20px)',
+      position:'sticky', top:0, zIndex:20
+    }}>
+      {/* Row 1: Logo + User + Actions */}
+      <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-4" style={{height:56}}>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{background:'var(--accent)', color:'white'}}>
-            <Icon name="doc" className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="font-display text-base font-bold">统一工作台</div>
-            <div className="text-[10px] font-mono flex items-center gap-2" style={{color:'var(--ink-3)'}}>
-              <span>{user.name}{user.alias && ` · ${user.alias}`} · {isAdmin ? '主管' : '员工'}</span>
-              <span className={`cloud-status ${cloudOn?'ok':'local'}`} style={{fontSize:9}}>
-                <span className="dot"></span>
-                {cloudOn ? '云端协同' : '本地模式'}
-              </span>
-            </div>
-          </div>
+          <div className="font-display" style={{fontSize:'19px', fontWeight:600, letterSpacing:'-.022em'}}>统一工作台</div>
+          <span className={`cloud-status ${cloudOn?'ok':'local'}`}>
+            <span className="dot"></span>
+            {cloudOn ? '云端' : '本地'}
+          </span>
         </div>
 
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-thin">
-          {tabs.map(t => (
-            <button key={t.key} className={`tab-btn ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
-              <Icon name={t.icon} className="w-4 h-4" />
-              {t.label}
-              {t.badge > 0 && (
-                <span className="badge" style={t.badgeColor ? {background:t.badgeColor} : null}>
-                  {t.badge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
-            className="btn-ghost"
             onClick={requestNotifPerm}
             title={bellLabel}
-            style={{position:'relative', padding:'6px 10px'}}
+            style={{
+              position:'relative', background:'transparent', border:'none', cursor:'pointer',
+              padding:'6px 8px', borderRadius:'50%', transition:'background .15s',
+              fontSize:'17px',
+              filter: notifPerm === 'granted' ? 'none' : 'grayscale(70%) opacity(0.55)'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
-            <span style={{fontSize:'16px', filter: notifPerm === 'granted' ? 'none' : 'grayscale(80%) opacity(0.55)'}}>🔔</span>
+            🔔
             {bellTotal > 0 && (
               <span style={{
-                position:'absolute', top:'-2px', right:'-2px',
-                background:'var(--bad)', color:'white', borderRadius:'9px',
-                fontSize:'9px', fontWeight:'bold', padding:'1px 5px',
-                fontFamily:'JetBrains Mono, monospace', minWidth:'16px',
-                textAlign:'center', border:'1.5px solid var(--paper)', lineHeight:'1.2'
+                position:'absolute', top:'2px', right:'2px',
+                background:'var(--bad)', color:'white', borderRadius:'50%',
+                fontSize:'9px', fontWeight:600, minWidth:'15px', height:'15px',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                border:'1.5px solid rgba(251,251,253,1)', lineHeight:1
               }}>{bellTotal}</span>
             )}
           </button>
-          <button className="btn-ghost flex items-center gap-1.5" onClick={onLogout}>
-            <Icon name="logout" className="w-4 h-4" />
-            退出
-          </button>
+
+          <div style={{display:'flex', alignItems:'center', gap:8, padding:'4px 12px 4px 4px', borderRadius:'var(--radius-pill)', background:'var(--bg-elevated)'}}>
+            <div style={{
+              width:28, height:28, borderRadius:'50%', background:avatarColor,
+              color:'white', fontWeight:600, fontSize:13,
+              display:'flex', alignItems:'center', justifyContent:'center'
+            }}>{initials}</div>
+            <div style={{fontSize:13, fontWeight:500, color:'var(--ink)', lineHeight:1.1}}>
+              {user.name}{user.alias && <span style={{color:'var(--ink-3)', fontWeight:400, marginLeft:3}}>{user.alias}</span>}
+              <div style={{fontSize:10, color:'var(--ink-4)', fontWeight:400, marginTop:1}}>{isAdmin ? '主管' : '员工'}</div>
+            </div>
+          </div>
+
+          <button
+            onClick={onLogout}
+            style={{
+              background:'transparent', border:'none', color:'var(--ink-3)',
+              cursor:'pointer', padding:'6px 10px', borderRadius:'var(--radius-pill)',
+              fontSize:13, transition:'all .15s', fontFamily:'inherit'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ink-3)'; }}
+          >退出</button>
+        </div>
+      </div>
+
+      {/* Row 2: Tabs */}
+      <div className="max-w-7xl mx-auto px-6" style={{borderTop:'1px solid var(--line)'}}>
+        <div className="flex items-center overflow-x-auto scrollbar-thin" style={{gap:0}}>
+          {tabs.map(t => (
+            <button key={t.key}
+              className={`nav-tab ${activeTab === t.key ? 'active' : ''}`}
+              onClick={() => setActiveTab(t.key)}
+            >
+              {t.label}
+              {t.badge > 0 && (
+                <span style={{
+                  display:'inline-flex', alignItems:'center', justifyContent:'center',
+                  minWidth:18, height:18, padding:'0 6px',
+                  background: t.badgeColor || 'var(--bad)', color:'white', borderRadius:9,
+                  fontSize:10, fontWeight:600, marginLeft:4
+                }}>{t.badge}</span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -1386,27 +1537,40 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
 
 const StatCard = ({ label, value, unit, color, hint, onClick, active }) => (
   <div
-    className="paper rounded-2xl p-4"
     onClick={onClick}
     style={{
-      borderTop:`3px solid ${color || 'var(--accent)'}`,
+      background: active ? 'var(--paper)' : 'var(--bg-elevated)',
+      border: active ? `1px solid ${color || 'var(--accent)'}` : '1px solid transparent',
+      borderRadius: 'var(--radius-lg)',
+      padding: '18px 20px',
       cursor: onClick ? 'pointer' : 'default',
-      outline: active ? `2px solid ${color || 'var(--accent)'}` : 'none',
-      outlineOffset: '-2px',
-      transition: 'transform 0.15s, box-shadow 0.15s',
+      transition: 'all .2s cubic-bezier(.4,0,.2,1)',
+      boxShadow: active ? `0 0 0 3px ${color}1a, var(--shadow-sm)` : 'none',
     }}
-    onMouseEnter={onClick ? e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(124,45,18,0.08)'; } : null}
-    onMouseLeave={onClick ? e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; } : null}
+    onMouseEnter={onClick ? e => {
+      if (!active) {
+        e.currentTarget.style.background = 'var(--paper)';
+        e.currentTarget.style.borderColor = 'var(--line)';
+        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+      }
+    } : null}
+    onMouseLeave={onClick ? e => {
+      if (!active) {
+        e.currentTarget.style.background = 'var(--bg-elevated)';
+        e.currentTarget.style.borderColor = 'transparent';
+        e.currentTarget.style.boxShadow = 'none';
+      }
+    } : null}
   >
-    <div className="text-[10px] font-bold uppercase tracking-wider flex items-center justify-between" style={{color:'var(--ink-3)'}}>
+    <div style={{fontSize:'12px', color:'var(--ink-3)', fontWeight:500, marginBottom:'6px', letterSpacing:'-.003em', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
       <span>{label}</span>
-      {onClick && <span style={{fontSize:'9px', color:'var(--ink-4)'}}>{active ? '✓ 筛选中' : '点击筛选'}</span>}
+      {onClick && active && <span style={{fontSize:'10px', color: color || 'var(--accent)', fontWeight:500}}>✓ 已筛选</span>}
     </div>
-    <div className="mt-1 flex items-baseline gap-1">
-      <span className="font-display text-2xl font-bold tabular-nums" style={{color}}>{value}</span>
-      {unit && <span className="text-xs font-mono" style={{color:'var(--ink-3)'}}>{unit}</span>}
+    <div style={{display:'flex', alignItems:'baseline', gap:'4px'}}>
+      <span className="font-display tabular-nums" style={{fontSize:'30px', fontWeight:600, letterSpacing:'-.022em', color: color || 'var(--ink)', lineHeight:1.1}}>{value}</span>
+      {unit && <span style={{fontSize:'13px', color:'var(--ink-3)', fontWeight:400}}>{unit}</span>}
     </div>
-    {hint && <div className="text-[10px] mt-1" style={{color:'var(--ink-4)'}}>{hint}</div>}
+    {hint && <div style={{fontSize:'11px', color:'var(--ink-4)', marginTop:'4px'}}>{hint}</div>}
   </div>
 );
 
@@ -2406,595 +2570,70 @@ const FinanceModule = ({ toast }) => {
 // ============================================================
 // 报价单模块 v2 - 多公司预设 + 多语言 + 云存储
 // ============================================================
-const QuoteModule = ({ user, employees, toast, cloudOn }) => {
-  const [tab, setTab] = useState('edit'); // edit | list | preview
-  const [quote, setQuote] = useState(() => STORE.get('quote_current', defaultQuote()));
-  const [quotes, setQuotes] = useState([]);  // 历史，从云端拉
-
-  useEffect(() => { STORE.set('quote_current', quote); }, [quote]);
-
-  // 加载历史报价单（云端优先）
-  useEffect(() => {
-    (async () => {
-      if (cloudOn && CLOUD.client) {
-        const cloud = await CLOUD.list('workspace_quotes', { order:{col:'updated_at', asc:false}, limit:200 });
-        if (cloud !== null) { setQuotes(cloud); return; }
-      }
-      setQuotes(STORE.get('quotes_local', []));
-    })();
-  }, [cloudOn, tab]);
-
-  // 公司预设变更 → 自动填充
-  const applyPreset = (key) => {
-    const p = SELLER_PRESETS[key];
-    if (!p) return;
-    const next = { ...quote, sellerKey:key, seller:{ name:p.name, address:p.address, phone:p.phone, email:p.email, website:p.website } };
-    // 仅 Radilum 系列自动填充买家+银行
-    if (key === 'radilum' || key === 'jiangmen_radilum') {
-      next.bank = { ...RADILUM_BANK };
-      if (key === 'jiangmen_radilum' && !quote.buyer?.address?.trim()) {
-        next.buyer = { ...next.buyer, name_address: RADILUM_DEFAULT_BUYER };
-      }
-    } else {
-      next.bank = { bank_name:'', bank_address:'', account_name:'', account_number:'', swift_code:'' };
-    }
-    setQuote(next);
-    toast(`✓ 已切换至 ${p.name}`);
-  };
-
-  // 新建空白报价
-  const newQuote = () => {
-    if (!confirm('清空当前编辑，新建空白报价单？')) return;
-    setQuote(defaultQuote());
-    setTab('edit');
-  };
-
-  // 保存到云端 / 本地
-  const saveQuote = async () => {
-    if (!quote.quote_no?.trim()) { toast('⚠ 请先填写报价单号'); return; }
-    const now = nowISO();
-    const total = computeTotal(quote);
-    const record = {
-      ...quote,
-      id: quote.id || uid(),
-      owner_id: user.id,
-      owner_name: user.name + (user.alias ? ' ' + user.alias : ''),
-      total_usd: total.total,
-      updated_at: now,
-      created_at: quote.created_at || now,
-    };
-    if (cloudOn && CLOUD.client) {
-      const saved = await CLOUD.upsert('workspace_quotes', record);
-      if (saved) {
-        toast('☁ 已保存到云端，团队可见');
-        setQuote(record);
-        // 刷新列表
-        const cloud = await CLOUD.list('workspace_quotes', { order:{col:'updated_at', asc:false}, limit:200 });
-        if (cloud) setQuotes(cloud);
-        return;
-      }
-      toast('⚠ 云端保存失败，已存至本地');
-    }
-    const local = STORE.get('quotes_local', []);
-    const idx = local.findIndex(q => q.id === record.id);
-    if (idx >= 0) local[idx] = record; else local.unshift(record);
-    STORE.set('quotes_local', local);
-    setQuotes(local);
-    setQuote(record);
-    toast('✓ 已保存至本地');
-  };
-
-  // 删除报价
-  const deleteQuote = async (id) => {
-    if (!confirm('永久删除此报价单？')) return;
-    if (cloudOn && CLOUD.client) {
-      const ok = await CLOUD.del('workspace_quotes', id);
-      if (ok) {
-        setQuotes(quotes.filter(q => q.id !== id));
-        toast('已删除');
-        return;
-      }
-    }
-    const local = STORE.get('quotes_local', []).filter(q => q.id !== id);
-    STORE.set('quotes_local', local);
-    setQuotes(local);
-    toast('已删除');
-  };
-
-  // 加载历史
-  const loadQuote = (q) => { setQuote(q); setTab('edit'); toast('已载入报价单'); };
-
-  // 商品行操作
-  const addItem = () => setQuote({ ...quote, items: [...(quote.items||[]), { id:uid(), sku:'', desc:'', image:'', qty:1, unit_price:0, carton:'', nw:0, gw:0, cbm:0 }] });
-  const updateItem = (id, patch) => setQuote({ ...quote, items: quote.items.map(it => it.id === id ? { ...it, ...patch } : it) });
-  const delItem = (id) => setQuote({ ...quote, items: quote.items.filter(it => it.id !== id) });
-
-  return (
-    <div className="space-y-5">
-      {/* 顶部操作栏 */}
-      <div className="paper rounded-2xl p-4 fade-in">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <button className={`tab-btn ${tab==='edit'?'active':''}`} onClick={() => setTab('edit')}>📝 编辑</button>
-            <button className={`tab-btn ${tab==='preview'?'active':''}`} onClick={() => setTab('preview')}>👁 预览</button>
-            <button className={`tab-btn ${tab==='list'?'active':''}`} onClick={() => setTab('list')}>📚 历史 ({quotes.length})</button>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`cloud-status ${cloudOn?'ok':'local'}`}>
-              <span className="dot"></span>
-              {cloudOn ? '云端同步' : '本地'}
-            </span>
-            <button className="btn-ghost text-xs" onClick={newQuote}>+ 新建</button>
-            <button className="btn-pri text-xs" onClick={saveQuote}>💾 保存</button>
-            {tab === 'preview' && <button className="btn-sec text-xs" onClick={() => window.print()}>🖨 打印 / PDF</button>}
-          </div>
-        </div>
-      </div>
-
-      {tab === 'edit' && <QuoteEditor quote={quote} setQuote={setQuote} applyPreset={applyPreset} addItem={addItem} updateItem={updateItem} delItem={delItem} />}
-      {tab === 'preview' && <QuotePreview quote={quote} />}
-      {tab === 'list' && <QuoteList quotes={quotes} user={user} onLoad={loadQuote} onDelete={deleteQuote} cloudOn={cloudOn} />}
-    </div>
-  );
-};
-
-const defaultQuote = () => ({
-  id: null,
-  doc_type: 'quotation',
-  lang: 'en',
-  sellerKey: 'radilum',
-  quote_no: '',
-  po_no: '',
-  invoice_no: '',
-  date: todayISO(),
-  valid_until: addDays(todayISO(), 30),
-  currency: 'USD',
-  seller: { name:'Radilum', address:'177 Joe Routt Blvd, College Station, TX 77840', phone:'+1 800-761-1037', email:'support@radilum.com', website:'radilum.com' },
-  buyer: { name_address:'', email:'', tel:'' },
-  ship_to: { name_address:'', tel:'' },
-  items: [],
-  discount_pct: 0,
-  freight: 0,
-  bank: { bank_name:'', bank_address:'', account_name:'', account_number:'', swift_code:'' },
-  terms: QUOTE_TERMS_PRESET,
-  notes: '',
-});
-
-const computeTotal = (q) => {
-  const subtotal = (q.items || []).reduce((s, it) => s + (Number(it.qty)||0) * (Number(it.unit_price)||0), 0);
-  const discountAmt = subtotal * (Number(q.discount_pct)||0) / 100;
-  const freight = Number(q.freight) || 0;
-  const total = subtotal - discountAmt + freight;
-  return { subtotal, discountAmt, freight, total };
-};
-
-// === 编辑器 ===
-const QuoteEditor = ({ quote, setQuote, applyPreset, addItem, updateItem, delItem }) => {
-  const { subtotal, discountAmt, freight, total } = computeTotal(quote);
-  const isBilingual = quote.lang === 'cn-en';
-  const isCn = quote.lang === 'cn';
-  const L = (en, cn) => isBilingual ? `${en} / ${cn}` : isCn ? cn : en;
-
-  // 自动生成 quote no
-  useEffect(() => {
-    if (!quote.quote_no && quote.sellerKey) {
-      const p = SELLER_PRESETS[quote.sellerKey];
-      const today = todayISO().replace(/-/g,'');
-      const rand = Math.floor(Math.random()*900+100);
-      setQuote({ ...quote, quote_no: `${p.prefix}-${today}-${rand}` });
-    }
-  }, [quote.sellerKey]);
-
-  return (
-    <div className="space-y-4 fade-in">
-      {/* 单据基础信息 */}
-      <div className="paper rounded-2xl p-5">
-        <h3 className="font-display text-sm font-bold mb-3" style={{color:'var(--accent)'}}>📋 单据基础信息</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div>
-            <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>单据类型</label>
-            <select value={quote.doc_type} onChange={e => setQuote({...quote, doc_type:e.target.value})}>
-              {DOC_TYPES.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>语言</label>
-            <select value={quote.lang} onChange={e => setQuote({...quote, lang:e.target.value})}>
-              <option value="en">English Only (推荐美国客户)</option>
-              <option value="cn-en">Bilingual 中英双语</option>
-              <option value="cn">中文 Only</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>卖家公司</label>
-            <select value={quote.sellerKey} onChange={e => applyPreset(e.target.value)}>
-              {Object.entries(SELLER_PRESETS).map(([k,p]) => <option key={k} value={k}>{p.name} — {p.desc}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>货币</label>
-            <select value={quote.currency} onChange={e => setQuote({...quote, currency:e.target.value})}>
-              <option value="USD">USD ($)</option>
-              <option value="EUR">EUR (€)</option>
-              <option value="CNY">CNY (¥)</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>{L('Quote No.','报价单号')}</label>
-            <input value={quote.quote_no} onChange={e => setQuote({...quote, quote_no:e.target.value})} placeholder="RD-20260519-001" />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>{L('PO No.','采购单号')}</label>
-            <input value={quote.po_no} onChange={e => setQuote({...quote, po_no:e.target.value})} placeholder="可选" />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>{L('Date','签发日期')}</label>
-            <input type="date" value={quote.date} onChange={e => setQuote({...quote, date:e.target.value})} />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>{L('Valid Until','有效期至')}</label>
-            <input type="date" value={quote.valid_until} onChange={e => setQuote({...quote, valid_until:e.target.value})} />
-          </div>
-        </div>
-      </div>
-
-      {/* 买家信息 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="paper rounded-2xl p-5">
-          <h3 className="font-display text-sm font-bold mb-3" style={{color:'var(--accent)'}}>👤 {L('Buyer Information','买家信息')}</h3>
-          <div className="space-y-2">
-            <div>
-              <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>{L('Buyer Name & Address','买家名称和地址')}</label>
-              <textarea rows="3" value={quote.buyer?.name_address || ''} onChange={e => setQuote({...quote, buyer:{...quote.buyer, name_address:e.target.value}})} placeholder="COMPANY NAME&#10;Street Address&#10;City, State, Zipcode&#10;Country" />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>Email</label>
-                <input value={quote.buyer?.email || ''} onChange={e => setQuote({...quote, buyer:{...quote.buyer, email:e.target.value}})} />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>Tel</label>
-                <input value={quote.buyer?.tel || ''} onChange={e => setQuote({...quote, buyer:{...quote.buyer, tel:e.target.value}})} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="paper rounded-2xl p-5">
-          <h3 className="font-display text-sm font-bold mb-3" style={{color:'var(--accent)'}}>📦 {L('Ship To','收货地址')}</h3>
-          <div className="space-y-2">
-            <div>
-              <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>{L('Ship To Name & Address','收货人名称和地址')}</label>
-              <textarea rows="3" value={quote.ship_to?.name_address || ''} onChange={e => setQuote({...quote, ship_to:{...quote.ship_to, name_address:e.target.value}})} placeholder="留空则同买家地址" />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>Shipping Tel</label>
-              <input value={quote.ship_to?.tel || ''} onChange={e => setQuote({...quote, ship_to:{...quote.ship_to, tel:e.target.value}})} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 商品行 */}
-      <div className="paper rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-display text-sm font-bold" style={{color:'var(--accent)'}}>🏷 {L('Product Items','产品明细')}</h3>
-          <button className="btn-pri text-xs" onClick={addItem}>+ {L('Add Item','添加商品')}</button>
-        </div>
-        <div className="overflow-x-auto scrollbar-thin">
-          <table style={{minWidth:'900px'}}>
-            <thead>
-              <tr>
-                <th style={{width:'80px'}}>{L('Image','图片')}</th>
-                <th style={{width:'110px'}}>SKU</th>
-                <th style={{minWidth:'220px'}}>{L('Description','描述')}</th>
-                <th style={{width:'70px'}}>{L('Qty','数量')}</th>
-                <th style={{width:'110px'}}>{L('Unit Price','单价')}</th>
-                <th style={{width:'110px'}}>{L('Subtotal','小计')}</th>
-                <th style={{width:'40px'}}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(quote.items || []).length === 0 ? (
-                <tr><td colSpan={7} style={{textAlign:'center', padding:'30px', color:'var(--ink-3)'}}>暂无商品 · 点击右上"+ 添加商品"</td></tr>
-              ) : quote.items.map((it, idx) => {
-                const lineTotal = (Number(it.qty)||0) * (Number(it.unit_price)||0);
-                return (
-                  <tr key={it.id}>
-                    <td>
-                      <label style={{cursor:'pointer', display:'block'}}>
-                        {it.image ? (
-                          <img src={it.image} alt="" style={{width:48, height:48, objectFit:'cover', borderRadius:4, border:'1px solid var(--line)'}} />
-                        ) : (
-                          <div style={{width:48, height:48, borderRadius:4, border:'1px dashed var(--line)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, color:'var(--ink-4)'}}>📷</div>
-                        )}
-                        <input type="file" accept="image/*" style={{display:'none'}} onChange={e => {
-                          const f = e.target.files?.[0]; if (!f) return;
-                          if (f.size > 1024*1024) { alert('图片需小于 1MB'); return; }
-                          const r = new FileReader();
-                          r.onload = ev => updateItem(it.id, { image: ev.target.result });
-                          r.readAsDataURL(f);
-                        }} />
-                      </label>
-                    </td>
-                    <td><input value={it.sku} onChange={e => updateItem(it.id, {sku:e.target.value})} placeholder="SKU-001" style={{fontSize:'12px'}} /></td>
-                    <td><textarea rows="2" value={it.desc} onChange={e => updateItem(it.id, {desc:e.target.value})} placeholder="Product description / 产品描述" style={{fontSize:'12px'}} /></td>
-                    <td><input type="number" value={it.qty} onChange={e => updateItem(it.id, {qty:e.target.value})} style={{fontSize:'12px', textAlign:'right'}} /></td>
-                    <td><input type="number" step="0.01" value={it.unit_price} onChange={e => updateItem(it.id, {unit_price:e.target.value})} style={{fontSize:'12px', textAlign:'right'}} /></td>
-                    <td><span className="font-mono text-xs font-bold">{quote.currency} {lineTotal.toFixed(2)}</span></td>
-                    <td><button className="btn-ghost" onClick={() => delItem(it.id)} title="删除"><Icon name="trash" className="w-4 h-4" style={{color:'var(--bad)'}} /></button></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* 总计区 */}
-        <div className="mt-4 pt-4 border-t flex flex-col items-end gap-2" style={{borderColor:'var(--line)'}}>
-          <div className="flex items-center gap-3 text-sm">
-            <span style={{color:'var(--ink-3)'}}>{L('Subtotal','小计')}:</span>
-            <span className="font-mono font-bold w-32 text-right">{quote.currency} {subtotal.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span style={{color:'var(--ink-3)'}}>{L('Discount','折扣')}:</span>
-            <input type="number" step="0.1" value={quote.discount_pct} onChange={e => setQuote({...quote, discount_pct:e.target.value})} style={{width:60, padding:'2px 6px', fontSize:'12px', textAlign:'right'}} /> %
-            <span className="font-mono w-24 text-right" style={{color:'var(--bad)'}}>−{discountAmt.toFixed(2)}</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm">
-            <span style={{color:'var(--ink-3)'}}>{L('Freight','运费')}:</span>
-            <input type="number" step="0.01" value={quote.freight} onChange={e => setQuote({...quote, freight:e.target.value})} style={{width:100, padding:'2px 6px', fontSize:'12px', textAlign:'right'}} />
-          </div>
-          <div className="flex items-center gap-3 mt-2 pt-2 border-t" style={{borderColor:'var(--line)'}}>
-            <span className="font-display text-sm font-bold" style={{color:'var(--accent)'}}>{L('TOTAL DUE','应付总额')}:</span>
-            <span className="font-mono text-xl font-bold w-40 text-right" style={{color:'var(--accent)'}}>{quote.currency} {total.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 银行 / 条款 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="paper rounded-2xl p-5">
-          <h3 className="font-display text-sm font-bold mb-3" style={{color:'var(--accent)'}}>🏦 {L('Beneficiary Bank Information','收款银行信息')}</h3>
-          <div className="space-y-2">
-            <div>
-              <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>Bank Name</label>
-              <input value={quote.bank?.bank_name || ''} onChange={e => setQuote({...quote, bank:{...quote.bank, bank_name:e.target.value}})} />
-            </div>
-            <div>
-              <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>Bank Address</label>
-              <input value={quote.bank?.bank_address || ''} onChange={e => setQuote({...quote, bank:{...quote.bank, bank_address:e.target.value}})} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>Account Name</label>
-                <input value={quote.bank?.account_name || ''} onChange={e => setQuote({...quote, bank:{...quote.bank, account_name:e.target.value}})} />
-              </div>
-              <div>
-                <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>SWIFT / ABA</label>
-                <input value={quote.bank?.swift_code || ''} onChange={e => setQuote({...quote, bank:{...quote.bank, swift_code:e.target.value}})} />
-              </div>
-            </div>
-            <div>
-              <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>Account Number</label>
-              <input value={quote.bank?.account_number || ''} onChange={e => setQuote({...quote, bank:{...quote.bank, account_number:e.target.value}})} />
-            </div>
-          </div>
-        </div>
-
-        <div className="paper rounded-2xl p-5">
-          <h3 className="font-display text-sm font-bold mb-3" style={{color:'var(--accent)'}}>📜 {L('Terms & Conditions','条款和条件')}</h3>
-          <textarea rows="9" value={quote.terms} onChange={e => setQuote({...quote, terms:e.target.value})} style={{fontSize:'11px', lineHeight:1.6}} />
-          <div className="mt-2">
-            <label className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>{L('Additional Notes','补充备注')}</label>
-            <textarea rows="2" value={quote.notes} onChange={e => setQuote({...quote, notes:e.target.value})} placeholder="任何额外说明..." />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// === 预览（打印用） ===
-const QuotePreview = ({ quote }) => {
-  const { subtotal, discountAmt, freight, total } = computeTotal(quote);
-  const docMeta = DOC_TYPES.find(d => d.key === quote.doc_type) || DOC_TYPES[0];
-  const isBilingual = quote.lang === 'cn-en';
-  const isCn = quote.lang === 'cn';
-  const L = (en, cn) => isBilingual ? `${en} / ${cn}` : isCn ? cn : en;
-  const docTitle = quote.doc_type === 'quotation' ? L('QUOTATION','报价单') : quote.doc_type === 'pi' ? L('PROFORMA INVOICE','形式发票') : L('PURCHASE ORDER','采购订单');
-  const cur = quote.currency || 'USD';
-
-  return (
-    <div className="invoice-doc fade-in">
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:24}}>
-        <div>
-          <h1>{docTitle}</h1>
-          <div style={{fontSize:11, color:'#7a7a72', marginTop:4, fontFamily:'JetBrains Mono, monospace'}}>
-            {quote.quote_no || '(no quote number)'}
-          </div>
-        </div>
-        <div className="seller-block" style={{minWidth:280}}>
-          <div className="field-label">{L('From / Seller','卖家')}</div>
-          <div style={{fontSize:15, fontWeight:700, marginTop:2}}>{quote.seller?.name}</div>
-          <div style={{fontSize:11, color:'#3a3a35', marginTop:4, lineHeight:1.5, whiteSpace:'pre-line'}}>{quote.seller?.address}</div>
-          <div style={{fontSize:11, color:'#3a3a35', marginTop:4}}>
-            {quote.seller?.phone && <>Tel: {quote.seller.phone}<br/></>}
-            {quote.seller?.email && <>Email: {quote.seller.email}<br/></>}
-            {quote.seller?.website && <>Web: {quote.seller.website}</>}
-          </div>
-        </div>
-      </div>
-
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:24, marginTop:24}}>
-        <div>
-          <h2>{L('Buyer','买家')}</h2>
-          <div style={{whiteSpace:'pre-line', fontSize:12, color:'#1a1a17', lineHeight:1.6}}>{quote.buyer?.name_address || '—'}</div>
-          {quote.buyer?.email && <div style={{fontSize:11, marginTop:4, color:'#3a3a35'}}>Email: {quote.buyer.email}</div>}
-          {quote.buyer?.tel && <div style={{fontSize:11, color:'#3a3a35'}}>Tel: {quote.buyer.tel}</div>}
-        </div>
-        <div>
-          <h2>{L('Ship To','收货')}</h2>
-          <div style={{whiteSpace:'pre-line', fontSize:12, color:'#1a1a17', lineHeight:1.6}}>{quote.ship_to?.name_address || quote.buyer?.name_address || '—'}</div>
-          {quote.ship_to?.tel && <div style={{fontSize:11, marginTop:4, color:'#3a3a35'}}>Tel: {quote.ship_to.tel}</div>}
-        </div>
-      </div>
-
-      <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:12, marginTop:24, padding:'14px 18px', background:'#fafaf7', borderLeft:'3px solid #7c2d12', borderRadius:4}}>
-        <div><div className="field-label">{L('Date','日期')}</div><div className="field-value">{quote.date}</div></div>
-        <div><div className="field-label">{L('Valid Until','有效期')}</div><div className="field-value">{quote.valid_until}</div></div>
-        {quote.po_no && <div><div className="field-label">PO No.</div><div className="field-value">{quote.po_no}</div></div>}
-        <div><div className="field-label">{L('Currency','货币')}</div><div className="field-value">{cur}</div></div>
-      </div>
-
-      <table style={{marginTop:20}}>
-        <thead>
-          <tr>
-            <th style={{width:30}}>#</th>
-            <th style={{width:70}}>{L('Image','图片')}</th>
-            <th style={{width:100}}>SKU</th>
-            <th>{L('Description','描述')}</th>
-            <th style={{width:55, textAlign:'right'}}>{L('Qty','数量')}</th>
-            <th style={{width:90, textAlign:'right'}}>{L('Unit Price','单价')}</th>
-            <th style={{width:100, textAlign:'right'}}>{L('Amount','金额')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(quote.items||[]).map((it, i) => {
-            const lineTotal = (Number(it.qty)||0) * (Number(it.unit_price)||0);
-            return (
-              <tr key={it.id}>
-                <td style={{fontFamily:'JetBrains Mono, monospace', fontSize:11, color:'#7a7a72'}}>{i+1}</td>
-                <td>{it.image ? <img src={it.image} className="product-img" /> : <div style={{width:60, height:60, background:'#f5f3ee', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, color:'#a8a8a0'}}>📷</div>}</td>
-                <td style={{fontFamily:'JetBrains Mono, monospace', fontSize:11}}>{it.sku || '—'}</td>
-                <td style={{fontSize:11, lineHeight:1.5, whiteSpace:'pre-line'}}>{it.desc || '—'}</td>
-                <td style={{textAlign:'right', fontFamily:'JetBrains Mono, monospace'}}>{it.qty}</td>
-                <td style={{textAlign:'right', fontFamily:'JetBrains Mono, monospace'}}>{cur} {Number(it.unit_price).toFixed(2)}</td>
-                <td style={{textAlign:'right', fontFamily:'JetBrains Mono, monospace', fontWeight:600}}>{cur} {lineTotal.toFixed(2)}</td>
-              </tr>
-            );
-          })}
-          {(!quote.items || quote.items.length===0) && (
-            <tr><td colSpan={7} style={{textAlign:'center', padding:'30px', color:'#a8a8a0', fontStyle:'italic'}}>No items added</td></tr>
-          )}
-          <tr className="totals-row subtotal"><td colSpan={5}></td><td style={{textAlign:'right', textTransform:'uppercase', fontSize:10, fontWeight:700, color:'#7a7a72'}}>{L('Subtotal','小计')}</td><td style={{textAlign:'right', fontFamily:'JetBrains Mono, monospace'}}>{cur} {subtotal.toFixed(2)}</td></tr>
-          {discountAmt > 0 && (
-            <tr className="totals-row"><td colSpan={5}></td><td style={{textAlign:'right', textTransform:'uppercase', fontSize:10, fontWeight:700, color:'#7a7a72'}}>{L('Discount','折扣')} ({quote.discount_pct}%)</td><td style={{textAlign:'right', color:'#b91c1c', fontFamily:'JetBrains Mono, monospace'}}>−{cur} {discountAmt.toFixed(2)}</td></tr>
-          )}
-          {freight > 0 && (
-            <tr className="totals-row"><td colSpan={5}></td><td style={{textAlign:'right', textTransform:'uppercase', fontSize:10, fontWeight:700, color:'#7a7a72'}}>{L('Freight','运费')}</td><td style={{textAlign:'right', fontFamily:'JetBrains Mono, monospace'}}>{cur} {freight.toFixed(2)}</td></tr>
-          )}
-          <tr className="totals-row grand"><td colSpan={5}></td><td style={{textAlign:'right', textTransform:'uppercase', fontSize:12, color:'#7c2d12'}}>{L('Total Amount Due','应付总额')}</td><td style={{textAlign:'right', fontFamily:'JetBrains Mono, monospace', color:'#7c2d12'}}>{cur} {total.toFixed(2)}</td></tr>
-        </tbody>
-      </table>
-
-      {(quote.bank?.bank_name || quote.bank?.account_number) && (
-        <div style={{marginTop:24, padding:'14px 18px', background:'#fafaf7', borderLeft:'3px solid #7c2d12', borderRadius:4}}>
-          <h2 style={{marginTop:0}}>{L('Beneficiary Bank Information','收款银行信息')}</h2>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, fontSize:11}}>
-            <div><div className="field-label">Bank Name</div><div className="field-value">{quote.bank.bank_name}</div></div>
-            <div><div className="field-label">Bank Address</div><div className="field-value">{quote.bank.bank_address}</div></div>
-            <div><div className="field-label">Account Name</div><div className="field-value">{quote.bank.account_name}</div></div>
-            <div><div className="field-label">Account Number</div><div className="field-value" style={{fontFamily:'JetBrains Mono, monospace'}}>{quote.bank.account_number}</div></div>
-            <div><div className="field-label">SWIFT / ABA</div><div className="field-value" style={{fontFamily:'JetBrains Mono, monospace'}}>{quote.bank.swift_code}</div></div>
-          </div>
-        </div>
-      )}
-
-      {quote.terms && (
-        <div style={{marginTop:24}}>
-          <h2>{L('Terms & Conditions','条款和条件')}</h2>
-          <div style={{fontSize:11, lineHeight:1.7, color:'#3a3a35', whiteSpace:'pre-line'}}>{quote.terms}</div>
-        </div>
-      )}
-
-      {quote.notes && (
-        <div style={{marginTop:18, padding:'12px 14px', background:'#fef3c7', borderRadius:4, fontSize:11, color:'#92400e'}}>
-          <strong>📝 {L('Notes','备注')}: </strong>{quote.notes}
-        </div>
-      )}
-
-      <div style={{marginTop:48, paddingTop:24, borderTop:'1px solid #e8e6e0', display:'flex', justifyContent:'space-between', alignItems:'flex-end'}}>
-        <div style={{fontSize:10, color:'#a8a8a0'}}>
-          Generated by Workspace v2.0 · {new Date().toLocaleString('en-US')}
-        </div>
-        <div style={{textAlign:'right'}}>
-          <div style={{borderTop:'1.5px solid #1a1a17', width:200, paddingTop:6, marginTop:30, fontSize:11, color:'#7a7a72', textTransform:'uppercase', letterSpacing:'.08em', fontWeight:600}}>
-            {L('Authorized Signature','授权签名')}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// === 历史列表 ===
-const QuoteList = ({ quotes, user, onLoad, onDelete, cloudOn }) => {
-  const [filter, setFilter] = useState('all');  // all | mine
-  const [search, setSearch] = useState('');
-  const isAdmin = user.role === 'admin';
-
-  const filtered = useMemo(() => {
-    let list = quotes;
-    if (filter === 'mine') list = list.filter(q => q.owner_id === user.id);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter(it =>
-        (it.quote_no||'').toLowerCase().includes(q) ||
-        (it.buyer?.name_address||'').toLowerCase().includes(q) ||
-        (it.owner_name||'').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [quotes, filter, search, user.id]);
-
-  return (
-    <div className="paper rounded-2xl p-5 fade-in">
-      <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
-        <div className="flex items-center gap-2">
-          <button className={`tab-btn ${filter==='all'?'active':''}`} onClick={() => setFilter('all')}>全部 ({quotes.length})</button>
-          <button className={`tab-btn ${filter==='mine'?'active':''}`} onClick={() => setFilter('mine')}>我的 ({quotes.filter(q=>q.owner_id===user.id).length})</button>
-        </div>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 搜索报价单号/客户/员工..." style={{maxWidth:280, fontSize:13}} />
-      </div>
-      {!cloudOn && (
-        <div className="mb-3 p-2 rounded text-[11px]" style={{background:'#fef3c7', color:'#92400e'}}>
-          ⚠️ 当前仅显示本地数据。启用云同步后可看到全团队报价记录。
-        </div>
-      )}
-      <div className="overflow-x-auto scrollbar-thin">
-        <table style={{minWidth:'800px'}}>
-          <thead><tr><th>报价单号</th><th>类型</th><th>买家</th><th>员工</th><th>金额</th><th>日期</th><th>操作</th></tr></thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr><td colSpan={7} style={{textAlign:'center', padding:'30px', color:'var(--ink-3)'}}>暂无报价单</td></tr>
-            ) : filtered.map(q => (
-              <tr key={q.id}>
-                <td className="font-mono text-xs font-bold">{q.quote_no || '(no#)'}</td>
-                <td><span className="tag tag-info text-[10px]">{DOC_TYPES.find(d=>d.key===q.doc_type)?.label.split(' ')[0] || q.doc_type}</span></td>
-                <td className="text-xs" style={{maxWidth:180, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{(q.buyer?.name_address||'—').split('\n')[0]}</td>
-                <td className="text-xs">{q.owner_name || '—'}</td>
-                <td className="font-mono text-xs font-bold" style={{color:'var(--accent)'}}>{q.currency} {Number(q.total_usd||0).toFixed(2)}</td>
-                <td className="text-xs" style={{color:'var(--ink-3)'}}>{q.date}</td>
-                <td>
-                  <button className="btn-sec text-[11px]" onClick={() => onLoad(q)}>载入</button>
-                  {(isAdmin || q.owner_id === user.id) && (
-                    <button className="btn-ghost text-[11px]" onClick={() => onDelete(q.id)} style={{color:'var(--bad)'}}>删除</button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
-
-
 // ============================================================
-// 汇报系统 - 跨部门工单
+// 报价单模块 v2 - 调用独立 quotation.html (Supabase 同步)
 // ============================================================
+const QuoteModule = ({ user, toast }) => {
+  // 检测 quotation.html 是否在同目录或可用
+  const userParam = encodeURIComponent((user.name || '') + (user.alias ? ' ' + user.alias : ''));
+  const sameDirUrl = `quotation.html#user=${userParam}`;
+  const ghPagesUrl = `https://dekorfine.github.io/cs-system/quotation.html#user=${userParam}`;
+
+  return (
+    <div className="space-y-5 fade-in">
+      <div className="paper rounded-2xl p-6">
+        <div className="flex items-start gap-4 mb-4">
+          <div style={{fontSize:'3rem', lineHeight:1}}>📄</div>
+          <div className="flex-1">
+            <div className="font-display text-xl font-bold mb-1">Quotation / PI / PO / Packing List</div>
+            <div className="text-sm" style={{color:'var(--ink-3)', lineHeight:1.6}}>
+              专业英文报价单系统 · 12 家公司预设 · 7 种语言 · 4 种文档类型<br/>
+              数据通过 Supabase 全团队共享，My / Team / Trash 三视图，状态流转完整
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-5">
+          <a href={sameDirUrl} target="_blank" rel="noopener" className="block">
+            <div className="paper rounded-xl p-4 hover:shadow-lg transition-all cursor-pointer" style={{borderLeft:'3px solid var(--accent)', cursor:'pointer'}}>
+              <div className="font-display text-base font-bold mb-1" style={{color:'var(--accent)'}}>📂 同目录打开 →</div>
+              <div className="text-xs" style={{color:'var(--ink-3)', lineHeight:1.55}}>
+                如果 quotation.html 和工作台在同一文件夹（推荐）
+              </div>
+              <div className="text-[10px] mt-2 font-mono" style={{color:'var(--ink-4)'}}>./quotation.html</div>
+            </div>
+          </a>
+          <a href={ghPagesUrl} target="_blank" rel="noopener" className="block">
+            <div className="paper rounded-xl p-4 hover:shadow-lg transition-all" style={{borderLeft:'3px solid var(--info)', cursor:'pointer'}}>
+              <div className="font-display text-base font-bold mb-1" style={{color:'var(--info)'}}>☁ GitHub Pages 打开 →</div>
+              <div className="text-xs" style={{color:'var(--ink-3)', lineHeight:1.55}}>
+                如果你部署到了 GitHub Pages
+              </div>
+              <div className="text-[10px] mt-2 font-mono" style={{color:'var(--ink-4)'}}>dekorfine.github.io/cs-system/</div>
+            </div>
+          </a>
+        </div>
+
+        <div className="rounded-lg p-3 mt-5 text-xs" style={{background:'var(--bg)', color:'var(--ink-2)', lineHeight:1.7}}>
+          <div className="font-bold mb-1" style={{color:'var(--accent)'}}>💡 自动登录</div>
+          点击上方按钮后，报价单会自动用你的姓名 <strong>{user.name}{user.alias ? ' ' + user.alias : ''}</strong> 登录，不需要再次填写。
+          <br/>
+          所有员工的报价单数据通过 Supabase 同步，主管在「Team」视图可看到全部 11 人的报价记录。
+        </div>
+      </div>
+
+      <div className="paper rounded-2xl p-4" style={{background:'#fef3c7', borderColor:'#fbbf24'}}>
+        <div className="text-xs" style={{color:'#92400e', lineHeight:1.65}}>
+          <strong>📌 首次使用提示：</strong><br/>
+          1. 在 Supabase SQL Editor 跑 <code className="font-mono px-1 rounded" style={{background:'white'}}>quotation_table.sql</code> 建表（仅需一次）<br/>
+          2. 把 <code className="font-mono px-1 rounded" style={{background:'white'}}>quotation.html</code> 放到工作台同目录，或上传到 GitHub Pages<br/>
+          3. 点击上方按钮即可开始使用 — 全员数据自动同步
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ReportModule = ({ user, employees, toast, cloudOn }) => {
   const [tab, setTab] = useState('inbox');  // inbox | mine | new | all (admin)
   const [tickets, setTickets] = useState([]);
@@ -3676,8 +3315,12 @@ const App = () => {
   const [employees, setEmployees] = useState(() => STORE.get('employees', INITIAL_EMPLOYEES));
   useEffect(() => { STORE.set('employees', employees); }, [employees]);
 
-  // 云同步配置
-  const [cloudCfg, setCloudCfg] = useState(() => STORE.get('cloud_config', { url:DEFAULT_SB_URL, key:'', enabled:false }));
+  // 云同步配置（默认启用，嵌入了团队共享的 publishable key）
+  const [cloudCfg, setCloudCfg] = useState(() => {
+    const saved = STORE.get('cloud_config', null);
+    if (saved && saved.url && saved.key) return saved;
+    return { url: DEFAULT_SB_URL, key: DEFAULT_SB_KEY, enabled: true };
+  });
   const [cloudOn, setCloudOn] = useState(false);
   const [cloudVersion, setCloudVersion] = useState(0); // 用于强制重新加载
 
@@ -3883,8 +3526,8 @@ const App = () => {
           <AdminModule user={user} employees={employees} setEmployees={setEmployees} toast={toast} cloudCfg={cloudCfg} setCloudCfg={setCloudCfg} onCloudApply={() => setCloudVersion(v=>v+1)} />
         )}
       </div>
-      <footer className="text-center text-[10px] font-mono py-6 no-print" style={{color:'var(--ink-4)'}}>
-        统一工作台 · v2.0 · {cloudOn ? '☁ 云端协同 · Supabase' : '💾 数据本地存储'}
+      <footer style={{textAlign:'center', padding:'40px 20px', color:'var(--ink-4)', fontSize:12, fontWeight:400}}>
+        统一工作台 · v2.1 · {cloudOn ? '☁ Supabase 云端协同' : '💾 本地模式'}
       </footer>
       {toastNode}
     </div>
