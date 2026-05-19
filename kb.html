@@ -2080,7 +2080,19 @@ input, textarea { font-family: inherit; color: var(--ink); }
 
   <div class="topbar-search">
     <i class="ti ti-search icon-search" aria-hidden="true"></i>
-    <input type="search" id="search-input" placeholder="搜索问题、标签、内容…" autocomplete="off" />
+    <input type="text" id="search-input" placeholder="搜索问题、标签、内容…"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+      spellcheck="false"
+      role="searchbox"
+      aria-autocomplete="none"
+      name="kb-search-q-no-fill"
+      data-form-type="other"
+      data-lpignore="true"
+      data-1p-ignore="true"
+      readonly
+      onfocus="this.removeAttribute('readonly');this.removeAttribute('onfocus');" />
     <span class="kbd">/</span>
   </div>
 
