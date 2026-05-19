@@ -1346,24 +1346,39 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
 
       {/* 统计卡片 - 可点击快捷筛选 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 fade-in">
-        <StatCard label="今日邮件数" value={stats.totalEmails} unit="封" color="var(--info)" hint={stats.totalEmails === 0 ? '尚未填写' : '点击清除筛选'}
-          onClick={() => { setFilterStatus('all'); setFilterDifficulty('all'); setFilterSite('all'); setFilterCategory('all'); setSearch(''); }}
+        <StatCard label="今日邮件数" value={stats.totalEmails} unit="封" color="var(--info)"
+          hint={(filterStatus !== 'all' || filterDifficulty !== 'all' || filterSite !== 'all' || filterCategory !== 'all' || search) ? '点击清除所有筛选' : '当日总数'}
+          onClick={(filterStatus !== 'all' || filterDifficulty !== 'all' || filterSite !== 'all' || filterCategory !== 'all' || search) ? () => { setFilterStatus('all'); setFilterDifficulty('all'); setFilterSite('all'); setFilterCategory('all'); setSearch(''); toast('已清除筛选'); } : null}
           active={false} />
-        <StatCard label="总时长" value={fmtDuration(stats.totalMins)} unit="" color="var(--good)" />
-        <StatCard label="难度分布" value={`${stats.easyN} / ${stats.midN} / ${stats.hardN}`} unit="" hint={filterDifficulty !== 'all' ? `仅看${filterDifficulty==='easy'?'简单':filterDifficulty==='mid'?'中等':'复杂'}` : '简/中/复 · 点击循环筛选'} color="var(--gold)"
+
+        <StatCard label="总时长" value={fmtDuration(stats.totalMins)} unit="" color="var(--good)"
+          hint={stats.totalEmails > 0 ? `${Math.round(stats.totalMins / Math.max(stats.totalEmails,1))}min / 单` : '尚未填写'} />
+
+        <StatCard label="难度分布" value={`${stats.easyN} / ${stats.midN} / ${stats.hardN}`} unit=""
+          hint={filterDifficulty !== 'all' ? `仅看${filterDifficulty==='easy'?'简单':filterDifficulty==='mid'?'中等':'复杂'}` : '简 / 中 / 复'}
+          color="var(--gold)"
           onClick={() => {
             const order = ['all','easy','mid','hard'];
             const next = order[(order.indexOf(filterDifficulty)+1) % 4];
             setFilterDifficulty(next);
+            toast(next === 'all' ? '已显示全部难度' : `仅看${next==='easy'?'简单':next==='mid'?'中等':'复杂'}`);
           }}
           active={filterDifficulty !== 'all'} />
-        <StatCard label="跟进中" value={stats.followingN} unit="单" color="var(--accent)" hint={filterStatus !== 'all' ? `仅看${STATUSES.find(s=>s.key===filterStatus)?.label||filterStatus}` : '未关闭工单 · 点击筛选'}
-          onClick={() => setFilterStatus(filterStatus === 'all' ? 'following' : filterStatus === 'following' ? 'waiting' : filterStatus === 'waiting' ? 'pending' : 'all')}
+
+        <StatCard label="跟进中" value={stats.followingN} unit="单" color="var(--accent)"
+          hint={filterStatus !== 'all' ? `仅看${STATUSES.find(s=>s.key===filterStatus)?.label||filterStatus}` : '未关闭工单'}
+          onClick={() => {
+            const next = filterStatus === 'all' ? 'following' : filterStatus === 'following' ? 'waiting' : filterStatus === 'waiting' ? 'pending' : 'all';
+            setFilterStatus(next);
+            toast(next === 'all' ? '已显示全部状态' : `仅看${STATUSES.find(s=>s.key===next)?.label||next}`);
+          }}
           active={filterStatus !== 'all'} />
-        <StatCard label="逾期 / 今日" value={`${overdueCount} / ${todayCount}`} unit="" color={overdueCount > 0 ? 'var(--bad)' : 'var(--good)'} hint={overdueCount > 0 ? '点击只看逾期 / 今日' : '正常'}
+
+        <StatCard label="逾期 / 今日" value={`${overdueCount} / ${todayCount}`} unit=""
+          color={overdueCount > 0 ? 'var(--bad)' : 'var(--good)'}
+          hint={overdueCount + todayCount === 0 ? '一切正常 ✓' : (overdueCount > 0 ? `${overdueCount} 单已逾期` : `${todayCount} 单今日到期`)}
           onClick={overdueCount + todayCount > 0 ? () => {
-            // 临时显示提醒列表（设跨日期视图）
-            toast(`📋 提醒：逾期 ${overdueCount} 单，今日到期 ${todayCount} 单`);
+            toast(`📋 提醒：逾期 ${overdueCount} 单 · 今日 ${todayCount} 单`);
           } : null} />
       </div>
 
@@ -1535,44 +1550,48 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
   );
 };
 
-const StatCard = ({ label, value, unit, color, hint, onClick, active }) => (
-  <div
-    onClick={onClick}
-    style={{
-      background: active ? 'var(--paper)' : 'var(--bg-elevated)',
-      border: active ? `1px solid ${color || 'var(--accent)'}` : '1px solid transparent',
-      borderRadius: 'var(--radius-lg)',
-      padding: '18px 20px',
-      cursor: onClick ? 'pointer' : 'default',
-      transition: 'all .2s cubic-bezier(.4,0,.2,1)',
-      boxShadow: active ? `0 0 0 3px ${color}1a, var(--shadow-sm)` : 'none',
-    }}
-    onMouseEnter={onClick ? e => {
-      if (!active) {
-        e.currentTarget.style.background = 'var(--paper)';
-        e.currentTarget.style.borderColor = 'var(--line)';
-        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-      }
-    } : null}
-    onMouseLeave={onClick ? e => {
-      if (!active) {
-        e.currentTarget.style.background = 'var(--bg-elevated)';
-        e.currentTarget.style.borderColor = 'transparent';
-        e.currentTarget.style.boxShadow = 'none';
-      }
-    } : null}
-  >
-    <div style={{fontSize:'12px', color:'var(--ink-3)', fontWeight:500, marginBottom:'6px', letterSpacing:'-.003em', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-      <span>{label}</span>
-      {onClick && active && <span style={{fontSize:'10px', color: color || 'var(--accent)', fontWeight:500}}>✓ 已筛选</span>}
+const StatCard = ({ label, value, unit, color, hint, onClick, active }) => {
+  const clickable = !!onClick;
+  const accent = color || 'var(--accent)';
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        background: active ? 'var(--paper)' : 'var(--bg-elevated)',
+        border: active ? `1.5px solid ${accent}` : '1px solid transparent',
+        borderRadius: 'var(--radius-lg)',
+        padding: '18px 20px',
+        cursor: clickable ? 'pointer' : 'default',
+        transition: 'background .2s, border-color .2s, box-shadow .2s, transform .15s',
+        boxShadow: 'none',
+        position: 'relative',
+      }}
+      onMouseEnter={clickable ? e => {
+        if (!active) {
+          e.currentTarget.style.background = 'var(--paper)';
+          e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+        }
+      } : null}
+      onMouseLeave={clickable ? e => {
+        if (!active) {
+          e.currentTarget.style.background = 'var(--bg-elevated)';
+          e.currentTarget.style.boxShadow = 'none';
+        }
+      } : null}
+    >
+      <div style={{fontSize:'12px', color:'var(--ink-3)', fontWeight:500, marginBottom:'6px', letterSpacing:'-.003em', display:'flex', justifyContent:'space-between', alignItems:'center', minHeight:'14px'}}>
+        <span>{label}</span>
+        {active && <span style={{fontSize:'10px', color: accent, fontWeight:600, display:'inline-flex', alignItems:'center', gap:'2px'}}>● 已筛选</span>}
+        {clickable && !active && <span style={{fontSize:'10px', color:'var(--ink-4)', opacity:.6}}>点击筛选</span>}
+      </div>
+      <div style={{display:'flex', alignItems:'baseline', gap:'4px'}}>
+        <span className="font-display tabular-nums" style={{fontSize:'30px', fontWeight:600, letterSpacing:'-.022em', color: accent, lineHeight:1.1}}>{value}</span>
+        {unit && <span style={{fontSize:'13px', color:'var(--ink-3)', fontWeight:400}}>{unit}</span>}
+      </div>
+      {hint && <div style={{fontSize:'11px', color:'var(--ink-4)', marginTop:'4px', minHeight:'14px'}}>{hint}</div>}
     </div>
-    <div style={{display:'flex', alignItems:'baseline', gap:'4px'}}>
-      <span className="font-display tabular-nums" style={{fontSize:'30px', fontWeight:600, letterSpacing:'-.022em', color: color || 'var(--ink)', lineHeight:1.1}}>{value}</span>
-      {unit && <span style={{fontSize:'13px', color:'var(--ink-3)', fontWeight:400}}>{unit}</span>}
-    </div>
-    {hint && <div style={{fontSize:'11px', color:'var(--ink-4)', marginTop:'4px'}}>{hint}</div>}
-  </div>
-);
+  );
+};
 
 // ============================================================
 // 跟进 / 截图 Modal
@@ -3044,183 +3063,73 @@ const TicketDetailModal = ({ ticket, user, employees, onClose, onUpdateStatus, o
 // ============================================================
 // 知识库模块 - 从 Supabase 拉取双语 Q&A
 // ============================================================
-const KbModule = ({ user, toast, cloudOn }) => {
-  const [entries, setEntries] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [search, setSearch] = useState('');
-  const [activeCat, setActiveCat] = useState('all');
-  const [lang, setLang] = useState('cn');  // cn | en | both
-  const [openId, setOpenId] = useState(null);
-  const [customerName, setCustomerName] = useState('');  // 用于占位符替换
-
-  const loadKb = async () => {
-    setLoading(true);
-    if (cloudOn && CLOUD.client) {
-      const cloud = await CLOUD.list('workspace_kb', { order:{col:'id', asc:true}, limit:500 });
-      if (cloud !== null && cloud.length > 0) {
-        setEntries(cloud);
-        setLoading(false);
-        return;
-      }
-    }
-    // 本地兜底（空）
-    setEntries(STORE.get('kb_local', []));
-    setLoading(false);
-  };
-
-  useEffect(() => { loadKb(); }, [cloudOn]);
-
-  // 筛选
-  const filtered = useMemo(() => {
-    let list = entries;
-    if (activeCat !== 'all') list = list.filter(e => (e.category||e.cat_cn) === activeCat || e.cat_key === activeCat);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter(e =>
-        (e.q_cn||'').toLowerCase().includes(q) ||
-        (e.q_en||'').toLowerCase().includes(q) ||
-        (e.a_cn||'').toLowerCase().includes(q) ||
-        (e.a_en||'').toLowerCase().includes(q)
-      );
-    }
-    return list;
-  }, [entries, activeCat, search]);
-
-  // 占位符替换 + 复制
-  const interpolate = (text) => {
-    if (!text) return '';
-    let t = text;
-    if (customerName.trim()) t = t.replace(/\[客户姓名\]/g, customerName.trim()).replace(/\[Customer Name\]/g, customerName.trim());
-    return t;
-  };
-
-  const copyAnswer = async (entry, useLang) => {
-    const text = interpolate(useLang === 'en' ? entry.a_en : useLang === 'both' ? `${entry.a_cn}\n\n----\n\n${entry.a_en}` : entry.a_cn);
-    try {
-      await navigator.clipboard.writeText(text);
-      toast(`✓ 已复制${useLang==='en'?'英文':useLang==='both'?'中英双语':'中文'}回复`);
-    } catch(e) { toast('⚠ 复制失败，请手动复制'); }
-  };
-
-  // 渲染含占位符的文本
-  const renderHighlighted = (text) => {
-    if (!text) return null;
-    const t = interpolate(text);
-    const parts = t.split(/(\[[^\]]+\])/g);
-    return parts.map((p, i) => p.match(/^\[.+\]$/) ? <span key={i} className="kb-placeholder">{p}</span> : <React.Fragment key={i}>{p}</React.Fragment>);
-  };
+// ============================================================
+// 知识库模块 - 跳转到独立 kb.html (Supabase + Gemini + 智能搜索 + 编辑同步)
+// ============================================================
+const KbModule = ({ user, toast }) => {
+  const userParam = encodeURIComponent((user.name || '') + (user.alias ? ' ' + user.alias : ''));
+  const sameDirUrl = `kb.html#user=${userParam}`;
+  const ghPagesUrl = `https://dekorfine.github.io/cs-system/kb.html#user=${userParam}`;
+  const isAdmin = user.role === 'admin';
 
   return (
-    <div className="space-y-4 fade-in">
-      {/* 顶部工具栏 */}
-      <div className="paper rounded-2xl p-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-display text-base font-bold" style={{color:'var(--accent)'}}>📚 客服知识库</span>
-            <span className="tag tag-neutral">{entries.length} 条 Q&A</span>
-            <span className={`cloud-status ${cloudOn?'ok':'local'}`}>
-              <span className="dot"></span>
-              {cloudOn ? '云端' : '本地'}
-            </span>
-            <button className="btn-ghost text-[11px]" onClick={loadKb} title="刷新">🔄 刷新</button>
-          </div>
-          <div className="flex items-center gap-2">
-            <input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="客户姓名（自动替换 [客户姓名]）" style={{width:240, fontSize:12, padding:'5px 10px'}} />
-            <select value={lang} onChange={e => setLang(e.target.value)} style={{padding:'5px 8px', fontSize:11}}>
-              <option value="cn">中文</option>
-              <option value="en">English</option>
-              <option value="both">中英对照</option>
-            </select>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 搜索问题或答案..." style={{flex:1, minWidth:200, maxWidth:400, fontSize:13}} />
-          <div className="flex gap-1 flex-wrap">
-            <button className={`tab-btn ${activeCat==='all'?'active':''}`} onClick={() => setActiveCat('all')}>全部</button>
-            {KB_CATEGORIES.map(c => {
-              const n = entries.filter(e => (e.category||e.cat_cn) === c.label_cn).length;
-              return <button key={c.key} className={`tab-btn ${activeCat===c.label_cn?'active':''}`} onClick={() => setActiveCat(c.label_cn)} style={{borderColor: activeCat===c.label_cn ? c.color : null}}>
-                {c.label_cn} ({n})
-              </button>;
-            })}
-          </div>
-        </div>
-      </div>
-
-      {!cloudOn && (
-        <div className="paper rounded-2xl p-4 fade-in" style={{background:'#fef3c7', borderColor:'#fbbf24'}}>
-          <div className="font-bold text-sm mb-1" style={{color:'#92400e'}}>⚠️ 知识库需要从 Supabase 加载</div>
-          <div className="text-xs" style={{color:'#92400e', lineHeight:1.6}}>
-            知识库存储在 Supabase 云端，团队共享。请前往「员工管理 → 云同步设置」配置 Supabase URL + Key 后，即可加载 280 条客服双语 Q&A 模板。
-          </div>
-        </div>
-      )}
-
-      {cloudOn && entries.length === 0 && !loading && (
-        <div className="paper rounded-2xl p-6 fade-in text-center">
-          <div className="text-4xl mb-3">📭</div>
-          <div className="font-bold text-sm mb-2">知识库还是空的</div>
-          <div className="text-xs leading-relaxed" style={{color:'var(--ink-3)'}}>
-            云端 `workspace_kb` 表存在但没有数据。<br/>
-            <strong>请把 knowledge_base.json 导入 Supabase</strong>（具体方法见 SQL 部署说明）。
-          </div>
-        </div>
-      )}
-
-      {loading && <div className="paper rounded-2xl p-6 text-center text-sm" style={{color:'var(--ink-3)'}}>正在从云端加载知识库...</div>}
-
-      {/* 列表 */}
-      <div className="space-y-2">
-        {filtered.map(e => {
-          const cat = KB_CATEGORIES.find(c => c.label_cn === (e.category||e.cat_cn));
-          const isOpen = openId === e.id;
-          return (
-            <div key={e.id} className="kb-card">
-              <div className="flex items-start gap-3 cursor-pointer" onClick={() => setOpenId(isOpen ? null : e.id)}>
-                <span className="kb-cat-tag" style={{background: cat ? `${cat.color}15` : 'var(--bg)', color: cat?.color || 'var(--ink-3)', border:`1px solid ${cat?.color || 'var(--line)'}40`}}>
-                  {(e.category||e.cat_cn)}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm" style={{color:'var(--ink)'}}>
-                    {lang === 'en' ? e.q_en : e.q_cn}
-                  </div>
-                  {lang === 'both' && e.q_en && (
-                    <div className="text-xs mt-0.5" style={{color:'var(--ink-3)'}}>{e.q_en}</div>
-                  )}
-                </div>
-                <span className="text-xs" style={{color:'var(--ink-4)'}}>{isOpen ? '▾' : '▸'}</span>
-              </div>
-              {isOpen && (
-                <div className="mt-3 pt-3 border-t" style={{borderColor:'var(--line-soft)'}}>
-                  {(lang === 'cn' || lang === 'both') && e.a_cn && (
-                    <div className="kb-answer mb-2">
-                      <div className="text-[10px] font-bold uppercase mb-1.5" style={{color:'var(--ink-3)'}}>🇨🇳 中文回复</div>
-                      {renderHighlighted(e.a_cn)}
-                    </div>
-                  )}
-                  {(lang === 'en' || lang === 'both') && e.a_en && (
-                    <div className="kb-answer mb-2">
-                      <div className="text-[10px] font-bold uppercase mb-1.5" style={{color:'var(--ink-3)'}}>🇺🇸 English Reply</div>
-                      {renderHighlighted(e.a_en)}
-                    </div>
-                  )}
-                  <div className="flex justify-end gap-2 mt-2">
-                    {e.a_cn && <button className="btn-sec text-xs" onClick={() => copyAnswer(e, 'cn')}>📋 复制中文</button>}
-                    {e.a_en && <button className="btn-sec text-xs" onClick={() => copyAnswer(e, 'en')}>📋 复制英文</button>}
-                    {e.a_cn && e.a_en && <button className="btn-pri text-xs" onClick={() => copyAnswer(e, 'both')}>📋 中英对照</button>}
-                  </div>
-                </div>
-              )}
+    <div className="space-y-5 fade-in">
+      <div className="paper rounded-2xl p-6">
+        <div className="flex items-start gap-4 mb-4">
+          <div style={{fontSize:'3rem', lineHeight:1}}>📚</div>
+          <div className="flex-1">
+            <div className="font-display text-xl font-bold mb-1">知识库 · Q&A 智能助手</div>
+            <div className="text-sm" style={{color:'var(--ink-3)', lineHeight:1.6}}>
+              280+ 条中英双语 Q&A · 智能搜索（BM25+同义词+意图识别）· 占位符自动填充<br/>
+              收藏 / 点赞 / Gemini AI 优化 / 团队级智能汇总 / 主管编辑同步
             </div>
-          );
-        })}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-5">
+          <a href={sameDirUrl} target="_blank" rel="noopener" className="block">
+            <div className="paper rounded-xl p-4 hover:shadow-lg transition-all" style={{borderLeft:'3px solid var(--accent)', cursor:'pointer'}}>
+              <div className="font-display text-base font-bold mb-1" style={{color:'var(--accent)'}}>📂 同目录打开 →</div>
+              <div className="text-xs" style={{color:'var(--ink-3)', lineHeight:1.55}}>
+                kb.html 和工作台在同一文件夹（推荐）
+              </div>
+              <div className="text-[10px] mt-2 font-mono" style={{color:'var(--ink-4)'}}>./kb.html</div>
+            </div>
+          </a>
+          <a href={ghPagesUrl} target="_blank" rel="noopener" className="block">
+            <div className="paper rounded-xl p-4 hover:shadow-lg transition-all" style={{borderLeft:'3px solid var(--info)', cursor:'pointer'}}>
+              <div className="font-display text-base font-bold mb-1" style={{color:'var(--info)'}}>☁ GitHub Pages 打开 →</div>
+              <div className="text-xs" style={{color:'var(--ink-3)', lineHeight:1.55}}>
+                已部署到 GitHub Pages
+              </div>
+              <div className="text-[10px] mt-2 font-mono" style={{color:'var(--ink-4)'}}>dekorfine.github.io/cs-system/kb.html</div>
+            </div>
+          </a>
+        </div>
+
+        <div className="rounded-lg p-3 mt-5 text-xs" style={{background:'var(--bg)', color:'var(--ink-2)', lineHeight:1.7}}>
+          <div className="font-bold mb-1" style={{color:'var(--accent)'}}>✨ 核心功能</div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+            <span>🔍 智能搜索（中英同义词 + BM25）</span>
+            <span>⭐ 一键收藏（全团队共享）</span>
+            <span>👍 点赞 / 👎 踩 / 🚩 升级</span>
+            <span>📊 团队智能汇总（哪条最常问）</span>
+            <span>✨ Gemini AI 一键优化模板</span>
+            <span>📝 占位符自动填充</span>
+            {isAdmin && <span style={{color:'var(--accent)', fontWeight:600}}>👑 主管：可编辑全员模板</span>}
+          </div>
+        </div>
       </div>
 
-      {entries.length > 0 && filtered.length === 0 && (
-        <div className="text-center text-sm py-4" style={{color:'var(--ink-3)'}}>
-          无匹配 Q&A · 试试别的关键词或换个分类
+      <div className="paper rounded-2xl p-4" style={{background:'#fef3c7', borderColor:'#fbbf24'}}>
+        <div className="text-xs" style={{color:'#92400e', lineHeight:1.65}}>
+          <strong>📌 首次使用提示：</strong><br/>
+          1. 在 Supabase SQL Editor 跑 <code className="font-mono px-1 rounded" style={{background:'white'}}>03_kb_extras.sql</code> 建知识库扩展表（收藏 / 评分 / 编辑 / 统计 / Gemini key）<br/>
+          2. 把 <code className="font-mono px-1 rounded" style={{background:'white'}}>kb.html</code> 放到工作台同目录或 GitHub Pages<br/>
+          3. 主管首次打开 → 设置 → "我是主管"（验证码：<code className="font-mono px-1 rounded" style={{background:'white'}}>kb-admin-2024</code>）→ 添加 Gemini API key<br/>
+          4. 员工打开即可使用，无需任何配置（数据自动云同步）
         </div>
-      )}
+      </div>
     </div>
   );
 };
