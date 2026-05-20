@@ -12614,21 +12614,46 @@ const KB_DAO = {
   
   // ---------- Gemini API key（加密存储到 kb_team_config） ----------
   async getGeminiKey() {
-    if (!sb) return '';
-    const { data } = await sb.from('kb_team_config').select('value').eq('key', 'gemini_api_key').maybeSingle();
-    if (!data) return '';
-    const encrypted = data.value?.encrypted || '';
-    return encrypted ? _xorDecrypt(encrypted) : '';
+    if (!sb) { console.warn('[KB_DAO] Supabase 未初始化'); return ''; }
+    try {
+      const { data, error } = await sb.from('kb_team_config').select('value').eq('key', 'gemini_api_key').maybeSingle();
+      if (error) { console.error('[KB_DAO] getGeminiKey error:', error); return ''; }
+      if (!data) { console.log('[KB_DAO] kb_team_config 表里没有 gemini_api_key 记录'); return ''; }
+      const encrypted = data.value?.encrypted || '';
+      if (!encrypted) { console.warn('[KB_DAO] encrypted 字段为空, value=', data.value); return ''; }
+      const decoded = _xorDecrypt(encrypted);
+      console.log('[KB_DAO] 解密成功, key 长度=', decoded.length, ', 前 8 位=', decoded.slice(0,8));
+      return decoded;
+    } catch(e) {
+      console.error('[KB_DAO] getGeminiKey exception:', e);
+      return '';
+    }
   },
   async saveGeminiKey(key) {
-    if (!sb) return false;
-    const encrypted = _xorEncrypt(key);
-    const { error } = await sb.from('kb_team_config').upsert({
-      key: 'gemini_api_key',
-      value: { encrypted, hint: key ? key.slice(0,8) + '...' : '' },
-      updated_at: new Date().toISOString(),
-    });
-    return !error;
+    if (!sb) { console.error('[KB_DAO] Supabase 未初始化'); return { ok: false, error: 'Supabase 未初始化' }; }
+    try {
+      const encrypted = _xorEncrypt(key);
+      console.log('[KB_DAO] 准备保存, 加密后长度=', encrypted.length);
+      const { data, error } = await sb.from('kb_team_config').upsert({
+        key: 'gemini_api_key',
+        value: { encrypted, hint: key ? key.slice(0,8) + '...' : '' },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' }).select();
+      if (error) {
+        console.error('[KB_DAO] saveGeminiKey error:', error);
+        return { ok: false, error: error.message + ' (code: ' + (error.code || 'unknown') + ')' };
+      }
+      console.log('[KB_DAO] 保存成功, returned rows:', data);
+      // 立即验证读取
+      const verify = await this.getGeminiKey();
+      if (verify !== key) {
+        return { ok: false, error: '保存后验证失败：读出的 key 不匹配。可能是 RLS 阻止读取。' };
+      }
+      return { ok: true };
+    } catch(e) {
+      console.error('[KB_DAO] saveGeminiKey exception:', e);
+      return { ok: false, error: e.message };
+    }
   },
 };
 
@@ -14800,16 +14825,17 @@ function attachEvents() {
     const btn = $('#gemini-save-btn');
     btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> 保存中...';
     try {
-      const ok = await KB_DAO.saveGeminiKey(key);
-      if (ok) {
+      const result = await KB_DAO.saveGeminiKey(key);
+      if (result.ok) {
         GEMINI.setKey(key);
         $('#setting-gemini-key').value = '';
         showToast('✓ Gemini key 已加密保存（全团队可用）');
         refreshGeminiStatus();
-        console.log('[GEMINI] save success, encrypted to kb_team_config');
+        console.log('[GEMINI] save success');
       } else {
-        showToast('❌ 保存失败（看 F12 控制台获取详情）', 'warn');
-        console.error('[GEMINI] save returned false. Check Supabase kb_team_config table RLS.');
+        showToast('❌ 保存失败: ' + result.error, 'warn');
+        alert('保存失败：' + result.error + '\n\n请打开 F12 控制台看详细日志，并把错误信息截图给开发者。');
+        console.error('[GEMINI] save failed:', result.error);
       }
     } catch(e) {
       showToast('❌ 保存错误: ' + e.message, 'warn');

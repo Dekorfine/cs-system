@@ -792,9 +792,10 @@ fieldset legend {
     <a href="index.html" class="topbar-link">← Back to Home</a>
   </div>
   <div class="topbar-right">
-    <span class="status-pill" id="status-pill">Not set up</span>
-    <button class="btn-cloud" onclick="quickSave()" title="Save current quote to cloud (Ctrl+S)">
-      ☁ Save to Cloud <span class="kbd">Ctrl+S</span>
+    <span class="status-pill" id="status-pill">未设置 · Not set up</span>
+    <button class="btn-icon" onclick="openHelp()" title="使用说明" style="font-size:16px;">❓</button>
+    <button class="btn-cloud" onclick="quickSave()" title="保存当前报价单到云端 (Ctrl+S)">
+      ☁ 保存到云端 <span class="kbd">Ctrl+S</span>
     </button>
     <div class="user-chip">
       <span class="user-avatar" id="user-avatar">?</span>
@@ -804,12 +805,90 @@ fieldset legend {
   </div>
 </div>
 
+<!-- 使用说明 modal -->
+<div class="modal-overlay hidden" id="help-overlay" onclick="if(event.target===this)closeHelp()">
+  <div class="modal" style="max-width:680px;">
+    <h3>📖 报价单使用指南</h3>
+    <p style="font-size:13px;color:var(--ink-3);margin-bottom:16px;">中文版操作流程 · 帮助你快速生成专业英文报价文档</p>
+    
+    <div style="background:var(--accent-soft);padding:14px 16px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;line-height:1.7;">
+      <div style="font-weight:600;color:var(--accent);margin-bottom:6px;">🎯 这个工具能做什么？</div>
+      生成 4 种英文商务文档：<strong>报价单 (Quotation)</strong>、<strong>形式发票 (PI)</strong>、<strong>采购订单 (PO)</strong>、<strong>装箱单 (Packing List)</strong>。支持 12 家公司预设、7 种语言、PDF 打印、CSV 导出，全团队 Supabase 云同步。
+    </div>
+    
+    <div style="font-size:13px;line-height:1.7;color:var(--ink-2);">
+      <div style="font-weight:600;color:var(--ink);margin:14px 0 6px;">🚀 5 分钟上手</div>
+      <ol style="padding-left:24px;margin:0;">
+        <li><strong>选择卖方公司</strong>：在「Order Info」区点选 Vakkerlight / Dekorfine / Radilum 等公司预设（地址电话邮箱自动填入）</li>
+        <li><strong>选择文档类型</strong>：Quotation（询价报价） / PI（形式发票）/ PO（采购订单）/ Packing List（装箱单）</li>
+        <li><strong>填买家信息</strong>：客户姓名、邮箱、地址（粘贴一段就行，会自动识别）</li>
+        <li><strong>添加产品行</strong>：每行填 SKU、规格、单价、数量；点 "+ Add Item" 添加更多</li>
+        <li><strong>预览 + 打印</strong>：右侧 4 个 Tab 实时预览不同文档 → 点 "Export PDF" 或浏览器打印（Ctrl+P）</li>
+      </ol>
+      
+      <div style="font-weight:600;color:var(--ink);margin:18px 0 6px;">💾 保存与协作</div>
+      <ul style="padding-left:24px;margin:0;">
+        <li><strong>自动云保存</strong>：点 ☁ 保存到云端 或按 <kbd>Ctrl+S</kbd>，全团队 Supabase 同步</li>
+        <li><strong>智能去重</strong>：同一个 PI 编号多次保存只更新最新版，不会生成多个文件</li>
+        <li><strong>三视图</strong>：
+          <ul style="margin-top:4px;">
+            <li><strong>My Quotes</strong>：只看你自己的</li>
+            <li><strong>Team</strong>：看全团队所有人的</li>
+            <li><strong>Trash</strong>：回收站（30 天内可恢复）</li>
+          </ul>
+        </li>
+        <li><strong>状态标签</strong>：Draft 草稿 / Sent 已发 / Won 成单 / Lost 丢单 / Archived 归档</li>
+      </ul>
+      
+      <div style="font-weight:600;color:var(--ink);margin:18px 0 6px;">🌐 多语言切换</div>
+      <ul style="padding-left:24px;margin:0;">
+        <li>右上角语言选择：English / Bilingual 中英对照 / Español / Deutsch / Français / العربية / Русский</li>
+        <li>切换语言后所有标签自动翻译，但产品名/规格保持原内容</li>
+      </ul>
+      
+      <div style="font-weight:600;color:var(--ink);margin:18px 0 6px;">🖼️ 产品图片</div>
+      <ul style="padding-left:24px;margin:0;">
+        <li>每行产品都有 "Image" 区域，可以从剪贴板粘贴图片（Ctrl+V）</li>
+        <li>建议每张图 < 200KB，否则保存会变慢</li>
+        <li>图片会一同保存到云端，PDF 导出时直接嵌入</li>
+      </ul>
+      
+      <div style="font-weight:600;color:var(--ink);margin:18px 0 6px;">⌨️ 快捷键</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;">
+        <tr><td style="padding:4px 0;width:120px;"><kbd>Ctrl + S</kbd></td><td>保存到云端</td></tr>
+        <tr><td style="padding:4px 0;"><kbd>Ctrl + P</kbd></td><td>打印（PDF）</td></tr>
+        <tr><td style="padding:4px 0;"><kbd>Esc</kbd></td><td>关闭弹窗</td></tr>
+        <tr><td style="padding:4px 0;"><kbd>Tab</kbd></td><td>切换输入字段</td></tr>
+      </table>
+      
+      <div style="font-weight:600;color:var(--ink);margin:18px 0 6px;">💡 小技巧</div>
+      <ul style="padding-left:24px;margin:0;">
+        <li><strong>Duplicate as New</strong>：在 Cloud Records 列表选中一条 → 点此按钮 → 基于这条新建一份（适合做相似订单）</li>
+        <li><strong>Export CSV</strong>：把列表导出 Excel 做分析</li>
+        <li><strong>状态筛选</strong>：列表上方 Draft / Sent / Won 标签可快速筛选</li>
+        <li><strong>自动 PI 递增</strong>：留空 PI Number，保存时会自动按你历史记录递增</li>
+      </ul>
+      
+      <div style="font-weight:600;color:var(--ink);margin:18px 0 6px;">⚠️ 注意事项</div>
+      <ul style="padding-left:24px;margin:0;">
+        <li>从「统一工作台」跳转过来会自动登录，无需填写姓名</li>
+        <li>直接打开 quotation.html 需要先在 ⚙️ 设置里填写姓名</li>
+        <li>云同步依赖 Supabase 项目，若长时间显示 "Loading"，检查网络/Supabase 状态</li>
+      </ul>
+    </div>
+    
+    <div class="modal-actions" style="margin-top:18px;">
+      <button class="btn-modal-primary" onclick="closeHelp()" style="flex:1;">明白了，开始使用 →</button>
+    </div>
+  </div>
+</div>
+
 <div class="page">
 
 <!-- Setup prompt -->
 <div class="alert-banner" id="setup-banner" style="display:none;">
-  <span>⚠️ Please enter your name to enable cloud sync (Supabase).</span>
-  <button class="btn-setup" onclick="openSettings()">Setup Now →</button>
+  <span>⚠️ 请输入你的姓名以启用云端同步 · Please enter your name to enable cloud sync</span>
+  <button class="btn-setup" onclick="openSettings()">现在设置 · Setup Now →</button>
 </div>
 
 <!-- ============================================================
@@ -817,12 +896,12 @@ fieldset legend {
      ============================================================ -->
 <div class="card card-collapsible collapsed">
   <div class="card-header" onclick="toggleCard(this)">
-    <h2><span class="icon">💾</span> Save / Load <span id="autosave-mini" style="font-size:11px;color:#16a34a;font-weight:500;margin-left:8px;">● Draft auto-saved</span></h2>
+    <h2><span class="icon">💾</span> 保存 / 加载 · Save / Load <span id="autosave-mini" style="font-size:11px;color:#16a34a;font-weight:500;margin-left:8px;">● 草稿自动保存 · Draft auto-saved</span></h2>
   </div>
   <div class="card-body">
     <div class="tabs">
-      <button class="active" id="tab-btn-cloud" onclick="switchTab('cloud',this)">☁️ Cloud Records</button>
-      <button id="tab-btn-local" onclick="switchTab('local',this)">💻 Local Browser</button>
+      <button class="active" id="tab-btn-cloud" onclick="switchTab('cloud',this)">☁️ 云端记录 · Cloud Records</button>
+      <button id="tab-btn-local" onclick="switchTab('local',this)">💻 本地浏览器 · Local Browser</button>
     </div>
 
     <!-- Cloud tab -->
@@ -830,54 +909,54 @@ fieldset legend {
       <!-- View mode segmented control: My / Team / Trash -->
       <div class="cloud-view-toggle">
         <button class="view-mode-btn active" data-view="mine" onclick="setCloudViewMode('mine')">
-          👤 My Quotes <span class="count-badge" id="count-mine">0</span>
+          👤 我的报价 · My <span class="count-badge" id="count-mine">0</span>
         </button>
         <button class="view-mode-btn" data-view="all" onclick="setCloudViewMode('all')">
-          👥 Team <span class="count-badge" id="count-all">0</span>
+          👥 团队 · Team <span class="count-badge" id="count-all">0</span>
         </button>
         <button class="view-mode-btn trash-mode" data-view="trash" onclick="setCloudViewMode('trash')">
-          🗑 Trash <span class="count-badge" id="count-trash">0</span>
+          🗑 回收站 · Trash <span class="count-badge" id="count-trash">0</span>
         </button>
       </div>
 
       <!-- Status filter chips -->
       <div class="status-filter-row" id="status-filter-row">
-        <button class="status-chip active" data-status="" onclick="setStatusFilter('')">All</button>
-        <button class="status-chip" data-status="draft" onclick="setStatusFilter('draft')">Draft</button>
-        <button class="status-chip" data-status="sent" onclick="setStatusFilter('sent')">Sent</button>
-        <button class="status-chip" data-status="won" onclick="setStatusFilter('won')">Won</button>
-        <button class="status-chip" data-status="lost" onclick="setStatusFilter('lost')">Lost</button>
-        <button class="status-chip" data-status="archived" onclick="setStatusFilter('archived')">Archived</button>
+        <button class="status-chip active" data-status="" onclick="setStatusFilter('')">全部 · All</button>
+        <button class="status-chip" data-status="draft" onclick="setStatusFilter('draft')">草稿 · Draft</button>
+        <button class="status-chip" data-status="sent" onclick="setStatusFilter('sent')">已发送 · Sent</button>
+        <button class="status-chip" data-status="won" onclick="setStatusFilter('won')">成单 · Won</button>
+        <button class="status-chip" data-status="lost" onclick="setStatusFilter('lost')">丢单 · Lost</button>
+        <button class="status-chip" data-status="archived" onclick="setStatusFilter('archived')">归档 · Archived</button>
       </div>
 
       <div class="cloud-filter-row">
-        <input type="text" id="cloud-search" placeholder="Customer, PI no, or SKU…" oninput="renderCloudList()">
-        <select id="cloud-date-filter" onchange="renderCloudList()" title="Filter by date">
-          <option value="all">All dates</option>
-          <option value="today">Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="week">Last 7 days</option>
-          <option value="month">Last 30 days</option>
+        <input type="text" id="cloud-search" placeholder="客户 / PI 号 / SKU · Customer / PI / SKU" oninput="renderCloudList()">
+        <select id="cloud-date-filter" onchange="renderCloudList()" title="按日期筛选 · Filter by date">
+          <option value="all">全部日期 · All dates</option>
+          <option value="today">今天 · Today</option>
+          <option value="yesterday">昨天 · Yesterday</option>
+          <option value="week">最近 7 天 · Last 7 days</option>
+          <option value="month">最近 30 天 · Last 30 days</option>
         </select>
-        <select id="cloud-user-filter" onchange="renderCloudList()" title="Filter by team member" style="display:none;">
-          <option value="">All members</option>
+        <select id="cloud-user-filter" onchange="renderCloudList()" title="按团队成员筛选 · Filter by team member" style="display:none;">
+          <option value="">全部成员 · All members</option>
         </select>
-        <button class="btn-refresh" onclick="loadCloudList()" title="Refresh">↺</button>
+        <button class="btn-refresh" onclick="loadCloudList()" title="刷新 · Refresh">↺</button>
       </div>
 
       <!-- Action toolbar: Duplicate, Export, Empty Trash -->
       <div class="cloud-toolbar">
-        <button class="toolbar-btn" onclick="duplicateAsNew()" title="Copy current quote as a new draft with auto-incremented PI">📋 Duplicate as New</button>
-        <button class="toolbar-btn" onclick="exportCSV()" title="Export filtered list to CSV">📊 Export CSV</button>
-        <button class="toolbar-btn" id="btn-empty-trash" onclick="emptyTrash()" style="display:none;color:#b91c1c;">🗑 Empty Trash</button>
+        <button class="toolbar-btn" onclick="duplicateAsNew()" title="将当前报价复制为新草稿（PI 自动递增） · Duplicate as new draft">📋 复制为新报价 · Duplicate as New</button>
+        <button class="toolbar-btn" onclick="exportCSV()" title="导出筛选列表到 CSV · Export filtered list to CSV">📊 导出 CSV · Export CSV</button>
+        <button class="toolbar-btn" id="btn-empty-trash" onclick="emptyTrash()" style="display:none;color:#b91c1c;">🗑 清空回收站 · Empty Trash</button>
       </div>
 
       <div class="cloud-list" id="cloud-list">
-        <div class="cloud-list-empty">Click ↺ to load cloud records</div>
+        <div class="cloud-list-empty">点击 ↺ 从云端加载记录 · Click ↺ to load cloud records</div>
       </div>
       <div class="cloud-action-row">
-        <button class="btn-cloud-load" id="btn-cloud-load" onclick="cloudLoad()" disabled>⬇ Load Selected</button>
-        <button class="btn-cloud-save" onclick="cloudSave()">⬆ Save to Cloud</button>
+        <button class="btn-cloud-load" id="btn-cloud-load" onclick="cloudLoad()" disabled>⬇ 加载所选 · Load Selected</button>
+        <button class="btn-cloud-save" onclick="cloudSave()">⬆ 保存到云端 · Save to Cloud</button>
       </div>
       <p class="cloud-status-msg" id="cloud-status"></p>
     </div>
@@ -885,22 +964,22 @@ fieldset legend {
     <!-- Local tab -->
     <div id="tab-local" class="tab-pane" style="display:none;">
       <div class="form-row" style="margin-bottom:8px;">
-        <label>Filter</label>
-        <input type="text" id="save_search" placeholder="Filter by name…" oninput="filterSaveSlots()">
+        <label>筛选 · Filter</label>
+        <input type="text" id="save_search" placeholder="按名称筛选 · Filter by name" oninput="filterSaveSlots()">
       </div>
       <div class="local-row">
         <div>
-          <label style="font-size:12px;font-weight:600;color:#475569;">Saved Entries <span id="save-count-badge" class="save-count">0</span></label>
+          <label style="font-size:12px;font-weight:600;color:#475569;">已保存条目 · Saved Entries <span id="save-count-badge" class="save-count">0</span></label>
           <select id="save_slots"></select>
         </div>
-        <button id="load_button" class="btn-local load">Load</button>
-        <button id="save_button" class="btn-local save">Save</button>
-        <button id="delete_button" class="btn-local delete">Delete</button>
+        <button id="load_button" class="btn-local load">加载 · Load</button>
+        <button id="save_button" class="btn-local save">保存 · Save</button>
+        <button id="delete_button" class="btn-local delete">删除 · Delete</button>
       </div>
       <p class="feedback-msg" id="feedback_message"></p>
     </div>
 
-    <button class="btn-icon" style="background:#fff;color:#475569;border:1px solid #cbd5e1;margin-top:10px;" onclick="newQuote()">＋ New Quote (clear all)</button>
+    <button class="btn-icon" style="background:#fff;color:#475569;border:1px solid #cbd5e1;margin-top:10px;" onclick="newQuote()">＋ 新建报价（清空当前） · New Quote (clear all)</button>
   </div>
 </div>
 
@@ -909,9 +988,9 @@ fieldset legend {
      ============================================================ -->
 <div class="card">
   <div class="card-header">
-    <h2><span class="icon">📝</span> Master Input Form</h2>
+    <h2><span class="icon">📝</span> 主表单 · Master Input Form</h2>
     <div style="display:flex;gap:8px;align-items:center;">
-      <label style="font-size:12px;color:#64748b;font-weight:500;">Language</label>
+      <label style="font-size:12px;color:#64748b;font-weight:500;">输出语言 · Language</label>
       <select id="language_select" style="padding:5px 8px;border:1px solid #cbd5e1;border-radius:5px;font-size:12px;">
         <option value="en">English</option>
         <option value="bilingual">English / 中文</option>
@@ -926,14 +1005,14 @@ fieldset legend {
   <div class="card-body">
     <!-- Seller -->
     <div class="form-row" style="margin-bottom:14px;">
-      <label data-lang-key="select_seller">Select Seller Website</label>
+      <label>选择卖方公司 · Select Seller</label>
       <select id="seller_website"></select>
     </div>
 
     <!-- Order / Buyer / Shipping -->
     <div class="form-grid cols-3" style="margin-bottom:14px;">
       <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
-        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" data-lang-key="order_info">Order Information</legend>
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" >订单信息 · Order Information</legend>
         <div class="form-row"><label data-lang-key="quote_no">Quote No.</label><input type="text" id="quote_number"></div>
         <div class="form-row" style="margin-top:6px;"><label data-lang-key="invoice_no">Invoice No.</label><input type="text" id="pi_number"></div>
         <div class="form-row" style="margin-top:6px;"><label data-lang-key="po_no">PO No.</label><input type="text" id="po_number"></div>
@@ -962,13 +1041,13 @@ fieldset legend {
       </fieldset>
 
       <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
-        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" data-lang-key="buyer_info">Buyer Information</legend>
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" >买方信息 · Buyer Information</legend>
         <div class="form-row"><label data-lang-key="buyer_name_address">Buyer Name & Address</label><textarea id="buyer_info" rows="5"></textarea></div>
         <div class="form-row" style="margin-top:6px;"><label data-lang-key="buyer_email">Buyer Email</label><input type="email" id="buyer_email"></div>
       </fieldset>
 
       <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
-        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" data-lang-key="shipping_info">Shipping Information</legend>
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" >收货信息 · Shipping Information</legend>
         <div class="form-row"><label data-lang-key="ship_to_name_address">Ship To Name & Address</label><textarea id="shipping_info" rows="5"></textarea></div>
         <div class="form-row" style="margin-top:6px;"><label data-lang-key="shipping_tel">Shipping Tel</label><input type="text" id="shipping_tel"></div>
         <div class="form-row" style="margin-top:6px;"><label data-lang-key="freight_cost">Freight Cost (in USD)</label><input type="number" id="freight_cost" value="0" min="0" step="0.01"></div>
@@ -1013,7 +1092,7 @@ fieldset legend {
           <tbody id="master-items"></tbody>
         </table>
       </div>
-      <button class="btn-add-item" onclick="addItem()">＋ <span data-lang-key="add_item">Add Item</span></button>
+      <button class="btn-add-item" onclick="addItem()">＋ <span>添加产品 · Add Item</span></button>
     </div>
 
     <!-- Discount + Terms -->
@@ -1252,17 +1331,17 @@ fieldset legend {
 <!-- Settings modal -->
 <div class="modal-overlay hidden" id="settings-overlay" onclick="if(event.target===this)closeSettings()">
   <div class="modal">
-    <h3>👤 Account Setup</h3>
+    <h3>👤 账号设置 · Account Setup</h3>
     <p>Enter your name. Quotes you save will be labeled with this name. Data is synced via <strong>Supabase</strong> — all team members see each other's quotes in Team view.</p>
-    <label>Your Name * <span style="font-weight:400;color:#94a3b8;">(used to label quotes you save)</span></label>
-    <input type="text" id="setup-name" placeholder="e.g., Miya, Hazelle, Sally…">
+    <label>你的姓名 · Your Name * <span style="font-weight:400;color:#94a3b8;">(used to label quotes you save)</span></label>
+    <input type="text" id="setup-name" placeholder="例如：Miya, Hazelle, Sally">
     <p id="setup-name-locked-warning" style="display:none;font-size:11px;color:#b91c1c;margin:4px 0 0;">⚠ Changing your name will orphan your existing cloud quotes (they will still be visible under the old name in Team view).</p>
     <input type="hidden" id="setup-token">
     <div class="modal-tip">
       💡 After setup, click <strong>☁ Save to Cloud</strong> at the top of the page or press <kbd style="background:#e0f2fe;border:1px solid #bae6fd;padding:1px 4px;border-radius:3px;font-size:11px;">Ctrl+S</kbd> to save quickly.
     </div>
     <div class="modal-actions">
-      <button class="btn-modal-primary" onclick="saveSetup()">✓ Save & Continue</button>
+      <button class="btn-modal-primary" onclick="saveSetup()">✓ 保存并继续 · Save & Continue</button>
       <button class="btn-modal-cancel" onclick="closeSettings()">Cancel</button>
     </div>
     <p class="modal-note">🔒 Your name is stored in your browser only. Quote data syncs to Supabase cloud (shared with team).</p>
@@ -2085,7 +2164,7 @@ function setAutoSaveStatus(state) {
   const el = $('autosave-mini');
   if (!el) return;
   if (state === 'saving')   { el.style.color = '#ca8a04'; el.textContent = '● Saving draft…'; }
-  if (state === 'saved')    { el.style.color = '#16a34a'; el.textContent = '● Draft auto-saved'; }
+  if (state === 'saved')    { el.style.color = '#16a34a'; el.textContent = '● 草稿自动保存 · Draft auto-saved'; }
   if (state === 'restored') { el.style.color = '#0369a1'; el.textContent = '● Restored from last session'; }
 }
 function triggerAutoSave() {
@@ -2393,6 +2472,8 @@ function openSettings() {
   $('settings-overlay').classList.remove('hidden');
 }
 function closeSettings() { $('settings-overlay').classList.add('hidden'); }
+function openHelp() { document.getElementById('help-overlay').classList.remove('hidden'); }
+function closeHelp() { document.getElementById('help-overlay').classList.add('hidden'); }
 function renderUserBar() {
   const name = getUsername();
   const avatar = $('user-avatar');
@@ -2492,8 +2573,8 @@ function setStatusFilter(status) {
 async function loadCloudList() {
   const me = getUsername();
   if (!me) { openSettings(); return; }
-  setCloudStatus('<span class="loading-spinner"></span> Loading from Supabase…', '');
-  $('cloud-list').innerHTML = '<div class="cloud-list-empty"><span class="loading-spinner"></span> Fetching records…</div>';
+  setCloudStatus('<span class="loading-spinner"></span> 加载中… · Loading…', '');
+  $('cloud-list').innerHTML = '<div class="cloud-list-empty"><span class="loading-spinner"></span> 拉取记录中… · Fetching records…</div>';
   cloudRecords = [];
 
   if (cloudViewMode === 'mine') {
@@ -2511,7 +2592,7 @@ async function loadCloudList() {
     cloudRecords.forEach(r => { teamUserCounts[r.user] = (teamUserCounts[r.user] || 0) + 1; });
     const uf = $('cloud-user-filter');
     const cur = uf.value;
-    uf.innerHTML = '<option value="">All members</option>';
+    uf.innerHTML = '<option value="">全部成员 · All members</option>';
     Object.keys(teamUserCounts).sort().forEach(u => {
       const o = document.createElement('option');
       o.value = u; o.textContent = `${u} (${teamUserCounts[u]})`;
@@ -2525,7 +2606,7 @@ async function loadCloudList() {
 
   refreshPiAutoIncrement();
   renderCloudList();
-  setCloudStatus(`✓ ${cloudRecords.length} record(s) loaded`, 'ok');
+  setCloudStatus(`✓ 已加载 ${cloudRecords.length} 条记录 · ${cloudRecords.length} loaded`, 'ok');
 }
 
 // 把 Supabase row 转换成 UI 需要的 cloud record 结构
@@ -2656,13 +2737,39 @@ async function cloudSave() {
     if (!confirm(`This quote is ${sizeKB}KB (mostly from pasted images). Saving may be slow. Continue?`)) return;
   }
 
-  setCloudStatus('<span class="loading-spinner"></span> Saving to Supabase…', '');
+  setCloudStatus('<span class="loading-spinner"></span> 保存到云端… · Saving…', '');
 
-  // 复用已加载记录的 id；否则新建
-  let recordId = currentLoadedPath;  // 重用变量名兼容旧代码
+  // === 智能去重逻辑 ===
+  // 1. 如果已经 Load 过这条记录，使用原 id
+  // 2. 否则按 (username + pi_no) 查找已有记录，存在则更新
+  // 3. 都没有再新建
+  let recordId = currentLoadedPath;
+  let isUpdate = !!recordId;
+  
+  if (!recordId && piNo && piNo !== 'QUOTE') {
+    // 按 PI No 查找该用户已有的记录
+    try {
+      const { data: existing } = await sb.from(SB_TABLE)
+        .select('id, updated_at, trashed')
+        .eq('username', username)
+        .eq('pi_no', piNo)
+        .eq('trashed', false)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        // 同一个 PI 已存在 → 直接覆盖最新这条
+        recordId = existing.id;
+        isUpdate = true;
+        console.log(`[cloudSave] 检测到同 PI 已存在 (id=${recordId})，按最新覆盖`);
+      }
+    } catch(e) { console.warn('PI 查重失败:', e); }
+  }
+  
   if (!recordId) {
     // 生成新 id
     recordId = `qt_${Date.now()}_${Math.random().toString(36).slice(2,9)}`;
+    console.log(`[cloudSave] 新建记录 id=${recordId}`);
   }
 
   // 冲突检测：检查 updated_at（用 sha 字段保存）
@@ -2670,14 +2777,13 @@ async function cloudSave() {
     const { data: cur } = await sb.from(SB_TABLE).select('updated_at').eq('id', recordId).single();
     if (cur && cur.updated_at !== currentLoadedSha) {
       const proceed = confirm(
-        '⚠ Conflict detected!\n\n' +
-        'This quote has been modified in the cloud since you loaded it ' +
-        '(possibly by another team member).\n\n' +
-        'OK = overwrite their changes with yours\n' +
-        'Cancel = abort save (recommended: refresh the list and reload)'
+        '⚠ 检测到冲突！\n\n' +
+        '这条报价单在你加载后被云端修改过（可能是其他团队成员）。\n\n' +
+        '确定 = 用你的版本覆盖他们的修改\n' +
+        '取消 = 放弃保存（建议：刷新列表后重新加载）'
       );
       if (!proceed) {
-        setCloudStatus('Save cancelled — please reload to see latest changes.', 'err');
+        setCloudStatus('已取消保存 — 请刷新查看最新内容', 'err');
         return;
       }
     }
@@ -2694,12 +2800,13 @@ async function cloudSave() {
     data: data,
     updated_at: new Date().toISOString(),
   };
-  if (!currentLoadedPath) row.created_at = new Date().toISOString();
+  if (!isUpdate) row.created_at = new Date().toISOString();
 
   const saved = await sbUpsert(row);
   if (saved) {
-    setCloudStatus(`✓ Saved: ${buyerNameDisplay || piNo} [${status}]`, 'ok');
-    showToast('Saved to cloud', 'ok');
+    const action = isUpdate ? '更新' : '新建';
+    setCloudStatus(`✓ 已${action}: ${buyerNameDisplay || piNo} [${status}]`, 'ok');
+    showToast(`✓ 已${action}到云端`, 'ok');
     currentLoadedPath = saved.id;
     currentLoadedSha = saved.updated_at;
     loadCloudList();
@@ -2709,10 +2816,10 @@ async function cloudSave() {
 async function cloudLoad() {
   if (!selectedCloudItem) return;
   if (selectedCloudItem.trashed) {
-    showToast('This is a trashed record. Restore it first to edit.', 'err');
+    showToast('这是回收站里的记录，请先恢复才能编辑 · Restore first to edit', 'err');
     return;
   }
-  setCloudStatus('<span class="loading-spinner"></span> Loading…', '');
+  setCloudStatus('<span class="loading-spinner"></span> 加载中… · Loading…', '');
   try {
     // Supabase 版本：直接用 rawData (已经在 loadCloudList 中预加载)
     let data = selectedCloudItem.rawData;
@@ -2726,41 +2833,41 @@ async function cloudLoad() {
     currentLoadedPath = selectedCloudItem.id;
     currentLoadedSha = selectedCloudItem.sha;
     setCloudStatus(`✓ Loaded: ${selectedCloudItem.buyerName || selectedCloudItem.piNo}`, 'ok');
-    showToast('Loaded from cloud', 'ok');
+    showToast('已从云端加载 · Loaded from cloud', 'ok');
     renderCloudList();
   } catch(e) { setCloudStatus('Failed to load: ' + e.message, 'err'); }
 }
 
 // 软删除：把记录的 trashed 设为 true（不删除行）
 async function cloudDelete(id, sha, name) {
-  if (!confirm(`Move "${name}" to Trash? You can restore it later.`)) return;
-  setCloudStatus('<span class="loading-spinner"></span> Moving to trash…', '');
+  if (!confirm(`将 "${name}" 移到回收站？稍后可恢复。\nMove to Trash? You can restore it later.`)) return;
+  setCloudStatus('<span class="loading-spinner"></span> 移到回收站… · Moving to trash…', '');
   const updated = await sbUpdate(id, { trashed: true });
   if (updated) {
     cloudRecords = cloudRecords.filter(r => r.id !== id);
     if (selectedCloudItem?.id === id) { selectedCloudItem = null; $('btn-cloud-load').disabled = true; }
     if (currentLoadedPath === id) { currentLoadedPath = null; currentLoadedSha = null; }
     setCloudStatus(`✓ Moved "${name}" to trash`, 'ok');
-    showToast('Moved to trash (restore from 🗑 Trash view)', 'ok');
+    showToast('Moved to trash (restore from 🗑 回收站 · Trash view)', 'ok');
     renderCloudList();
   }
 }
 
 async function restoreFromTrash(id, sha, name) {
-  if (!confirm(`Restore "${name}" from trash?`)) return;
-  setCloudStatus('<span class="loading-spinner"></span> Restoring…', '');
+  if (!confirm(`从回收站恢复 "${name}"？\nRestore from trash?`)) return;
+  setCloudStatus('<span class="loading-spinner"></span> 恢复中… · Restoring…', '');
   const updated = await sbUpdate(id, { trashed: false });
   if (updated) {
     setCloudStatus(`✓ Restored "${name}"`, 'ok');
-    showToast('Restored from trash', 'ok');
+    showToast('已从回收站恢复 · Restored from trash', 'ok');
     loadCloudList();
   }
 }
 
 async function permanentDelete(id, sha, name) {
-  if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
-  if (!confirm('Are you absolutely sure? This will erase the record forever.')) return;
-  setCloudStatus('<span class="loading-spinner"></span> Permanently deleting…', '');
+  if (!confirm(`永久删除 "${name}"？此操作无法撤销。\nPermanently delete? Cannot be undone.`)) return;
+  if (!confirm('确定要彻底删除吗？记录将永久消失。\nReally erase forever?')) return;
+  setCloudStatus('<span class="loading-spinner"></span> 永久删除中… · Permanently deleting…', '');
   const ok = await sbDelete(id);
   if (ok) {
     cloudRecords = cloudRecords.filter(r => r.id !== id);
@@ -2771,9 +2878,9 @@ async function permanentDelete(id, sha, name) {
 
 async function emptyTrash() {
   const trashedRecords = cloudRecords.filter(r => r.trashed);
-  if (!trashedRecords.length) { showToast('Trash is already empty', 'ok'); return; }
-  if (!confirm(`Permanently delete ALL ${trashedRecords.length} item(s) in the trash? This cannot be undone.`)) return;
-  if (!confirm('This will erase everything in the trash. Really proceed?')) return;
+  if (!trashedRecords.length) { showToast('回收站已经是空的 · Trash is already empty', 'ok'); return; }
+  if (!confirm(`永久删除回收站全部 ${trashedRecords.length} 项？此操作无法撤销。\nPermanently delete all ${trashedRecords.length}? Cannot be undone.`)) return;
+  if (!confirm('回收站将被清空，确定继续？\nWill erase everything. Proceed?')) return;
   setCloudStatus(`<span class="loading-spinner"></span> Emptying trash (${trashedRecords.length})…`, '');
   let successCount = 0;
   for (const r of trashedRecords) {
@@ -2781,7 +2888,7 @@ async function emptyTrash() {
     if (ok) successCount++;
   }
   setCloudStatus(`✓ Emptied trash (${successCount}/${trashedRecords.length} deleted)`, 'ok');
-  showToast('Trash emptied', 'ok');
+  showToast('回收站已清空 · Trash emptied', 'ok');
   loadCloudList();
 }
 

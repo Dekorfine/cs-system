@@ -549,7 +549,7 @@ const INITIAL_EMPLOYEES = [
   { id:'u_tammy', name:'伍家家', alias:'Tammy', sites:'处理拒付+VK', role:'staff', password:'123456' },
   { id:'u_yulia', name:'陶艳巧', alias:'Yulia', sites:'RD, PL, MO', role:'staff', password:'123456' },
   { id:'u_ashley', name:'侯泳珊', alias:'Ashley', sites:'', role:'staff', password:'123456' },
-  { id:'u_abby', name:'张宣', alias:'Abby', sites:'VK', role:'staff', password:'123456' },
+  { id:'u_abby', name:'张宣霞', alias:'Abby', sites:'VK', role:'staff', password:'123456' },
   { id:'u_luna', name:'杨甜', alias:'Luna', sites:'', role:'staff', password:'123456' },
   { id:'u_hannah', name:'聂诗俣', alias:'Hannah', sites:'', role:'staff', password:'123456' },
 ];
@@ -2175,23 +2175,43 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
   const saveGeminiKey = async () => {
     if (!geminiKey.trim()) { toast('⚠ 请输入 Gemini API key'); return; }
     if (!CLOUD.client) { toast('❌ 云同步未启用'); return; }
+    if (!geminiKey.trim().startsWith('AIza')) {
+      if (!confirm('这个 key 看起来不像 Gemini key（通常以 AIza 开头）。继续保存吗？')) return;
+    }
     if (!confirm('保存 Gemini API key 到云端？\n会用 XOR 加密后存储到 Supabase，所有团队成员都能使用此 key。')) return;
     try {
       const encrypted = _xorEncrypt(geminiKey.trim());
-      const { error } = await CLOUD.client.from('kb_team_config').upsert({
+      console.log('[GEMINI] saving encrypted key, len=', encrypted.length);
+      const { data, error } = await CLOUD.client.from('kb_team_config').upsert({
         key: 'gemini_api_key',
         value: { encrypted, hint: geminiKey.slice(0,8) + '...' },
         updated_at: new Date().toISOString(),
-      });
-      if (error) throw error;
+      }, { onConflict: 'key' }).select();
+      if (error) {
+        console.error('[GEMINI] save error:', error);
+        alert(`❌ 保存失败：${error.message}\n\n错误码: ${error.code || 'unknown'}\n详情: ${error.details || error.hint || '无'}\n\n常见原因：\n1. kb_team_config 表不存在（请跑 03_kb_extras.sql）\n2. RLS 策略阻止写入\n3. 网络问题`);
+        return;
+      }
+      console.log('[GEMINI] saved, verifying...');
+      // 立即读出来验证
+      const { data: verify } = await CLOUD.client.from('kb_team_config').select('value').eq('key', 'gemini_api_key').maybeSingle();
+      const encryptedBack = verify?.value?.encrypted || '';
+      const decoded = encryptedBack ? _xorDecrypt(encryptedBack) : '';
+      if (decoded !== geminiKey.trim()) {
+        alert(`⚠ 保存疑似成功但验证失败：\n\n写入的 key: ${geminiKey.slice(0,8)}...\n读回的 key: ${decoded.slice(0,8)}...\n\n可能是 RLS 阻止了读取。请去 Supabase 检查 kb_team_config 表的 Policies。`);
+        return;
+      }
       toast('✓ Gemini key 已加密保存 · 知识库可立即使用');
       setGeminiKey('');
       loadGeminiKey();
-      // 通知所有 kb iframe 重载 key（不需要刷新整页）
+      // 通知所有 kb iframe 重载 key
       document.querySelectorAll('iframe[title="知识库"]').forEach(f => {
         try { f.contentWindow.postMessage({ type:'reload-gemini-key' }, '*'); } catch(e) {}
       });
-    } catch(e) { toast('❌ 保存失败: ' + e.message); }
+    } catch(e) {
+      console.error('[GEMINI] save exception:', e);
+      alert('❌ 保存异常: ' + e.message);
+    }
   };
   
   const testGemini = async () => {
@@ -2507,11 +2527,11 @@ const FinanceModule = ({ toast }) => {
 
   // 当前订单参数
   const [items, setItems] = useState([
-    { id: uid(), sku:'', cost:'', qty:1, shipping:'', crate:'' }
+    { id: uid(), sku:'', cost:'', qty:1, shipping:'', crate:'', length:'', width:'', height:'', actualWeight:'' }
   ]);
   const [currentPriceUSD, setCurrentPriceUSD] = useState('');
 
-  const addItem = () => setItems(prev => [...prev, { id:uid(), sku:'', cost:'', qty:1, shipping:'', crate:'' }]);
+  const addItem = () => setItems(prev => [...prev, { id:uid(), sku:'', cost:'', qty:1, shipping:'', crate:'', length:'', width:'', height:'', actualWeight:'' }]);
   const updateItem = (id, patch) => setItems(prev => prev.map(i => i.id === id ? {...i, ...patch} : i));
   const delItem = (id) => setItems(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev);
 
@@ -2520,6 +2540,7 @@ const FinanceModule = ({ toast }) => {
   const disc = parseFloat(config.discountMult) || 1.2;
   const rate = parseFloat(config.exchangeRate) || 6.2;
   const totalMult = dam * disc;
+  const volDivisor = 5000;  // 国际快递通用系数 (UPS/FedEx/DHL/USPS)
 
   const calculated = useMemo(() => {
     return items.map(it => {
@@ -2527,6 +2548,18 @@ const FinanceModule = ({ toast }) => {
       const qty = parseInt(it.qty) || 1;
       const shipping = parseFloat(it.shipping) || 0;
       const crate = parseFloat(it.crate) || 0;
+      // 📦 包装尺寸 → 体积重量
+      const L = parseFloat(it.length) || 0;
+      const W = parseFloat(it.width) || 0;
+      const H = parseFloat(it.height) || 0;
+      const actW = parseFloat(it.actualWeight) || 0;
+      const volume = L * W * H;  // cm³
+      const volumetricWeight = volume / volDivisor;  // kg (单件)
+      const billableWeight = Math.max(actW, volumetricWeight);  // 单件计费重
+      const totalBillableWeight = billableWeight * qty;
+      const weightType = volumetricWeight > actW ? 'vol' : 'actual';
+      const hasPackInfo = L > 0 && W > 0 && H > 0;
+      
       const productTotal = cost * qty;
       const baseCost = productTotal + shipping + crate;
       const suggestedTotalUSD = (baseCost * totalMult) / rate;
@@ -2534,12 +2567,16 @@ const FinanceModule = ({ toast }) => {
       const currentTotal = (parseFloat(currentPriceUSD) || 0) * qty;
       const profit = currentTotal > 0 ? (currentTotal * rate) - baseCost : null;
       const marginPct = currentTotal > 0 && currentTotal * rate > 0 ? (profit / (currentTotal * rate)) * 100 : null;
-      return { ...it, productTotal, baseCost, suggestedTotalUSD, suggestedUnitUSD, profit, marginPct };
+      return {
+        ...it, productTotal, baseCost, suggestedTotalUSD, suggestedUnitUSD, profit, marginPct,
+        volume, volumetricWeight, billableWeight, totalBillableWeight, weightType, hasPackInfo,
+      };
     });
   }, [items, totalMult, rate, currentPriceUSD]);
 
   const grandTotal = calculated.reduce((s, c) => s + c.baseCost, 0);
   const grandSuggested = calculated.reduce((s, c) => s + c.suggestedTotalUSD, 0);
+  const grandBillableWeight = calculated.reduce((s, c) => s + c.totalBillableWeight, 0);
 
   const copyFormula = (item) => {
     const text = `【建议售价】SKU ${item.sku || '新品'}
@@ -2705,6 +2742,67 @@ const FinanceModule = ({ toast }) => {
                     <span className="font-mono tabular-nums" style={{fontWeight:500, color:'var(--ink)'}}>¥ {fmt(it.baseCost)}</span>
                   </div>
                 )}
+                
+                {/* 📦 包装尺寸区域 */}
+                <div style={{marginTop:14, padding:'12px 14px', borderRadius:'var(--radius-sm)', background:'var(--bg-soft)', border:'1px solid var(--line-soft)'}}>
+                  <div style={{fontSize:11, fontWeight:500, color:'var(--ink-3)', marginBottom:8, letterSpacing:'-.003em'}}>
+                    📦 包装尺寸（用于计算运费 / 体积重量）<span style={{color:'var(--ink-4)', fontWeight:400, marginLeft:8}}>选填，但建议填写</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="block text-[10px] mb-1" style={{color:'var(--ink-3)'}}>长 L (cm)</label>
+                      <input type="number" value={it.length} onChange={e => updateItem(it.id, {length:e.target.value})} placeholder="0"
+                        autoComplete="off" name={`fin-len-${it.id}`} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1" style={{color:'var(--ink-3)'}}>宽 W (cm)</label>
+                      <input type="number" value={it.width} onChange={e => updateItem(it.id, {width:e.target.value})} placeholder="0"
+                        autoComplete="off" name={`fin-w-${it.id}`} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1" style={{color:'var(--ink-3)'}}>高 H (cm)</label>
+                      <input type="number" value={it.height} onChange={e => updateItem(it.id, {height:e.target.value})} placeholder="0"
+                        autoComplete="off" name={`fin-h-${it.id}`} />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] mb-1" style={{color:'var(--ink-3)'}}>实际重量 (kg)</label>
+                      <input type="number" value={it.actualWeight} onChange={e => updateItem(it.id, {actualWeight:e.target.value})} placeholder="0"
+                        autoComplete="off" name={`fin-wt-${it.id}`} />
+                    </div>
+                  </div>
+                  {it.hasPackInfo && (
+                    <div style={{marginTop:10, padding:'10px 12px', background:'var(--paper)', borderRadius:'var(--radius-sm)', border:'1px solid var(--line)'}}>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" style={{fontSize:12}}>
+                        <div>
+                          <div style={{color:'var(--ink-4)', fontSize:10}}>体积 (cm³)</div>
+                          <div className="font-mono tabular-nums" style={{fontWeight:500, color:'var(--ink-2)'}}>{fmt(it.volume)}</div>
+                        </div>
+                        <div>
+                          <div style={{color:'var(--ink-4)', fontSize:10}}>体积重 (单件)</div>
+                          <div className="font-mono tabular-nums" style={{fontWeight:500, color: it.weightType === 'vol' ? 'var(--accent)' : 'var(--ink-2)'}}>
+                            {it.volumetricWeight.toFixed(2)} kg
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{color:'var(--ink-4)', fontSize:10}}>计费重 (单件)</div>
+                          <div className="font-mono tabular-nums" style={{fontWeight:600, color:'var(--accent)'}}>
+                            {it.billableWeight.toFixed(2)} kg
+                          </div>
+                          <div style={{fontSize:9, color:'var(--ink-4)'}}>按{it.weightType === 'vol' ? '体积重' : '实重'}计费</div>
+                        </div>
+                        <div>
+                          <div style={{color:'var(--ink-4)', fontSize:10}}>总计费重 (×{it.qty})</div>
+                          <div className="font-mono tabular-nums" style={{fontWeight:600, color:'var(--good)'}}>
+                            {it.totalBillableWeight.toFixed(2)} kg
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{fontSize:10, color:'var(--ink-4)', marginTop:6, lineHeight:1.5}}>
+                        💡 计算公式：体积重 = 长×宽×高 ÷ 5000（国际快递通用系数）· 计费重 = MAX(实重, 体积重)
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 结果区：建议售价（重点突出） */}
