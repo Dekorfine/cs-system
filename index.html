@@ -2228,7 +2228,7 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
         source = '云端';
       }
       if (!key) { setGeminiTestResult('❌ 请先输入 key 或先点「保存到云端」'); setGeminiTesting(false); return; }
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ contents:[{parts:[{text:'用一句中文回答：你能听到我吗？'}]}] }),
       });
@@ -2515,407 +2515,32 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
 // ============================================================
 // 财务卖价计算器 (简化版 - 核心售价公式)
 // ============================================================
-const FinanceModule = ({ toast }) => {
-  // 持久化的参数 (跨会话)
-  const [config, setConfig] = useState(() => STORE.get('finance_config', {
-    damageMult: 2.0,
-    discountMult: 1.2,
-    exchangeRate: 6.2,
-  }));
-
-  useEffect(() => { STORE.set('finance_config', config); }, [config]);
-
-  // 当前订单参数
-  const [items, setItems] = useState([
-    { id: uid(), sku:'', cost:'', qty:1, shipping:'', crate:'', length:'', width:'', height:'', actualWeight:'' }
-  ]);
-  const [currentPriceUSD, setCurrentPriceUSD] = useState('');
-
-  const addItem = () => setItems(prev => [...prev, { id:uid(), sku:'', cost:'', qty:1, shipping:'', crate:'', length:'', width:'', height:'', actualWeight:'' }]);
-  const updateItem = (id, patch) => setItems(prev => prev.map(i => i.id === id ? {...i, ...patch} : i));
-  const delItem = (id) => setItems(prev => prev.length > 1 ? prev.filter(i => i.id !== id) : prev);
-
-  // 计算
-  const dam = parseFloat(config.damageMult) || 2.0;
-  const disc = parseFloat(config.discountMult) || 1.2;
-  const rate = parseFloat(config.exchangeRate) || 6.2;
-  const totalMult = dam * disc;
-  const volDivisor = 5000;  // 国际快递通用系数 (UPS/FedEx/DHL/USPS)
-
-  const calculated = useMemo(() => {
-    return items.map(it => {
-      const cost = parseFloat(it.cost) || 0;
-      const qty = parseInt(it.qty) || 1;
-      const shipping = parseFloat(it.shipping) || 0;
-      const crate = parseFloat(it.crate) || 0;
-      // 📦 包装尺寸 → 体积重量
-      const L = parseFloat(it.length) || 0;
-      const W = parseFloat(it.width) || 0;
-      const H = parseFloat(it.height) || 0;
-      const actW = parseFloat(it.actualWeight) || 0;
-      const volume = L * W * H;  // cm³
-      const volumetricWeight = volume / volDivisor;  // kg (单件)
-      const billableWeight = Math.max(actW, volumetricWeight);  // 单件计费重
-      const totalBillableWeight = billableWeight * qty;
-      const weightType = volumetricWeight > actW ? 'vol' : 'actual';
-      const hasPackInfo = L > 0 && W > 0 && H > 0;
-      
-      const productTotal = cost * qty;
-      const baseCost = productTotal + shipping + crate;
-      const suggestedTotalUSD = (baseCost * totalMult) / rate;
-      const suggestedUnitUSD = qty > 0 ? suggestedTotalUSD / qty : 0;
-      const currentTotal = (parseFloat(currentPriceUSD) || 0) * qty;
-      const profit = currentTotal > 0 ? (currentTotal * rate) - baseCost : null;
-      const marginPct = currentTotal > 0 && currentTotal * rate > 0 ? (profit / (currentTotal * rate)) * 100 : null;
-      return {
-        ...it, productTotal, baseCost, suggestedTotalUSD, suggestedUnitUSD, profit, marginPct,
-        volume, volumetricWeight, billableWeight, totalBillableWeight, weightType, hasPackInfo,
-      };
-    });
-  }, [items, totalMult, rate, currentPriceUSD]);
-
-  const grandTotal = calculated.reduce((s, c) => s + c.baseCost, 0);
-  const grandSuggested = calculated.reduce((s, c) => s + c.suggestedTotalUSD, 0);
-  const grandBillableWeight = calculated.reduce((s, c) => s + c.totalBillableWeight, 0);
-
-  const copyFormula = (item) => {
-    const text = `【建议售价】SKU ${item.sku || '新品'}
-单件成本 ¥${item.cost}
-数量 ${item.qty}
-推演运费 ¥${item.shipping || 0}
-木箱费 ¥${item.crate || 0}
-━━━━━━━━━━━━━━━━━
-综合成本 ¥${fmt(item.baseCost)}
-× ${dam.toFixed(1)} (防损)
-× ${disc.toFixed(1)} (折扣)
-÷ ${rate} (推演汇率)
-━━━━━━━━━━━━━━━━━
-✓ 建议单件售价 $${item.suggestedUnitUSD.toFixed(2)}
-✓ 总价 $${item.suggestedTotalUSD.toFixed(2)}`;
-    navigator.clipboard.writeText(text).then(() => toast('✓ 已复制到剪贴板'));
-  };
+const FinanceModule = ({ user, toast }) => {
+  const sameDirUrl = `finance.html`;
+  const iframeRef = React.useRef(null);
 
   return (
-    <div className="space-y-5 fade-in">
-      {/* 公式说明 */}
-      <div className="paper rounded-2xl p-4" style={{background:'var(--accent-soft)'}}>
-        <div className="flex items-center gap-2 mb-2">
-          <Icon name="cash" className="w-5 h-5" style={{color:'var(--accent)'}} />
-          <span className="font-display text-base font-bold">财务卖价计算器</span>
+    <div className="fade-in" style={{margin:'-20px -24px -20px'}}>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 24px', background:'var(--bg-elevated)', borderBottom:'1px solid var(--line)'}}>
+        <div style={{fontSize:13, color:'var(--ink-3)'}}>
+          <strong style={{color:'var(--ink)'}}>💰 财务对账计算器</strong>
+          <span style={{marginLeft:8}}>· 13 个承运商 · 70+ 国家费率 · 运费 / 体积重 / 附加费完整核算</span>
         </div>
-        <div className="text-xs leading-relaxed" style={{color:'var(--ink-2)'}}>
-          <b>核心公式:</b> 单件售价 USD = (产品成本 + 推演运费 + 木箱费) ×{' '}
-          <b style={{color:'var(--accent)'}}>{dam.toFixed(1)}</b>{' '}
-          (防损补发) ×{' '}
-          <b style={{color:'var(--accent)'}}>{disc.toFixed(1)}</b>{' '}
-          (折扣预留) ÷{' '}
-          <b style={{color:'var(--accent)'}}>{rate}</b>{' '}
-          (推演汇率) · 综合系数 <b style={{color:'var(--accent)'}}>{totalMult.toFixed(2)}×</b>
+        <div style={{display:'flex', gap:8}}>
+          <button className="btn-sec" onClick={() => iframeRef.current?.contentWindow?.location?.reload()} title="刷新">🔄</button>
+          <a href={sameDirUrl} target="_blank" rel="noopener" className="btn-sec" style={{textDecoration:'none'}}>↗ 新窗口打开</a>
         </div>
       </div>
-
-      {/* 参数配置 */}
-      <div className="paper rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="label-num">1</span>
-            <span className="font-display text-base font-bold">财务参数</span>
-          </div>
-          <span className="text-[10px] font-mono" style={{color:'var(--ink-3)'}}>自动保存</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div>
-            <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>
-              防损倍数 <span className="text-[9px]" style={{color:'var(--ink-4)'}}>(损坏补发)</span>
-            </label>
-            <input type="number" step="0.1" value={config.damageMult} onChange={e => setConfig({...config, damageMult:e.target.value})} className="input-mono" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>
-              折扣倍数 <span className="text-[9px]" style={{color:'var(--ink-4)'}}>(20%折扣=1.2)</span>
-            </label>
-            <input type="number" step="0.1" value={config.discountMult} onChange={e => setConfig({...config, discountMult:e.target.value})} className="input-mono" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>
-              推演汇率 <span className="text-[9px]" style={{color:'var(--ink-4)'}}>(预留空间)</span>
-            </label>
-            <input type="number" step="0.01" value={config.exchangeRate} onChange={e => setConfig({...config, exchangeRate:e.target.value})} className="input-mono" />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>
-              当前售价 $ <span className="text-[9px]" style={{color:'var(--ink-4)'}}>(校验·选填)</span>
-            </label>
-            <input type="number" step="0.01" value={currentPriceUSD} onChange={e => setCurrentPriceUSD(e.target.value)} placeholder="选填" className="input-mono" />
-          </div>
-        </div>
-      </div>
-
-      {/* 商品列表 */}
-      <div className="paper rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="label-num">2</span>
-            <span className="font-display text-base font-bold">商品 / 成本明细</span>
-          </div>
-          <span className="text-[10px] font-mono" style={{color:'var(--ink-3)'}}>
-            {items.length} 项商品
-          </span>
-        </div>
-        <div className="space-y-4">
-          {calculated.map((it, idx) => (
-            <div key={it.id} style={{
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--line)',
-              background: 'var(--paper)',
-              overflow: 'hidden',
-              transition: 'box-shadow .2s',
-            }}>
-              {/* 顶部 header */}
-              <div style={{
-                display:'flex', alignItems:'center', justifyContent:'space-between',
-                padding:'14px 18px', background:'var(--bg-soft)',
-                borderBottom:'1px solid var(--line-soft)'
-              }}>
-                <div style={{display:'flex', alignItems:'center', gap:10}}>
-                  <span style={{
-                    display:'inline-flex', alignItems:'center', justifyContent:'center',
-                    width:26, height:26, borderRadius:'50%', background:'var(--accent)',
-                    color:'white', fontWeight:600, fontSize:12,
-                  }}>{idx+1}</span>
-                  <span style={{fontSize:14, fontWeight:500, color:'var(--ink)'}}>
-                    {it.sku ? it.sku : `商品 ${idx+1}`}
-                  </span>
-                </div>
-                <div style={{display:'flex', alignItems:'center', gap:6}}>
-                  <button className="btn-sec" onClick={() => copyFormula(it)} style={{padding:'5px 12px', fontSize:12}}>
-                    📋 复制公式
-                  </button>
-                  {items.length > 1 && (
-                    <button className="btn-ghost" onClick={() => delItem(it.id)} title="删除" style={{padding:'5px 10px'}}>
-                      <Icon name="trash" className="w-4 h-4" style={{color:'var(--bad)'}} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* 输入区 */}
-              <div style={{padding:'16px 18px'}}>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  <div>
-                    <label className="block text-[11px] mb-1" style={{color:'var(--ink-3)', fontWeight:500}}>SKU</label>
-                    <input value={it.sku} onChange={e => updateItem(it.id, {sku:e.target.value})} placeholder="SKU"
-                      autoComplete="off" name={`fin-sku-${it.id}`} data-lpignore="true" />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] mb-1" style={{color:'var(--ink-3)', fontWeight:500}}>
-                      单件成本 (¥) <span style={{color:'var(--bad)'}}>*</span>
-                    </label>
-                    <input type="number" value={it.cost} onChange={e => updateItem(it.id, {cost:e.target.value})} placeholder="0"
-                      autoComplete="off" name={`fin-cost-${it.id}`} />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] mb-1" style={{color:'var(--ink-3)', fontWeight:500}}>数量</label>
-                    <input type="number" min="1" value={it.qty} onChange={e => updateItem(it.id, {qty:e.target.value})}
-                      autoComplete="off" name={`fin-qty-${it.id}`} />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] mb-1" style={{color:'var(--ink-3)', fontWeight:500}}>推演运费 (¥)</label>
-                    <input type="number" value={it.shipping} onChange={e => updateItem(it.id, {shipping:e.target.value})} placeholder="0"
-                      autoComplete="off" name={`fin-ship-${it.id}`} />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] mb-1" style={{color:'var(--ink-3)', fontWeight:500}}>木箱费 (¥)</label>
-                    <input type="number" value={it.crate} onChange={e => updateItem(it.id, {crate:e.target.value})} placeholder="0"
-                      autoComplete="off" name={`fin-crate-${it.id}`} />
-                  </div>
-                </div>
-
-                {/* 综合成本提示 */}
-                {it.baseCost > 0 && (
-                  <div style={{
-                    marginTop:14, padding:'10px 14px', borderRadius:'var(--radius-sm)',
-                    background:'var(--bg-elevated)', display:'flex', alignItems:'center', justifyContent:'space-between',
-                    fontSize:13,
-                  }}>
-                    <span style={{color:'var(--ink-3)'}}>综合成本（含运费/木箱）</span>
-                    <span className="font-mono tabular-nums" style={{fontWeight:500, color:'var(--ink)'}}>¥ {fmt(it.baseCost)}</span>
-                  </div>
-                )}
-                
-                {/* 📦 包装尺寸区域 */}
-                <div style={{marginTop:14, padding:'12px 14px', borderRadius:'var(--radius-sm)', background:'var(--bg-soft)', border:'1px solid var(--line-soft)'}}>
-                  <div style={{fontSize:11, fontWeight:500, color:'var(--ink-3)', marginBottom:8, letterSpacing:'-.003em'}}>
-                    📦 包装尺寸（用于计算运费 / 体积重量）<span style={{color:'var(--ink-4)', fontWeight:400, marginLeft:8}}>选填，但建议填写</span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <label className="block text-[10px] mb-1" style={{color:'var(--ink-3)'}}>长 L (cm)</label>
-                      <input type="number" value={it.length} onChange={e => updateItem(it.id, {length:e.target.value})} placeholder="0"
-                        autoComplete="off" name={`fin-len-${it.id}`} />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] mb-1" style={{color:'var(--ink-3)'}}>宽 W (cm)</label>
-                      <input type="number" value={it.width} onChange={e => updateItem(it.id, {width:e.target.value})} placeholder="0"
-                        autoComplete="off" name={`fin-w-${it.id}`} />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] mb-1" style={{color:'var(--ink-3)'}}>高 H (cm)</label>
-                      <input type="number" value={it.height} onChange={e => updateItem(it.id, {height:e.target.value})} placeholder="0"
-                        autoComplete="off" name={`fin-h-${it.id}`} />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] mb-1" style={{color:'var(--ink-3)'}}>实际重量 (kg)</label>
-                      <input type="number" value={it.actualWeight} onChange={e => updateItem(it.id, {actualWeight:e.target.value})} placeholder="0"
-                        autoComplete="off" name={`fin-wt-${it.id}`} />
-                    </div>
-                  </div>
-                  {it.hasPackInfo && (
-                    <div style={{marginTop:10, padding:'10px 12px', background:'var(--paper)', borderRadius:'var(--radius-sm)', border:'1px solid var(--line)'}}>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3" style={{fontSize:12}}>
-                        <div>
-                          <div style={{color:'var(--ink-4)', fontSize:10}}>体积 (cm³)</div>
-                          <div className="font-mono tabular-nums" style={{fontWeight:500, color:'var(--ink-2)'}}>{fmt(it.volume)}</div>
-                        </div>
-                        <div>
-                          <div style={{color:'var(--ink-4)', fontSize:10}}>体积重 (单件)</div>
-                          <div className="font-mono tabular-nums" style={{fontWeight:500, color: it.weightType === 'vol' ? 'var(--accent)' : 'var(--ink-2)'}}>
-                            {it.volumetricWeight.toFixed(2)} kg
-                          </div>
-                        </div>
-                        <div>
-                          <div style={{color:'var(--ink-4)', fontSize:10}}>计费重 (单件)</div>
-                          <div className="font-mono tabular-nums" style={{fontWeight:600, color:'var(--accent)'}}>
-                            {it.billableWeight.toFixed(2)} kg
-                          </div>
-                          <div style={{fontSize:9, color:'var(--ink-4)'}}>按{it.weightType === 'vol' ? '体积重' : '实重'}计费</div>
-                        </div>
-                        <div>
-                          <div style={{color:'var(--ink-4)', fontSize:10}}>总计费重 (×{it.qty})</div>
-                          <div className="font-mono tabular-nums" style={{fontWeight:600, color:'var(--good)'}}>
-                            {it.totalBillableWeight.toFixed(2)} kg
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{fontSize:10, color:'var(--ink-4)', marginTop:6, lineHeight:1.5}}>
-                        💡 计算公式：体积重 = 长×宽×高 ÷ 5000（国际快递通用系数）· 计费重 = MAX(实重, 体积重)
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 结果区：建议售价（重点突出） */}
-              {it.suggestedUnitUSD > 0 && (
-                <div style={{
-                  padding:'18px 22px', background:'linear-gradient(135deg, rgba(0,113,227,0.04), rgba(52,199,89,0.04))',
-                  borderTop:'1px solid var(--line)',
-                }}>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {/* 建议单件 - 大字号突出 */}
-                    <div>
-                      <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500, marginBottom:4, textTransform:'uppercase', letterSpacing:'.05em'}}>建议单件售价</div>
-                      <div className="font-display tabular-nums" style={{fontSize:30, fontWeight:600, color:'var(--accent)', letterSpacing:'-.022em', lineHeight:1.1}}>
-                        ${it.suggestedUnitUSD.toFixed(2)}
-                      </div>
-                    </div>
-                    {/* 建议总价 */}
-                    <div>
-                      <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500, marginBottom:4, textTransform:'uppercase', letterSpacing:'.05em'}}>建议总价</div>
-                      <div className="font-display tabular-nums" style={{fontSize:24, fontWeight:500, color:'var(--accent)', letterSpacing:'-.022em', lineHeight:1.1}}>
-                        ${it.suggestedTotalUSD.toFixed(2)}
-                      </div>
-                      <div style={{fontSize:10, color:'var(--ink-4)', marginTop:2}}>× {it.qty} 件</div>
-                    </div>
-                    {/* 当前利润 */}
-                    {it.profit !== null && (
-                      <>
-                        <div>
-                          <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500, marginBottom:4, textTransform:'uppercase', letterSpacing:'.05em'}}>当前利润</div>
-                          <div className="font-display tabular-nums" style={{fontSize:24, fontWeight:500, color: it.profit > 0 ? 'var(--good)' : 'var(--bad)', letterSpacing:'-.022em', lineHeight:1.1}}>
-                            ¥ {fmt(it.profit)}
-                          </div>
-                          <div style={{fontSize:10, color:'var(--ink-4)', marginTop:2}}>vs 当前售价</div>
-                        </div>
-                        <div>
-                          <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500, marginBottom:4, textTransform:'uppercase', letterSpacing:'.05em'}}>毛利率</div>
-                          <div className="font-display tabular-nums" style={{fontSize:24, fontWeight:500, color: it.marginPct > 30 ? 'var(--good)' : it.marginPct > 10 ? 'var(--gold)' : 'var(--bad)', letterSpacing:'-.022em', lineHeight:1.1}}>
-                            {it.marginPct?.toFixed(1)}%
-                          </div>
-                          <div style={{fontSize:10, color:'var(--ink-4)', marginTop:2}}>
-                            {it.marginPct > 30 ? '✓ 健康' : it.marginPct > 10 ? '⚠ 偏低' : '✗ 亏损'}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-          <button onClick={addItem} style={{
-            width:'100%', padding:'14px', borderRadius:'var(--radius-lg)',
-            border:'1.5px dashed var(--line-strong)', background:'transparent',
-            color:'var(--ink-3)', fontSize:14, fontWeight:500, cursor:'pointer',
-            transition:'all .15s', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-            fontFamily:'inherit',
-          }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-soft)'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line-strong)'; e.currentTarget.style.color = 'var(--ink-3)'; e.currentTarget.style.background = 'transparent'; }}
-          >
-            <Icon name="plus" className="w-4 h-4" />添加商品
-          </button>
-        </div>
-      </div>
-
-      {/* 订单总计 - 多商品时显示 */}
-      {items.length > 1 && grandTotal > 0 && (
-        <div className="paper rounded-2xl p-6" style={{
-          background:'linear-gradient(135deg, rgba(0,113,227,0.06), rgba(52,199,89,0.06))',
-          border:'1px solid var(--accent)',
-        }}>
-          <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:16}}>
-            <span style={{fontSize:18}}>💰</span>
-            <span className="font-display" style={{fontSize:16, fontWeight:600, letterSpacing:'-.022em'}}>订单合计</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div>
-              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4}}>综合成本</div>
-              <div className="font-display tabular-nums" style={{fontSize:28, fontWeight:600, color:'var(--ink)', letterSpacing:'-.022em'}}>
-                ¥ {fmt(grandTotal)}
-              </div>
-            </div>
-            <div>
-              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4}}>建议总售价</div>
-              <div className="font-display tabular-nums" style={{fontSize:28, fontWeight:600, color:'var(--accent)', letterSpacing:'-.022em'}}>
-                $ {grandSuggested.toFixed(2)}
-              </div>
-            </div>
-            <div>
-              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500, textTransform:'uppercase', letterSpacing:'.05em', marginBottom:4}}>综合加价倍数</div>
-              <div className="font-display tabular-nums" style={{fontSize:28, fontWeight:600, color:'var(--ink-2)', letterSpacing:'-.022em'}}>
-                {(totalMult / rate).toFixed(2)}<span style={{fontSize:14, color:'var(--ink-3)', marginLeft:4}}>× ÷ ¥</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="text-[10px] font-mono flex flex-wrap gap-4" style={{color:'var(--ink-4)'}}>
-        <span>💡 这是简化的售价计算 · 如需完整运费对比 (中邮/EMS/昌晖/明扬/正石/云鼎/澳洲海派/中东海运等)</span>
-        <span>请使用独立的「财务对账计算器」文件 (内含13个承运商完整费率)</span>
-      </div>
+      <iframe
+        ref={iframeRef}
+        src={sameDirUrl}
+        style={{width:'100%', height:'calc(100vh - 160px)', border:'none', background:'#fafaf7', display:'block'}}
+        title="财务计算器"
+      />
     </div>
   );
 };
 
-
-// ============================================================
-// 报价单模块 v2 - 多公司预设 + 多语言 + 云存储
-// ============================================================
-// ============================================================
-// 报价单模块 v2 - 调用独立 quotation.html (Supabase 同步)
-// ============================================================
 const QuoteModule = ({ user, toast }) => {
   const userParam = encodeURIComponent((user.name || '') + (user.alias ? ' ' + user.alias : ''));
   const sameDirUrl = `quotation.html#user=${userParam}`;
@@ -3681,7 +3306,7 @@ const App = () => {
           <CSModule user={user} employees={employees} records={records} setRecords={setRecords} toast={toast} />
         )}
         {activeTab === 'finance' && (
-          <FinanceModule toast={toast} />
+          <FinanceModule user={user} toast={toast} />
         )}
         {activeTab === 'quote' && (
           <QuoteModule user={user} employees={employees} toast={toast} cloudOn={cloudOn} />
