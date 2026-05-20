@@ -2409,7 +2409,18 @@ input, textarea { font-family: inherit; color: var(--ink); }
           <div id="gemini-status" style="font-size:12px; padding:8px 10px; background:var(--bg-soft); border-radius:6px; color:var(--ink-3);">检查中...</div>
         </div>
       </div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
+      <div class="settings-field" style="margin-top:14px;">
+        <label>🤖 选择 Gemini 模型 · Model</label>
+        <select id="setting-gemini-model" style="width:100%;padding:8px 10px;border:1px solid var(--line, #e8e6e0);border-radius:6px;background:var(--bg-card, #fff);font-size:13px;cursor:pointer;">
+          <option value="gemini-2.5-flash">⚡ Gemini 2.5 Flash — 最快 / 免费额度高（推荐）</option>
+          <option value="gemini-2.5-pro">🧠 Gemini 2.5 Pro — 最强 / 复杂任务（速度较慢）</option>
+          <option value="gemini-flash-latest">🔄 Gemini Flash Latest — 自动最新 Flash 版本</option>
+          <option value="gemini-pro-latest">🔄 Gemini Pro Latest — 自动最新 Pro 版本</option>
+          <option value="gemini-2.5-flash-lite">🪶 Gemini 2.5 Flash Lite — 轻量 / 配额更宽松</option>
+        </select>
+        <span class="hint">💡 选择失败时会自动切换到其他可用模型；推荐用 Flash 系列（更快、免费额度大）</span>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
         <button class="btn-modal primary" id="gemini-save-btn"><i class="ti ti-key"></i> 保存到云端（加密）</button>
         <button class="btn-modal" id="gemini-test-btn"><i class="ti ti-flask"></i> 测试连通性</button>
         <span id="gemini-test-result" style="font-size:12px; align-self:center;"></span>
@@ -12657,12 +12668,27 @@ const KB_DAO = {
   },
 };
 
-// Gemini AI 直接调用（不再跳转浏览器）
+// Gemini AI 直接调用（支持 2.5 系列多模型 + 自动 fallback）
 const GEMINI = {
   _apiKey: null,
   _lastLoadAt: 0,
+  // 当前选用的模型（用户在设置里可改）
+  _model: localStorage.getItem('kb_gemini_model') || 'gemini-2.5-flash',
+  // 可用模型列表（按性价比排序，自动 fallback 时按此顺序尝试）
+  MODELS: [
+    { id: 'gemini-2.5-flash',      name: 'Gemini 2.5 Flash',       desc: '⚡ 最快 · 免费额度高 · 推荐',   tier: 'fast' },
+    { id: 'gemini-2.5-pro',        name: 'Gemini 2.5 Pro',         desc: '🧠 最强 · 复杂任务 · 速度较慢',  tier: 'pro' },
+    { id: 'gemini-flash-latest',   name: 'Gemini Flash (latest)',  desc: '🔄 自动用最新 Flash 版本',      tier: 'fast' },
+    { id: 'gemini-pro-latest',     name: 'Gemini Pro (latest)',    desc: '🔄 自动用最新 Pro 版本',        tier: 'pro' },
+    { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite',  desc: '🪶 更轻量 · 配额更宽松',        tier: 'lite' },
+  ],
+  setModel(m) {
+    this._model = m;
+    localStorage.setItem('kb_gemini_model', m);
+  },
+  getModel() { return this._model; },
+  
   async loadKey(force = false) {
-    // 强制刷新 或 5 秒内已加载过则用 cache
     if (!force && this._apiKey && (Date.now() - this._lastLoadAt < 5000)) return !!this._apiKey;
     try {
       this._apiKey = await KB_DAO.getGeminiKey();
@@ -12677,12 +12703,8 @@ const GEMINI = {
   },
   setKey(k) { this._apiKey = k; },
   hasKey() { return !!this._apiKey; },
-  async generate(prompt, model = 'gemini-2.0-flash') {
-    // 总是强制刷新一次，避免 iframe 缓存导致的"已保存但读不到"问题
-    await this.loadKey(true);
-    if (!this._apiKey) {
-      throw new Error('Gemini API key 未配置。请到 [统一工作台 → 设置 → ✨ Gemini AI] 添加 key（添加后会自动同步到此处）');
-    }
+  
+  async _callApi(prompt, model) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${this._apiKey}`;
     const resp = await fetch(url, {
       method: 'POST',
@@ -12693,11 +12715,53 @@ const GEMINI = {
       }),
     });
     if (!resp.ok) {
-      const err = await resp.json().catch(()=>({}));
-      throw new Error(err.error?.message || `HTTP ${resp.status}`);
+      const err = await resp.json().catch(() => ({}));
+      const errMsg = err.error?.message || `HTTP ${resp.status}`;
+      const e = new Error(errMsg);
+      e.status = resp.status;
+      e.isModelError = /no longer available|not found|not supported|model/i.test(errMsg);
+      throw e;
     }
     const data = await resp.json();
     return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  },
+  
+  async generate(prompt, modelOverride) {
+    await this.loadKey(true);
+    if (!this._apiKey) {
+      throw new Error('Gemini API key 未配置。请到 [统一工作台 → 设置 → ✨ Gemini AI] 添加 key');
+    }
+    
+    const primaryModel = modelOverride || this._model;
+    const fallbackChain = [primaryModel];
+    // 如果主模型失败，自动尝试其他可用模型
+    for (const m of this.MODELS) {
+      if (m.id !== primaryModel && !fallbackChain.includes(m.id)) fallbackChain.push(m.id);
+    }
+    
+    let lastError = null;
+    for (const model of fallbackChain) {
+      try {
+        console.log(`[GEMINI] 尝试模型 ${model}...`);
+        const result = await this._callApi(prompt, model);
+        if (model !== primaryModel) {
+          console.warn(`[GEMINI] 主模型 ${primaryModel} 失败，已自动切换到 ${model}`);
+          if (typeof showToast === 'function') {
+            showToast(`已自动切换到 ${model}（原模型不可用）`, 'warn');
+          }
+          // 更新默认模型为成功的这个
+          this.setModel(model);
+        }
+        return result;
+      } catch(e) {
+        console.warn(`[GEMINI] 模型 ${model} 失败:`, e.message);
+        lastError = e;
+        // 如果不是模型错误（比如 key 错），直接抛
+        if (!e.isModelError && e.status !== 404) throw e;
+        // 否则继续尝试下一个
+      }
+    }
+    throw lastError || new Error('所有 Gemini 模型都不可用');
   }
 };
 
@@ -14051,6 +14115,9 @@ function openSettings() {
   // 同步管理员勾选
   const adminCb = $('#setting-admin-mode');
   if (adminCb) adminCb.checked = KB_DAO.isAdmin();
+  // 同步模型选择
+  const modelSel = $('#setting-gemini-model');
+  if (modelSel) modelSel.value = GEMINI.getModel();
   // 触发 Gemini 状态刷新
   $('#settings-modal').classList.add('show');
   // 主动刷新 Gemini 状态
@@ -14058,7 +14125,7 @@ function openSettings() {
     const statusEl = $('#gemini-status');
     if (statusEl) {
       const has = await GEMINI.loadKey();
-      if (has) statusEl.innerHTML = `<span style="color:#15803d;">✓ 已配置</span> <code style="font-size:11px;">${GEMINI._apiKey.slice(0,8)}...</code>`;
+      if (has) statusEl.innerHTML = `<span style="color:#15803d;">✓ 已配置</span> <code style="font-size:11px;">${GEMINI._apiKey.slice(0,8)}...</code> · 当前模型: <strong>${GEMINI.getModel()}</strong>`;
       else statusEl.innerHTML = '<span style="color:#7a7a72;">未配置（团队尚未添加 Gemini key）</span>';
     }
   }, 100);
@@ -14849,12 +14916,11 @@ function attachEvents() {
     const btn = $('#gemini-test-btn');
     btn.disabled = true;
     
-    // 优先用输入框里的 key 测试（如果用户填了但还没保存）
+    // 优先用输入框里的 key 测试
     const inputKey = $('#setting-gemini-key').value.trim();
     let testKey = inputKey;
     let source = '输入框';
     
-    // 如果输入框是空的，从云端拉
     if (!testKey) {
       resultEl.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> 从云端读取 key...';
       try {
@@ -14873,27 +14939,65 @@ function attachEvents() {
       return;
     }
     
-    resultEl.innerHTML = `<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> 测试 (key 来自${source})...`;
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${testKey}`;
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: '用一句中文回答：你能听到我吗？' }] }] }),
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error?.message || `HTTP ${resp.status}`);
+    // 尝试当前选择的模型，失败后自动 fallback
+    const selectedModel = $('#setting-gemini-model')?.value || GEMINI.getModel();
+    const fallbackList = [selectedModel, ...GEMINI.MODELS.filter(m => m.id !== selectedModel).map(m => m.id)];
+    let success = null, lastError = null;
+    
+    for (const model of fallbackList) {
+      resultEl.innerHTML = `<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> 测试 ${model} (key 来自${source})...`;
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${testKey}`;
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: '用一句中文回答：你能听到我吗？' }] }] }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err.error?.message || `HTTP ${resp.status}`);
+        }
+        const j = await resp.json();
+        const reply = j.candidates?.[0]?.content?.parts?.[0]?.text || '(空)';
+        success = { model, reply };
+        break;
+      } catch(e) {
+        console.warn(`[GEMINI] 模型 ${model} 测试失败:`, e.message);
+        lastError = e;
+        // 如果不是模型可用性问题，不要继续尝试其他模型（比如 key 错）
+        if (!/no longer available|not found|not supported|model/i.test(e.message) && !e.message.includes('404')) {
+          break;
+        }
       }
-      const j = await resp.json();
-      const reply = j.candidates?.[0]?.content?.parts?.[0]?.text || '(空)';
-      resultEl.innerHTML = `<span style="color:#15803d;">✓ 连通成功 (${source})</span> "${reply.slice(0, 50).trim()}..."`;
-      console.log('[GEMINI] test success from', source, ':', reply);
-    } catch(e) {
-      resultEl.innerHTML = `<span style="color:#b91c1c;">❌ ${e.message}</span>`;
-      console.error('[GEMINI] test failed:', e);
+    }
+    
+    if (success) {
+      // 如果用 fallback 成功了，自动更新当前模型
+      if (success.model !== selectedModel) {
+        GEMINI.setModel(success.model);
+        const sel = $('#setting-gemini-model');
+        if (sel) sel.value = success.model;
+        resultEl.innerHTML = `<span style="color:#15803d;">✓ ${success.model} (已自动切换)</span> "${success.reply.slice(0, 40).trim()}..."`;
+      } else {
+        resultEl.innerHTML = `<span style="color:#15803d;">✓ 连通成功 (${success.model})</span> "${success.reply.slice(0, 50).trim()}..."`;
+      }
+      console.log('[GEMINI] test success:', success);
+    } else {
+      resultEl.innerHTML = `<span style="color:#b91c1c;">❌ ${lastError?.message || '所有模型都失败'}</span>`;
+      console.error('[GEMINI] all models failed:', lastError);
     }
     btn.disabled = false;
+  });
+  
+  // 模型选择变化时立即保存
+  $('#setting-gemini-model')?.addEventListener('change', (e) => {
+    GEMINI.setModel(e.target.value);
+    showToast(`✓ Gemini 模型已切换到 ${e.target.value}`);
+    // 刷新状态显示
+    const statusEl = $('#gemini-status');
+    if (statusEl && GEMINI._apiKey) {
+      statusEl.innerHTML = `<span style="color:#15803d;">✓ 已配置</span> <code style="font-size:11px;">${GEMINI._apiKey.slice(0,8)}...</code> · 当前模型: <strong>${e.target.value}</strong>`;
+    }
   });
   
   // ===== 主管模式 toggle =====
