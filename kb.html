@@ -12494,9 +12494,26 @@ const UI = {
 // ============================================================
 // SUPABASE 云同步 + GEMINI API + 加密层（团队协同核心）
 // ============================================================
-const SB_URL = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co';
-const SB_KEY = 'sb_publishable_6j-rSrv1V95FROe-iX6Yew_unE_Y6n9';
+// 默认配置（与工作台一致）
+const DEFAULT_SB_URL = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co';
+const DEFAULT_SB_KEY = 'sb_publishable_dFjk1WN_Hc0Te6IhXZysZg_SXvKQU4C';
+
+// 优先用工作台保存的配置（localStorage 'cloud_config'），如果用户在工作台改了 key 这里也跟着改
+function loadSbConfig() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('cloud_config') || '{}');
+    if (cfg.url && cfg.key && cfg.enabled !== false) {
+      console.log('[KB] 使用工作台共享的 Supabase 配置:', cfg.url);
+      return { url: cfg.url, key: cfg.key };
+    }
+  } catch(e) {}
+  return { url: DEFAULT_SB_URL, key: DEFAULT_SB_KEY };
+}
+const _sbCfg = loadSbConfig();
+const SB_URL = _sbCfg.url;
+const SB_KEY = _sbCfg.key;
 const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+console.log('[KB] Supabase 客户端初始化:', SB_URL, '· Key:', SB_KEY.slice(0, 16) + '...');
 
 // 简单加密：XOR + Base64（仅防 plain text 泄漏，不能防有心人）
 // 主要目的：URL/截图泄漏时 key 不可读
@@ -12652,6 +12669,15 @@ const KB_DAO = {
       }, { onConflict: 'key' }).select();
       if (error) {
         console.error('[KB_DAO] saveGeminiKey error:', error);
+        // 401 错误的特殊处理
+        const isAuth = error.code === '401' || error.message?.includes('401') || error.message?.includes('Invalid API key') || error.message?.includes('JWT');
+        if (isAuth) {
+          return { 
+            ok: false, 
+            error: '❌ Supabase 认证失败 (401)\n\n你的 publishable key 跟当前项目不匹配。\n\n🔧 修复步骤：\n1. 打开 Supabase 后台 → 你的项目 po-system\n2. 左侧菜单 → ⚙️ Project Settings → API\n3. 找到 "anon / public" 那一行（不是 service_role）\n4. 复制完整的 key（以 sb_publishable_ 或 eyJ 开头）\n5. 回到「统一工作台 → 设置 → ☁ 云同步设置」粘贴新 key → 保存\n6. 再来这里保存 Gemini key\n\n当前用的 key 前缀: ' + SB_KEY.slice(0, 20) + '...\n你的项目 URL: ' + SB_URL,
+            isAuth: true,
+          };
+        }
         return { ok: false, error: error.message + ' (code: ' + (error.code || 'unknown') + ')' };
       }
       console.log('[KB_DAO] 保存成功, returned rows:', data);

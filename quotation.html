@@ -2269,8 +2269,18 @@ function deleteData() {
 /* ============================================================
    SUPABASE CLOUD SAVE
    ============================================================ */
-const SB_URL = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co';
-const SB_KEY = 'sb_publishable_6j-rSrv1V95FROe-iX6Yew_unE_Y6n9';
+const DEFAULT_SB_URL = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co';
+const DEFAULT_SB_KEY = 'sb_publishable_dFjk1WN_Hc0Te6IhXZysZg_SXvKQU4C';
+function _loadSbCfg() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('cloud_config') || '{}');
+    if (cfg.url && cfg.key && cfg.enabled !== false) return { url: cfg.url, key: cfg.key };
+  } catch(e) {}
+  return { url: DEFAULT_SB_URL, key: DEFAULT_SB_KEY };
+}
+const _sbCfg = _loadSbCfg();
+const SB_URL = _sbCfg.url;
+const SB_KEY = _sbCfg.key;
 const SB_TABLE = 'quotation_records';
 const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
 
