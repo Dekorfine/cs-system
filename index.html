@@ -410,7 +410,7 @@ const isPastDate = (iso) => iso && iso < new Date().toISOString().slice(0,10);
 const canEditRecord = (record, user, adminUnlock) => {
   if (!record) return false;
   if (!isPastDate(record.date)) return true;       // 当天/未来日期始终可编辑
-  if (user.role === 'admin' && adminUnlock) return true;  // 主管解锁
+  if ((user.role === 'admin' || user.role === 'super_admin') && adminUnlock) return true;  // 主管解锁
   return false;
 };
 
@@ -541,7 +541,11 @@ const CLOUD = {
 // 初始员工数据
 // ============================================================
 const INITIAL_EMPLOYEES = [
+  // 👑 客服部总管 (super_admin) — 管所有客服人员包括 Miya
+  { id:'u_nicole', name:'李彬桦', alias:'Nicole', sites:'全部门', role:'super_admin', password:'admin123', title:'客服部主管' },
+  // 客服主管
   { id:'u_miya', name:'邱琴方', alias:'Miya', sites:'VK', role:'admin', password:'admin123', title:'客服主管' },
+  // 客服员工
   { id:'u_hazelle', name:'杨佳欢', alias:'Hazelle', sites:'DC+海服', role:'staff', password:'123456' },
   { id:'u_tan', name:'谭燕灵', alias:'', sites:'VK', role:'staff', password:'123456' },
   { id:'u_sally', name:'区栩灵', alias:'Sally', sites:'J+DF+LS+RS', role:'staff', password:'123456' },
@@ -552,6 +556,9 @@ const INITIAL_EMPLOYEES = [
   { id:'u_abby', name:'张宣霞', alias:'Abby', sites:'VK', role:'staff', password:'123456' },
   { id:'u_luna', name:'杨甜', alias:'Luna', sites:'', role:'staff', password:'123456' },
   { id:'u_hannah', name:'聂诗俣', alias:'Hannah', sites:'', role:'staff', password:'123456' },
+  // 💰 财务部 — 运费对账岗位
+  { id:'u_kuang', name:'邝雅琦', alias:'', sites:'财务·运费对账', role:'finance', password:'finance123', title:'财务·运费对账' },
+  { id:'u_jiang', name:'江春芸', alias:'', sites:'财务·运费对账', role:'finance', password:'finance123', title:'财务·运费对账' },
 ];
 
 const CATEGORIES = ['咨询','物流','查单','核实','安装说明','改地址','退货','报价','售后','补发','取消订单','定制咨询','实拍','拒付','加急'];
@@ -753,7 +760,9 @@ const LoginScreen = ({ employees, onLogin }) => {
                   <div style={{fontSize:'14px', fontWeight:500, color:'var(--ink)', letterSpacing:'-.003em'}}>
                     {e.name}{e.alias && <span style={{color:'var(--ink-3)', fontWeight:400, marginLeft:4}}>{e.alias}</span>}
                   </div>
-                  {e.role === 'admin' && <div style={{fontSize:'11px', color:'var(--accent)', marginTop:2, fontWeight:500}}>👑 主管</div>}
+                  {e.role === 'super_admin' && <div style={{fontSize:'11px', color:'var(--accent)', marginTop:2, fontWeight:600}}>👑 总管 · Manager</div>}
+                  {e.role === 'admin' && <div style={{fontSize:'11px', color:'var(--accent)', marginTop:2, fontWeight:500}}>⭐ 主管 · Admin</div>}
+                  {e.role === 'finance' && <div style={{fontSize:'11px', color:'#a85e00', marginTop:2, fontWeight:500}}>💰 财务 · Finance</div>}
                   {e.sites && <div style={{fontSize:'11px', color:'var(--ink-4)', marginTop:3}}>{e.sites}</div>}
                 </div>
               );
@@ -773,7 +782,10 @@ const LoginScreen = ({ employees, onLogin }) => {
                   欢迎，{sel.name}{sel.alias && ` ${sel.alias}`}
                 </div>
                 <div style={{fontSize:'13px', color:'var(--ink-3)'}}>
-                  {sel.role === 'admin' ? '主管账号' : '员工账号'}
+                  {sel.role === 'super_admin' ? '👑 客服部总管 · 拥有全部权限' :
+                   sel.role === 'admin' ? '⭐ 主管账号' :
+                   sel.role === 'finance' ? '💰 财务账号' :
+                   '员工账号'}
                 </div>
               </div>
             </div>
@@ -823,7 +835,7 @@ const LoginScreen = ({ employees, onLogin }) => {
 // 顶部导航
 // ============================================================
 const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn }) => {
-  const isAdmin = user.role === 'admin';
+  const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
   const tabs = [
     { key:'cs', label:'客服跟进', badge: stats.overdue },
     { key:'kb', label:'知识库' },
@@ -899,7 +911,11 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
             }}>{initials}</div>
             <div style={{fontSize:13, fontWeight:500, color:'var(--ink)', lineHeight:1.1}}>
               {user.name}{user.alias && <span style={{color:'var(--ink-3)', fontWeight:400, marginLeft:3}}>{user.alias}</span>}
-              <div style={{fontSize:10, color:'var(--ink-4)', fontWeight:400, marginTop:1}}>{isAdmin ? '主管' : '员工'}</div>
+              <div style={{fontSize:10, color:'var(--ink-4)', fontWeight:400, marginTop:1}}>{
+                user.role === 'super_admin' ? '总管' :
+                user.role === 'admin' ? '主管' :
+                user.role === 'finance' ? '财务' : '员工'
+              }</div>
             </div>
           </div>
 
@@ -963,7 +979,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
   // 主管解锁历史日期编辑（仅当前会话有效，刷新或切日重置）
   const [adminUnlock, setAdminUnlock] = useState(false);
 
-  const isAdmin = user.role === 'admin';
+  const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
 
   // 个人 vs 团队视图
   const visibleRecords = useMemo(() => {
@@ -1803,7 +1819,7 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, readonly = false }) =
 // 数据看板 - 当天/7天/本月
 // ============================================================
 const DashboardModule = ({ user, employees, records }) => {
-  const isAdmin = user.role === 'admin';
+  const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
   const [scope, setScope] = useState(isAdmin ? 'team' : 'me'); // me | team
   const [selectedEmpId, setSelectedEmpId] = useState(user.id);
 
@@ -1976,7 +1992,7 @@ const DashboardModule = ({ user, employees, records }) => {
                     </td>
                     <td>
                       <div className="font-bold text-xs">{e.name}{e.alias && ` · ${e.alias}`}</div>
-                      {e.role === 'admin' && <div className="text-[10px]" style={{color:'var(--accent)'}}>{e.title || '主管'}</div>}
+                      {(e.role === 'admin' || e.role === 'super_admin') && <div className="text-[10px]" style={{color:'var(--accent)'}}>{e.title || '主管'}</div>}
                     </td>
                     <td><span className="text-[11px]" style={{color:'var(--ink-3)'}}>{e.sites || '—'}</span></td>
                     <td style={{textAlign:'right'}}><span className="font-mono font-bold">{e.count}</span></td>
@@ -2029,7 +2045,7 @@ const RangeCard = ({ title, range, stats, accent }) => (
 // 回收站
 // ============================================================
 const TrashModule = ({ user, employees, records, setRecords, toast }) => {
-  const isAdmin = user.role === 'admin';
+  const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
   const deleted = records.filter(r => r.deleted);
 
   // 员工只能看自己删除的
@@ -2575,7 +2591,7 @@ const ReportModule = ({ user, employees, toast, cloudOn }) => {
   const [openTicket, setOpenTicket] = useState(null);
   const [draft, setDraft] = useState(null);
 
-  const isAdmin = user.role === 'admin';
+  const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
 
   // 加载工单（云端优先）
   const loadTickets = async () => {
@@ -2700,7 +2716,7 @@ const ReportModule = ({ user, employees, toast, cloudOn }) => {
             </span>
             <button className="btn-pri" onClick={() => setDraft({
               title:'', department:'merchandiser', priority:'mid', related_order:'',
-              target_id: isAdmin ? '' : (employees.find(e => e.role === 'admin')?.id || ''),
+              target_id: isAdmin ? '' : (employees.find(e => (e.role === 'admin' || e.role === 'super_admin'))?.id || ''),
               target_name:'', description:'', attachments:[]
             })}>+ 新建工单</button>
           </div>
@@ -2836,7 +2852,7 @@ const TicketDraftModal = ({ draft, setDraft, employees, user, onCancel, onSubmit
               setDraft({...draft, target_id:e.target.value, target_name: emp ? emp.name + (emp.alias?' '+emp.alias:'') : ''});
             }}>
               <option value="">— 请选择 —</option>
-              {employees.filter(e => e.role === 'admin').map(e => <option key={e.id} value={e.id}>👑 {e.name}{e.alias?` ${e.alias}`:''} (主管)</option>)}
+              {employees.filter(e => (e.role === 'admin' || e.role === 'super_admin')).map(e => <option key={e.id} value={e.id}>👑 {e.name}{e.alias?` ${e.alias}`:''} (主管)</option>)}
               <optgroup label="员工">
                 {employees.filter(e => e.role !== 'admin' && e.id !== user.id).map(e => <option key={e.id} value={e.id}>{e.name}{e.alias?` ${e.alias}`:''}</option>)}
               </optgroup>
@@ -2884,7 +2900,7 @@ const TicketDetailModal = ({ ticket, user, employees, onClose, onUpdateStatus, o
   const pri = TICKET_PRIORITY.find(p => p.key === ticket.priority);
   const isCreator = ticket.created_by_id === user.id;
   const isTarget = ticket.target_id === user.id;
-  const isAdmin = user.role === 'admin';
+  const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
   const canChangeStatus = isTarget || isAdmin;
   const canDelete = isCreator || isAdmin;
 
@@ -2986,7 +3002,7 @@ const KbModule = ({ user, toast }) => {
   const userParam = encodeURIComponent((user.name || '') + (user.alias ? ' ' + user.alias : ''));
   const sameDirUrl = `kb.html#user=${userParam}`;
   const iframeRef = React.useRef(null);
-  const isAdmin = user.role === 'admin';
+  const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
 
   return (
     <div className="fade-in" style={{margin:'-20px -24px -20px'}}>
@@ -3098,7 +3114,7 @@ const CloudSettingsCard = ({ cfg, setCfg, toast, onApply }) => {
 // ============================================================
 const App = () => {
   // 员工 (localStorage + 云同步备份) - 加版本号机制，代码里改了 INITIAL_EMPLOYEES 后能自动覆盖
-  const EMPLOYEES_VERSION = 2;  // 改了员工资料就 +1
+  const EMPLOYEES_VERSION = 3;  // 改了员工资料就 +1
   const [employees, setEmployees] = useState(() => {
     const storedVer = STORE.get('employees_version', 0);
     if (storedVer < EMPLOYEES_VERSION) {
@@ -3186,10 +3202,14 @@ const App = () => {
 
   // tab - 持久化到 localStorage，刷新后保留
   const [activeTab, setActiveTab] = useState(() => {
-    // URL hash 优先 (#tab=kb)，其次 localStorage，最后默认 cs
+    // URL hash 优先 (#tab=kb)，其次 localStorage，最后按角色默认
     const hashMatch = window.location.hash.match(/tab=([a-z]+)/);
     if (hashMatch) return hashMatch[1];
-    return localStorage.getItem('ws_active_tab') || 'cs';
+    const saved = localStorage.getItem('ws_active_tab');
+    if (saved) return saved;
+    // 财务人员默认进入财务 tab
+    if (user.role === 'finance') return 'finance';
+    return 'cs';
   });
   // tab 切换时写入 localStorage + URL hash
   useEffect(() => {
@@ -3239,10 +3259,10 @@ const App = () => {
   const stats = useMemo(() => {
     if (!user) return { overdue:0, dueToday:0, trashCount:0, ticketInbox:0 };
     const live = records.filter(r => !r.deleted);
-    const mine = user.role === 'admin' ? live : live.filter(r => r.ownerId === user.id);
+    const mine = (user.role === 'admin' || user.role === 'super_admin') ? live : live.filter(r => r.ownerId === user.id);
     const overdue = mine.filter(r => r.status !== 'resolved' && r.nextFollowUp && r.nextFollowUp < today).length;
     const dueToday = mine.filter(r => r.status !== 'resolved' && r.nextFollowUp === today).length;
-    const trash = user.role === 'admin'
+    const trash = (user.role === 'admin' || user.role === 'super_admin')
       ? records.filter(r => r.deleted).length
       : records.filter(r => r.deleted && (r.deletedBy === user.id || r.ownerId === user.id)).length;
     // 工单收件箱（本地缓存计数，准确数字在 ReportModule 内）
@@ -3276,7 +3296,7 @@ const App = () => {
       const today = todayISO();
       const notified = getNotified();
       const live = records.filter(r => !r.deleted);
-      const mine = user.role === 'admin' ? live : live.filter(r => r.ownerId === user.id);
+      const mine = (user.role === 'admin' || user.role === 'super_admin') ? live : live.filter(r => r.ownerId === user.id);
 
       // 逾期
       const overdue = mine.filter(r => r.status !== 'resolved' && r.nextFollowUp && r.nextFollowUp < today && !notified.has('over_' + r.id));
@@ -3340,7 +3360,7 @@ const App = () => {
         {activeTab === 'trash' && (
           <TrashModule user={user} employees={employees} records={records} setRecords={setRecords} toast={toast} />
         )}
-        {activeTab === 'admin' && user.role === 'admin' && (
+        {activeTab === 'admin' && (user.role === 'admin' || user.role === 'super_admin') && (
           <AdminModule user={user} employees={employees} setEmployees={setEmployees} toast={toast} cloudCfg={cloudCfg} setCloudCfg={setCloudCfg} onCloudApply={() => setCloudVersion(v=>v+1)} />
         )}
       </div>
