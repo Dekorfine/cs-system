@@ -2537,6 +2537,18 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
 const FinanceModule = ({ user, toast }) => {
   const sameDirUrl = `finance.html`;
   const iframeRef = React.useRef(null);
+  const [iframeHeight, setIframeHeight] = useState('calc(100vh - 160px)');
+
+  // 监听 iframe 内的 postMessage 高度更新（让整页只有一个滚动条）
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === 'iframe-resize' && e.data?.source === 'finance') {
+        setIframeHeight(Math.max(600, e.data.height + 20) + 'px');
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
 
   return (
     <div className="fade-in" style={{margin:'-20px -24px -20px'}}>
@@ -2553,8 +2565,9 @@ const FinanceModule = ({ user, toast }) => {
       <iframe
         ref={iframeRef}
         src={sameDirUrl}
-        style={{width:'100%', height:'calc(100vh - 160px)', border:'none', background:'#fafaf7', display:'block'}}
+        style={{width:'100%', height:iframeHeight, border:'none', background:'#fafaf7', display:'block', transition:'height .15s'}}
         title="财务计算器"
+        scrolling="no"
       />
     </div>
   );
@@ -3569,6 +3582,17 @@ const QuoteModule = ({ user, toast }) => {
   const sameDirUrl = `quotation.html#user=${userParam}`;
   const [openExternal, setOpenExternal] = useState(false);
   const iframeRef = React.useRef(null);
+  const [iframeHeight, setIframeHeight] = useState('calc(100vh - 160px)');
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === 'iframe-resize' && e.data?.source === 'quotation') {
+        setIframeHeight(Math.max(600, e.data.height + 20) + 'px');
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
 
   return (
     <div className="fade-in" style={{margin:'-20px -24px -20px'}}>
@@ -3585,8 +3609,9 @@ const QuoteModule = ({ user, toast }) => {
       <iframe
         ref={iframeRef}
         src={sameDirUrl}
-        style={{width:'100%', height:'calc(100vh - 160px)', border:'none', background:'#fff', display:'block'}}
+        style={{width:'100%', height:iframeHeight, border:'none', background:'#fff', display:'block', transition:'height .15s'}}
         title="报价单"
+        scrolling="no"
       />
     </div>
   );
@@ -4010,6 +4035,17 @@ const KbModule = ({ user, toast }) => {
   const sameDirUrl = `kb.html#user=${userParam}`;
   const iframeRef = React.useRef(null);
   const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
+  const [iframeHeight, setIframeHeight] = useState('calc(100vh - 160px)');
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === 'iframe-resize' && e.data?.source === 'kb') {
+        setIframeHeight(Math.max(600, e.data.height + 20) + 'px');
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, []);
 
   return (
     <div className="fade-in" style={{margin:'-20px -24px -20px'}}>
@@ -4027,8 +4063,9 @@ const KbModule = ({ user, toast }) => {
       <iframe
         ref={iframeRef}
         src={sameDirUrl}
-        style={{width:'100%', height:'calc(100vh - 160px)', border:'none', background:'#fff', display:'block'}}
+        style={{width:'100%', height:iframeHeight, border:'none', background:'#fff', display:'block', transition:'height .15s'}}
         title="知识库"
+        scrolling="no"
       />
     </div>
   );

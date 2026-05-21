@@ -1969,6 +1969,30 @@ function fmtNum(n) { return isFinite(n) ? Math.round(n).toLocaleString() : '-'; 
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
+
+// ── iframe 嵌入时向父窗口汇报高度，避免双滚动条 ──
+if (window.parent && window.parent !== window) {
+  let lastH = 0;
+  const reportHeight = () => {
+    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    if (Math.abs(h - lastH) > 5) {
+      lastH = h;
+      window.parent.postMessage({ type: 'iframe-resize', source: 'finance', height: h }, '*');
+    }
+  };
+  // 初次延迟，等 React 渲染完
+  setTimeout(reportHeight, 200);
+  setTimeout(reportHeight, 800);
+  // 持续监听 body 尺寸变化
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(reportHeight);
+    ro.observe(document.body);
+  } else {
+    setInterval(reportHeight, 500);
+  }
+  // 窗口尺寸变化也汇报
+  window.addEventListener('resize', reportHeight);
+}
 </script>
 </body>
 </html>

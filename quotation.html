@@ -3135,6 +3135,28 @@ document.addEventListener('DOMContentLoaded', function() {
   if (getUsername()) loadCloudList();
   else openSettings();
 });
+
+// ── iframe 嵌入时向父窗口汇报高度 ──
+if (window.parent && window.parent !== window) {
+  let lastH = 0;
+  const reportHeight = () => {
+    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    if (Math.abs(h - lastH) > 5) {
+      lastH = h;
+      window.parent.postMessage({ type: 'iframe-resize', source: 'quotation', height: h }, '*');
+    }
+  };
+  setTimeout(reportHeight, 300);
+  setTimeout(reportHeight, 1200);
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(reportHeight);
+    document.addEventListener('DOMContentLoaded', () => ro.observe(document.body));
+    if (document.body) ro.observe(document.body);
+  } else {
+    setInterval(reportHeight, 600);
+  }
+  window.addEventListener('resize', reportHeight);
+}
 </script>
 
 </body>
