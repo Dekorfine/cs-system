@@ -1083,6 +1083,9 @@ fieldset legend {
               <th data-lang-key="th_qty" style="width:60px;">Qty</th>
               <th id="master-unit-price-header" style="width:90px;">Unit Price (USD)</th>
               <th data-lang-key="th_carton_no" style="width:80px;">Carton No.</th>
+              <th title="长 Length (cm)" style="width:55px;">L (cm)</th>
+              <th title="宽 Width (cm)" style="width:55px;">W (cm)</th>
+              <th title="高 Height (cm)" style="width:55px;">H (cm)</th>
               <th data-lang-key="th_nw" style="width:70px;">N.W. (kgs)</th>
               <th data-lang-key="th_gw" style="width:70px;">G.W. (kgs)</th>
               <th data-lang-key="th_meas" style="width:70px;">Meas (cbm)</th>
@@ -1095,23 +1098,57 @@ fieldset legend {
       <button class="btn-add-item" onclick="addItem()">＋ <span>添加产品 · Add Item</span></button>
     </div>
 
-    <!-- Discount + Terms -->
+    <!-- Discount + Deposit + Terms + Options -->
     <div class="form-grid">
       <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
-        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" data-lang-key="discount">Discount</legend>
-        <div class="form-row"><label data-lang-key="discount_perc">Discount (%)</label><input type="number" id="discount_percentage" value="0" min="0" max="100"></div>
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;">折扣 · Discount</legend>
+        <div class="form-row"><label>折扣百分比 · Discount (%)</label><input type="number" id="discount_percentage" value="0" min="0" max="100"></div>
       </fieldset>
-      <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;grid-column:span 2;">
-        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" data-lang-key="terms_conditions">Terms & Conditions</legend>
+
+      <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
+        <legend style="font-size:12px;font-weight:700;color:#0071e3;padding:0 6px;">💰 定金 / 余款 · Deposit & Balance</legend>
         <div class="form-row">
-          <label data-lang-key="select_preset">Select a Preset</label>
+          <label>定金金额 (USD) · Deposit Amount</label>
+          <input type="number" id="deposit_amount" value="0" min="0" step="0.01" placeholder="0 表示不收定金">
+        </div>
+        <div class="form-row">
+          <label style="font-size:11px;color:#64748b;">- 或 - · OR fill % below</label>
+        </div>
+        <div class="form-row">
+          <label>定金比例 (%) · Deposit Percentage</label>
+          <input type="number" id="deposit_percentage" value="0" min="0" max="100" step="0.1" placeholder="如 30 表示 30%">
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;line-height:1.5;">
+          💡 填金额优先；若两者都填则按金额。已收定金会从总价扣除，剩余为余款。
+        </div>
+      </fieldset>
+
+      <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;">条款 · Terms & Conditions</legend>
+        <div class="form-row">
+          <label>选择模板 · Select a Preset</label>
           <select id="terms_preset" style="margin-bottom:6px;">
-            <option value="standard">Standard Terms</option>
-            <option value="full_payment">Full Payment for Small Orders</option>
-            <option value="custom_product">Custom Products</option>
-            <option value="exw">EXW Price</option>
+            <option value="standard">标准条款 · Standard Terms</option>
+            <option value="full_payment">小额订单全款 · Full Payment for Small Orders</option>
+            <option value="custom_product">定制产品 · Custom Products</option>
+            <option value="exw">EXW 价格 · EXW Price</option>
           </select>
           <textarea id="terms_conditions" rows="5"></textarea>
+        </div>
+      </fieldset>
+
+      <!-- 文档显示选项 -->
+      <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;grid-column:span 3;">
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;">📋 文档显示选项 · Display Options</legend>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;align-items:center;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="opt_show_dimensions" />
+            <span>装箱单显示长×宽×高 · Show Dimensions in Packing List</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="opt_show_deposit_in_quote" checked />
+            <span>报价单显示定金信息 · Show Deposit in Quote/PI</span>
+          </label>
         </div>
       </fieldset>
     </div>
@@ -1124,22 +1161,22 @@ fieldset legend {
 <div class="card preview-card">
   <div class="preview-tabs">
     <button class="preview-tab active" data-doc="quotation" onclick="switchPreview('quotation')">
-      <span class="tab-icon">💼</span><span data-doc-key="quotation_title">QUOTATION</span>
+      <span class="tab-icon">💼</span><span data-doc-key="quotation_title">报价单 · QUOTATION</span>
     </button>
     <button class="preview-tab" data-doc="po" onclick="switchPreview('po')">
-      <span class="tab-icon">🧾</span><span data-doc-key="po_title">PURCHASE ORDER</span>
+      <span class="tab-icon">🧾</span><span data-doc-key="po_title">采购订单 · PURCHASE ORDER</span>
     </button>
     <button class="preview-tab" data-doc="pi" onclick="switchPreview('pi')">
-      <span class="tab-icon">💰</span><span data-doc-key="pi_title">PROFORMA INVOICE</span>
+      <span class="tab-icon">💰</span><span data-doc-key="pi_title">形式发票 · PROFORMA INVOICE</span>
     </button>
     <button class="preview-tab" data-doc="packing" onclick="switchPreview('packing')">
-      <span class="tab-icon">📦</span><span data-doc-key="pl_title">PACKING LIST</span>
+      <span class="tab-icon">📦</span><span data-doc-key="pl_title">装箱单 · PACKING LIST</span>
     </button>
   </div>
 
   <div class="preview-toolbar">
     <div class="preview-toolbar-info">
-      Currently viewing: <strong id="preview-name">Quotation</strong>
+      当前查看 · Currently viewing: <strong id="preview-name">Quotation</strong>
       <span style="margin-left:8px;color:#94a3b8;">·  what you see is what gets exported</span>
     </div>
     <div class="preview-toolbar-actions">
@@ -1182,6 +1219,12 @@ fieldset legend {
           <p id="quote-discount-line"><span data-doc-key="discount">Discount</span> (<span id="quote-discount-perc">0</span>%): − <span id="quote-currency-symbol-2"></span><span id="quote-discount-amount">0.00</span></p>
           <p><span data-doc-key="freight">Freight</span>: <span id="quote-currency-symbol-3"></span><span id="quote-freight">0.00</span></p>
           <p class="grand"><strong><span data-doc-key="total">TOTAL</span>: <span id="quote-currency-symbol-4"></span><span id="quote-total">0.00</span></strong></p>
+          <p id="quote-deposit-line" style="display:none;color:#0071e3;margin-top:6px;padding-top:6px;border-top:1px dashed #ccc;">
+            <span data-doc-key="deposit">Deposit</span> <span id="quote-deposit-perc-wrap">(<span id="quote-deposit-perc">0</span>%)</span>: <span id="quote-currency-symbol-5"></span><span id="quote-deposit-amount">0.00</span>
+          </p>
+          <p id="quote-balance-line" style="display:none;color:#dc2626;font-weight:600;">
+            <span data-doc-key="balance">Balance Due</span>: <span id="quote-currency-symbol-6"></span><span id="quote-balance-amount">0.00</span>
+          </p>
         </div>
         <div class="info-box" style="margin-top:14px;">
           <h3 data-doc-key="terms_conditions">Terms & Conditions:</h3>
@@ -1221,6 +1264,12 @@ fieldset legend {
           <p id="po-discount-line"><span data-doc-key="discount">Discount</span> (<span id="po-discount-perc">0</span>%): − <span id="po-currency-symbol-2"></span><span id="po-discount-amount">0.00</span></p>
           <p><span data-doc-key="freight">Freight</span>: <span id="po-currency-symbol-3"></span><span id="po-freight">0.00</span></p>
           <p class="grand"><strong><span data-doc-key="total">TOTAL</span>: <span id="po-currency-symbol-4"></span><span id="po-total">0.00</span></strong></p>
+          <p id="po-deposit-line" style="display:none;color:#0071e3;margin-top:6px;padding-top:6px;border-top:1px dashed #ccc;">
+            <span data-doc-key="deposit">Deposit</span> <span id="po-deposit-perc-wrap">(<span id="po-deposit-perc">0</span>%)</span>: <span id="po-currency-symbol-5"></span><span id="po-deposit-amount">0.00</span>
+          </p>
+          <p id="po-balance-line" style="display:none;color:#dc2626;font-weight:600;">
+            <span data-doc-key="balance">Balance Due</span>: <span id="po-currency-symbol-6"></span><span id="po-balance-amount">0.00</span>
+          </p>
         </div>
         <div class="info-box" style="margin-top:14px;">
           <h3 data-doc-key="terms_conditions">Terms & Conditions:</h3>
@@ -1260,6 +1309,12 @@ fieldset legend {
           <p id="pi-discount-line"><span data-doc-key="discount">Discount</span> (<span id="pi-discount-perc">0</span>%): − <span id="pi-currency-symbol-2"></span><span id="pi-discount-amount">0.00</span></p>
           <p><span data-doc-key="freight">Freight</span>: <span id="pi-currency-symbol-3"></span><span id="pi-freight">0.00</span></p>
           <p class="grand"><strong><span data-doc-key="total_due">TOTAL AMOUNT DUE</span>: <span id="pi-currency-symbol-4"></span><span id="pi-total">0.00</span></strong></p>
+          <p id="pi-deposit-line" style="display:none;color:#0071e3;margin-top:6px;padding-top:6px;border-top:1px dashed #ccc;font-size:14px;">
+            <span data-doc-key="deposit">Deposit</span> <span id="pi-deposit-perc-wrap">(<span id="pi-deposit-perc">0</span>%)</span>: <span id="pi-currency-symbol-5"></span><span id="pi-deposit-amount">0.00</span>
+          </p>
+          <p id="pi-balance-line" style="display:none;color:#dc2626;font-weight:700;font-size:15px;background:#fef2f2;padding:6px 10px;border-radius:4px;margin-top:4px;">
+            ⚠ <span data-doc-key="balance">Balance Due</span>: <span id="pi-currency-symbol-6"></span><span id="pi-balance-amount">0.00</span>
+          </p>
         </div>
         <div class="info-box" style="margin-top:14px;">
           <h3 data-doc-key="bank_info">BENEFICIARY BANK INFORMATION:</h3>
@@ -1298,6 +1353,7 @@ fieldset legend {
             <th data-doc-key="th_carton_no">Carton No.</th>
             <th data-doc-key="th_item_desc_sku">Item Description / SKU</th>
             <th data-doc-key="th_qty_pcs">Quantity (PCS)</th>
+            <th class="pl-dim-col" data-doc-key="th_dims">L × W × H (cm)</th>
             <th data-doc-key="th_nw_kgs">Net Weight (KGS)</th>
             <th data-doc-key="th_gw_kgs">Gross Weight (KGS)</th>
             <th data-doc-key="th_meas_cbm">Measurement (CBM)</th>
@@ -1307,6 +1363,7 @@ fieldset legend {
             <tr style="font-weight:700;background:#f8fafc;">
               <td colspan="2"><span data-doc-key="total_pl">TOTAL</span>:</td>
               <td id="pl-total-qty">0</td>
+              <td class="pl-dim-col"></td>
               <td id="pl-total-nw">0.00</td>
               <td id="pl-total-gw">0.00</td>
               <td id="pl-total-cbm">0.000</td>
@@ -1448,7 +1505,7 @@ const translations = {
       bank_info:"BENEFICIARY BANK INFORMATION:", bank_name:"Bank Name:", bank_address:"Bank Address:", account_name:"Account Name:", account_number:"Account Number:", swift_code:"Swift Code or ABA:",
       notes:"Notes:", notes_text:"Please include Invoice No.", notes_text_2:"in payment reference.",
       th_carton_no:"Carton No.", th_item_desc_sku:"Item Description / SKU", th_qty_pcs:"Quantity (PCS)", th_nw_kgs:"Net Weight (KGS)", th_gw_kgs:"Gross Weight (KGS)", th_meas_cbm:"Measurement (CBM)",
-      total_pl:"TOTAL", remarks:"Remarks:"
+      total_pl:"TOTAL", remarks:"Remarks:", deposit:"Deposit", balance:"Balance Due"
     },
     bilingual: {
       quotation_title:"QUOTATION / 报价单", po_title:"PURCHASE ORDER / 采购订单", pi_title:"PROFORMA INVOICE / 形式发票", pl_title:"PACKING LIST / 装箱单",
@@ -1462,7 +1519,7 @@ const translations = {
       bank_info:"BENEFICIARY BANK INFORMATION / 收款银行信息:", bank_name:"Bank Name / 银行名称:", bank_address:"Bank Address / 银行地址:", account_name:"Account Name / 账户名称:", account_number:"Account Number / 账号:", swift_code:"Swift Code or ABA / 国际代码:",
       notes:"Notes / 备注:", notes_text:"Please include Invoice No.", notes_text_2:"in payment reference. / 请在付款备注中注明发票号。",
       th_carton_no:"Carton No. / 箱号", th_item_desc_sku:"Item Description / SKU / 描述/产品编号", th_qty_pcs:"Quantity (PCS) / 数量 (件)", th_nw_kgs:"Net Weight (KGS) / 净重 (公斤)", th_gw_kgs:"Gross Weight (KGS) / 毛重 (公斤)", th_meas_cbm:"Measurement (CBM) / 体积 (立方米)",
-      total_pl:"TOTAL / 总计", remarks:"Remarks / 备注:"
+      total_pl:"TOTAL / 总计", remarks:"Remarks / 备注:", deposit:"Deposit / 定金", balance:"Balance Due / 应付余款"
     },
     es: {
       quotation_title:"COTIZACIÓN", po_title:"ORDEN DE COMPRA", pi_title:"FACTURA PROFORMA", pl_title:"LISTA DE EMPAQUE",
@@ -1925,6 +1982,9 @@ function syncAndCalculate() {
     const priceUSD = priceInSelectedCurrency / rate;
     const imageSrc = row.dataset.imageSrc || '';
     const cartonNo = row.querySelector('.carton-no').value;
+    const length = parseFloat(row.querySelector('.length')?.value) || 0;
+    const width  = parseFloat(row.querySelector('.width')?.value) || 0;
+    const height = parseFloat(row.querySelector('.height')?.value) || 0;
     const nw = parseFloat(row.querySelector('.nw').value) || 0;
     const gw = parseFloat(row.querySelector('.gw').value) || 0;
     const cbm = parseFloat(row.querySelector('.cbm').value) || 0;
@@ -1938,17 +1998,26 @@ function syncAndCalculate() {
     const safeDesc = description.replace(/</g, '&lt;');
     const safeSku  = sku.replace(/</g, '&lt;');
     const safeCarton = cartonNo.replace(/</g, '&lt;');
+    const dimsStr = (length > 0 && width > 0 && height > 0)
+      ? `${length} × ${width} × ${height}`
+      : '—';
 
     poRows.push(`<tr><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
     piRows.push(`<tr><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
     quoteRows.push(`<tr><td>${imageSrc ? `<img src="${imageSrc}" class="quote-item-image">` : ''}</td><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
-    plRows.push(`<tr><td>${safeCarton}</td><td>${safeDesc}<br><strong>SKU: ${safeSku}</strong></td><td>${qty}</td><td>${nw.toFixed(2)}</td><td>${gw.toFixed(2)}</td><td>${cbm.toFixed(3)}</td></tr>`);
+    plRows.push(`<tr><td>${safeCarton}</td><td>${safeDesc}<br><strong>SKU: ${safeSku}</strong></td><td>${qty}</td><td class="pl-dim-col">${dimsStr}</td><td>${nw.toFixed(2)}</td><td>${gw.toFixed(2)}</td><td>${cbm.toFixed(3)}</td></tr>`);
   });
 
   $('po-items-table').innerHTML = poRows.join('');
   $('pi-items-table').innerHTML = piRows.join('');
   $('quote-items-table').innerHTML = quoteRows.join('');
   $('packing-list-items-table').innerHTML = plRows.join('');
+  
+  // 装箱单尺寸列显隐
+  const showDims = $('opt_show_dimensions')?.checked;
+  document.querySelectorAll('.pl-dim-col').forEach(el => {
+    el.style.display = showDims ? '' : 'none';
+  });
 
   const discountAmtUSD = subtotalUSD * (discountPct / 100);
   const totalAfterDisc = subtotalUSD - discountAmtUSD;
@@ -1973,9 +2042,41 @@ function syncAndCalculate() {
     }
     $(`${doc}-freight`).innerText = convFreight.toFixed(2);
     $(`${doc}-total`).innerText = convTotal.toFixed(2);
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 6; i++) {
       const sym = $(`${doc}-currency-symbol-${i}`);
       if (sym) sym.innerText = symbol;
+    }
+  });
+
+  // ── 💰 定金 / 余款（Deposit / Balance）计算 ──
+  const depositAmountUSDRaw = parseFloat($('deposit_amount')?.value) || 0;
+  const depositPctRaw       = parseFloat($('deposit_percentage')?.value) || 0;
+  const showDeposit         = $('opt_show_deposit_in_quote')?.checked !== false;  // 默认 true
+  // 金额优先于百分比
+  let depositUSD = 0, depositPctEff = 0;
+  if (depositAmountUSDRaw > 0) {
+    depositUSD = Math.min(depositAmountUSDRaw, finalTotalUSD);
+    depositPctEff = finalTotalUSD > 0 ? (depositUSD / finalTotalUSD) * 100 : 0;
+  } else if (depositPctRaw > 0) {
+    depositPctEff = Math.min(depositPctRaw, 100);
+    depositUSD = finalTotalUSD * depositPctEff / 100;
+  }
+  const balanceUSD = Math.max(0, finalTotalUSD - depositUSD);
+  const convDeposit = depositUSD * rate;
+  const convBalance = balanceUSD * rate;
+  
+  ['quote','po','pi'].forEach(doc => {
+    const depositLine = $(`${doc}-deposit-line`);
+    const balanceLine = $(`${doc}-balance-line`);
+    if (showDeposit && depositUSD > 0) {
+      if (depositLine) depositLine.style.display = '';
+      if (balanceLine) balanceLine.style.display = '';
+      $(`${doc}-deposit-perc`).innerText = depositPctEff.toFixed(1);
+      $(`${doc}-deposit-amount`).innerText = convDeposit.toFixed(2);
+      $(`${doc}-balance-amount`).innerText = convBalance.toFixed(2);
+    } else {
+      if (depositLine) depositLine.style.display = 'none';
+      if (balanceLine) balanceLine.style.display = 'none';
     }
   });
 
@@ -1997,7 +2098,7 @@ function scheduleSync() {
    ITEMS
    ============================================================ */
 function addItem(item) {
-  item = item || { sku:'', description:'', qty:1, price:0.00, imageSrc:'', cartonNo:'', nw:0, gw:0, cbm:0 };
+  item = item || { sku:'', description:'', qty:1, price:0.00, imageSrc:'', cartonNo:'', length:0, width:0, height:0, nw:0, gw:0, cbm:0 };
   const tbody = $('master-items');
   const tr = document.createElement('tr');
   tr.dataset.imageSrc = item.imageSrc || '';
@@ -2011,11 +2112,28 @@ function addItem(item) {
     <td><input type="number" value="${item.qty}" class="qty"></td>
     <td><input type="number" value="${parseFloat(item.price || 0).toFixed(2)}" class="price" step="0.01"></td>
     <td><input type="text" class="carton-no" value="${item.cartonNo || ''}"></td>
+    <td><input type="number" value="${parseFloat(item.length || 0) || ''}" class="length" step="0.1" placeholder="0"></td>
+    <td><input type="number" value="${parseFloat(item.width || 0) || ''}" class="width" step="0.1" placeholder="0"></td>
+    <td><input type="number" value="${parseFloat(item.height || 0) || ''}" class="height" step="0.1" placeholder="0"></td>
     <td><input type="number" value="${parseFloat(item.nw || 0).toFixed(2)}" class="nw" step="0.01"></td>
     <td><input type="number" value="${parseFloat(item.gw || 0).toFixed(2)}" class="gw" step="0.01"></td>
-    <td><input type="number" value="${parseFloat(item.cbm || 0).toFixed(3)}" class="cbm" step="0.001"></td>
+    <td><input type="number" value="${parseFloat(item.cbm || 0).toFixed(3)}" class="cbm" step="0.001" title="可手填或留空让 LxWxH 自动算"></td>
     <td><button onclick="removeItem(this)" class="btn-row-remove">✕</button></td>`;
   tbody.appendChild(tr);
+
+  // L/W/H 联动算 CBM：只有 CBM 为空或 0 时才自动计算
+  ['length', 'width', 'height'].forEach(cls => {
+    const el = tr.querySelector('.' + cls);
+    el.addEventListener('input', () => {
+      const L = parseFloat(tr.querySelector('.length').value) || 0;
+      const W = parseFloat(tr.querySelector('.width').value) || 0;
+      const H = parseFloat(tr.querySelector('.height').value) || 0;
+      const cbmEl = tr.querySelector('.cbm');
+      if (L > 0 && W > 0 && H > 0) {
+        cbmEl.value = ((L * W * H) / 1000000).toFixed(3);  // cm³ → m³
+      }
+    });
+  });
 
   // Bind listeners ONLY to this row (no global re-bind)
   tr.querySelectorAll('input, textarea').forEach(inp => {
@@ -2077,6 +2195,9 @@ function collectFormData() {
       price:      row.querySelector('.price').value,
       imageSrc:   row.dataset.imageSrc || '',
       cartonNo:   row.querySelector('.carton-no').value,
+      length:     row.querySelector('.length')?.value || '',
+      width:      row.querySelector('.width')?.value || '',
+      height:     row.querySelector('.height')?.value || '',
       nw:         row.querySelector('.nw').value,
       gw:         row.querySelector('.gw').value,
       cbm:        row.querySelector('.cbm').value,
@@ -2117,6 +2238,10 @@ function collectFormData() {
     seller_email:       $('seller_email').value,
     seller_website_url: $('seller_website_url').value,
     discount_percentage:$('discount_percentage').value,
+    deposit_amount:     $('deposit_amount')?.value || '',
+    deposit_percentage: $('deposit_percentage')?.value || '',
+    opt_show_dimensions: !!$('opt_show_dimensions')?.checked,
+    opt_show_deposit_in_quote: $('opt_show_deposit_in_quote') ? $('opt_show_deposit_in_quote').checked : true,
     terms_preset:       $('terms_preset').value,
     terms_conditions:   $('terms_conditions').value,
     pl_remarks:         ($('pl_remarks') || {}).value || '',
@@ -2135,11 +2260,18 @@ function restoreDataToForm(d) {
   // (we set status AFTER form is populated so the UI buttons reflect it; safe since collectFormData reads currentQuoteStatus directly)
 
   const skip = new Set(['items','bankFields','pl_remarks','_status','_total_usd','_created_at','_updated_at','_sku_list']);
+  // checkbox 字段：用 .checked 而不是 .value
+  const checkboxFields = new Set(['opt_show_dimensions','opt_show_deposit_in_quote']);
   for (const k in d) {
     if (skip.has(k)) continue;
     if (k.startsWith('_')) continue;
     const el = $(k);
-    if (el) el.value = d[k];
+    if (!el) continue;
+    if (checkboxFields.has(k)) {
+      el.checked = !!d[k];
+    } else {
+      el.value = d[k];
+    }
   }
   if (d.bankFields) {
     document.querySelectorAll('#pi-section .manual-input').forEach((inp, i) => {
@@ -2927,9 +3059,16 @@ function attachListeners() {
   ['quote_number','pi_number','po_number','date_of_issue','valid_until','currency',
    'buyer_info','buyer_email','shipping_info','shipping_tel','freight_cost',
    'seller_name','seller_address','seller_phone','seller_email','seller_website_url',
-   'discount_percentage'].forEach(id => {
+   'discount_percentage',
+   'deposit_amount','deposit_percentage'].forEach(id => {
     const el = $(id);
     if (el) el.addEventListener('input', scheduleSync);
+  });
+  
+  // 显示选项 checkbox
+  ['opt_show_dimensions','opt_show_deposit_in_quote'].forEach(id => {
+    const el = $(id);
+    if (el) el.addEventListener('change', () => { scheduleSync(); updatePreview(); });
   });
 
   // Paste handler on the items table
