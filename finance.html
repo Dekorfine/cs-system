@@ -895,9 +895,12 @@ const App = () => {
   const [auZip, setAuZip] = useState('');
   const [isRemoteCA, setIsRemoteCA] = useState(false);
 
-  // 包装信息
+  // 包装信息 - 支持 3 种模式：
+  //   single        = 单件 1 箱 (qty 即件数 = 箱数)
+  //   multi-box     = 一件多箱 (boxesPerItem 表示一件产品需要几个箱子)
+  //   combined-box  = 多件 1 箱 (itemsPerBox 表示一个箱子装几件产品)
   const [packages, setPackages] = useState([
-    { id: 1, l: '', w: '', h: '', weight: '', qty: 1, isCrate: false }
+    { id: 1, l: '', w: '', h: '', weight: '', qty: 1, isCrate: false, mode: 'single', boxesPerItem: 1, itemsPerBox: 1, label: '' }
   ]);
 
   // 财务参数 (与原版 V1 公式对齐: × 防损倍数 × 折扣倍数 ÷ 推演汇率)
@@ -938,16 +941,33 @@ const App = () => {
   const region = regionMode === 'auto' ? usZipToRegion(usZip) : regionMode;
 
   const validPackages = useMemo(() => {
-    return packages.filter(p => p.l > 0 && p.w > 0 && p.h > 0).map(p => ({
-      ...p,
-      l: parseFloat(p.l), w: parseFloat(p.w), h: parseFloat(p.h),
-      weight: parseFloat(p.weight) || 0,
-      qty: parseInt(p.qty) || 1
-    }));
+    return packages.filter(p => p.l > 0 && p.w > 0 && p.h > 0).map(p => {
+      const qty = parseInt(p.qty) || 1;
+      const bpi = parseInt(p.boxesPerItem) || 1;
+      const ipb = parseInt(p.itemsPerBox) || 1;
+      const mode = p.mode || 'single';
+      // 计算"对应产品件数"
+      let itemCount = qty;
+      if (mode === 'multi-box') itemCount = bpi > 0 ? Math.floor(qty / bpi) : 0;
+      else if (mode === 'combined-box') itemCount = qty * ipb;
+      return {
+        ...p,
+        l: parseFloat(p.l), w: parseFloat(p.w), h: parseFloat(p.h),
+        weight: parseFloat(p.weight) || 0,
+        qty: qty,
+        boxesPerItem: bpi,
+        itemsPerBox: ipb,
+        itemCount: itemCount,
+        mode: mode,
+      };
+    });
   }, [packages]);
 
   const hasInput = validPackages.length > 0;
-  const totalQty = validPackages.reduce((s, p) => s + p.qty, 0);
+  // totalQty 现在是"总件数"（产品件数）而不是"总箱数"
+  const totalBoxes = validPackages.reduce((s, p) => s + p.qty, 0);
+  const totalItems = validPackages.reduce((s, p) => s + p.itemCount, 0);
+  const totalQty = totalItems > 0 ? totalItems : totalBoxes;  // 兼容旧代码用 totalQty 算成本
 
   // 构造 boxes 用于计算
   const boxes = useMemo(() => {
@@ -1062,7 +1082,7 @@ const App = () => {
 
   // 包装更新
   const updatePkg = (id, key, val) => setPackages(prev => prev.map(p => p.id === id ? {...p, [key]: val} : p));
-  const addPkg = () => setPackages(prev => [...prev, { id: Math.max(...prev.map(p => p.id), 0) + 1, l: '', w: '', h: '', weight: '', qty: 1, isCrate: false }]);
+  const addPkg = () => setPackages(prev => [...prev, { id: Math.max(...prev.map(p => p.id), 0) + 1, l: '', w: '', h: '', weight: '', qty: 1, isCrate: false, mode: 'single', boxesPerItem: 1, itemsPerBox: 1, label: '' }]);
   const delPkg = (id) => setPackages(prev => prev.length > 1 ? prev.filter(p => p.id !== id) : prev);
 
   // 复制文本
@@ -1089,7 +1109,7 @@ const App = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-6 space-y-5">
         <NotesCard kind="finance" />
         <OrderCard {...{orderNumber, setOrderNumber, sku, setSku, targetCN, setTargetCN, country, usZip, setUsZip, regionMode, setRegionMode, auZip, setAuZip, isRemoteCA, setIsRemoteCA, region}} />
-        <PackagesCard {...{packages, validPackages, totalQty, updatePkg, addPkg, delPkg}} />
+        <PackagesCard {...{packages, validPackages, totalQty, totalBoxes, totalItems, updatePkg, addPkg, delPkg}} />
         <FinanceCard {...{purchaseCost, setPurchaseCost, damageMultiplier, setDamageMultiplier, discountMultiplier, setDiscountMultiplier, exchangeRate, setExchangeRate, currentPriceUSD, setCurrentPriceUSD, totalProductCost: finance.totalProductCost, totalCrateCost: finance.totalCrateCost}} />
 
         {hasInput && (
@@ -1391,7 +1411,7 @@ const OrderCard = ({ orderNumber, setOrderNumber, sku, setSku, targetCN, setTarg
 };
 
 // 包装信息卡
-const PackagesCard = ({ packages, validPackages, totalQty, updatePkg, addPkg, delPkg }) => (
+const PackagesCard = ({ packages, validPackages, totalQty, totalBoxes, totalItems, updatePkg, addPkg, delPkg }) => (
   <div className="paper rounded-2xl p-5">
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
@@ -1399,62 +1419,126 @@ const PackagesCard = ({ packages, validPackages, totalQty, updatePkg, addPkg, de
         <h2 className="font-display text-base font-bold">包装信息</h2>
       </div>
       <span className="text-[10px] font-mono" style={{color:'var(--ink-3)'}}>
-        {validPackages.length > 0 ? `${validPackages.length} 种包装 / ${totalQty} 件` : '请输入尺寸'}
+        {validPackages.length > 0
+          ? `${validPackages.length} 种包装 / ${totalBoxes} 箱 / ${totalItems} 件产品`
+          : '请输入尺寸'}
       </span>
     </div>
     <div className="space-y-3">
-      {packages.map((p, idx) => (
-        <div key={p.id} className="rounded-xl p-3 border" style={{borderColor:'var(--line)', background:'var(--bg)'}}>
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold font-mono px-2 py-0.5 rounded" style={{background:'var(--accent)', color:'white'}}>包装 {idx + 1}</span>
-              <span className="text-[10px]" style={{color:'var(--ink-3)'}}>{p.isCrate ? '木箱 +5cm' : '纸箱 +2cm'}</span>
-            </div>
-            {packages.length > 1 && (
-              <button onClick={() => delPkg(p.id)} className="p-1 rounded hover:bg-red-50" style={{color:'var(--bad)'}}>
-                <Icon name="trash" className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-            <div>
-              <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>长 (cm)</label>
-              <input value={p.l} onChange={e => updatePkg(p.id, 'l', e.target.value)} type="number" placeholder="0" className="input-mono" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>宽 (cm)</label>
-              <input value={p.w} onChange={e => updatePkg(p.id, 'w', e.target.value)} type="number" placeholder="0" className="input-mono" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>高 (cm)</label>
-              <input value={p.h} onChange={e => updatePkg(p.id, 'h', e.target.value)} type="number" placeholder="0" className="input-mono" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>实重 (kg)</label>
-              <input value={p.weight} onChange={e => updatePkg(p.id, 'weight', e.target.value)} type="number" placeholder="0" className="input-mono" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>数量</label>
-              <input value={p.qty} onChange={e => updatePkg(p.id, 'qty', e.target.value)} type="number" min="1" className="input-mono" />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>包装类型</label>
-              <div className="flex gap-1 rounded-lg p-0.5" style={{background:'var(--bg)', border:'1.5px solid var(--line)'}}>
-                <button onClick={() => updatePkg(p.id, 'isCrate', false)}
-                  className="flex-1 py-1.5 px-1 rounded-md text-[10px] font-bold transition-all"
-                  style={{background: !p.isCrate ? 'var(--accent)' : 'transparent', color: !p.isCrate ? 'white' : 'var(--ink-3)', border:'none', cursor:'pointer', fontFamily:'inherit'}}>
-                  📦 纸箱+2
-                </button>
-                <button onClick={() => updatePkg(p.id, 'isCrate', true)}
-                  className="flex-1 py-1.5 px-1 rounded-md text-[10px] font-bold transition-all"
-                  style={{background: p.isCrate ? 'var(--accent)' : 'transparent', color: p.isCrate ? 'white' : 'var(--ink-3)', border:'none', cursor:'pointer', fontFamily:'inherit'}}>
-                  🪵 木箱+5
-                </button>
+      {packages.map((p, idx) => {
+        const mode = p.mode || 'single';
+        const qty = parseInt(p.qty) || 0;
+        const bpi = parseInt(p.boxesPerItem) || 1;
+        const ipb = parseInt(p.itemsPerBox) || 1;
+        // 自动计算"对应产品件数"
+        let itemCount = 0;
+        if (mode === 'single') itemCount = qty;
+        else if (mode === 'multi-box') itemCount = bpi > 0 ? Math.floor(qty / bpi) : 0;
+        else if (mode === 'combined-box') itemCount = qty * ipb;
+        return (
+          <div key={p.id} className="rounded-xl p-3 border" style={{borderColor:'var(--line)', background:'var(--bg)'}}>
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold font-mono px-2 py-0.5 rounded" style={{background:'var(--accent)', color:'white'}}>包装 {idx + 1}</span>
+                <span className="text-[10px]" style={{color:'var(--ink-3)'}}>{p.isCrate ? '木箱 +5cm' : '纸箱 +2cm'}</span>
+                <input
+                  type="text"
+                  value={p.label || ''}
+                  onChange={e => updatePkg(p.id, 'label', e.target.value)}
+                  placeholder="备注（如：灯体 / 灯罩 / 配件）"
+                  className="text-[11px]"
+                  style={{padding:'2px 8px', border:'1px dashed var(--line)', borderRadius:6, background:'transparent', color:'var(--ink-2)', width:200, fontFamily:'inherit', outline:'none'}}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                {/* 模式选择 */}
+                <select value={mode} onChange={e => updatePkg(p.id, 'mode', e.target.value)}
+                  style={{padding:'4px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:11, background:'white', cursor:'pointer'}}>
+                  <option value="single">📦 单件 1 箱</option>
+                  <option value="multi-box">📦📦 一件多箱（多包装组合）</option>
+                  <option value="combined-box">📦↩ 多件 1 箱（合并打包）</option>
+                </select>
+                {packages.length > 1 && (
+                  <button onClick={() => delPkg(p.id)} className="p-1 rounded hover:bg-red-50" style={{color:'var(--bad)'}}>
+                    <Icon name="trash" className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
+            
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              <div>
+                <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>长 (cm)</label>
+                <input value={p.l} onChange={e => updatePkg(p.id, 'l', e.target.value)} type="number" placeholder="0" className="input-mono" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>宽 (cm)</label>
+                <input value={p.w} onChange={e => updatePkg(p.id, 'w', e.target.value)} type="number" placeholder="0" className="input-mono" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>高 (cm)</label>
+                <input value={p.h} onChange={e => updatePkg(p.id, 'h', e.target.value)} type="number" placeholder="0" className="input-mono" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>实重 (kg)</label>
+                <input value={p.weight} onChange={e => updatePkg(p.id, 'weight', e.target.value)} type="number" placeholder="0" className="input-mono" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>箱数</label>
+                <input value={p.qty} onChange={e => updatePkg(p.id, 'qty', e.target.value)} type="number" min="1" className="input-mono" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold mb-1" style={{color:'var(--ink-3)'}}>包装类型</label>
+                <div className="flex gap-1 rounded-lg p-0.5" style={{background:'var(--bg)', border:'1.5px solid var(--line)'}}>
+                  <button onClick={() => updatePkg(p.id, 'isCrate', false)}
+                    className="flex-1 py-1.5 px-1 rounded-md text-[10px] font-bold transition-all"
+                    style={{background: !p.isCrate ? 'var(--accent)' : 'transparent', color: !p.isCrate ? 'white' : 'var(--ink-3)', border:'none', cursor:'pointer', fontFamily:'inherit'}}>
+                    📦 纸箱+2
+                  </button>
+                  <button onClick={() => updatePkg(p.id, 'isCrate', true)}
+                    className="flex-1 py-1.5 px-1 rounded-md text-[10px] font-bold transition-all"
+                    style={{background: p.isCrate ? 'var(--accent)' : 'transparent', color: p.isCrate ? 'white' : 'var(--ink-3)', border:'none', cursor:'pointer', fontFamily:'inherit'}}>
+                    🪵 木箱+5
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            {/* 模式相关额外字段 */}
+            {mode === 'multi-box' && (
+              <div className="mt-3 p-3 rounded-lg" style={{background:'#fef3c7', border:'1px solid #fbbf24'}}>
+                <div className="flex items-center gap-3 flex-wrap text-[12px]">
+                  <span style={{color:'#92400e'}}><strong>一件多箱模式</strong>：</span>
+                  <span>每件产品需要</span>
+                  <input value={p.boxesPerItem || 1} onChange={e => updatePkg(p.id, 'boxesPerItem', e.target.value)} type="number" min="1" max="20" className="input-mono" style={{width:60, padding:'2px 6px'}} />
+                  <span>箱（如：灯体+灯罩+配件 = 3 箱）</span>
+                  <span style={{marginLeft:'auto', color:'#92400e'}}>
+                    📊 {qty} 箱 ÷ {bpi} 箱/件 = <strong>{itemCount} 件产品</strong>
+                  </span>
+                </div>
+              </div>
+            )}
+            {mode === 'combined-box' && (
+              <div className="mt-3 p-3 rounded-lg" style={{background:'#dcfce7', border:'1px solid #4ade80'}}>
+                <div className="flex items-center gap-3 flex-wrap text-[12px]">
+                  <span style={{color:'#166534'}}><strong>合并打包模式</strong>：</span>
+                  <span>每个箱子装</span>
+                  <input value={p.itemsPerBox || 1} onChange={e => updatePkg(p.id, 'itemsPerBox', e.target.value)} type="number" min="1" max="100" className="input-mono" style={{width:60, padding:'2px 6px'}} />
+                  <span>件产品（多件小灯合一箱）</span>
+                  <span style={{marginLeft:'auto', color:'#166534'}}>
+                    📊 {qty} 箱 × {ipb} 件/箱 = <strong>{itemCount} 件产品</strong>
+                  </span>
+                </div>
+              </div>
+            )}
+            {mode === 'single' && qty > 0 && (
+              <div className="mt-2 text-[11px] text-right" style={{color:'var(--ink-3)'}}>
+                📊 {qty} 箱 = <strong>{qty} 件产品</strong>（单件 1 箱）
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
       <button onClick={addPkg} className="w-full py-2.5 rounded-xl border-2 border-dashed text-sm font-bold flex items-center justify-center gap-1.5 hover:bg-orange-50 transition-colors" style={{borderColor:'var(--line)', color:'var(--ink-3)'}}>
         <Icon name="plus" className="w-4 h-4" />
         添加另一种包装
