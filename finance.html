@@ -199,6 +199,81 @@ const COUNTRY_GROUPS = {
 '南亚':['印度','巴基斯坦','孟加拉','斯里兰卡','尼泊尔'],
 };
 
+// ============================================================
+// 各国邮编规则 (maxLength = 0 表示无邮编)
+// ============================================================
+const POSTAL_CODE_RULES = {
+  '美国':         { len: 10, pattern: /^\d{5}(-\d{4})?$/,           ph: '90210 或 90210-1234' },
+  '加拿大':       { len: 7,  pattern: /^[A-Z]\d[A-Z][ -]?\d[A-Z]\d$/i, ph: 'M5V 3A8 / M5V3A8', upper: true },
+  '墨西哥':       { len: 5,  pattern: /^\d{5}$/,                    ph: '01000' },
+  '英国':         { len: 8,  pattern: /^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i, ph: 'SW1A 1AA', upper: true },
+  '德国':         { len: 5,  pattern: /^\d{5}$/,                    ph: '10115' },
+  '法国':         { len: 5,  pattern: /^\d{5}$/,                    ph: '75001' },
+  '意大利':       { len: 5,  pattern: /^\d{5}$/,                    ph: '00100' },
+  '西班牙':       { len: 5,  pattern: /^\d{5}$/,                    ph: '28001' },
+  '荷兰':         { len: 7,  pattern: /^\d{4} ?[A-Z]{2}$/i,         ph: '1011 AB', upper: true },
+  '比利时':       { len: 4,  pattern: /^\d{4}$/,                    ph: '1000' },
+  '瑞士':         { len: 4,  pattern: /^\d{4}$/,                    ph: '8001' },
+  '奥地利':       { len: 4,  pattern: /^\d{4}$/,                    ph: '1010' },
+  '瑞典':         { len: 6,  pattern: /^\d{3} ?\d{2}$/,             ph: '111 22' },
+  '丹麦':         { len: 4,  pattern: /^\d{4}$/,                    ph: '1050' },
+  '挪威':         { len: 4,  pattern: /^\d{4}$/,                    ph: '0001' },
+  '芬兰':         { len: 5,  pattern: /^\d{5}$/,                    ph: '00100' },
+  '波兰':         { len: 6,  pattern: /^\d{2}-\d{3}$/,              ph: '00-001' },
+  '葡萄牙':       { len: 8,  pattern: /^\d{4}-\d{3}$/,              ph: '1000-001' },
+  '爱尔兰':       { len: 8,  pattern: /^[A-Z]\d{2} ?[A-Z\d]{4}$/i,  ph: 'D02 XY45', upper: true },
+  '希腊':         { len: 6,  pattern: /^\d{3} ?\d{2}$/,             ph: '105 64' },
+  '日本':         { len: 8,  pattern: /^\d{3}-?\d{4}$/,             ph: '100-0001' },
+  '韩国':         { len: 5,  pattern: /^\d{5}$/,                    ph: '03000' },
+  '中国香港':     { len: 0,                                          ph: '无邮编' },
+  '中国澳门':     { len: 0,                                          ph: '无邮编' },
+  '中国台湾':     { len: 6,  pattern: /^\d{3,6}$/,                  ph: '100 / 100001' },
+  '新加坡':       { len: 6,  pattern: /^\d{6}$/,                    ph: '208768' },
+  '马来西亚':     { len: 5,  pattern: /^\d{5}$/,                    ph: '50000' },
+  '泰国':         { len: 5,  pattern: /^\d{5}$/,                    ph: '10110' },
+  '越南':         { len: 6,  pattern: /^\d{6}$/,                    ph: '100000' },
+  '菲律宾':       { len: 4,  pattern: /^\d{4}$/,                    ph: '1000' },
+  '印度尼西亚':   { len: 5,  pattern: /^\d{5}$/,                    ph: '10110' },
+  '柬埔寨':       { len: 5,  pattern: /^\d{5}$/,                    ph: '12000' },
+  '老挝':         { len: 5,  pattern: /^\d{5}$/,                    ph: '01000' },
+  '缅甸':         { len: 5,  pattern: /^\d{5}$/,                    ph: '11181' },
+  '澳大利亚':     { len: 4,  pattern: /^\d{4}$/,                    ph: '2000' },
+  '新西兰':       { len: 4,  pattern: /^\d{4}$/,                    ph: '1010' },
+  '阿拉伯联合酋长国': { len: 0,                                       ph: '无邮编（用 PO Box）' },
+  '沙特阿拉伯':   { len: 5,  pattern: /^\d{5}$/,                    ph: '11564' },
+  '以色列':       { len: 7,  pattern: /^\d{5,7}$/,                  ph: '9103401' },
+  '土耳其':       { len: 5,  pattern: /^\d{5}$/,                    ph: '06000' },
+  '卡塔尔':       { len: 0,                                          ph: '无邮编' },
+  '科威特':       { len: 5,  pattern: /^\d{5}$/,                    ph: '13001' },
+  '巴林':         { len: 4,  pattern: /^\d{3,4}$/,                  ph: '199' },
+  '阿曼':         { len: 3,  pattern: /^\d{3}$/,                    ph: '100' },
+  '约旦':         { len: 5,  pattern: /^\d{5}$/,                    ph: '11118' },
+  '黎巴嫩':       { len: 5,  pattern: /^\d{4,5}$/,                  ph: '1100' },
+  '巴西':         { len: 9,  pattern: /^\d{5}-?\d{3}$/,             ph: '01310-100' },
+  '阿根廷':       { len: 8,  pattern: /^[A-Z]?\d{4}[A-Z]{0,3}$/i,   ph: 'C1425', upper: true },
+  '智利':         { len: 7,  pattern: /^\d{7}$/,                    ph: '8320000' },
+  '秘鲁':         { len: 5,  pattern: /^\d{5}$/,                    ph: '15001' },
+  '哥伦比亚':     { len: 6,  pattern: /^\d{6}$/,                    ph: '110111' },
+  '南非':         { len: 4,  pattern: /^\d{4}$/,                    ph: '0001' },
+  '埃及':         { len: 5,  pattern: /^\d{5}$/,                    ph: '11511' },
+  '肯尼亚':       { len: 5,  pattern: /^\d{5}$/,                    ph: '00100' },
+  '尼日利亚':     { len: 6,  pattern: /^\d{6}$/,                    ph: '100001' },
+  '摩洛哥':       { len: 5,  pattern: /^\d{5}$/,                    ph: '10000' },
+  '印度':         { len: 6,  pattern: /^\d{6}$/,                    ph: '110001' },
+  '巴基斯坦':     { len: 5,  pattern: /^\d{5}$/,                    ph: '44000' },
+  '孟加拉':       { len: 4,  pattern: /^\d{4}$/,                    ph: '1000' },
+  '斯里兰卡':     { len: 5,  pattern: /^\d{5}$/,                    ph: '10100' },
+  '尼泊尔':       { len: 5,  pattern: /^\d{5}$/,                    ph: '44600' },
+};
+const getPostalRule = (country) => POSTAL_CODE_RULES[country] || { len: 12, pattern: null, ph: '邮编' };
+const validatePostalCode = (country, value) => {
+  const rule = getPostalRule(country);
+  if (rule.len === 0) return { valid: true, isEmpty: true };  // 无邮编国家
+  if (!value) return { valid: false, isEmpty: true };
+  if (rule.pattern) return { valid: rule.pattern.test(value), isEmpty: false };
+  return { valid: true, isEmpty: false };
+};
+
 // 美国承运商 metadata
 const US_CARRIERS = {
 ch:{id:'ch',name:'昌晖加班船',allowsMulti:true},
@@ -1215,35 +1290,101 @@ const OrderCard = ({ orderNumber, setOrderNumber, sku, setSku, targetCN, setTarg
             ))}
           </select>
         </div>
-        {country === 'US' && (
-          <div>
-            <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>美国邮编 / 分区</label>
-            <div className="flex gap-2">
-              <input value={usZip} onChange={e => setUsZip(e.target.value)} placeholder="邮编" className="input-mono flex-1" maxLength="5" />
-              <select value={regionMode} onChange={e => setRegionMode(e.target.value)} className="w-auto">
-                <option value="auto">自动 ({region})</option>
-                <option value="east">美东</option>
-                <option value="mid">美中</option>
-                <option value="west">美西</option>
-              </select>
+        {(() => {
+          const rule = getPostalRule(targetCN);
+          if (rule.len === 0) {
+            return (
+              <div>
+                <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>邮编</label>
+                <div className="input-mono flex items-center px-3" style={{height:'34px', background:'#f5f5f7', color:'#94a3b8'}}>{rule.ph}</div>
+              </div>
+            );
+          }
+          // 美国特殊：邮编 + 自动分区
+          if (targetCN === '美国') {
+            const v = validatePostalCode(targetCN, usZip);
+            return (
+              <div>
+                <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>
+                  美国邮编 / 分区
+                  {usZip && !v.valid && <span style={{color:'#dc2626', marginLeft:6, fontWeight:400}}>· 格式不正确 (5 位数字)</span>}
+                </label>
+                <div className="flex gap-2">
+                  <input value={usZip}
+                    onChange={e => setUsZip(e.target.value.replace(/[^\d-]/g, ''))}
+                    placeholder={rule.ph}
+                    className="input-mono flex-1"
+                    maxLength={rule.len}
+                    style={usZip && !v.valid ? {borderColor:'#dc2626'} : {}} />
+                  <select value={regionMode} onChange={e => setRegionMode(e.target.value)} className="w-auto">
+                    <option value="auto">自动 ({region})</option>
+                    <option value="east">美东</option>
+                    <option value="mid">美中</option>
+                    <option value="west">美西</option>
+                  </select>
+                </div>
+              </div>
+            );
+          }
+          // 加拿大特殊：邮编 + 偏远地区
+          if (targetCN === '加拿大') {
+            const v = validatePostalCode(targetCN, usZip);
+            return (
+              <div>
+                <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>
+                  加拿大邮编
+                  {usZip && !v.valid && <span style={{color:'#dc2626', marginLeft:6, fontWeight:400}}>· 格式不正确 (A1A 1A1)</span>}
+                </label>
+                <div className="flex gap-2">
+                  <input value={usZip}
+                    onChange={e => setUsZip(rule.upper ? e.target.value.toUpperCase() : e.target.value)}
+                    placeholder={rule.ph}
+                    className="input-mono flex-1"
+                    maxLength={rule.len}
+                    style={usZip && !v.valid ? {borderColor:'#dc2626'} : {}} />
+                  <select value={isRemoteCA ? '1' : '0'} onChange={e => setIsRemoteCA(e.target.value === '1')} className="w-auto">
+                    <option value="0">非偏远</option>
+                    <option value="1">偏远 (+附加费)</option>
+                  </select>
+                </div>
+              </div>
+            );
+          }
+          // 澳大利亚特殊（保留原来的 auZip state）
+          if (targetCN === '澳大利亚') {
+            const v = validatePostalCode(targetCN, auZip);
+            return (
+              <div>
+                <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>
+                  澳洲邮编
+                  {auZip && !v.valid && <span style={{color:'#dc2626', marginLeft:6, fontWeight:400}}>· 格式不正确 (4 位数字)</span>}
+                </label>
+                <input value={auZip}
+                  onChange={e => setAuZip(e.target.value.replace(/\D/g, ''))}
+                  placeholder={rule.ph}
+                  className="input-mono"
+                  maxLength={rule.len}
+                  style={auZip && !v.valid ? {borderColor:'#dc2626'} : {}} />
+              </div>
+            );
+          }
+          // 其他国家：通用邮编输入框
+          const v = validatePostalCode(targetCN, usZip);
+          return (
+            <div>
+              <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>
+                邮编（{targetCN}）
+                {usZip && !v.valid && <span style={{color:'#dc2626', marginLeft:6, fontWeight:400}}>· 格式不正确</span>}
+              </label>
+              <input value={usZip}
+                onChange={e => setUsZip(rule.upper ? e.target.value.toUpperCase() : e.target.value)}
+                placeholder={rule.ph}
+                className="input-mono"
+                maxLength={rule.len}
+                style={usZip && !v.valid ? {borderColor:'#dc2626'} : {}} />
             </div>
-          </div>
-        )}
-        {country === 'AU' && (
-          <div>
-            <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>澳洲邮编</label>
-            <input value={auZip} onChange={e => setAuZip(e.target.value)} placeholder="如 2000" className="input-mono" maxLength="4" />
-          </div>
-        )}
-        {country === 'CA' && (
-          <div>
-            <label className="block text-[11px] font-bold mb-1" style={{color:'var(--ink-2)'}}>加拿大偏远地区</label>
-            <select value={isRemoteCA ? '1' : '0'} onChange={e => setIsRemoteCA(e.target.value === '1')}>
-              <option value="0">非偏远</option>
-              <option value="1">偏远 (+附加费)</option>
-            </select>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
