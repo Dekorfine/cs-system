@@ -2614,12 +2614,86 @@ const FreightModule = ({ user, toast, cloudOn }) => {
     invoice_no: '', shipment_ref: '', notes: '',
   });
   const [editingPaymentId, setEditingPaymentId] = useState(null);
+  
+  // 📎 附件状态
+  const [pendingAttachments, setPendingAttachments] = useState([]);  // [{name, type, size, url, path, uploading}]
+  const fileInputRef = React.useRef(null);
+  const dropZoneRef = React.useRef(null);
+  
+  // 上传单个文件到 Supabase Storage
+  const uploadFile = async (file) => {
+    if (!CLOUD.client) throw new Error('云同步未启用');
+    const ext = file.name.split('.').pop() || 'bin';
+    const safeName = file.name.replace(/[^\w.-]/g, '_').slice(0, 60);
+    const path = `${new Date().toISOString().slice(0,7)}/${Date.now()}_${Math.random().toString(36).slice(2,8)}_${safeName}`;
+    const { data, error } = await CLOUD.client.storage.from('freight-receipts').upload(path, file, {
+      cacheControl: '3600', upsert: false, contentType: file.type,
+    });
+    if (error) throw error;
+    const { data: urlData } = CLOUD.client.storage.from('freight-receipts').getPublicUrl(path);
+    return { name: file.name, type: file.type, size: file.size, path, url: urlData.publicUrl };
+  };
+  
+  const handleFiles = async (fileList) => {
+    if (!fileList || fileList.length === 0) return;
+    if (!CLOUD.client) { toast('⚠ 云同步未启用，无法上传附件'); return; }
+    const files = Array.from(fileList).filter(f => {
+      if (f.size > 10 * 1024 * 1024) { toast(`⚠ ${f.name} 超过 10MB 已跳过`); return false; }
+      if (!f.type.startsWith('image/') && f.type !== 'application/pdf') { toast(`⚠ ${f.name} 不是图片或 PDF`); return false; }
+      return true;
+    });
+    if (files.length === 0) return;
+    
+    // 先显示 uploading 状态
+    const placeholders = files.map(f => ({ name: f.name, type: f.type, size: f.size, uploading: true, url: URL.createObjectURL(f) }));
+    setPendingAttachments(prev => [...prev, ...placeholders]);
+    
+    // 并行上传
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const result = await uploadFile(files[i]);
+        setPendingAttachments(prev => {
+          const next = [...prev];
+          const idx = next.findIndex(a => a.name === files[i].name && a.uploading);
+          if (idx >= 0) next[idx] = result;
+          return next;
+        });
+        toast(`✓ ${files[i].name} 上传完成`);
+      } catch(e) {
+        setPendingAttachments(prev => prev.filter(a => !(a.name === files[i].name && a.uploading)));
+        toast(`❌ ${files[i].name} 上传失败: ${e.message}`);
+      }
+    }
+  };
+  
+  // 粘贴板事件
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items || [];
+    const files = [];
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const f = item.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      handleFiles(files);
+    }
+  };
 
   const submitPayment = async () => {
     if (!newPayment.carrier_id) { toast('⚠ 请选择快递公司'); return; }
     if (!newPayment.amount || parseFloat(newPayment.amount) <= 0) { toast('⚠ 请填写有效金额'); return; }
     const carrier = carriers.find(c => c.id === parseInt(newPayment.carrier_id));
     if (!carrier) { toast('⚠ 快递公司不存在'); return; }
+    
+    // 检查是否还有附件在上传
+    if (pendingAttachments.some(a => a.uploading)) {
+      toast('⚠ 还有附件正在上传，请稍等');
+      return;
+    }
+    
     const row = {
       carrier_id: carrier.id, carrier_name: carrier.name,
       category: newPayment.category, amount: parseFloat(newPayment.amount),
@@ -2629,6 +2703,7 @@ const FreightModule = ({ user, toast, cloudOn }) => {
       shipment_ref: newPayment.shipment_ref || null,
       paid_by: user.name + (user.alias ? ' ' + user.alias : ''),
       notes: newPayment.notes || null,
+      attachments: pendingAttachments.map(a => ({ name: a.name, type: a.type, size: a.size, path: a.path, url: a.url })),
       updated_at: new Date().toISOString(),
     };
     try {
@@ -2639,11 +2714,12 @@ const FreightModule = ({ user, toast, cloudOn }) => {
       } else {
         const { error } = await CLOUD.client.from('freight_payments').insert(row);
         if (error) throw error;
-        toast('✓ 已录入支付记录');
+        toast(`✓ 已录入支付记录${pendingAttachments.length > 0 ? ' (含 ' + pendingAttachments.length + ' 个凭证)' : ''}`);
       }
       setNewPayment({ carrier_id:'', category:'express', amount:'', currency:'CNY',
         payment_method:'bank', payment_date:new Date().toISOString().slice(0,10),
         invoice_no:'', shipment_ref:'', notes:'' });
+      setPendingAttachments([]);
       setEditingPaymentId(null);
       loadAll();
     } catch(e) { toast('❌ 保存失败: ' + e.message); }
@@ -2658,6 +2734,7 @@ const FreightModule = ({ user, toast, cloudOn }) => {
       invoice_no: p.invoice_no || '', shipment_ref: p.shipment_ref || '',
       notes: p.notes || '',
     });
+    setPendingAttachments(p.attachments || []);  // 恢复已上传的附件
     document.querySelector('#freight-form-anchor')?.scrollIntoView({ behavior:'smooth' });
   };
 
@@ -2742,6 +2819,150 @@ const FreightModule = ({ user, toast, cloudOn }) => {
   }, [filteredPayments]);
 
   const carrierNames = useMemo(() => [...new Set(payments.map(p => p.carrier_name))].sort(), [payments]);
+  
+  // 凭证查看 modal
+  const [viewingAttachments, setViewingAttachments] = useState(null);
+  
+  // 📥 导出 PDF（用 window.print）
+  const exportPDF = () => {
+    const win = window.open('', '_blank');
+    if (!win) { toast('⚠ 浏览器拦截了弹窗，请允许'); return; }
+    const monthLabel = filterMonth || '全部时间';
+    const carrierLabel = filterCarrier || '全部';
+    const categoryLabel2 = filterCategory ? CATEGORIES.find(c => c.v === filterCategory)?.label : '全部';
+    const methodLabel2 = filterMethod ? PAYMENT_METHODS.find(m => m.v === filterMethod)?.label : '全部';
+    const rows = filteredPayments.map(p => `
+      <tr>
+        <td>${p.payment_date}</td>
+        <td><strong>${p.carrier_name}</strong></td>
+        <td>${categoryLabel(p.category)}</td>
+        <td style="text-align:right;font-family:monospace;color:#0071e3;font-weight:500;">${p.currency === 'USD' ? '$' : '¥'} ${Number(p.amount).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+        <td>${methodLabel(p.payment_method)}</td>
+        <td style="font-size:11px;font-family:monospace;">${p.invoice_no || '-'}</td>
+        <td style="font-size:11px;font-family:monospace;">${p.shipment_ref || '-'}</td>
+        <td style="font-size:11px;color:#666;">${p.paid_by}</td>
+        <td style="font-size:10px;color:#888;">${p.notes ? p.notes.replace(/</g, '&lt;') : '-'}</td>
+        <td style="text-align:center;">${(p.attachments?.length || 0) > 0 ? '📎 ' + p.attachments.length : '-'}</td>
+      </tr>
+    `).join('');
+    
+    // 按公司汇总
+    const byCarrier = Object.entries(summary.byCarrier).sort((a,b) => b[1] - a[1]);
+    const carrierRows = byCarrier.map(([n, a]) => {
+      const pct = summary.totalCNY > 0 ? (a / summary.totalCNY * 100) : 0;
+      return `<tr><td><strong>${n}</strong></td><td style="text-align:right;font-family:monospace;color:#0071e3;">¥ ${a.toFixed(2)}</td><td style="text-align:right;">${pct.toFixed(1)}%</td></tr>`;
+    }).join('');
+    
+    const categoryRows = CATEGORIES.map(c => {
+      const a = summary.byCategory[c.v] || 0;
+      const pct = summary.totalCNY > 0 ? (a / summary.totalCNY * 100) : 0;
+      return `<tr><td>${c.label}</td><td style="text-align:right;font-family:monospace;">¥ ${a.toFixed(2)}</td><td style="text-align:right;">${pct.toFixed(1)}%</td></tr>`;
+    }).join('');
+    
+    const methodRows = Object.entries(summary.byMethod).sort((a,b) => b[1] - a[1]).map(([m, a]) => {
+      const pct = summary.totalCNY > 0 ? (a / summary.totalCNY * 100) : 0;
+      return `<tr><td>${methodLabel(m)}</td><td style="text-align:right;font-family:monospace;">¥ ${a.toFixed(2)}</td><td style="text-align:right;">${pct.toFixed(1)}%</td></tr>`;
+    }).join('');
+    
+    win.document.write(`<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>运费支付报表 ${monthLabel}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color:#1d1d1f; padding:30px; font-size:13px; line-height:1.5; }
+  .header { border-bottom: 2px solid #0071e3; padding-bottom:12px; margin-bottom:20px; }
+  .header h1 { font-size:24px; font-weight:600; letter-spacing:-.5px; }
+  .header .meta { color:#666; font-size:12px; margin-top:6px; }
+  .filters { background:#f5f5f7; padding:10px 14px; border-radius:8px; margin-bottom:20px; font-size:12px; color:#555; }
+  .filters span { margin-right:18px; }
+  .summary { display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; margin-bottom:24px; }
+  .summary-card { background:linear-gradient(135deg,#e8f1fd,#e8f7ec); padding:16px; border-radius:10px; }
+  .summary-card .label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#666; }
+  .summary-card .value { font-size:24px; font-weight:600; color:#0071e3; margin-top:4px; }
+  h2 { font-size:15px; margin: 22px 0 10px; padding-bottom:6px; border-bottom:1px solid #e8e6e0; }
+  table { width:100%; border-collapse:collapse; font-size:11px; }
+  th { background:#f5f5f7; padding:7px 8px; text-align:left; font-weight:600; color:#555; border-bottom:1px solid #e8e6e0; }
+  td { padding:7px 8px; border-bottom:1px solid #f0eee8; }
+  .footer { margin-top:30px; padding-top:14px; border-top:1px solid #e8e6e0; font-size:10px; color:#999; text-align:center; }
+  .row-2col { display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
+  @media print { body { padding:15px; } .summary { gap:10px; } }
+</style></head><body>
+
+<div class="header">
+  <h1>📊 运费支付报表</h1>
+  <div class="meta">
+    统计周期：<strong>${monthLabel}</strong> · 
+    导出时间：${new Date().toLocaleString('zh-CN')} · 
+    操作人：${user.name}${user.alias ? ' ' + user.alias : ''}
+  </div>
+</div>
+
+<div class="filters">
+  <strong>筛选条件：</strong>
+  <span>📅 ${monthLabel}</span>
+  <span>🚛 快递公司: ${carrierLabel}</span>
+  <span>📦 运输方式: ${categoryLabel2}</span>
+  <span>💳 支付方式: ${methodLabel2}</span>
+</div>
+
+<div class="summary">
+  <div class="summary-card">
+    <div class="label">总支出 CNY</div>
+    <div class="value">¥ ${summary.totalCNY.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+  </div>
+  ${summary.totalUSD > 0 ? `<div class="summary-card">
+    <div class="label">总支出 USD</div>
+    <div class="value">$ ${summary.totalUSD.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+  </div>` : ''}
+  <div class="summary-card">
+    <div class="label">支付笔数</div>
+    <div class="value">${summary.count}</div>
+  </div>
+</div>
+
+<div class="row-2col">
+  <div>
+    <h2>📊 按快递公司</h2>
+    <table>
+      <thead><tr><th>公司名</th><th style="text-align:right;">金额</th><th style="text-align:right;width:60px;">占比</th></tr></thead>
+      <tbody>${carrierRows || '<tr><td colspan=3 style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>'}</tbody>
+    </table>
+  </div>
+  <div>
+    <h2>🚚 按运输方式</h2>
+    <table>
+      <thead><tr><th>类别</th><th style="text-align:right;">金额</th><th style="text-align:right;width:60px;">占比</th></tr></thead>
+      <tbody>${categoryRows}</tbody>
+    </table>
+  </div>
+</div>
+
+<h2>💳 按支付方式</h2>
+<table>
+  <thead><tr><th>方式</th><th style="text-align:right;">金额</th><th style="text-align:right;width:60px;">占比</th></tr></thead>
+  <tbody>${methodRows || '<tr><td colspan=3 style="text-align:center;color:#999;padding:20px;">暂无数据</td></tr>'}</tbody>
+</table>
+
+<h2>💸 支付明细（${filteredPayments.length} 笔）</h2>
+<table>
+  <thead><tr>
+    <th>日期</th><th>快递公司</th><th>运输</th><th style="text-align:right;">金额</th>
+    <th>支付方式</th><th>账单号</th><th>订单</th><th>操作人</th><th>备注</th><th>凭证</th>
+  </tr></thead>
+  <tbody>${rows || '<tr><td colspan=10 style="text-align:center;color:#999;padding:20px;">暂无支付记录</td></tr>'}</tbody>
+</table>
+
+<div class="footer">
+  本报表由 <strong>统一工作台 · 运费支付管理</strong> 自动生成 · 数据来源 Supabase 团队云
+</div>
+
+<scr` + `ipt>
+  window.onload = () => { setTimeout(() => window.print(), 300); };
+</scr` + `ipt>
+
+</body></html>`);
+    win.document.close();
+    toast('✓ PDF 报表已生成，请在新窗口选择"另存为 PDF"');
+  };
 
   return (
     <div className="space-y-5 fade-in">
@@ -2827,6 +3048,80 @@ const FreightModule = ({ user, toast, cloudOn }) => {
               <label className="block text-[12px] mb-1.5" style={{color:'var(--ink-3)', fontWeight:500}}>备注</label>
               <textarea value={newPayment.notes} onChange={e => setNewPayment(p => ({...p, notes:e.target.value}))} placeholder="可选" rows={2} style={{width:'100%', resize:'vertical'}} />
             </div>
+            
+            {/* 📎 付款凭证 - 支持拖拽 / 粘贴 / 点击上传 */}
+            <div style={{marginTop:14}}>
+              <label className="block text-[12px] mb-1.5" style={{color:'var(--ink-3)', fontWeight:500}}>
+                📎 付款凭证 <span style={{color:'var(--ink-4)', fontWeight:400, marginLeft:6}}>支持图片/PDF · 拖拽 / Ctrl+V 粘贴 / 点击上传</span>
+              </label>
+              <div
+                ref={dropZoneRef}
+                onPaste={handlePaste}
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-soft)'; }}
+                onDragLeave={(e) => { e.currentTarget.style.borderColor = 'var(--line-strong)'; e.currentTarget.style.background = 'var(--bg-soft)'; }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.style.borderColor = 'var(--line-strong)';
+                  e.currentTarget.style.background = 'var(--bg-soft)';
+                  handleFiles(e.dataTransfer.files);
+                }}
+                onClick={() => fileInputRef.current?.click()}
+                tabIndex={0}
+                style={{
+                  border: '2px dashed var(--line-strong)',
+                  borderRadius: 'var(--radius)',
+                  padding: '20px',
+                  background: 'var(--bg-soft)',
+                  cursor: 'pointer',
+                  transition: 'all .15s',
+                  outline: 'none',
+                }}
+              >
+                {pendingAttachments.length === 0 ? (
+                  <div style={{textAlign:'center', color:'var(--ink-3)', fontSize:13}}>
+                    📤 拖拽文件到此处<br/>
+                    <span style={{fontSize:11, color:'var(--ink-4)'}}>或按 Ctrl+V 粘贴截图 · 或点击选择文件</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {pendingAttachments.map((att, i) => (
+                      <div key={i} style={{position:'relative', borderRadius:'var(--radius-sm)', overflow:'hidden', background:'white', border:'1px solid var(--line)'}}>
+                        {att.url && att.type?.startsWith('image/') ? (
+                          <img src={att.url} alt={att.name} style={{width:'100%', height:80, objectFit:'cover', display:'block'}} />
+                        ) : att.url && att.type === 'application/pdf' ? (
+                          <div style={{padding:20, textAlign:'center', background:'#fef0f0', color:'#dc2626', fontSize:30}}>📄</div>
+                        ) : (
+                          <div style={{padding:20, textAlign:'center', background:'#f5f5f7', color:'var(--ink-3)', fontSize:24}}>
+                            {att.uploading ? '⏳' : '📄'}
+                          </div>
+                        )}
+                        <div style={{padding:'4px 6px', fontSize:10, color:'var(--ink-3)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', textAlign:'center'}}>
+                          {att.uploading ? '上传中...' : att.name}
+                        </div>
+                        {!att.uploading && (
+                          <button onClick={(e) => { e.stopPropagation(); setPendingAttachments(prev => prev.filter((_, j) => j !== i)); }}
+                            style={{position:'absolute', top:2, right:2, width:18, height:18, borderRadius:'50%', background:'rgba(0,0,0,.6)', color:'white', border:'none', cursor:'pointer', fontSize:10, lineHeight:1, padding:0, display:'flex', alignItems:'center', justifyContent:'center'}}
+                            title="移除">×</button>
+                        )}
+                      </div>
+                    ))}
+                    <div onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                      style={{minHeight:100, border:'1.5px dashed var(--line-strong)', borderRadius:'var(--radius-sm)', display:'flex', alignItems:'center', justifyContent:'center', color:'var(--ink-3)', fontSize:11, cursor:'pointer'}}>
+                      + 添加更多
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,application/pdf"
+                  style={{display:'none'}}
+                  onChange={(e) => handleFiles(e.target.files)}
+                />
+              </div>
+            </div>
+            
             <div style={{display:'flex', gap:10, marginTop:14}}>
               <button className="btn-pri" onClick={submitPayment}>
                 {editingPaymentId ? '💾 更新记录' : '✓ 录入支付'}
@@ -2837,6 +3132,7 @@ const FreightModule = ({ user, toast, cloudOn }) => {
                   setNewPayment({ carrier_id:'', category:'express', amount:'', currency:'CNY',
                     payment_method:'bank', payment_date:new Date().toISOString().slice(0,10),
                     invoice_no:'', shipment_ref:'', notes:'' });
+                  setPendingAttachments([]);
                 }}>取消编辑</button>
               )}
             </div>
@@ -2906,6 +3202,7 @@ const FreightModule = ({ user, toast, cloudOn }) => {
                     <th style={{width:80}}>方式</th>
                     <th style={{width:110, textAlign:'right'}}>金额</th>
                     <th style={{width:90}}>支付</th>
+                    <th style={{width:60, textAlign:'center'}}>凭证</th>
                     <th>账单号</th>
                     <th>订单/批次</th>
                     <th style={{width:90}}>操作人</th>
@@ -2922,6 +3219,15 @@ const FreightModule = ({ user, toast, cloudOn }) => {
                         {p.currency === 'USD' ? '$' : '¥'} {Number(p.amount).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})}
                       </td>
                       <td style={{fontSize:12}}>{methodLabel(p.payment_method)}</td>
+                      <td style={{textAlign:'center'}}>
+                        {(p.attachments?.length || 0) > 0 ? (
+                          <button className="btn-ghost" onClick={() => setViewingAttachments(p)} title={`查看 ${p.attachments.length} 个凭证`} style={{padding:'3px 8px', color:'var(--accent)'}}>
+                            📎 {p.attachments.length}
+                          </button>
+                        ) : (
+                          <span style={{color:'var(--ink-4)'}}>—</span>
+                        )}
+                      </td>
                       <td className="font-mono" style={{fontSize:11, color:'var(--ink-3)'}}>{p.invoice_no || '-'}</td>
                       <td className="font-mono" style={{fontSize:11, color:'var(--ink-3)'}}>{p.shipment_ref || '-'}</td>
                       <td style={{fontSize:11, color:'var(--ink-3)'}}>{p.paid_by}</td>
@@ -2932,7 +3238,7 @@ const FreightModule = ({ user, toast, cloudOn }) => {
                     </tr>
                   ))}
                   {filteredPayments.length === 0 && (
-                    <tr><td colSpan={9} style={{textAlign:'center', padding:'40px', color:'var(--ink-4)'}}>
+                    <tr><td colSpan={10} style={{textAlign:'center', padding:'40px', color:'var(--ink-4)'}}>
                       {loading ? '⏳ 加载中…' : '暂无符合条件的记录'}
                     </td></tr>
                   )}
@@ -3188,13 +3494,17 @@ const FreightModule = ({ user, toast, cloudOn }) => {
             </div>
           </div>
 
-          <div className="paper rounded-2xl p-4 text-center">
+          <div className="paper rounded-2xl p-4 text-center" style={{display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap'}}>
+            <button className="btn-pri" onClick={exportPDF}>
+              🖨️ 导出 PDF 报表（含图表汇总）
+            </button>
             <button className="btn-sec" onClick={() => {
-              const rows = [['日期','快递公司','运输方式','金额','货币','支付方式','账单号','订单','操作人','备注']];
+              const rows = [['日期','快递公司','运输方式','金额','货币','支付方式','账单号','订单','操作人','备注','凭证数']];
               filteredPayments.forEach(p => rows.push([
                 p.payment_date, p.carrier_name, categoryLabel(p.category),
                 p.amount, p.currency, methodLabel(p.payment_method),
                 p.invoice_no||'', p.shipment_ref||'', p.paid_by, p.notes||'',
+                p.attachments?.length || 0,
               ]));
               const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
               const blob = new Blob(['\uFEFF' + csv], { type:'text/csv;charset=utf-8' });
@@ -3203,9 +3513,52 @@ const FreightModule = ({ user, toast, cloudOn }) => {
               a.href = url; a.download = `运费支付_${filterMonth || 'all'}.csv`; a.click();
               URL.revokeObjectURL(url);
               toast('✓ CSV 已导出');
-            }}>📥 导出当前筛选结果为 CSV</button>
+            }}>📊 导出 CSV（Excel 可打开）</button>
           </div>
         </>
+      )}
+      
+      {/* 凭证查看 Modal */}
+      {viewingAttachments && (
+        <div onClick={() => setViewingAttachments(null)}
+          style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:24}}>
+          <div onClick={e => e.stopPropagation()}
+            style={{background:'white', borderRadius:'var(--radius-lg)', maxWidth:1000, width:'100%', maxHeight:'90vh', overflow:'auto', padding:24}}>
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16}}>
+              <div>
+                <div className="font-display" style={{fontSize:18, fontWeight:600, letterSpacing:'-.022em'}}>
+                  📎 付款凭证 - {viewingAttachments.carrier_name}
+                </div>
+                <div style={{fontSize:12, color:'var(--ink-3)', marginTop:4}}>
+                  {viewingAttachments.payment_date} · {viewingAttachments.currency === 'USD' ? '$' : '¥'} {Number(viewingAttachments.amount).toLocaleString()} · {methodLabel(viewingAttachments.payment_method)}
+                </div>
+              </div>
+              <button className="btn-sec" onClick={() => setViewingAttachments(null)} style={{padding:'4px 12px'}}>×</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {(viewingAttachments.attachments || []).map((att, i) => (
+                <div key={i} style={{border:'1px solid var(--line)', borderRadius:'var(--radius)', overflow:'hidden', background:'var(--bg-soft)'}}>
+                  {att.type?.startsWith('image/') ? (
+                    <a href={att.url} target="_blank" rel="noopener">
+                      <img src={att.url} alt={att.name} style={{width:'100%', maxHeight:400, objectFit:'contain', background:'white', display:'block'}} />
+                    </a>
+                  ) : att.type === 'application/pdf' ? (
+                    <iframe src={att.url} title={att.name} style={{width:'100%', height:500, border:'none', display:'block'}} />
+                  ) : (
+                    <div style={{padding:40, textAlign:'center', color:'var(--ink-3)'}}>
+                      <div style={{fontSize:40, marginBottom:8}}>📄</div>
+                      <a href={att.url} target="_blank" rel="noopener" style={{color:'var(--accent)'}}>下载查看</a>
+                    </div>
+                  )}
+                  <div style={{padding:'8px 12px', fontSize:12, color:'var(--ink-3)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                    <span style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{att.name}</span>
+                    <a href={att.url} download={att.name} target="_blank" rel="noopener" className="btn-sec" style={{padding:'2px 8px', fontSize:11, textDecoration:'none'}}>下载 ↓</a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
