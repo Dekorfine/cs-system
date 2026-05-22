@@ -1089,11 +1089,12 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
     toast(`✓ 已导出 ${exportRecords.length} 条记录`);
   };
 
-  // 跟进提醒 (跨日期: 所有未解决 且 nextFollowUp <= today 的记录)
+  // 跟进提醒 - 主管始终看所有员工（不受"查看所有员工"开关影响）
   const today = todayISO();
   const reminders = useMemo(() => {
-    return visibleRecords.filter(r => r.status !== 'resolved' && r.nextFollowUp);
-  }, [visibleRecords]);
+    const allLive = records.filter(r => !r.deleted && r.status !== 'resolved' && r.nextFollowUp);
+    return isAdmin ? allLive : allLive.filter(r => r.ownerId === user.id);
+  }, [records, isAdmin, user.id]);
 
   const overdueCount = reminders.filter(r => r.nextFollowUp < today).length;
   const todayCount = reminders.filter(r => r.nextFollowUp === today).length;
@@ -1192,6 +1193,22 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
   const [remindersExpanded, setRemindersExpanded] = useState(false);
   // 转交 modal
   const [transferModal, setTransferModal] = useState(null);  // record id
+  // 批量转交 modal
+  const [batchTransferModal, setBatchTransferModal] = useState(null);  // {fromUserId: ...} or null
+  // 转交通知（首次进入 tab 时检测）
+  const [transferNoticeShown, setTransferNoticeShown] = useState(false);
+  
+  // 计算"转给我但还没看的"工作
+  const incomingTransfers = useMemo(() => {
+    return records.filter(r => !r.deleted && r.transferUnreadFor === user.id && r.ownerId === user.id);
+  }, [records, user.id]);
+  
+  // 首次进入 tab 时弹通知
+  useEffect(() => {
+    if (incomingTransfers.length > 0 && !transferNoticeShown) {
+      setTransferNoticeShown(true);  // 标记已弹过（同一次会话不重复弹）
+    }
+  }, [incomingTransfers.length, transferNoticeShown]);
 
   // 排序 reminders: 逾期 → 今日 → 未来
   const sortedReminders = useMemo(() => {
@@ -1202,30 +1219,117 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
     });
   }, [reminders]);
 
-  // 转交工作 - 改 ownerId
+  // 转交工作 - 改 ownerId + 保留历史 + 通知新负责人
   const transferRecord = (recordId, newOwnerId) => {
-    const oldOwner = employees.find(e => e.id === records.find(r => r.id === recordId)?.ownerId);
+    const r = records.find(rr => rr.id === recordId);
+    if (!r) return;
+    const oldOwner = employees.find(e => e.id === r.ownerId);
     const newOwner = employees.find(e => e.id === newOwnerId);
     if (!newOwner) return;
-    updateRow(recordId, { ownerId: newOwnerId });
+    const historyEntry = {
+      from: r.ownerId,
+      fromName: oldOwner?.name + (oldOwner?.alias ? ' ' + oldOwner.alias : ''),
+      to: newOwnerId,
+      toName: newOwner.name + (newOwner.alias ? ' ' + newOwner.alias : ''),
+      by: user.id,
+      byName: user.name + (user.alias ? ' ' + user.alias : ''),
+      at: nowISO(),
+    };
+    updateRow(recordId, {
+      ownerId: newOwnerId,
+      transferHistory: [...(r.transferHistory || []), historyEntry],
+      transferUnreadFor: newOwnerId,  // 标记新负责人有未读
+    });
     toast(`✓ 已将工作从 ${oldOwner?.name || '?'} 转交给 ${newOwner.name}${newOwner.alias ? ' ' + newOwner.alias : ''}`);
     setTransferModal(null);
+  };
+  
+  // 批量转交
+  const batchTransferRecords = (recordIds, newOwnerId) => {
+    const newOwner = employees.find(e => e.id === newOwnerId);
+    if (!newOwner || recordIds.length === 0) return;
+    const nowStr = nowISO();
+    setRecords(prev => prev.map(r => {
+      if (!recordIds.includes(r.id)) return r;
+      const oldOwner = employees.find(e => e.id === r.ownerId);
+      const historyEntry = {
+        from: r.ownerId,
+        fromName: oldOwner?.name + (oldOwner?.alias ? ' ' + oldOwner.alias : ''),
+        to: newOwnerId,
+        toName: newOwner.name + (newOwner.alias ? ' ' + newOwner.alias : ''),
+        by: user.id,
+        byName: user.name + (user.alias ? ' ' + user.alias : ''),
+        at: nowStr,
+      };
+      return {
+        ...r,
+        ownerId: newOwnerId,
+        transferHistory: [...(r.transferHistory || []), historyEntry],
+        transferUnreadFor: newOwnerId,
+        updatedAt: nowStr,
+      };
+    }));
+    toast(`✓ 批量转交 ${recordIds.length} 单给 ${newOwner.name}${newOwner.alias ? ' ' + newOwner.alias : ''}`);
+    setBatchTransferModal(null);
+  };
+  
+  // 标记转交通知已读
+  const markTransferRead = (recordId) => {
+    updateRow(recordId, { transferUnreadFor: null });
   };
 
   return (
     <div className="space-y-5">
+      {/* 🆕 进入工作台时显示转交通知（如果有） */}
+      {incomingTransfers.length > 0 && (
+        <div className="paper rounded-2xl p-4 fade-in" style={{background:'#fef7ec', border:'1.5px solid var(--gold)'}}>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div style={{display:'flex', alignItems:'center', gap:10}}>
+              <span style={{fontSize:24}}>📬</span>
+              <div>
+                <div style={{fontSize:14, fontWeight:600, color:'#854d0e'}}>
+                  你接到了 {incomingTransfers.length} 单转交工作
+                </div>
+                <div style={{fontSize:12, color:'#a16207', marginTop:2}}>
+                  以下工作已转给你，请尽快确认接手：
+                  {incomingTransfers.slice(0, 3).map(r => {
+                    const last = (r.transferHistory || []).slice(-1)[0];
+                    return ` ${r.orderRef || r.customer || '?'}（来自 ${last?.fromName || '?'}）`;
+                  }).join('；')}
+                  {incomingTransfers.length > 3 && ` 等 ${incomingTransfers.length} 单`}
+                </div>
+              </div>
+            </div>
+            <button className="btn-pri" style={{padding:'6px 14px', fontSize:12}}
+              onClick={() => {
+                // 一键标记全部已读
+                incomingTransfers.forEach(r => markTransferRead(r.id));
+                toast(`✓ 已确认 ${incomingTransfers.length} 单转交`);
+              }}>
+              ✓ 确认接手全部
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* 跟进提醒卡（可展开） */}
       <div className="paper rounded-2xl fade-in" style={{overflow:'hidden'}}>
         <div className="p-4 flex items-center justify-between gap-3 flex-wrap" style={{cursor:'pointer'}}
              onClick={() => setRemindersExpanded(v => !v)}>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Icon name="pin" className="w-5 h-5" style={{color:'var(--accent)'}} />
             <span className="font-display text-base font-bold">跟进提醒</span>
             <span className="tag tag-neutral">共 {reminders.length}</span>
-            {(user.role === 'admin' || user.role === 'super_admin') && (
+            {isAdmin && (
               <span className="tag" style={{background:'rgba(202,138,4,.08)', color:'var(--gold)', borderColor:'var(--gold)', borderWidth:1, borderStyle:'solid'}}>
                 👑 主管视角：所有员工
               </span>
+            )}
+            {isAdmin && (
+              <button className="btn-sec" style={{padding:'3px 10px', fontSize:11}}
+                onClick={(e) => { e.stopPropagation(); setBatchTransferModal({ fromUserId: null }); }}>
+                🔄 批量转交工作
+              </button>
             )}
           </div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -1265,6 +1369,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
               const title = orderRef || customer || '(无订单号/客户)';
               const subtitle = customer && orderRef ? customer : '';
               const statusLabel = r.status === 'waiting' ? '⌛ 等客户' : (r.status === 'in_progress' ? '🔄 跟进中' : (r.status === 'pending' ? '⏸ 待处理' : r.status));
+              const lastTransfer = (r.transferHistory || []).slice(-1)[0];
               return (
                 <div key={r.id} className="row-hover" style={{display:'flex', alignItems:'center', gap:12, padding:'10px 16px', borderBottom:'1px solid var(--line)', fontSize:13}}>
                   <span className="inline-block rounded-full" style={{width:9, height:9, background: dot, flexShrink:0}}></span>
@@ -1274,6 +1379,17 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
                       {subtitle && <span style={{color:'var(--ink-3)', fontSize:12}}>· {subtitle}</span>}
                       {r.site && <span className="tag" style={{fontSize:10, padding:'1px 6px'}}>{r.site}</span>}
                       <span style={{color:'var(--ink-3)', fontSize:11}}>👤 {owner?.name || '?'}{owner?.alias ? ' ' + owner.alias : ''}</span>
+                      {lastTransfer && (
+                        <span style={{fontSize:10, color:'#0369a1', background:'#e0f2fe', padding:'1px 6px', borderRadius:4, border:'1px solid #7dd3fc'}}
+                          title={`${lastTransfer.byName} 在 ${lastTransfer.at.slice(0,10)} 转交`}>
+                          🔄 原 {lastTransfer.fromName?.split(' ')[0] || '?'} → {lastTransfer.toName?.split(' ')[0] || '?'}
+                        </span>
+                      )}
+                      {r.transferUnreadFor && (
+                        <span style={{fontSize:10, color:'#dc2626', background:'#fee2e2', padding:'1px 6px', borderRadius:4, fontWeight:600}}>
+                          NEW
+                        </span>
+                      )}
                       <span style={{color:'var(--ink-3)', fontSize:11}}>{statusLabel}</span>
                     </div>
                     {note && (
@@ -1295,7 +1411,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
                     <button className="btn-pri" style={{padding:'4px 10px', fontSize:11}} onClick={() => setFollowUpModal(r.id)}>
                       处理
                     </button>
-                    {(user.role === 'admin' || user.role === 'super_admin') && (
+                    {isAdmin && (
                       <button className="btn-sec" style={{padding:'4px 10px', fontSize:11}} onClick={() => setTransferModal(r.id)} title="转交给其他员工">
                         🔄 转交
                       </button>
@@ -1648,6 +1764,8 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
       {followUpModal && (() => {
         const r = records.find(rec => rec.id === followUpModal);
         if (!r) return null;
+        // 用户点开自己的转交记录 → 标记已读
+        if (r.transferUnreadFor === user.id) markTransferRead(r.id);
         const modalEditable = canEditRecord(r, user, adminUnlock);
         return (
           <FollowUpModal
@@ -1736,6 +1854,19 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
           </div>
         );
       })()}
+      
+      {/* 批量转交 modal */}
+      {batchTransferModal && (
+        <BatchTransferModal
+          employees={employees}
+          records={records}
+          user={user}
+          fromUserId={batchTransferModal.fromUserId}
+          setFromUserId={(id) => setBatchTransferModal({ fromUserId: id })}
+          onClose={() => setBatchTransferModal(null)}
+          onTransfer={batchTransferRecords}
+        />
+      )}
     </div>
   );
 };
@@ -1786,6 +1917,229 @@ const StatCard = ({ label, value, unit, color, hint, onClick, active }) => {
 // ============================================================
 // 跟进 / 截图 Modal
 // ============================================================
+// ============================================================
+// 批量转交工作 Modal — 主管选源员工 + 多选记录 + 选目标员工
+// ============================================================
+const BatchTransferModal = ({ employees, records, user, fromUserId, setFromUserId, onClose, onTransfer }) => {
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [filterSite, setFilterSite] = useState('');
+  const [targetUserId, setTargetUserId] = useState('');
+  
+  // 候选源员工列表
+  const candidateEmployees = employees.filter(e => e.role !== 'finance');
+  
+  // 当前选中员工的活跃工作
+  const sourceRecords = useMemo(() => {
+    if (!fromUserId) return [];
+    return records.filter(r => 
+      r.ownerId === fromUserId && !r.deleted && r.status !== 'resolved'
+    ).sort((a, b) => {
+      const aDate = a.nextFollowUp || '9999';
+      const bDate = b.nextFollowUp || '9999';
+      return aDate.localeCompare(bDate);
+    });
+  }, [records, fromUserId]);
+  
+  // 按 site 分组
+  const sites = useMemo(() => [...new Set(sourceRecords.map(r => r.site).filter(Boolean))].sort(), [sourceRecords]);
+  
+  const filteredRecords = useMemo(() => {
+    if (!filterSite) return sourceRecords;
+    return sourceRecords.filter(r => r.site === filterSite);
+  }, [sourceRecords, filterSite]);
+  
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  
+  const toggleAll = () => {
+    if (selectedIds.size === filteredRecords.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredRecords.map(r => r.id)));
+    }
+  };
+  
+  // 按网站一键全选
+  const selectBySite = (site) => {
+    const ids = sourceRecords.filter(r => r.site === site).map(r => r.id);
+    setSelectedIds(new Set(ids));
+  };
+  
+  const handleSubmit = () => {
+    if (!targetUserId) { alert('请选择目标员工'); return; }
+    if (selectedIds.size === 0) { alert('请勾选要转交的记录'); return; }
+    if (!confirm(`确认将 ${selectedIds.size} 单工作转交给 ${employees.find(e => e.id === targetUserId)?.name}？`)) return;
+    onTransfer([...selectedIds], targetUserId);
+  };
+  
+  const today = todayISO();
+  
+  return (
+    <div onClick={onClose}
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      <div onClick={e => e.stopPropagation()}
+        style={{background:'white', borderRadius:'var(--radius-lg)', maxWidth:900, width:'100%', maxHeight:'90vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* 头部 */}
+        <div style={{padding:'18px 24px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div>
+            <div className="font-display" style={{fontSize:18, fontWeight:600, letterSpacing:'-.022em'}}>🔄 批量转交工作</div>
+            <div style={{fontSize:12, color:'var(--ink-3)', marginTop:4}}>
+              选择源员工 → 勾选要转的工作（可按网站筛选）→ 选目标员工 → 一键转交
+            </div>
+          </div>
+          <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+        </div>
+        
+        {/* Step 1: 选源员工 */}
+        <div style={{padding:'14px 24px', borderBottom:'1px solid var(--line)', background:'var(--bg-soft)'}}>
+          <div style={{fontSize:12, fontWeight:600, color:'var(--ink-3)', marginBottom:8}}>
+            Step 1 · 选择源员工（要转出工作的人）
+          </div>
+          <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+            {candidateEmployees.map(emp => {
+              const workload = records.filter(r => r.ownerId === emp.id && !r.deleted && r.status !== 'resolved').length;
+              const isSelected = fromUserId === emp.id;
+              return (
+                <button key={emp.id}
+                  onClick={() => { setFromUserId(emp.id); setSelectedIds(new Set()); setFilterSite(''); }}
+                  style={{
+                    padding:'6px 12px', borderRadius:8,
+                    border: '1px solid ' + (isSelected ? 'var(--accent)' : 'var(--line)'),
+                    background: isSelected ? 'var(--accent-soft)' : 'white',
+                    color: isSelected ? 'var(--accent)' : 'var(--ink-2)',
+                    cursor:'pointer', fontSize:12, fontFamily:'inherit',
+                    fontWeight: isSelected ? 600 : 400,
+                  }}>
+                  {emp.name}{emp.alias ? ' ' + emp.alias : ''}
+                  <span style={{marginLeft:6, color: workload > 8 ? 'var(--bad)' : 'var(--ink-4)', fontSize:10}}>
+                    {workload}单
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        
+        {/* Step 2: 勾选工作（按网站筛选） */}
+        {fromUserId && (
+          <>
+            <div style={{padding:'14px 24px', borderBottom:'1px solid var(--line)'}}>
+              <div style={{fontSize:12, fontWeight:600, color:'var(--ink-3)', marginBottom:8}}>
+                Step 2 · 勾选要转的工作（共 {sourceRecords.length} 单）
+              </div>
+              {sites.length > 0 && (
+                <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:8}}>
+                  <span style={{fontSize:11, color:'var(--ink-3)'}}>按网站筛选：</span>
+                  <button onClick={() => setFilterSite('')}
+                    style={{padding:'3px 8px', borderRadius:6, border:'1px solid ' + (filterSite === '' ? 'var(--accent)' : 'var(--line)'), background: filterSite === '' ? 'var(--accent-soft)' : 'white', color:'var(--ink-2)', fontSize:11, cursor:'pointer'}}>
+                    全部 ({sourceRecords.length})
+                  </button>
+                  {sites.map(s => {
+                    const n = sourceRecords.filter(r => r.site === s).length;
+                    return (
+                      <button key={s} onClick={() => setFilterSite(s)}
+                        style={{padding:'3px 8px', borderRadius:6, border:'1px solid ' + (filterSite === s ? 'var(--accent)' : 'var(--line)'), background: filterSite === s ? 'var(--accent-soft)' : 'white', color:'var(--ink-2)', fontSize:11, cursor:'pointer'}}>
+                        {s} ({n})
+                        <span onClick={(e) => { e.stopPropagation(); selectBySite(s); }}
+                          style={{marginLeft:6, padding:'1px 5px', borderRadius:4, background:'var(--gold)', color:'white', fontSize:9, fontWeight:600}}
+                          title="一键选中这个网站的所有">
+                          全选
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{display:'flex', alignItems:'center', gap:8}}>
+                <button onClick={toggleAll} style={{padding:'4px 10px', borderRadius:6, border:'1px solid var(--line)', background:'white', color:'var(--ink-2)', fontSize:11, cursor:'pointer'}}>
+                  {selectedIds.size === filteredRecords.length && filteredRecords.length > 0 ? '☑ 取消全选' : '☐ 全选当前列表'}
+                </button>
+                <span style={{fontSize:12, color:'var(--accent)', fontWeight:600}}>
+                  已选 {selectedIds.size} 单
+                </span>
+              </div>
+            </div>
+            
+            {/* 工作列表 */}
+            <div style={{flex:1, overflow:'auto', maxHeight:350}}>
+              {filteredRecords.length === 0 ? (
+                <div style={{textAlign:'center', padding:'40px', color:'var(--ink-4)', fontSize:13}}>
+                  {sourceRecords.length === 0 ? '该员工没有未完成的工作' : '该网站下没有工作'}
+                </div>
+              ) : (
+                filteredRecords.map(r => {
+                  const checked = selectedIds.has(r.id);
+                  const isOverdue = r.nextFollowUp && r.nextFollowUp < today;
+                  return (
+                    <label key={r.id} onClick={() => toggleSelect(r.id)}
+                      style={{display:'flex', alignItems:'center', gap:10, padding:'10px 24px', borderBottom:'1px solid var(--line)', cursor:'pointer', background: checked ? 'var(--accent-soft)' : 'white', fontSize:13}}>
+                      <input type="checkbox" checked={checked} readOnly style={{cursor:'pointer', accentColor:'var(--accent)'}} />
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                          <span style={{fontWeight:600}}>{r.orderRef || r.customer || '(无订单号)'}</span>
+                          {r.customer && r.orderRef && <span style={{color:'var(--ink-3)', fontSize:11}}>· {r.customer}</span>}
+                          {r.site && <span className="tag" style={{fontSize:10, padding:'1px 6px'}}>{r.site}</span>}
+                          {isOverdue && <span style={{color:'var(--bad)', fontSize:11, fontWeight:600}}>逾期</span>}
+                        </div>
+                        {r.note && <div style={{color:'var(--ink-3)', fontSize:11, marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>💬 {r.note}</div>}
+                      </div>
+                      <div style={{fontSize:11, color:'var(--ink-3)', flexShrink:0}}>
+                        下次跟进：{r.nextFollowUp || '未设'}
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
+        
+        {/* Step 3: 选目标员工 + 提交 */}
+        {fromUserId && selectedIds.size > 0 && (
+          <div style={{padding:'14px 24px', borderTop:'1px solid var(--line)', background:'var(--bg-soft)'}}>
+            <div style={{fontSize:12, fontWeight:600, color:'var(--ink-3)', marginBottom:8}}>
+              Step 3 · 选目标员工
+            </div>
+            <div style={{display:'flex', flexWrap:'wrap', gap:6, marginBottom:12}}>
+              {candidateEmployees.filter(e => e.id !== fromUserId).map(emp => {
+                const workload = records.filter(r => r.ownerId === emp.id && !r.deleted && r.status !== 'resolved').length;
+                const isSelected = targetUserId === emp.id;
+                return (
+                  <button key={emp.id}
+                    onClick={() => setTargetUserId(emp.id)}
+                    style={{
+                      padding:'6px 12px', borderRadius:8,
+                      border: '1px solid ' + (isSelected ? 'var(--accent)' : 'var(--line)'),
+                      background: isSelected ? 'var(--accent-soft)' : 'white',
+                      color: isSelected ? 'var(--accent)' : 'var(--ink-2)',
+                      cursor:'pointer', fontSize:12, fontFamily:'inherit',
+                      fontWeight: isSelected ? 600 : 400,
+                    }}>
+                    {emp.name}{emp.alias ? ' ' + emp.alias : ''}
+                    <span style={{marginLeft:6, color: workload > 8 ? 'var(--bad)' : 'var(--ink-4)', fontSize:10}}>
+                      {workload}单
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button className="btn-pri" onClick={handleSubmit} disabled={!targetUserId}
+              style={{width:'100%', padding:'10px', fontSize:14, fontWeight:600, opacity: targetUserId ? 1 : 0.5}}>
+              ✓ 把 {selectedIds.size} 单从 {employees.find(e => e.id === fromUserId)?.name} 转交给 {targetUserId ? employees.find(e => e.id === targetUserId)?.name : '...'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const FollowUpModal = ({ record, onClose, onUpdate, toast, readonly = false }) => {
   const [newFollowText, setNewFollowText] = useState('');
   const [newFollowStatus, setNewFollowStatus] = useState(record.status);
