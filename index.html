@@ -2543,7 +2543,9 @@ const FinanceModule = ({ user, toast }) => {
   useEffect(() => {
     const handler = (e) => {
       if (e.data?.type === 'iframe-resize' && e.data?.source === 'finance') {
-        setIframeHeight(Math.max(600, e.data.height + 20) + 'px');
+        // 限制 iframe 高度不超过 viewport-160（避免破坏内部 modal 的 fixed 定位）
+        const maxH = window.innerHeight - 160;
+        setIframeHeight(Math.min(maxH, Math.max(600, e.data.height + 20)) + 'px');
       }
     };
     window.addEventListener('message', handler);
@@ -2567,7 +2569,7 @@ const FinanceModule = ({ user, toast }) => {
         src={sameDirUrl}
         style={{width:'100%', height:iframeHeight, border:'none', background:'#fafaf7', display:'block', transition:'height .15s'}}
         title="财务计算器"
-        scrolling="no"
+        scrolling="auto"
       />
     </div>
   );
@@ -3587,7 +3589,8 @@ const QuoteModule = ({ user, toast }) => {
   useEffect(() => {
     const handler = (e) => {
       if (e.data?.type === 'iframe-resize' && e.data?.source === 'quotation') {
-        setIframeHeight(Math.max(600, e.data.height + 20) + 'px');
+        const maxH = window.innerHeight - 160;
+        setIframeHeight(Math.min(maxH, Math.max(600, e.data.height + 20)) + 'px');
       }
     };
     window.addEventListener('message', handler);
@@ -3611,7 +3614,7 @@ const QuoteModule = ({ user, toast }) => {
         src={sameDirUrl}
         style={{width:'100%', height:iframeHeight, border:'none', background:'#fff', display:'block', transition:'height .15s'}}
         title="报价单"
-        scrolling="no"
+        scrolling="auto"
       />
     </div>
   );
@@ -4040,7 +4043,8 @@ const KbModule = ({ user, toast }) => {
   useEffect(() => {
     const handler = (e) => {
       if (e.data?.type === 'iframe-resize' && e.data?.source === 'kb') {
-        setIframeHeight(Math.max(600, e.data.height + 20) + 'px');
+        const maxH = window.innerHeight - 160;
+        setIframeHeight(Math.min(maxH, Math.max(600, e.data.height + 20)) + 'px');
       }
     };
     window.addEventListener('message', handler);
@@ -4065,7 +4069,7 @@ const KbModule = ({ user, toast }) => {
         src={sameDirUrl}
         style={{width:'100%', height:iframeHeight, border:'none', background:'#fff', display:'block', transition:'height .15s'}}
         title="知识库"
-        scrolling="no"
+        scrolling="auto"
       />
     </div>
   );
@@ -4265,6 +4269,19 @@ const App = () => {
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, [activeTab]);
+  
+  // 跟踪访问过的 iframe tab —— 让 iframe 保持挂载，避免切 tab 时丢数据
+  const [visitedTabs, setVisitedTabs] = useState(() => {
+    const s = new Set();
+    // 如果初始 tab 是 iframe 类，也算访问过
+    if (['finance','quote','kb'].includes(activeTab)) s.add(activeTab);
+    return s;
+  });
+  useEffect(() => {
+    if (['finance','quote','kb'].includes(activeTab) && !visitedTabs.has(activeTab)) {
+      setVisitedTabs(prev => new Set([...prev, activeTab]));
+    }
+  }, [activeTab]);
 
   // Toast
   const [toast, toastNode] = useToast();
@@ -4386,17 +4403,24 @@ const App = () => {
         {activeTab === 'cs' && (
           <CSModule user={user} employees={employees} records={records} setRecords={setRecords} toast={toast} />
         )}
-        {activeTab === 'finance' && (
-          <FinanceModule user={user} toast={toast} />
+        {/* iframe 类模块用 display 切换，避免切 tab 时丢失填写的数据 */}
+        {visitedTabs.has('finance') && (
+          <div style={{display: activeTab === 'finance' ? 'block' : 'none'}}>
+            <FinanceModule user={user} toast={toast} />
+          </div>
+        )}
+        {visitedTabs.has('quote') && (
+          <div style={{display: activeTab === 'quote' ? 'block' : 'none'}}>
+            <QuoteModule user={user} employees={employees} toast={toast} cloudOn={cloudOn} />
+          </div>
+        )}
+        {visitedTabs.has('kb') && (
+          <div style={{display: activeTab === 'kb' ? 'block' : 'none'}}>
+            <KbModule user={user} toast={toast} cloudOn={cloudOn} />
+          </div>
         )}
         {activeTab === 'freight' && (
           <FreightModule user={user} toast={toast} cloudOn={cloudOn} />
-        )}
-        {activeTab === 'quote' && (
-          <QuoteModule user={user} employees={employees} toast={toast} cloudOn={cloudOn} />
-        )}
-        {activeTab === 'kb' && (
-          <KbModule user={user} toast={toast} cloudOn={cloudOn} />
         )}
         {activeTab === 'report' && (
           <ReportModule user={user} employees={employees} toast={toast} cloudOn={cloudOn} />
