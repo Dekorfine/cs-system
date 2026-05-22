@@ -1179,13 +1179,37 @@ fieldset legend {
       当前查看 · Currently viewing: <strong id="preview-name">Quotation</strong>
       <span style="margin-left:8px;color:#94a3b8;">·  what you see is what gets exported</span>
     </div>
-    <div class="preview-toolbar-actions">
-      <button class="btn-export-all" onclick="exportPDF('all')" title="Print all 4 documents (one per page)">
-        📄 Export All
+    <div class="preview-toolbar-actions" style="position:relative;">
+      <button class="btn-export" id="btn-export-current" onclick="exportCurrent()" title="导出当前查看的文档 · Export currently viewing doc">
+        📥 导出当前 · Export <span id="export-current-label">Quotation</span>
       </button>
-      <button class="btn-export" id="btn-export-current" onclick="exportCurrent()">
-        📥 Export This PDF
+      <button class="btn-export-all" onclick="toggleExportMenu(event)" title="选择导出哪份文档" style="position:relative;">
+        ▼ 更多
       </button>
+      <div id="export-menu" style="display:none; position:absolute; right:0; top:100%; margin-top:4px; background:white; border:1px solid #e2e8f0; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); min-width:280px; z-index:1000; overflow:hidden;">
+        <div style="padding:8px 12px; background:#f8fafc; font-size:11px; color:#64748b; font-weight:600; border-bottom:1px solid #e2e8f0;">📥 选择要导出的文档</div>
+        <button class="export-menu-item" data-doc="quotation" onclick="exportFromMenu('quotation')" style="display:flex; align-items:center; gap:10px; width:100%; padding:10px 14px; background:transparent; border:none; cursor:pointer; text-align:left; font-size:13px; color:#1e293b; transition:background .12s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:18px;">💼</span>
+          <div style="flex:1;"><div style="font-weight:600;">报价单</div><div style="font-size:11px; color:#94a3b8;">QUOTATION · 给客户的报价</div></div>
+        </button>
+        <button class="export-menu-item" data-doc="po" onclick="exportFromMenu('po')" style="display:flex; align-items:center; gap:10px; width:100%; padding:10px 14px; background:transparent; border:none; cursor:pointer; text-align:left; font-size:13px; color:#1e293b;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:18px;">🧾</span>
+          <div style="flex:1;"><div style="font-weight:600;">采购订单</div><div style="font-size:11px; color:#94a3b8;">PURCHASE ORDER · 客户下单凭证</div></div>
+        </button>
+        <button class="export-menu-item" data-doc="pi" onclick="exportFromMenu('pi')" style="display:flex; align-items:center; gap:10px; width:100%; padding:10px 14px; background:transparent; border:none; cursor:pointer; text-align:left; font-size:13px; color:#1e293b;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:18px;">💰</span>
+          <div style="flex:1;"><div style="font-weight:600;">形式发票</div><div style="font-size:11px; color:#94a3b8;">PROFORMA INVOICE · 收款凭证（含定金/余款）</div></div>
+        </button>
+        <button class="export-menu-item" data-doc="packing" onclick="exportFromMenu('packing')" style="display:flex; align-items:center; gap:10px; width:100%; padding:10px 14px; background:transparent; border:none; cursor:pointer; text-align:left; font-size:13px; color:#1e293b;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:18px;">📦</span>
+          <div style="flex:1;"><div style="font-weight:600;">装箱单</div><div style="font-size:11px; color:#94a3b8;">PACKING LIST · 货运配套</div></div>
+        </button>
+        <div style="border-top:1px solid #e2e8f0; margin:4px 0;"></div>
+        <button class="export-menu-item" onclick="exportFromMenu('all')" style="display:flex; align-items:center; gap:10px; width:100%; padding:10px 14px; background:transparent; border:none; cursor:pointer; text-align:left; font-size:13px; color:#0071e3; font-weight:600;" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='transparent'">
+          <span style="font-size:18px;">📄</span>
+          <div style="flex:1;"><div>全部 4 份</div><div style="font-size:11px; color:#94a3b8;">All 4 Documents · 一次打印所有</div></div>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -1738,9 +1762,41 @@ function switchPreview(doc) {
     if (!el) return;
     el.classList.toggle('is-hidden-preview', k !== doc);
   });
-  const label = { quotation:'Quotation', po:'Purchase Order', pi:'Proforma Invoice', packing:'Packing List' }[doc];
-  $('preview-name').textContent = label;
-  $('btn-export-current').innerHTML = '📥 Export ' + label + ' PDF';
+  const labelMap = {
+    quotation: { en:'Quotation', cn:'报价单' },
+    po:        { en:'Purchase Order', cn:'采购订单' },
+    pi:        { en:'Proforma Invoice', cn:'形式发票' },
+    packing:   { en:'Packing List', cn:'装箱单' },
+  };
+  const label = labelMap[doc];
+  if ($('preview-name')) $('preview-name').textContent = `${label.cn} · ${label.en}`;
+  if ($('export-current-label')) $('export-current-label').textContent = `${label.cn} · ${label.en}`;
+}
+
+// 切换导出菜单显示
+function toggleExportMenu(e) {
+  e.stopPropagation();
+  const menu = $('export-menu');
+  if (!menu) return;
+  const isShown = menu.style.display === 'block';
+  menu.style.display = isShown ? 'none' : 'block';
+  // 点别的地方关菜单
+  if (!isShown) {
+    const closeOnClick = (ev) => {
+      if (!menu.contains(ev.target)) {
+        menu.style.display = 'none';
+        document.removeEventListener('click', closeOnClick);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closeOnClick), 0);
+  }
+}
+
+// 从菜单导出 + 自动关菜单
+function exportFromMenu(which) {
+  const menu = $('export-menu');
+  if (menu) menu.style.display = 'none';
+  exportPDF(which);
 }
 
 /* ============================================================
@@ -1756,10 +1812,9 @@ function exportPDF(which) {
   // 2. Apply print-only-X class (or nothing for 'all')
   document.body.className = which === 'all' ? '' : ('print-only-' + which);
 
-  // 3. Use rAF so the class actually paints before window.print is called
+  // 3. cleanup 只在 afterprint 时触发，不用 setTimeout 兜底（避免打印对话框还没关闭就清掉样式）
   const cleanup = () => {
     document.body.className = '';
-    // Restore preview state
     switchPreview(currentPreviewDoc);
     window.removeEventListener('afterprint', cleanup);
   };
@@ -1768,8 +1823,6 @@ function exportPDF(which) {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       window.print();
-      // Some browsers don't fire afterprint reliably; cleanup as fallback.
-      setTimeout(cleanup, 1500);
     });
   });
 }

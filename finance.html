@@ -902,6 +902,13 @@ const App = () => {
   const [packages, setPackages] = useState([
     { id: 1, l: '', w: '', h: '', weight: '', qty: 1, isCrate: false, mode: 'single', boxesPerItem: 1, itemsPerBox: 1, label: '' }
   ]);
+  
+  // 产品评估 - 用于打木箱建议
+  const [productAssessment, setProductAssessment] = useState({
+    structure: { integrated: false, oversize: false, irregular: false, unstable: false },
+    material:  { marble: false, glass: false, crystal: false, fragile: false },
+    property:  { custom: false, highValue: false, hardToRestock: false },
+  });
 
   // 财务参数 (与原版 V1 公式对齐: × 防损倍数 × 折扣倍数 ÷ 推演汇率)
   const [purchaseCost, setPurchaseCost] = useState('');
@@ -1109,6 +1116,7 @@ const App = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-6 space-y-5">
         <NotesCard kind="finance" />
         <OrderCard {...{orderNumber, setOrderNumber, sku, setSku, targetCN, setTargetCN, country, usZip, setUsZip, regionMode, setRegionMode, auZip, setAuZip, isRemoteCA, setIsRemoteCA, region}} />
+        <CrateAdvisorCard {...{productAssessment, setProductAssessment, packages, setPackages, validPackages}} />
         <PackagesCard {...{packages, validPackages, totalQty, totalBoxes, totalItems, updatePkg, addPkg, delPkg}} />
         <FinanceCard {...{purchaseCost, setPurchaseCost, damageMultiplier, setDamageMultiplier, discountMultiplier, setDiscountMultiplier, exchangeRate, setExchangeRate, currentPriceUSD, setCurrentPriceUSD, totalProductCost: finance.totalProductCost, totalCrateCost: finance.totalCrateCost}} />
 
@@ -1411,6 +1419,199 @@ const OrderCard = ({ orderNumber, setOrderNumber, sku, setSku, targetCN, setTarg
 };
 
 // 包装信息卡
+// ============================================================
+// 打木箱智能建议卡 - 基于产品结构/材质/属性给出建议
+// ============================================================
+const CrateAdvisorCard = ({ productAssessment, setProductAssessment, packages, setPackages, validPackages }) => {
+  const STRUCTURE_ITEMS = [
+    { k:'integrated',  label:'整体结构 / 不可拆卸包装',   risk:'high', tip:'无法拆解保护' },
+    { k:'oversize',    label:'直径 > 80cm 或体积巨大',    risk:'high', tip:'大件易磕碰' },
+    { k:'irregular',   label:'树杈造型 / 异形 / 不规则',  risk:'high', tip:'凸起部分易折断变形' },
+    { k:'unstable',    label:'重心不稳 / 结构复杂',       risk:'mid',  tip:'运输颠簸易倾倒受力' },
+  ];
+  const MATERIAL_ITEMS = [
+    { k:'marble',      label:'云石材质（含大理石）',       risk:'high', tip:'重且脆' },
+    { k:'glass',       label:'玻璃材质(大尺寸)',          risk:'high', tip:'极易破碎' },
+    { k:'crystal',     label:'水晶材质',                  risk:'high', tip:'极易破碎且高价' },
+    { k:'fragile',     label:'表面易刮花 / 易变形',        risk:'mid',  tip:'纸箱挤压会留印' },
+  ];
+  const PROPERTY_ITEMS = [
+    { k:'custom',       label:'非标定制 / 不可二次销售',   risk:'high', tip:'损坏即全损' },
+    { k:'highValue',    label:'高货值产品(采购成本高)',    risk:'high', tip:'赔付成本高' },
+    { k:'hardToRestock',label:'补货周期长 / 维修成本高',   risk:'mid',  tip:'断货影响销售' },
+  ];
+
+  const toggle = (cat, k) => setProductAssessment(prev => ({
+    ...prev,
+    [cat]: { ...prev[cat], [k]: !prev[cat][k] }
+  }));
+
+  const { level, reasons, color, bgColor, icon, advice } = useMemo(() => {
+    const reasons = [];
+    let highCount = 0, midCount = 0;
+    [
+      { items: STRUCTURE_ITEMS, cat: 'structure', label: '结构' },
+      { items: MATERIAL_ITEMS,  cat: 'material',  label: '材质' },
+      { items: PROPERTY_ITEMS,  cat: 'property',  label: '属性' },
+    ].forEach(({ items, cat, label }) => {
+      items.forEach(it => {
+        if (productAssessment[cat]?.[it.k]) {
+          reasons.push(`${label}：${it.label}（${it.tip}）`);
+          if (it.risk === 'high') highCount++;
+          else midCount++;
+        }
+      });
+    });
+    const hasLargePkg = validPackages.some(p => 
+      Math.max(p.l, p.w, p.h) > 80 || (p.l * p.w * p.h) > 500000
+    );
+    if (hasLargePkg && !productAssessment.structure?.oversize) {
+      reasons.push('尺寸：检测到包装边长 > 80cm（自动提示）');
+      midCount++;
+    }
+    
+    if (highCount >= 2 || (highCount >= 1 && midCount >= 2)) {
+      return { level:'strong', reasons, color:'#b91c1c', bgColor:'#fef2f2', icon:'🔴',
+        advice:'强烈建议打木箱 · 多项高风险因素，避免高昂赔付' };
+    }
+    if (highCount >= 1 || midCount >= 2) {
+      return { level:'suggest', reasons, color:'#c2410c', bgColor:'#fff7ed', icon:'🟠',
+        advice:'建议打木箱 · 风险较高，建议升级木箱保护' };
+    }
+    if (midCount >= 1) {
+      return { level:'optional', reasons, color:'#a16207', bgColor:'#fefce8', icon:'🟡',
+        advice:'可选打木箱 · 轻度风险，可根据预算决定' };
+    }
+    return { level:'none', reasons:[], color:'#15803d', bgColor:'#f0fdf4', icon:'🟢',
+      advice:'纸箱即可 · 产品风险较低' };
+  }, [productAssessment, validPackages]);
+
+  const markAllAsCrate  = () => setPackages(prev => prev.map(p => ({ ...p, isCrate: true })));
+  const markAllAsCarton = () => setPackages(prev => prev.map(p => ({ ...p, isCrate: false })));
+
+  const renderGroup = (title, items, cat, emoji, color) => (
+    <div className="rounded-xl p-3" style={{background:'var(--bg)', border:'1px solid var(--line)'}}>
+      <div className="font-bold mb-2.5 flex items-center gap-2" style={{fontSize:13, color: color}}>
+        <span style={{fontSize:14}}>{emoji}</span>
+        <span>{title}</span>
+      </div>
+      <div style={{display:'flex', flexDirection:'column', gap:6}}>
+        {items.map(it => {
+          const checked = !!productAssessment[cat]?.[it.k];
+          return (
+            <label key={it.k}
+              onClick={() => toggle(cat, it.k)}
+              style={{
+                display:'flex',
+                alignItems:'center',
+                gap:10,
+                cursor:'pointer',
+                padding:'8px 10px',
+                borderRadius:8,
+                background: checked ? (it.risk === 'high' ? '#fef2f2' : '#fff7ed') : '#fff',
+                border: '1px solid ' + (checked ? (it.risk === 'high' ? '#fca5a5' : '#fdba74') : 'var(--line)'),
+                transition: 'all .15s',
+                fontSize:12,
+                minWidth: 0,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                readOnly
+                style={{flexShrink:0, cursor:'pointer', accentColor:'var(--accent)', width:14, height:14, margin:0}}
+              />
+              <div style={{flex:1, minWidth:0, lineHeight:1.4}}>
+                <div style={{color:'var(--ink)', whiteSpace:'normal', wordBreak:'break-word', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap'}}>
+                  <span>{it.label}</span>
+                  {it.risk === 'high' && (
+                    <span style={{
+                      color:'#dc2626', fontSize:9, fontWeight:600,
+                      padding:'1px 5px', background:'#fef2f2', border:'1px solid #fca5a5',
+                      borderRadius:4, whiteSpace:'nowrap'
+                    }}>高风险</span>
+                  )}
+                  {it.risk === 'mid' && (
+                    <span style={{
+                      color:'#ea580c', fontSize:9, fontWeight:500,
+                      padding:'1px 5px', background:'#fff7ed', border:'1px solid #fdba74',
+                      borderRadius:4, whiteSpace:'nowrap'
+                    }}>中风险</span>
+                  )}
+                </div>
+                <div style={{fontSize:10, color:'var(--ink-3)', marginTop:2, lineHeight:1.3}}>{it.tip}</div>
+              </div>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="paper rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="label-num" style={{background:'#a16207'}}>!</span>
+          <h2 className="font-display text-base font-bold">产品评估 · 打木箱建议</h2>
+        </div>
+        <span className="text-[10px] font-mono" style={{color:'var(--ink-3)'}}>
+          勾选产品特征 · 系统给出建议
+        </span>
+      </div>
+      <div style={{
+        display:'grid',
+        gridTemplateColumns:'repeat(auto-fit, minmax(280px, 1fr))',
+        gap:12,
+        marginBottom:14,
+      }}>
+        {renderGroup('看产品结构', STRUCTURE_ITEMS, 'structure', '🔧', '#0369a1')}
+        {renderGroup('看产品材质', MATERIAL_ITEMS, 'material', '🧱', '#7c2d12')}
+        {renderGroup('看产品属性', PROPERTY_ITEMS, 'property', '💎', '#6d28d9')}
+      </div>
+      <div className="rounded-xl p-4" style={{background: bgColor, border: '1.5px solid ' + color}}>
+        <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+          <div className="font-bold text-sm" style={{color: color}}>
+            {icon} {advice}
+          </div>
+          {(level === 'strong' || level === 'suggest') && (
+            <div style={{display:'flex', gap:6}}>
+              <button onClick={markAllAsCrate}
+                style={{padding:'5px 12px', borderRadius:8, fontSize:11, fontWeight:600, background:color, color:'white', border:'none', cursor:'pointer', fontFamily:'inherit'}}>
+                🪵 全部改木箱
+              </button>
+              <button onClick={markAllAsCarton}
+                style={{padding:'5px 12px', borderRadius:8, fontSize:11, fontWeight:500, background:'white', color:'var(--ink-3)', border:'1px solid var(--line)', cursor:'pointer', fontFamily:'inherit'}}>
+                📦 全部改纸箱
+              </button>
+            </div>
+          )}
+        </div>
+        {reasons.length > 0 && (
+          <div className="mt-2 pl-1 space-y-1" style={{borderTop:'1px dashed ' + color, paddingTop:8}}>
+            <div className="text-[11px] font-bold" style={{color:color}}>判定依据 ({reasons.length} 项)：</div>
+            {reasons.map((r, i) => (
+              <div key={i} className="text-[11px]" style={{color: 'var(--ink-2)', lineHeight:1.5}}>
+                • {r}
+              </div>
+            ))}
+          </div>
+        )}
+        {level === 'none' && (
+          <div className="text-[11px]" style={{color:'var(--ink-3)', marginTop:6}}>
+            尚未勾选任何风险项 · 也可手动在下方包装信息中勾选木箱
+          </div>
+        )}
+      </div>
+      <div className="mt-3 text-[10px]" style={{color:'var(--ink-4)', lineHeight:1.5}}>
+        💡 此建议供参考。最终是否打木箱由美工/采购根据产品实际情况决定，并在下方包装信息中勾选「🪵 木箱+5」即可。
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 包装信息卡（原来的）
 const PackagesCard = ({ packages, validPackages, totalQty, totalBoxes, totalItems, updatePkg, addPkg, delPkg }) => (
   <div className="paper rounded-2xl p-5">
     <div className="flex items-center justify-between mb-4">
