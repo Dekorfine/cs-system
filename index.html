@@ -1188,16 +1188,45 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
 
   // 跟进窗口 modal state
   const [followUpModal, setFollowUpModal] = useState(null); // record id or null
+  // 跟进提醒展开/折叠
+  const [remindersExpanded, setRemindersExpanded] = useState(false);
+  // 转交 modal
+  const [transferModal, setTransferModal] = useState(null);  // record id
+
+  // 排序 reminders: 逾期 → 今日 → 未来
+  const sortedReminders = useMemo(() => {
+    return [...reminders].sort((a, b) => {
+      const aDate = a.nextFollowUp || '9999-99-99';
+      const bDate = b.nextFollowUp || '9999-99-99';
+      return aDate.localeCompare(bDate);
+    });
+  }, [reminders]);
+
+  // 转交工作 - 改 ownerId
+  const transferRecord = (recordId, newOwnerId) => {
+    const oldOwner = employees.find(e => e.id === records.find(r => r.id === recordId)?.ownerId);
+    const newOwner = employees.find(e => e.id === newOwnerId);
+    if (!newOwner) return;
+    updateRow(recordId, { ownerId: newOwnerId });
+    toast(`✓ 已将工作从 ${oldOwner?.name || '?'} 转交给 ${newOwner.name}${newOwner.alias ? ' ' + newOwner.alias : ''}`);
+    setTransferModal(null);
+  };
 
   return (
     <div className="space-y-5">
-      {/* 跟进提醒卡 */}
-      <div className="paper rounded-2xl p-4 fade-in">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+      {/* 跟进提醒卡（可展开） */}
+      <div className="paper rounded-2xl fade-in" style={{overflow:'hidden'}}>
+        <div className="p-4 flex items-center justify-between gap-3 flex-wrap" style={{cursor:'pointer'}}
+             onClick={() => setRemindersExpanded(v => !v)}>
           <div className="flex items-center gap-2">
             <Icon name="pin" className="w-5 h-5" style={{color:'var(--accent)'}} />
             <span className="font-display text-base font-bold">跟进提醒</span>
             <span className="tag tag-neutral">共 {reminders.length}</span>
+            {(user.role === 'admin' || user.role === 'super_admin') && (
+              <span className="tag" style={{background:'rgba(202,138,4,.08)', color:'var(--gold)', borderColor:'var(--gold)', borderWidth:1, borderStyle:'solid'}}>
+                👑 主管视角：所有员工
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-xs flex items-center gap-1.5" style={{color:'var(--ink-2)'}}>
@@ -1215,8 +1244,73 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
             <span className="text-xs flex items-center gap-1.5" style={{color:'var(--ink-2)'}}>
               ⌛ 等客户 <span className="font-mono font-bold">{waitingCount}</span>
             </span>
+            <button className="btn-ghost" style={{padding:'4px 10px', fontSize:11}} onClick={(e) => { e.stopPropagation(); setRemindersExpanded(v => !v); }}>
+              {remindersExpanded ? '▲ 收起' : '▼ 展开详情'}
+            </button>
           </div>
         </div>
+        
+        {/* 展开后的详情列表 */}
+        {remindersExpanded && sortedReminders.length > 0 && (
+          <div style={{borderTop:'1px solid var(--line)', maxHeight:480, overflow:'auto'}}>
+            {sortedReminders.map(r => {
+              const owner = employees.find(e => e.id === r.ownerId);
+              const daysLate = r.nextFollowUp ? Math.floor((new Date(today) - new Date(r.nextFollowUp)) / (1000*60*60*24)) : 0;
+              const isOverdue = daysLate > 0;
+              const isToday = r.nextFollowUp === today;
+              const dot = isOverdue ? 'var(--bad)' : (isToday ? 'var(--gold)' : 'var(--info)');
+              const customer = (r.customer || '').trim();
+              const orderRef = (r.orderRef || '').trim();
+              const note = (r.note || '').trim();
+              const title = orderRef || customer || '(无订单号/客户)';
+              const subtitle = customer && orderRef ? customer : '';
+              const statusLabel = r.status === 'waiting' ? '⌛ 等客户' : (r.status === 'in_progress' ? '🔄 跟进中' : (r.status === 'pending' ? '⏸ 待处理' : r.status));
+              return (
+                <div key={r.id} className="row-hover" style={{display:'flex', alignItems:'center', gap:12, padding:'10px 16px', borderBottom:'1px solid var(--line)', fontSize:13}}>
+                  <span className="inline-block rounded-full" style={{width:9, height:9, background: dot, flexShrink:0}}></span>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                      <span style={{fontWeight:600, color:'var(--ink)'}}>{title}</span>
+                      {subtitle && <span style={{color:'var(--ink-3)', fontSize:12}}>· {subtitle}</span>}
+                      {r.site && <span className="tag" style={{fontSize:10, padding:'1px 6px'}}>{r.site}</span>}
+                      <span style={{color:'var(--ink-3)', fontSize:11}}>👤 {owner?.name || '?'}{owner?.alias ? ' ' + owner.alias : ''}</span>
+                      <span style={{color:'var(--ink-3)', fontSize:11}}>{statusLabel}</span>
+                    </div>
+                    {note && (
+                      <div style={{color:'var(--ink-2)', fontSize:12, marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:'100%'}}>
+                        💬 {note}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{textAlign:'right', flexShrink:0}}>
+                    {isOverdue ? (
+                      <span style={{color:'var(--bad)', fontSize:12, fontWeight:600}}>逾期 {daysLate} 天</span>
+                    ) : isToday ? (
+                      <span style={{color:'var(--gold)', fontSize:12, fontWeight:600}}>今日待跟</span>
+                    ) : (
+                      <span style={{color:'var(--info)', fontSize:12}}>{r.nextFollowUp}</span>
+                    )}
+                  </div>
+                  <div style={{display:'flex', gap:6, flexShrink:0}}>
+                    <button className="btn-pri" style={{padding:'4px 10px', fontSize:11}} onClick={() => setFollowUpModal(r.id)}>
+                      处理
+                    </button>
+                    {(user.role === 'admin' || user.role === 'super_admin') && (
+                      <button className="btn-sec" style={{padding:'4px 10px', fontSize:11}} onClick={() => setTransferModal(r.id)} title="转交给其他员工">
+                        🔄 转交
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {remindersExpanded && sortedReminders.length === 0 && (
+          <div style={{borderTop:'1px solid var(--line)', padding:'30px', textAlign:'center', color:'var(--ink-3)', fontSize:13}}>
+            🎉 暂无待跟进的工作
+          </div>
+        )}
       </div>
 
       {/* 日期 / 视图切换 */}
@@ -1563,6 +1657,83 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
             onUpdate={(patch) => updateRow(followUpModal, patch)}
             toast={toast}
           />
+        );
+      })()}
+      
+      {/* 转交工作 modal */}
+      {transferModal && (() => {
+        const r = records.find(rec => rec.id === transferModal);
+        if (!r) return null;
+        const currentOwner = employees.find(e => e.id === r.ownerId);
+        return (
+          <div onClick={() => setTransferModal(null)}
+            style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+            <div onClick={e => e.stopPropagation()}
+              style={{background:'white', borderRadius:'var(--radius-lg)', maxWidth:560, width:'100%', maxHeight:'85vh', overflow:'auto', padding:24}}>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="font-display" style={{fontSize:18, fontWeight:600, letterSpacing:'-.022em'}}>🔄 转交工作</div>
+                  <div style={{fontSize:12, color:'var(--ink-3)', marginTop:4}}>
+                    把这条跟进记录转给其他员工（不影响历史记录归属）
+                  </div>
+                </div>
+                <button className="btn-sec" onClick={() => setTransferModal(null)} style={{padding:'4px 12px'}}>×</button>
+              </div>
+              
+              {/* 记录信息 */}
+              <div style={{padding:12, background:'var(--bg-soft)', borderRadius:'var(--radius)', marginBottom:14, fontSize:13}}>
+                <div style={{fontWeight:600, marginBottom:4}}>
+                  {r.orderRef || r.customer || '(无订单号)'}
+                </div>
+                {r.customer && r.orderRef && <div style={{color:'var(--ink-3)', fontSize:12}}>{r.customer}</div>}
+                {r.note && <div style={{color:'var(--ink-2)', fontSize:12, marginTop:4}}>💬 {r.note}</div>}
+                <div style={{color:'var(--ink-3)', fontSize:11, marginTop:6}}>
+                  当前归属：<strong>{currentOwner?.name || '?'}{currentOwner?.alias ? ' ' + currentOwner.alias : ''}</strong>
+                  {r.nextFollowUp && <span style={{marginLeft:8}}>· 下次跟进：{r.nextFollowUp}</span>}
+                </div>
+              </div>
+              
+              <div style={{fontSize:12, color:'var(--ink-3)', marginBottom:8, fontWeight:600}}>选择新的负责人：</div>
+              
+              {/* 员工选择网格 */}
+              <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:8}}>
+                {employees.filter(e => e.role !== 'finance' && e.id !== r.ownerId).map(emp => {
+                  // 统计该员工当前未完成工作数
+                  const workload = records.filter(rec => rec.ownerId === emp.id && !rec.deleted && rec.status !== 'resolved').length;
+                  return (
+                    <button key={emp.id}
+                      onClick={() => transferRecord(r.id, emp.id)}
+                      style={{
+                        padding:'10px 12px', borderRadius:'var(--radius)',
+                        border:'1px solid var(--line)', background:'white',
+                        cursor:'pointer', textAlign:'left',
+                        transition:'all .15s', display:'flex', flexDirection:'column', gap:2,
+                        fontFamily:'inherit',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-soft)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.background = 'white'; }}
+                    >
+                      <div style={{fontWeight:600, fontSize:13, color:'var(--ink)'}}>
+                        {emp.name}{emp.alias ? ' ' + emp.alias : ''}
+                        {emp.role === 'super_admin' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>👑</span>}
+                        {emp.role === 'admin' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>⭐</span>}
+                      </div>
+                      <div style={{fontSize:11, color:'var(--ink-3)'}}>
+                        {emp.sites || emp.title || '-'}
+                      </div>
+                      <div style={{fontSize:10, color: workload > 8 ? 'var(--bad)' : (workload > 4 ? 'var(--gold)' : 'var(--ink-4)'), marginTop:2}}>
+                        当前 {workload} 单未完成
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <div style={{fontSize:11, color:'var(--ink-4)', marginTop:12, lineHeight:1.5, padding:'8px 10px', background:'#fef7ec', borderRadius:6}}>
+                💡 转交后：新负责人会在自己的列表里看到这条跟进，原负责人不再看到。但历史记录（之前的跟进信息）保留完整。
+              </div>
+            </div>
+          </div>
         );
       })()}
     </div>
