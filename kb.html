@@ -13417,6 +13417,10 @@ function openModal(id) {
   // Reset scroll
   $('#modal').scrollTop = 0;
   document.body.style.overflow = 'hidden';
+  // 🆕 通知父窗口滚到 iframe 顶部，避免 modal fixed 定位时跑到视口外
+  if (window.parent && window.parent !== window) {
+    try { window.parent.postMessage({ type: 'iframe-modal-open', source: 'kb' }, '*'); } catch(e){}
+  }
 }
 
 function closeModal() {

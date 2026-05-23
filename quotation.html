@@ -2666,9 +2666,17 @@ function openSettings() {
     warning.style.display = (hasExistingName && hasMyRecords) ? '' : 'none';
   }
   $('settings-overlay').classList.remove('hidden');
+  if (window.parent && window.parent !== window) {
+    try { window.parent.postMessage({ type: 'iframe-modal-open', source: 'quotation' }, '*'); } catch(e){}
+  }
 }
 function closeSettings() { $('settings-overlay').classList.add('hidden'); }
-function openHelp() { document.getElementById('help-overlay').classList.remove('hidden'); }
+function openHelp() {
+  document.getElementById('help-overlay').classList.remove('hidden');
+  if (window.parent && window.parent !== window) {
+    try { window.parent.postMessage({ type: 'iframe-modal-open', source: 'quotation' }, '*'); } catch(e){}
+  }
+}
 function closeHelp() { document.getElementById('help-overlay').classList.add('hidden'); }
 function renderUserBar() {
   const name = getUsername();
