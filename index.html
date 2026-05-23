@@ -3137,13 +3137,22 @@ const FreightModule = ({ user, toast, cloudOn }) => {
     if (!CLOUD.client) { toast('⚠ 云同步未启用'); return; }
     setLoading(true);
     try {
-      const [{ data: c }, { data: p }] = await Promise.all([
+      const [r1, r2] = await Promise.all([
         CLOUD.client.from('freight_carriers').select('*').order('name'),
         CLOUD.client.from('freight_payments').select('*').eq('trashed', false).order('payment_date', { ascending: false }).limit(2000),
       ]);
-      setCarriers(c || []);
-      setPayments(p || []);
-    } catch(e) { toast('❌ 加载失败: ' + e.message); }
+      if (r1.error) throw r1.error;
+      if (r2.error) throw r2.error;
+      setCarriers(r1.data || []);
+      setPayments(r2.data || []);
+    } catch(e) {
+      const msg = e.message || '';
+      if (msg.includes('schema cache') || msg.includes('does not exist') || msg.includes('PGRST')) {
+        toast('⚠ 运费表还没建好，请联系管理员跑 SQL', 'error');
+      } else {
+        toast('❌ 加载失败: ' + msg);
+      }
+    }
     setLoading(false);
   };
 
@@ -3263,7 +3272,15 @@ const FreightModule = ({ user, toast, cloudOn }) => {
       setPendingAttachments([]);
       setEditingPaymentId(null);
       loadAll();
-    } catch(e) { toast('❌ 保存失败: ' + e.message); }
+    } catch(e) {
+      const msg = e.message || '';
+      if (msg.includes('schema cache') || msg.includes('does not exist') || msg.includes('PGRST')) {
+        toast('⚠ 运费表还没建好', 'error');
+        alert('❌ 保存失败：运费表还没在 Supabase 建好。\n\n请联系管理员（Nicole）：\n1. 打开 Supabase → SQL Editor\n2. 粘贴 freight_all_in_one.sql\n3. 点 ▶ Run\n4. 跑完后刷新此页面再试\n\n详细错误：' + msg);
+      } else {
+        toast('❌ 保存失败: ' + msg);
+      }
+    }
   };
 
   const editPayment = (p) => {
@@ -3314,7 +3331,15 @@ const FreightModule = ({ user, toast, cloudOn }) => {
         contact_person:'', contact_phone:'', notes:'' });
       setEditingCarrierId(null);
       loadAll();
-    } catch(e) { toast('❌ 保存失败: ' + e.message); }
+    } catch(e) {
+      const msg = e.message || '';
+      if (msg.includes('schema cache') || msg.includes('does not exist') || msg.includes('PGRST')) {
+        toast('⚠ 运费表还没建好，请先在 Supabase 跑 freight_all_in_one.sql', 'error');
+        alert('❌ 保存失败：运费表还没在 Supabase 建好。\n\n请联系管理员（Nicole）：\n1. 打开 Supabase → SQL Editor\n2. 粘贴 freight_all_in_one.sql 内容\n3. 点 ▶ Run\n4. 跑完后刷新此页面再试\n\n详细错误：' + msg);
+      } else {
+        toast('❌ 保存失败: ' + msg);
+      }
+    }
   };
 
   const editCarrier = (c) => {
