@@ -562,13 +562,18 @@ const INITIAL_EMPLOYEES = [
   { id:'u_jiang', name:'江春芸', alias:'', sites:'财务·运费对账', role:'finance', password:'finance123', title:'财务·运费对账' },
 ];
 
-const CATEGORIES = ['咨询','物流','查单','核实','安装说明','改地址','退货','报价','售后','补发','取消订单','定制咨询','实拍','拒付','加急'];
+const CATEGORIES = [
+  '咨询','物流','查单','核实','安装说明','改地址','退货','报价','售后','补发',
+  '取消订单','定制咨询','实拍','拒付','加急','邮件查询','价格','运费','定金',
+  '库存','工厂进度','质量问题','图片提供','样品','促销活动'
+];
 const SITES = ['MJ','DC','VK','DF','LS','RS','J','PL','MO','RD','海服'];
 const STATUSES = [
-  { key:'pending', label:'待处理', cls:'status-pending' },
-  { key:'following', label:'跟进中', cls:'status-following' },
-  { key:'waiting', label:'等客户', cls:'status-waiting' },
-  { key:'resolved', label:'已解决', cls:'status-resolved' },
+  { key:'pending',     label:'待处理', cls:'status-pending' },
+  { key:'following',   label:'跟进中', cls:'status-following' },
+  { key:'waiting',     label:'等客户', cls:'status-waiting' },
+  { key:'resolved',    label:'已解决', cls:'status-resolved' },
+  { key:'transferred', label:'已转交', cls:'status-resolved' },
 ];
 
 // ============================================================
@@ -835,7 +840,8 @@ const LoginScreen = ({ employees, onLogin }) => {
 // ============================================================
 // 顶部导航
 // ============================================================
-const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn }) => {
+const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn, employees, switchAccount }) => {
+  const [switchModalOpen, setSwitchModalOpen] = useState(false);
   const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
   const isFinanceVisible = (user.role === 'finance' || user.role === 'admin' || user.role === 'super_admin');
   const tabs = [
@@ -907,21 +913,62 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
             )}
           </button>
 
-          <div style={{display:'flex', alignItems:'center', gap:8, padding:'4px 12px 4px 4px', borderRadius:'var(--radius-pill)', background:'var(--bg-elevated)'}}>
+          <button onClick={() => setSwitchModalOpen(true)}
+            style={{display:'flex', alignItems:'center', gap:8, padding:'4px 12px 4px 4px', borderRadius:'var(--radius-pill)', background:'var(--bg-elevated)', border:'none', cursor:'pointer', fontFamily:'inherit'}}
+            title="点击切换账号">
             <div style={{
               width:28, height:28, borderRadius:'50%', background:avatarColor,
               color:'white', fontWeight:600, fontSize:13,
               display:'flex', alignItems:'center', justifyContent:'center'
             }}>{initials}</div>
-            <div style={{fontSize:13, fontWeight:500, color:'var(--ink)', lineHeight:1.1}}>
+            <div style={{fontSize:13, fontWeight:500, color:'var(--ink)', lineHeight:1.1, textAlign:'left'}}>
               {user.name}{user.alias && <span style={{color:'var(--ink-3)', fontWeight:400, marginLeft:3}}>{user.alias}</span>}
               <div style={{fontSize:10, color:'var(--ink-4)', fontWeight:400, marginTop:1}}>{
-                user.role === 'super_admin' ? '总管' :
-                user.role === 'admin' ? '主管' :
-                user.role === 'finance' ? '财务' : '员工'
+                user.role === 'super_admin' ? '总管 · 点击切换' :
+                user.role === 'admin' ? '主管 · 点击切换' :
+                user.role === 'finance' ? '财务 · 点击切换' : '员工 · 点击切换'
               }</div>
             </div>
-          </div>
+          </button>
+
+          {switchModalOpen && employees && (
+            <div onClick={() => setSwitchModalOpen(false)}
+              style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+              <div onClick={e => e.stopPropagation()}
+                style={{background:'white', borderRadius:'var(--radius-lg)', maxWidth:500, width:'100%', padding:20}}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="font-display" style={{fontSize:16, fontWeight:600}}>🔄 切换账号</div>
+                  <button className="btn-sec" onClick={() => setSwitchModalOpen(false)} style={{padding:'4px 12px'}}>×</button>
+                </div>
+                <div style={{fontSize:11, color:'var(--ink-3)', marginBottom:10}}>当前：<strong>{user.name}{user.alias && ' ' + user.alias}</strong> · 选择要切换到的账号：</div>
+                <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:8, maxHeight:380, overflow:'auto'}}>
+                  {employees.filter(e => e.id !== user.id).map(emp => (
+                    <button key={emp.id}
+                      onClick={() => { switchAccount && switchAccount(emp); setSwitchModalOpen(false); }}
+                      style={{
+                        padding:'10px 12px', borderRadius:'var(--radius)',
+                        border:'1px solid var(--line)', background:'white', cursor:'pointer',
+                        textAlign:'left', fontFamily:'inherit', display:'flex', flexDirection:'column', gap:2,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = 'var(--line)'; }}
+                    >
+                      <div style={{fontWeight:600, fontSize:13}}>
+                        {emp.name}{emp.alias ? ' ' + emp.alias : ''}
+                        {emp.role === 'super_admin' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>👑</span>}
+                        {emp.role === 'admin' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>⭐</span>}
+                        {emp.role === 'finance' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>💰</span>}
+                      </div>
+                      <div style={{fontSize:10, color:'var(--ink-3)'}}>{emp.sites || emp.title || '—'}</div>
+                    </button>
+                  ))}
+                </div>
+                <div style={{fontSize:10, color:'var(--ink-4)', marginTop:10, lineHeight:1.5}}>
+                  💡 切换账号后会要求重新输入密码确认
+                </div>
+              </div>
+            </div>
+          )}
 
           <button
             onClick={onLogout}
@@ -967,7 +1014,10 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
 const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
   const [viewDate, setViewDate] = useState(todayISO());
   const [filterStatus, setFilterStatus] = useState('all');
-  const [showAll, setShowAll] = useState(false); // 主管查看所有人
+  const [showAll, setShowAll] = useState(() => {
+    // 主管/总管默认开启"查看所有员工"
+    return user.role === 'admin' || user.role === 'super_admin';
+  });
 
   // 搜索 + 筛选
   const [search, setSearch] = useState('');
@@ -1619,7 +1669,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
             <thead>
               <tr>
                 <th style={{width:'36px'}}>#</th>
-                <th style={{width:'90px'}}>状态</th>
+                <th style={{width:'115px'}}>状态</th>
                 <th style={{minWidth:'220px'}}>客户邮箱/联系方式</th>
                 {isAdmin && showAll && <th style={{width:'90px'}}>员工</th>}
                 <th style={{width:'80px'}}>网站</th>
@@ -1648,6 +1698,12 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
                 const statusCls = `status-${dispStatus}`;
                 const ownerName = employees.find(e => e.id === r.ownerId)?.name || '—';
                 const editable = canEditRecord(r, user, adminUnlock);
+                // 🆕 重复邮箱检测：在所有 visibleRecords 里找同样邮箱的其他记录
+                const emailNorm = (r.customer || '').trim().toLowerCase();
+                const dupRecords = emailNorm 
+                  ? visibleRecords.filter(rr => rr.id !== r.id && (rr.customer || '').trim().toLowerCase() === emailNorm)
+                  : [];
+                const isDup = dupRecords.length > 0;
                 return (
                   <tr key={r.id}>
                     <td>
@@ -1657,12 +1713,32 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
                       </div>
                     </td>
                     <td>
-                      <select disabled={!editable} value={r.status} onChange={e => updateRow(r.id, {status:e.target.value})} style={{padding:'4px 8px', fontSize:'11px'}}>
+                      <select disabled={!editable} value={r.status} onChange={e => updateRow(r.id, {status:e.target.value})} style={{padding:'4px 8px', fontSize:'11px', width:'100%'}}>
                         {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                       </select>
                     </td>
                     <td>
-                      <input disabled={!editable} value={r.customer} onChange={e => updateRow(r.id, {customer:e.target.value})} placeholder="客户邮箱（点这里输入）" style={{padding:'5px 8px', fontSize:'12px'}} />
+                      <div style={{position:'relative'}}>
+                        <input disabled={!editable} value={r.customer} onChange={e => updateRow(r.id, {customer:e.target.value})} 
+                          placeholder="客户邮箱（点这里输入）" 
+                          style={{
+                            padding:'5px 8px', fontSize:'12px',
+                            paddingRight: isDup ? '52px' : '8px',
+                            background: isDup ? '#fef3c7' : undefined,
+                            border: isDup ? '1px solid #f59e0b' : undefined,
+                          }}
+                          title={isDup ? `⚠ 重复邮箱：另有 ${dupRecords.length} 条同邮箱记录\n${dupRecords.slice(0,3).map(d => `· ${d.date} ${d.orderRef || ''}`).join('\n')}` : ''}
+                        />
+                        {isDup && (
+                          <span style={{
+                            position:'absolute', right:6, top:'50%', transform:'translateY(-50%)',
+                            background:'#f59e0b', color:'white', fontSize:9, fontWeight:700,
+                            padding:'2px 6px', borderRadius:10, pointerEvents:'none',
+                          }} title={`重复 ${dupRecords.length} 次`}>
+                            ⚠ {dupRecords.length}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     {isAdmin && showAll && <td><span className="text-[11px]" style={{color:'var(--ink-3)'}}>{ownerName}</span></td>}
                     <td>
@@ -4733,11 +4809,25 @@ const App = () => {
   });
   useEffect(() => { STORE.set('employees', employees); }, [employees]);
 
-  // 云同步配置（默认启用，嵌入了团队共享的 publishable key）
+  // 云同步配置（默认启用 + 版本号机制：URL 变化时强制更新）
+  const CLOUD_CFG_VERSION = 3;  // 客服项目正确配置后的版本
   const [cloudCfg, setCloudCfg] = useState(() => {
     const saved = STORE.get('cloud_config', null);
-    if (saved && saved.url && saved.key) return saved;
-    return { url: DEFAULT_SB_URL, key: DEFAULT_SB_KEY, enabled: true };
+    const savedVer = STORE.get('cloud_config_version', 0);
+    // 版本号过期 / URL 不匹配 → 强制用默认（避免 PO 项目旧配置残留）
+    if (!saved || savedVer < CLOUD_CFG_VERSION || saved.url !== DEFAULT_SB_URL) {
+      const fresh = { url: DEFAULT_SB_URL, key: DEFAULT_SB_KEY, enabled: true };
+      STORE.set('cloud_config', fresh);
+      STORE.set('cloud_config_version', CLOUD_CFG_VERSION);
+      return fresh;
+    }
+    // 即使保留旧 cfg，也强制 enabled = true（数据必须能同步）
+    if (saved.enabled === false) {
+      const fixed = { ...saved, enabled: true };
+      STORE.set('cloud_config', fixed);
+      return fixed;
+    }
+    return saved;
   });
   const [cloudOn, setCloudOn] = useState(false);
   const [cloudVersion, setCloudVersion] = useState(0); // 用于强制重新加载
@@ -4784,17 +4874,20 @@ const App = () => {
   // 写入云端（每次 records 变化，debounced）
   const recordsRef = useRef(records);
   recordsRef.current = records;
+  const [cloudSyncError, setCloudSyncError] = useState(null);
   useEffect(() => {
     if (!cloudOn || !user) return;
     const t = setTimeout(async () => {
-      // 找出与上次不同的记录上传（简化：全量）
-      // 性能优化点：后续可以做 diff
       const current = recordsRef.current;
       if (current.length === 0) return;
-      // 批量 upsert
       try {
-        await CLOUD.client.from('workspace_records').upsert(current);
-      } catch(e) { console.error('云端写入失败', e); }
+        const { error } = await CLOUD.client.from('workspace_records').upsert(current);
+        if (error) throw error;
+        setCloudSyncError(null);  // 成功，清错误
+      } catch(e) {
+        console.error('云端写入失败', e);
+        setCloudSyncError(e.message);
+      }
     }, 1500);
     return () => clearTimeout(t);
   }, [records, cloudOn, user]);
@@ -4864,6 +4957,21 @@ const App = () => {
     if (!confirm('确认退出登录？')) return;
     setUser(null);
     STORE.del('current_user');
+  };
+
+  // 切换账号 - 提示输入新账号密码
+  const switchAccount = (targetEmployee) => {
+    const password = prompt(`切换到 ${targetEmployee.name}${targetEmployee.alias ? ' ' + targetEmployee.alias : ''} 的账号\n\n请输入该账号的密码：`);
+    if (password === null) return;  // 取消
+    if (!password) { alert('密码不能为空'); return; }
+    if (password !== targetEmployee.password) {
+      alert('❌ 密码错误');
+      return;
+    }
+    const newUser = { ...targetEmployee };
+    setUser(newUser);
+    STORE.set('current_user', newUser);
+    toast(`✓ 已切换到 ${newUser.name}${newUser.alias ? ' ' + newUser.alias : ''}`);
   };
 
   // 统计 badge
@@ -4949,7 +5057,35 @@ const App = () => {
 
   return (
     <div className="min-h-screen">
-      <TopNav user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} stats={stats} notifPerm={notifPerm} requestNotifPerm={requestNotifPerm} cloudOn={cloudOn} />
+      <TopNav user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} stats={stats} notifPerm={notifPerm} requestNotifPerm={requestNotifPerm} cloudOn={cloudOn} employees={employees} switchAccount={switchAccount} />
+      
+      {/* 🆕 云同步状态横幅 - 失败时大红警告 */}
+      {cloudOn === false && (
+        <div style={{background:'#fef2f2', borderBottom:'1.5px solid #ef4444', padding:'10px 20px', textAlign:'center', fontSize:13, color:'#991b1b'}}>
+          ⚠ <strong>云同步未连接</strong> · 你的数据只存在本地浏览器，换浏览器/电脑会看不到 · 
+          <button onClick={() => setCloudVersion(v => v + 1)} style={{marginLeft:8, padding:'3px 10px', background:'#dc2626', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontSize:12}}>
+            🔄 重试连接
+          </button>
+        </div>
+      )}
+      {cloudOn && cloudSyncError && (
+        <div style={{background:'#fef3c7', borderBottom:'1.5px solid #f59e0b', padding:'10px 20px', textAlign:'center', fontSize:13, color:'#854d0e'}}>
+          ⚠ <strong>云端写入失败</strong>：{cloudSyncError.slice(0, 100)} · 数据可能未同步到云端 · 
+          <button onClick={async () => {
+            try {
+              const { error } = await CLOUD.client.from('workspace_records').upsert(records);
+              if (error) throw error;
+              setCloudSyncError(null);
+              toast(`✓ 已成功上传 ${records.length} 条记录到云端`);
+            } catch(e) {
+              setCloudSyncError(e.message);
+              alert('❌ 上传失败：' + e.message);
+            }
+          }} style={{marginLeft:8, padding:'3px 10px', background:'#d97706', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontSize:12}}>
+            🔄 强制上传 ({records.length} 条)
+          </button>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {activeTab === 'cs' && (
           <CSModule user={user} employees={employees} records={records} setRecords={setRecords} toast={toast} />
