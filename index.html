@@ -2092,7 +2092,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
       {/* 主表格 */}
       <div className="paper rounded-2xl overflow-hidden fade-in">
         <div className="overflow-x-auto scrollbar-thin">
-          <table style={{minWidth:'1280px'}}>
+          <table style={{minWidth:'1200px'}}>
             <thead>
               <tr>
                 <th style={{width:'36px'}}>#</th>
@@ -2107,7 +2107,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                 <th style={{width:'120px'}}>咨询事项</th>
                 <th style={{minWidth:'160px'}}>订单号/备注</th>
                 <th style={{width:'140px'}}>下次跟进</th>
-                <th style={{width:'250px'}}>截图/跟进 · 事件</th>
+                <th style={{width:'175px'}}>截图/跟进 · 事件</th>
                 <th style={{width:'50px'}}></th>
               </tr>
             </thead>
@@ -2221,43 +2221,46 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                       <input disabled={!editable} type="date" value={r.nextFollowUp || ""} onChange={e => updateRow(r.id, {nextFollowUp:e.target.value})} style={{padding:'4px 6px', fontSize:'11px'}} />
                     </td>
                     <td>
-                      <div style={{display:'flex', alignItems:'center', gap:4, flexWrap:'wrap'}}>
-                        <button className="btn-sec" onClick={() => setFollowUpModal(r.id)} title={editable ? '打开跟进/截图窗口' : '只读查看（历史日期）'} style={{padding:'4px 10px', display:'inline-flex', alignItems:'center', gap:'4px'}}>
-                          {r.screenshots?.length > 0 && <><Icon name="image" className="w-3 h-3" />{r.screenshots.length}</>}
-                          {r.followUps?.length > 0 && <>· {r.followUps.length}</>}
-                          {!r.screenshots?.length && !r.followUps?.length && <Icon name={editable ? 'edit' : 'image'} className="w-3 h-3" />}
-                        </button>
-                        {/* 🆕 已关联事件徽章 */}
-                        {(() => {
-                          const ev = getRecordEvents(r.id);
-                          const n = ev.aftersales.length + ev.refills.length + ev.refunds.length;
-                          if (n === 0) return null;
-                          return (
-                            <button onClick={() => setFollowUpModal(r.id)} title="查看关联的售后/补件/退款事件"
-                              style={{padding:'3px 6px', background:'#fef9c3', color:'#a16207', border:'1px solid #fcd34d', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600, fontFamily:'inherit', display:'inline-flex', gap:3}}>
-                              {ev.aftersales.length > 0 && <span title="售后">🔧{ev.aftersales.length}</span>}
-                              {ev.refills.length > 0 && <span title="补件">📦{ev.refills.length}</span>}
-                              {ev.refunds.length > 0 && <span title="退款">💰{ev.refunds.length}</span>}
-                            </button>
-                          );
-                        })()}
-                        {/* 🆕 快捷加事件按钮 */}
+                      <div style={{display:'flex', flexDirection:'column', gap:4}}>
+                        {/* 第 1 行：截图按钮 + 已有事件徽章 */}
+                        <div style={{display:'flex', alignItems:'center', gap:4}}>
+                          <button className="btn-sec" onClick={() => setFollowUpModal(r.id)} title={editable ? '打开跟进/截图窗口' : '只读查看（历史日期）'} style={{padding:'3px 8px', display:'inline-flex', alignItems:'center', gap:'3px', fontSize:11}}>
+                            {r.screenshots?.length > 0 && <><Icon name="image" className="w-3 h-3" />{r.screenshots.length}</>}
+                            {r.followUps?.length > 0 && <>· {r.followUps.length}</>}
+                            {!r.screenshots?.length && !r.followUps?.length && <Icon name={editable ? 'edit' : 'image'} className="w-3 h-3" />}
+                          </button>
+                          {/* 🆕 已关联事件徽章 */}
+                          {(() => {
+                            const ev = getRecordEvents(r.id);
+                            const n = ev.aftersales.length + ev.refills.length + ev.refunds.length;
+                            if (n === 0) return null;
+                            return (
+                              <button onClick={() => setFollowUpModal(r.id)} title="查看关联的售后/补件/退款事件"
+                                style={{padding:'2px 5px', background:'#fef9c3', color:'#a16207', border:'1px solid #fcd34d', borderRadius:4, cursor:'pointer', fontSize:10, fontWeight:600, fontFamily:'inherit', display:'inline-flex', gap:2, whiteSpace:'nowrap'}}>
+                                {ev.aftersales.length > 0 && <span title="售后">🔧{ev.aftersales.length}</span>}
+                                {ev.refills.length > 0 && <span title="补件">📦{ev.refills.length}</span>}
+                                {ev.refunds.length > 0 && <span title="退款">💰{ev.refunds.length}</span>}
+                              </button>
+                            );
+                          })()}
+                        </div>
+                        {/* 第 2 行：3 个事件按钮 - 横排 */}
                         {editable && (
-                          <div style={{display:'inline-flex', gap:3, marginLeft:4}}>
+                          <div style={{display:'flex', gap:3, flexWrap:'nowrap'}}>
                             <button onClick={() => setEventEditor({ kind:'aftersale', record:r })} title="加售后事件"
-                              style={{padding:'3px 8px', background:'#fff7ed', color:'#ea580c', border:'1px solid #fdba74', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:2, transition:'all .15s'}}
+                              style={{flex:1, padding:'3px 0', background:'#fff7ed', color:'#ea580c', border:'1px solid #fdba74', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s'}}
                               onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; e.currentTarget.style.color = 'white'; }}
                               onMouseLeave={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.color = '#ea580c'; }}>
                               🔧售后
                             </button>
                             <button onClick={() => setEventEditor({ kind:'refill', record:r })} title="加补件事件"
-                              style={{padding:'3px 8px', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:2, transition:'all .15s'}}
+                              style={{flex:1, padding:'3px 0', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s'}}
                               onMouseEnter={e => { e.currentTarget.style.background = '#0369a1'; e.currentTarget.style.color = 'white'; }}
                               onMouseLeave={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; }}>
                               📦补件
                             </button>
                             <button onClick={() => setEventEditor({ kind:'refund', record:r })} title="加退款事件"
-                              style={{padding:'3px 8px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:2, transition:'all .15s'}}
+                              style={{flex:1, padding:'3px 0', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s'}}
                               onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; }}
                               onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}>
                               💰退款
