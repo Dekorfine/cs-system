@@ -684,6 +684,25 @@ const STATUSES = [
   { key:'transferred', label:'已转交', cls:'status-resolved' },
 ];
 
+// 🆕 判断记录是否"有内容"（避免空白行被自动保存/统计）
+const isRecordMeaningful = (r) => {
+  if (!r) return false;
+  return !!(
+    (r.customer || '').trim() ||
+    (r.orderRef || '').trim() ||
+    (r.note || '').trim() ||
+    (r.startTime || '').trim() ||
+    (r.endTime || '').trim() ||
+    (r.category || '').trim() ||
+    (r.nextFollowUp || '').trim() ||
+    (r.site || '').trim() ||
+    (r.screenshots && r.screenshots.length > 0) ||
+    (r.followUps && r.followUps.length > 0) ||
+    r.escalated ||
+    r.transferHistory && r.transferHistory.length > 0
+  );
+};
+
 // 🆕 售后问题类型
 const ISSUE_TYPES = [
   { key:'transport_damage',  label:'运输损坏',  color:'#dc2626' },
@@ -1365,7 +1384,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
   // 导出范围：根据 dateRange 决定，跨日期
   const exportRecords = useMemo(() => {
     const today = todayISO();
-    let list = visibleRecords;
+    let list = visibleRecords.filter(isRecordMeaningful);  // 🆕 排除空白行
     if (dateRange === 'day') {
       list = list.filter(r => r.date === viewDate);
     } else if (dateRange === '7d') {
@@ -1441,19 +1460,27 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
   const futureCount = reminders.filter(r => r.nextFollowUp > today).length;
   const waitingCount = reminders.filter(r => r.status === 'waiting').length;
 
-  // 统计卡片数据
+  // 统计卡片数据 - 仅统计"有内容"的记录（空白行不算）
   const stats = useMemo(() => {
-    const totalEmails = dayRecords.length;
-    const totalMins = dayRecords.reduce((s, r) => s + (r.durationMin || 0), 0);
-    const easyN = dayRecords.filter(r => r.difficulty === 'easy').length;
-    const midN = dayRecords.filter(r => r.difficulty === 'mid').length;
-    const hardN = dayRecords.filter(r => r.difficulty === 'hard').length;
-    const followingN = dayRecords.filter(r => r.status !== 'resolved').length;
+    const meaningful = dayRecords.filter(isRecordMeaningful);
+    const totalEmails = meaningful.length;
+    const totalMins = meaningful.reduce((s, r) => s + (r.durationMin || 0), 0);
+    const easyN = meaningful.filter(r => r.difficulty === 'easy').length;
+    const midN = meaningful.filter(r => r.difficulty === 'mid').length;
+    const hardN = meaningful.filter(r => r.difficulty === 'hard').length;
+    const followingN = meaningful.filter(r => r.status !== 'resolved').length;
     return { totalEmails, totalMins, easyN, midN, hardN, followingN };
   }, [dayRecords]);
 
   // 添加新行
   const addRow = () => {
+    // 🆕 如果当前日期已经有一行完全空白的（用户点过 + 但没填任何东西），就别再加新行
+    const emptyRow = dayRecords.find(r => !isRecordMeaningful(r));
+    if (emptyRow) {
+      // 已经有空白行,啥都不做,让用户填那一行
+      toast('💡 已经有一个空白行了,请先填写');
+      return;
+    }
     const newRec = {
       id: uid(),
       ownerId: user.id,
@@ -1478,6 +1505,24 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
     };
     setRecords(prev => [...prev, newRec]);
   };
+  
+  // 🆕 自动清理：切换日期/重启时,清除所有未填内容的空白行
+  useEffect(() => {
+    // 不要立即清,让用户有 30 秒输入时间
+    const t = setTimeout(() => {
+      setRecords(prev => {
+        // 仅清理"非当前日期"的空白行（避免清掉用户正在编辑的）
+        const cleaned = prev.filter(r => 
+          r.date === viewDate ||      // 当前日期保留
+          isRecordMeaningful(r) ||    // 有内容保留
+          r.deleted                    // 已删除标记保留
+        );
+        if (cleaned.length === prev.length) return prev;  // 没变化
+        return cleaned;
+      });
+    }, 30000);  // 30 秒后才清理
+    return () => clearTimeout(t);
+  }, [viewDate]);
 
   // 更新字段
   const updateRow = (id, patch) => {
@@ -9343,9 +9388,16 @@ const App = () => {
   
   // 🆕 智能上传 - 检测 schema 错误自动剥离字段重试
   const uploadRecordsWithRetry = async (recordsToUpload, maxRetries = 5) => {
+    // 🆕 过滤掉完全空白的"未填内容"行 - 用户点+加一行但没填任何字段的
+    // 已删除的也包括（让 deleted=true 能同步）
+    const meaningful = (recordsToUpload || []).filter(r => 
+      r.deleted || isRecordMeaningful(r)
+    );
+    if (meaningful.length === 0) return { ok: true, skipped: recordsToUpload?.length || 0 };
+    
     let attempt = 0;
     while (attempt < maxRetries) {
-      const cleaned = recordsToUpload.map(sanitizeRecordForCloud);
+      const cleaned = meaningful.map(sanitizeRecordForCloud);
       const { error } = await CLOUD.client.from('workspace_records').upsert(cleaned);
       if (!error) return { ok: true };  // 成功
       
@@ -9480,8 +9532,8 @@ const App = () => {
     const overdue = mine.filter(r => r.status !== 'resolved' && r.nextFollowUp && r.nextFollowUp < today).length;
     const dueToday = mine.filter(r => r.status !== 'resolved' && r.nextFollowUp === today).length;
     const trash = (user.role === 'admin' || user.role === 'super_admin')
-      ? records.filter(r => r.deleted).length
-      : records.filter(r => r.deleted && (r.deletedBy === user.id || r.ownerId === user.id)).length;
+      ? records.filter(r => r.deleted && isRecordMeaningful(r)).length
+      : records.filter(r => r.deleted && (r.deletedBy === user.id || r.ownerId === user.id) && isRecordMeaningful(r)).length;
     // 工单收件箱（本地缓存计数，准确数字在 ReportModule 内）
     const tickets = STORE.get('tickets_local', []);
     const ticketInbox = tickets.filter(t => (t.target_id === user.id) && (t.status === 'pending' || t.status === 'accepted')).length;
