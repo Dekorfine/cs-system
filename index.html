@@ -253,6 +253,29 @@ select{
 @keyframes pulse-soft{0%,100%{opacity:1}50%{opacity:.5}}
 .pulse-soft{animation:pulse-soft 2s ease-in-out infinite}
 
+/* ═══════════════════════════════════════════════════════════════
+ * 🛡 全局防横向溢出规则 - 绝不允许出现横向滚动条
+ * ═══════════════════════════════════════════════════════════════
+ * 规则: 任何容器内的子元素不能超出父容器宽度
+ * 所有 modal / 卡片 / paper 必须 overflow-x: hidden
+ * 所有 input / select / textarea 必须 max-width: 100%
+ * 所有 grid / flex 必须 min-width: 0 防止子元素撑开
+ * ─────────────────────────────────────────────────────────────── */
+html, body { overflow-x: hidden; max-width: 100vw; }
+*, *::before, *::after { box-sizing: border-box; }
+/* 卡片/纸面绝不允许横向滚动 */
+.paper, .modal-card, .rounded-2xl, .rounded-lg { overflow-x: hidden; }
+/* 输入框最大宽度 100% */
+input, select, textarea { max-width: 100%; }
+input[type="time"], input[type="date"], input[type="email"], input[type="text"], input[type="number"] { min-width: 0; }
+/* 弹窗 modal 内部 */
+[style*="position:fixed"][style*="inset:0"] > div { max-width: calc(100vw - 16px); }
+/* Grid 子项默认允许收缩 */
+[style*="display:grid"] > * { min-width: 0; }
+[style*="display:flex"]:not([style*="overflow-x:auto"]) > * { min-width: 0; }
+/* textarea / 大文本框 */
+textarea { width: 100%; resize: vertical; }
+
 /* === 📱 手机端响应式 === */
 @media (max-width: 768px){
   /* 顶部 nav 紧凑 */
@@ -1165,29 +1188,52 @@ const LoginScreen = ({ employees, onLogin }) => {
 // ============================================================
 const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn, employees, switchAccount, onOpenSearch }) => {
   const [switchModalOpen, setSwitchModalOpen] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);  // 🆕 "更多"菜单
   const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
   const isFinanceVisible = (user.role === 'finance' || user.role === 'admin' || user.role === 'super_admin');
-  const tabs = [
-    { key:'cs', label:'客服跟进', badge: stats.overdue },
+  
+  // 🆕 重新分组:一级 tab(常用) + 「更多 ▾」下拉(资源/管理)
+  // ──────────────────────────────────
+  // 一级 tab - 客服日常最常用 6 个
+  const primaryTabs = [
+    { key:'cs', label:'📞 客服跟进', badge: stats.overdue },
     { key:'chargebacks', label:'🚨 拒付', badge: stats.urgentChargebacks, badgeColor:'#dc2626' },
     { key:'offline_orders', label:'💳 线下单' },
-    { key:'custom_photo', label:'🎨 定制 & 实拍' },
-    { key:'briefings', label:'📢 会议纪要' },
+    { key:'custom_photo', label:'🎨 定制&实拍' },
     { key:'events', label:'📋 工作主线', badge: stats.pendingEvents },
     { key:'reviews', label:'⭐ 产品评价', badge: stats.pendingReviews },
-    { key:'suppliers', label:'🏭 供应商' },
-    { key:'kb', label:'知识库' },
-    { key:'report', label:'汇报', badge: stats.ticketInbox },
-    { key:'quote', label:'报价单' },
-    { key:'finance', label:'财务计算器' },
   ];
-  // 运费支付：仅财务、主管、总管可见
-  if (isFinanceVisible) tabs.push({ key:'freight', label:'运费支付' });
-  tabs.push({ key:'dashboard', label:'数据看板' });
-  if (isAdmin) tabs.push({ key:'admin_overview', label:'📊 主管汇总', badgeColor:'#0369a1' });
-  if (isAdmin) tabs.push({ key:'delete_approvals', label:'🛡 删除审批', badge: stats.pendingDeleteReqs, badgeColor:'#dc2626' });
-  tabs.push({ key:'trash', label:'回收站', badge: stats.trashCount, badgeColor:'#86868b' });
-  if (isAdmin) tabs.push({ key:'admin', label:'设置' });
+  
+  // 「📚 资源工具」分组
+  const resourceTabs = [
+    { key:'suppliers', label:'🏭 供应商', desc:'693 家供应商管理' },
+    { key:'kb', label:'📚 知识库', desc:'280+ 回复模板 · AI 优化' },
+    { key:'quote', label:'📝 报价单', desc:'生成 / 跟进报价单' },
+    { key:'finance', label:'🧮 财务计算器', desc:'订单财务核算' },
+    ...(isFinanceVisible ? [{ key:'freight', label:'🚚 运费支付', desc:'运费对账' }] : []),
+  ];
+  
+  // 「💬 协作」分组
+  const collabTabs = [
+    { key:'briefings', label:'📢 会议纪要', desc:'主管发布会议要点' },
+    { key:'report', label:'💬 汇报工单', badge: stats.ticketInbox, desc:'员工汇报问题' },
+  ];
+  
+  // 「📊 数据 & 管理」分组(主管/老板)
+  const adminTabs = isAdmin ? [
+    { key:'admin_overview', label:'📊 主管汇总', desc:'所有模块总览' },
+    { key:'dashboard', label:'📈 数据看板', desc:'团队数据统计' },
+    { key:'delete_approvals', label:'🛡 删除审批', badge: stats.pendingDeleteReqs, badgeColor:'#dc2626', desc:'员工删除申请' },
+    { key:'trash', label:'🗑 回收站', badge: stats.trashCount, badgeColor:'#86868b', desc:'恢复删除的数据' },
+    { key:'admin', label:'⚙ 设置', desc:'员工 / 拒付专人 / Gemini' },
+  ] : [
+    { key:'dashboard', label:'📈 数据看板' },
+    { key:'trash', label:'🗑 回收站', badge: stats.trashCount, badgeColor:'#86868b' },
+  ];
+  
+  // 兼容旧代码:合并为 tabs(全部)
+  const tabs = [...primaryTabs, ...resourceTabs, ...collabTabs, ...adminTabs];
+  
 
   const bellTotal = (stats.overdue || 0) + (stats.dueToday || 0);
   const bellLabel = notifPerm === 'granted'
@@ -1300,7 +1346,7 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
                   </div>
                 )}
                 <div style={{fontSize:11, color:'var(--ink-3)', marginBottom:10}}>当前：<strong>{user.name}{user.alias && ' ' + user.alias}</strong> · 选择要切换到的账号：</div>
-                <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:8, maxHeight:380, overflow:'auto'}}>
+                <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:8, maxHeight:380, overflowY:'auto', overflowX:'hidden'}}>
                   {employees.filter(e => e.id !== user.id && !e.hideFromList).map(emp => (
                     <button key={emp.id}
                       onClick={() => { switchAccount && switchAccount(emp); setSwitchModalOpen(false); }}
@@ -1343,14 +1389,15 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
         </div>
       </div>
 
-      {/* Row 2: Tabs */}
-      <div className="max-w-7xl mx-auto px-6" style={{borderTop:'1px solid var(--line)'}}>
-        <div className="flex items-center overflow-x-auto scrollbar-thin" style={{gap:0}}>
-          {tabs.map(t => (
+      {/* Row 2: Tabs - 分组式导航(6 个主 tab + 3 个分组下拉) */}
+      <div className="max-w-7xl mx-auto px-6" style={{borderTop:'1px solid var(--line)', overflowX:'hidden'}}>
+        <div className="tabs-row" style={{display:'flex', alignItems:'center', gap:0, flexWrap:'nowrap', overflowX:'auto'}}>
+          {/* 一级 tab */}
+          {primaryTabs.map(t => (
             <button key={t.key}
               className={`nav-tab ${activeTab === t.key ? 'active' : ''}`}
               onClick={() => setActiveTab(t.key)}
-            >
+              style={{whiteSpace:'nowrap', flexShrink:0}}>
               {t.label}
               {t.badge > 0 && (
                 <span style={{
@@ -1362,15 +1409,245 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
               )}
             </button>
           ))}
+          
+          {/* 资源工具下拉 */}
+          <NavGroupDropdown
+            label="📚 资源"
+            items={resourceTabs}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+          
+          {/* 协作下拉 */}
+          <NavGroupDropdown
+            label="💬 协作"
+            items={collabTabs}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            extraBadge={stats.ticketInbox}
+          />
+          
+          {/* 管理下拉 */}
+          <NavGroupDropdown
+            label={isAdmin ? "⚙ 管理" : "📊 数据"}
+            items={adminTabs}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            extraBadge={isAdmin ? (stats.pendingDeleteReqs || 0) + (stats.trashCount || 0) : 0}
+            badgeColor="#dc2626"
+            isRight
+          />
         </div>
       </div>
     </div>
   );
 };
 
+// 🆕 导航分组下拉(用 Portal 渲染避免被遮挡)
+const NavGroupDropdown = ({ label, items, activeTab, setActiveTab, extraBadge, badgeColor, isRight }) => {
+  const [open, setOpen] = useState(false);
+  const btnRef = React.useRef(null);
+  const menuRef = React.useRef(null);
+  const [pos, setPos] = useState({ top:0, left:0 });
+  
+  const isActive = items.some(i => i.key === activeTab);
+  
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => {
+      if (btnRef.current?.contains(e.target)) return;
+      if (menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+  
+  const toggle = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({
+        top: r.bottom + window.scrollY + 2,
+        left: isRight 
+          ? Math.max(8, r.right + window.scrollX - 260)
+          : Math.max(8, r.left + window.scrollX),
+      });
+    }
+    setOpen(v => !v);
+  };
+  
+  const choose = (key) => {
+    setActiveTab(key);
+    setOpen(false);
+  };
+  
+  return (
+    <>
+      <button ref={btnRef} onClick={toggle}
+        className={`nav-tab ${isActive ? 'active' : ''}`}
+        style={{display:'inline-flex', alignItems:'center', gap:3, whiteSpace:'nowrap'}}>
+        {label}
+        <span style={{fontSize:10, marginLeft:2, opacity:.7}}>▾</span>
+        {extraBadge > 0 && (
+          <span style={{
+            display:'inline-flex', alignItems:'center', justifyContent:'center',
+            minWidth:18, height:18, padding:'0 6px',
+            background: badgeColor || 'var(--bad)', color:'white', borderRadius:9,
+            fontSize:10, fontWeight:600, marginLeft:4
+          }}>{extraBadge}</span>
+        )}
+      </button>
+      {open && ReactDOM.createPortal(
+        <div ref={menuRef}
+          style={{
+            position:'absolute', top: pos.top, left: pos.left, width: 260,
+            background:'white', border:'1px solid var(--line)', borderRadius:10,
+            boxShadow:'0 10px 30px rgba(0,0,0,.12)', padding:6,
+            zIndex:9998, maxWidth:'calc(100vw - 16px)',
+          }}>
+          {items.map(item => {
+            const isCurrent = activeTab === item.key;
+            return (
+              <button key={item.key} onClick={() => choose(item.key)}
+                style={{
+                  width:'100%', padding:'9px 12px',
+                  background: isCurrent ? 'var(--accent-soft)' : 'transparent',
+                  color: isCurrent ? 'var(--accent)' : 'var(--ink)',
+                  border:'none', borderRadius:7, cursor:'pointer',
+                  fontFamily:'inherit', fontSize:13, fontWeight: isCurrent ? 600 : 500,
+                  display:'flex', alignItems:'center', gap:8, textAlign:'left',
+                  transition:'all .12s', marginBottom:2,
+                }}
+                onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = 'var(--bg-elevated)'; }}
+                onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent'; }}>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{display:'flex', alignItems:'center', gap:6}}>
+                    {item.label}
+                    {item.badge > 0 && (
+                      <span style={{
+                        display:'inline-flex', alignItems:'center', justifyContent:'center',
+                        minWidth:18, height:18, padding:'0 6px',
+                        background: item.badgeColor || 'var(--bad)', color:'white', borderRadius:9,
+                        fontSize:10, fontWeight:600,
+                      }}>{item.badge}</span>
+                    )}
+                  </div>
+                  {item.desc && <div style={{fontSize:11, color:'var(--ink-3)', marginTop:2, fontWeight:400}}>{item.desc}</div>}
+                </div>
+                {isCurrent && <span style={{color:'var(--accent)', fontSize:11}}>✓</span>}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
+
 // ============================================================
 // 客服跟进表 - 主模块
 // ============================================================
+// 🆕 事件添加下拉菜单 - 把 6 个按钮折叠成一个,节省横向空间
+const EventActionDropdown = ({ record, onAftersale, onRefill, onRefund, onChargeback, onCustom, onPhoto }) => {
+  const [open, setOpen] = useState(false);
+  const btnRef = React.useRef(null);
+  const menuRef = React.useRef(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e) => {
+      if (btnRef.current?.contains(e.target)) return;
+      if (menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+  
+  // 计算位置(避免被表格遮挡)
+  const handleOpen = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: Math.max(8, rect.right + window.scrollX - 200),  // 200 = menu width
+      });
+    }
+    setOpen(v => !v);
+  };
+  
+  const items = [
+    { key:'aftersale',  label:'售后',   icon:'🔧', color:'#ea580c', bg:'#fff7ed', onClick: onAftersale },
+    { key:'refill',     label:'补件',   icon:'📦', color:'#0369a1', bg:'#e0f2fe', onClick: onRefill },
+    { key:'refund',     label:'退款',   icon:'💰', color:'#dc2626', bg:'#fef2f2', onClick: onRefund },
+    { key:'chargeback', label:'拒付',   icon:'🚨', color:'#dc2626', bg:'#fef2f2', onClick: onChargeback, highlight: record.category === '拒付' },
+    { key:'custom',     label:'定制',   icon:'🎨', color:'#7c3aed', bg:'#f5f3ff', onClick: onCustom, highlight: record.category === '定制咨询' },
+    { key:'photo',      label:'实拍',   icon:'📸', color:'#be185d', bg:'#fdf2f8', onClick: onPhoto, highlight: record.category === '实拍' },
+  ];
+  
+  // 高亮的事项类型(根据 category)
+  const highlightedItem = items.find(i => i.highlight);
+  
+  return (
+    <>
+      <button ref={btnRef} onClick={handleOpen}
+        style={{
+          width:'100%',
+          padding:'4px 8px',
+          background: highlightedItem ? highlightedItem.color : 'white',
+          color: highlightedItem ? 'white' : 'var(--ink-2)',
+          border:'1px solid ' + (highlightedItem ? highlightedItem.color : 'var(--line)'),
+          borderRadius:5, cursor:'pointer',
+          fontSize:11, fontWeight:600, fontFamily:'inherit',
+          display:'flex', alignItems:'center', justifyContent:'center', gap:4,
+          whiteSpace:'nowrap',
+        }}
+        title={highlightedItem ? `${highlightedItem.icon} 跟进事项是${highlightedItem.label},点击添加` : '添加事件'}>
+        {highlightedItem 
+          ? <>{highlightedItem.icon} {highlightedItem.label} <span style={{opacity:.7, marginLeft:2}}>▾</span></>
+          : <>📌 添加事件 ▾</>}
+      </button>
+      {open && ReactDOM.createPortal(
+        <div ref={menuRef}
+          style={{
+            position:'absolute', top: menuPos.top, left: menuPos.left,
+            width:200, background:'white',
+            border:'1px solid var(--line)', borderRadius:10,
+            boxShadow:'0 8px 24px rgba(0,0,0,.12)', padding:4,
+            zIndex:9998,
+          }}>
+          <div style={{padding:'6px 10px 4px', fontSize:10, color:'var(--ink-3)', fontWeight:600, borderBottom:'1px solid var(--line)', marginBottom:4}}>
+            选择事件类型
+          </div>
+          {items.map(item => (
+            <button key={item.key} onClick={() => { item.onClick(); setOpen(false); }}
+              style={{
+                width:'100%', padding:'8px 10px',
+                background: item.highlight ? item.bg : 'transparent',
+                color: item.color,
+                border:'none', borderRadius:6, cursor:'pointer',
+                fontSize:12, fontWeight: item.highlight ? 700 : 500, fontFamily:'inherit',
+                display:'flex', alignItems:'center', gap:8,
+                textAlign:'left',
+                transition:'all .12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = item.bg; }}
+              onMouseLeave={e => { e.currentTarget.style.background = item.highlight ? item.bg : 'transparent'; }}>
+              <span style={{fontSize:14}}>{item.icon}</span>
+              <span style={{flex:1}}>{item.label}</span>
+              {item.highlight && <span style={{fontSize:9, padding:'1px 6px', background:item.color, color:'white', borderRadius:8}}>已选</span>}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
+
+
 const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudOn }) => {
   const [viewDate, setViewDate] = useState(todayISO());
   const [filterStatus, setFilterStatus] = useState('all');
@@ -2196,7 +2473,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
             </button>
           </div>
           {highFreqExpanded && (
-            <div style={{borderTop:'1px solid #fca5a5', maxHeight:380, overflow:'auto'}}>
+            <div style={{borderTop:'1px solid #fca5a5', maxHeight:380, overflowY:'auto', overflowX:'hidden'}}>
               {highFreqCustomers.map(c => (
                 <div key={c.email} style={{padding:'12px 16px', borderBottom:'1px solid #fecaca', display:'flex', alignItems:'center', gap:12, fontSize:13, background:'white'}}>
                   <div style={{flex:1, minWidth:0}}>
@@ -2274,7 +2551,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
         
         {/* 展开后的详情列表 */}
         {remindersExpanded && sortedReminders.length > 0 && (
-          <div style={{borderTop:'1px solid var(--line)', maxHeight:480, overflow:'auto'}}>
+          <div style={{borderTop:'1px solid var(--line)', maxHeight:480, overflowY:'auto', overflowX:'hidden'}}>
             {sortedReminders.map(r => {
               const owner = employees.find(e => e.id === r.ownerId);
               const daysLate = r.nextFollowUp ? Math.floor((new Date(today) - new Date(r.nextFollowUp)) / (1000*60*60*24)) : 0;
@@ -2612,23 +2889,21 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                 <th style={{width:'30px'}}>#</th>
                 <th style={{width:'92px', minWidth:'92px'}}>状态</th>
                 <th style={{minWidth:'170px'}}>客户邮箱/联系方式</th>
-                {isAdmin && showAll && <th style={{width:'80px'}}>员工</th>}
-                <th style={{width:'56px'}}>网站</th>
-                <th style={{width:'76px'}}>开始</th>
-                <th style={{width:'76px'}}>结束</th>
-                <th style={{width:'52px'}}>时长</th>
-                <th style={{width:'88px'}}>难度</th>
-                <th style={{width:'88px'}}>咨询事项</th>
+                {isAdmin && showAll && <th style={{width:'70px'}}>员工</th>}
+                <th style={{width:'52px'}}>网站</th>
+                <th style={{width:'150px'}}>时段 · 时长</th>
+                <th style={{width:'72px'}}>难度</th>
+                <th style={{width:'90px'}}>事项</th>
                 <th style={{minWidth:'130px'}}>订单号/备注</th>
-                <th style={{width:'110px'}}>下次跟进</th>
-                <th style={{width:'150px'}}>截图/跟进 · 事件</th>
-                <th style={{width:'34px'}}></th>
+                <th style={{width:'100px'}}>下次跟进</th>
+                <th style={{width:'130px'}}>截图 · 事件</th>
+                <th style={{width:'30px'}}></th>
               </tr>
             </thead>
             <tbody>
               {tableRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin && showAll ? 14 : 13} style={{textAlign:'center', padding:'30px 12px', color:'var(--ink-3)', fontSize:'13px'}}>
+                  <td colSpan={isAdmin && showAll ? 12 : 11} style={{textAlign:'center', padding:'30px 12px', color:'var(--ink-3)', fontSize:'13px'}}>
                     {sourceRecords.length === 0
                       ? '暂无记录 · 点击下方"+ 添加一行"开始'
                       : `无匹配记录（共 ${sourceRecords.length} 条，被筛选条件过滤）`}
@@ -2730,15 +3005,18 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                       </select>
                     </td>
                     <td>
-                      <input disabled={!editable} type="time" value={r.startTime} onChange={e => updateRow(r.id, {startTime:e.target.value})} style={{padding:'4px 6px', fontSize:'11px'}} />
-                    </td>
-                    <td>
-                      <input disabled={!editable} type="time" value={r.endTime} onChange={e => updateRow(r.id, {endTime:e.target.value})} style={{padding:'4px 6px', fontSize:'11px'}} />
-                    </td>
-                    <td>
-                      <span className="font-mono text-[11px] font-bold" style={{color: r.durationMin > 10 ? 'var(--bad)' : r.durationMin >= 5 ? 'var(--gold)' : 'var(--ink-3)'}}>
-                        {r.durationMin > 0 ? fmtDuration(r.durationMin) : '—'}
-                      </span>
+                      <div style={{display:'flex', flexDirection:'column', gap:3}}>
+                        <div style={{display:'flex', gap:3, alignItems:'center'}}>
+                          <input disabled={!editable} type="time" value={r.startTime} onChange={e => updateRow(r.id, {startTime:e.target.value})} style={{padding:'3px 4px', fontSize:'10px', flex:1, minWidth:0}} />
+                          <span style={{fontSize:9, color:'var(--ink-4)'}}>→</span>
+                          <input disabled={!editable} type="time" value={r.endTime} onChange={e => updateRow(r.id, {endTime:e.target.value})} style={{padding:'3px 4px', fontSize:'10px', flex:1, minWidth:0}} />
+                        </div>
+                        <div style={{textAlign:'center'}}>
+                          <span className="font-mono text-[10px] font-bold" style={{color: r.durationMin > 10 ? 'var(--bad)' : r.durationMin >= 5 ? 'var(--gold)' : 'var(--ink-3)'}}>
+                            {r.durationMin > 0 ? '⏱ ' + fmtDuration(r.durationMin) : '⏱ —'}
+                          </span>
+                        </div>
+                      </div>
                     </td>
                     <td>
                       <div className="flex gap-1">
@@ -2799,40 +3077,16 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                             );
                           })()}
                         </div>
-                        {/* 第 2 行：3 个事件按钮 - 横排 */}
+                        {/* 第 2 行：📌 添加事件 - 折叠式下拉(节省横向空间) */}
                         {editable && (
-                          <div style={{display:'flex', gap:3, flexWrap:'nowrap'}}>
-                            <button onClick={() => setEventEditor({ kind:'aftersale', record:r })} title="加售后事件"
-                              style={{flex:1, padding:'3px 0', background:'#fff7ed', color:'#ea580c', border:'1px solid #fdba74', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s'}}
-                              onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; e.currentTarget.style.color = 'white'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.color = '#ea580c'; }}>
-                              🔧售后
-                            </button>
-                            <button onClick={() => setEventEditor({ kind:'refill', record:r })} title="加补件事件"
-                              style={{flex:1, padding:'3px 0', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s'}}
-                              onMouseEnter={e => { e.currentTarget.style.background = '#0369a1'; e.currentTarget.style.color = 'white'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; }}>
-                              📦补件
-                            </button>
-                            <button onClick={() => setEventEditor({ kind:'refund', record:r })} title="加退款事件"
-                              style={{flex:1, padding:'3px 0', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s'}}
-                              onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}>
-                              💰退款
-                            </button>
-                            <button onClick={() => setSmartEditor({ kind:'chargeback', record:r })} title="加拒付记录"
-                              style={{flex:1, padding:'3px 0', background: r.category === '拒付' ? '#dc2626' : '#fef2f2', color: r.category === '拒付' ? 'white' : '#dc2626', border:'1px solid ' + (r.category === '拒付' ? '#7f1d1d' : '#fca5a5'), borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s'}}>
-                              🚨拒付
-                            </button>
-                            <button onClick={() => setSmartEditor({ kind:'custom', record:r })} title="加定制咨询"
-                              style={{flex:1, padding:'3px 0', background: r.category === '定制咨询' ? '#7c3aed' : '#f5f3ff', color: r.category === '定制咨询' ? 'white' : '#7c3aed', border:'1px solid ' + (r.category === '定制咨询' ? '#5b21b6' : '#c4b5fd'), borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s'}}>
-                              🎨定制
-                            </button>
-                            <button onClick={() => setSmartEditor({ kind:'photo', record:r })} title="加实拍核实"
-                              style={{flex:1, padding:'3px 0', background: r.category === '实拍' ? '#be185d' : '#fdf2f8', color: r.category === '实拍' ? 'white' : '#be185d', border:'1px solid ' + (r.category === '实拍' ? '#831843' : '#fbcfe8'), borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s'}}>
-                              📸实拍
-                            </button>
-                          </div>
+                          <EventActionDropdown record={r}
+                            onAftersale={() => setEventEditor({ kind:'aftersale', record:r })}
+                            onRefill={() => setEventEditor({ kind:'refill', record:r })}
+                            onRefund={() => setEventEditor({ kind:'refund', record:r })}
+                            onChargeback={() => setSmartEditor({ kind:'chargeback', record:r })}
+                            onCustom={() => setSmartEditor({ kind:'custom', record:r })}
+                            onPhoto={() => setSmartEditor({ kind:'photo', record:r })}
+                          />
                         )}
                       </div>
                     </td>
@@ -2976,7 +3230,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
           <div onClick={() => setTransferModal(null)}
             style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
             <div onClick={e => e.stopPropagation()}
-              style={{background:'white', borderRadius:'var(--radius-lg)', maxWidth:560, width:'100%', maxHeight:'85vh', overflow:'auto', padding:24}}>
+              style={{background:'white', borderRadius:'var(--radius-lg)', maxWidth:560, width:'100%', maxHeight:'85vh', overflowY:'auto', overflowX:'hidden', padding:24}}>
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <div className="font-display" style={{fontSize:18, fontWeight:600, letterSpacing:'-.022em'}}>🔄 转交工作</div>
@@ -3901,7 +4155,7 @@ const SupplierSelect = ({ suppliers, value, onChange, placeholder = '选择供�
           style={{position:'absolute', right:6, top:'50%', transform:'translateY(-50%)', background:'transparent', border:'none', color:'var(--ink-4)', cursor:'pointer', fontSize:14}}>×</button>
       )}
       {open && (
-        <div style={{position:'absolute', top:'100%', left:0, right:0, marginTop:2, background:'white', border:'1px solid var(--line)', borderRadius:8, maxHeight:300, overflow:'auto', zIndex:100, boxShadow:'0 8px 20px rgba(0,0,0,.1)'}}>
+        <div style={{position:'absolute', top:'100%', left:0, right:0, marginTop:2, background:'white', border:'1px solid var(--line)', borderRadius:8, maxHeight:300, overflowY:'auto', overflowX:'hidden', zIndex:100, boxShadow:'0 8px 20px rgba(0,0,0,.1)'}}>
           {filtered.length === 0 ? (
             <div style={{padding:'12px', textAlign:'center', color:'var(--ink-4)', fontSize:12}}>
               {query ? `没找到 "${query}"` : '加载中...'}
@@ -4079,7 +4333,7 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
   
   return (
     <div onClick={onClose}
-      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'5vh 20px', overflow:'auto'}}>
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'5vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()}
         style={{background:'white', borderRadius:14, maxWidth:680, width:'100%', display:'flex', flexDirection:'column', maxHeight:'90vh'}}>
         {/* Header */}
@@ -4099,7 +4353,7 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
         </div>
         
         {/* Body - 可滚动 */}
-        <div style={{padding:'18px 22px', overflow:'auto', flex:1}}>
+        <div style={{padding:'18px 22px', overflowY:'auto', overflowX:'hidden', flex:1}}>
           {/* 共用字段：订单号 + 客户 */}
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14}}>
             <div>
@@ -7476,7 +7730,7 @@ const FreightModule = ({ user, toast, cloudOn }) => {
         <div onClick={() => setViewingAttachments(null)}
           style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:24}}>
           <div onClick={e => e.stopPropagation()}
-            style={{background:'white', borderRadius:'var(--radius-lg)', maxWidth:1000, width:'100%', maxHeight:'90vh', overflow:'auto', padding:24}}>
+            style={{background:'white', borderRadius:'var(--radius-lg)', maxWidth:1000, width:'100%', maxHeight:'90vh', overflowY:'auto', overflowX:'hidden', padding:24}}>
             <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16}}>
               <div>
                 <div className="font-display" style={{fontSize:18, fontWeight:600, letterSpacing:'-.022em'}}>
@@ -7997,7 +8251,7 @@ const BriefingEditor = ({ briefing, user, employees, onClose, onSaved, toast }) 
   
   return (
     <div onClick={onClose}
-      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'3vh 20px', overflow:'auto'}}>
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'3vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()}
         style={{background:'white', borderRadius:14, maxWidth:780, width:'100%', display:'flex', flexDirection:'column', maxHeight:'94vh'}}>
         <div style={{padding:'16px 20px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0}}>
@@ -9393,9 +9647,9 @@ const ChargebackEditor = ({ cb, user, employees, onClose, onSaved, toast }) => {
   
   return (
     <div onClick={onClose}
-      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflow:'auto'}}>
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()}
-        style={{background:'white', borderRadius:14, maxWidth:720, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh'}}>
+        style={{background:'white', borderRadius:14, maxWidth:720, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
         <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600, color:'#dc2626'}}>
             🚨 {isEdit ? '编辑' : '新增'}拒付
@@ -9862,8 +10116,8 @@ const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast })
   };
 
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflow:'auto'}}>
-      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:880, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh'}}>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:880, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
         <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600}}>💳 {isEdit ? '编辑' : '新建'}线下单</div>
           <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
@@ -10037,14 +10291,14 @@ const QuoteSearchModal = ({ onClose, onSelect, toast }) => {
   }, [query, list]);
 
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:10001, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflow:'auto'}}>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:10001, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:600, width:'100%', display:'flex', flexDirection:'column', maxHeight:'80vh'}}>
         <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)'}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600, marginBottom:6}}>🔍 关联报价单</div>
           <input value={query} onChange={e => setQuery(e.target.value)} autoFocus placeholder="输入报价单编号 / 客户名 / 邮箱..."
             style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13}} />
         </div>
-        <div style={{padding:10, overflow:'auto', flex:1}}>
+        <div style={{padding:10, overflowY:'auto', overflowX:'hidden', flex:1}}>
           {loading ? <div style={{textAlign:'center', padding:30, color:'var(--ink-3)'}}>⏳ 加载中...</div>
            : filtered.length === 0 ? <div style={{textAlign:'center', padding:30, color:'var(--ink-3)', fontSize:13}}>没有匹配的报价单</div>
            : filtered.map(q => {
@@ -10288,8 +10542,8 @@ const CustomInquiryEditor = ({ item, user, onClose, onSaved, toast }) => {
   };
 
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflow:'auto'}}>
-      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:760, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh'}}>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:760, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
         <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between'}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600}}>🎨 {isEdit ? '编辑' : '新增'}定制咨询</div>
           <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
@@ -10529,8 +10783,8 @@ const PhotoVerificationEditor = ({ item, user, onClose, onSaved, toast }) => {
   };
 
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflow:'auto'}}>
-      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:720, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh'}}>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:720, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
         <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between'}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600}}>📸 {isEdit ? '编辑' : '新增'}实拍核实</div>
           <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
@@ -11060,9 +11314,9 @@ const ReviewEditor = ({ review, user, employees, onClose, onSaved, toast }) => {
   
   return (
     <div onClick={onClose}
-      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflow:'auto'}}>
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()}
-        style={{background:'white', borderRadius:14, maxWidth:600, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh'}}>
+        style={{background:'white', borderRadius:14, maxWidth:600, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
         <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600}}>
             ⭐ {isEdit ? '编辑' : '发布'}评价任务
@@ -11198,9 +11452,9 @@ const ReviewCompleteModal = ({ review, user, onClose, onSaved, toast }) => {
   
   return (
     <div onClick={onClose}
-      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflow:'auto'}}>
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()}
-        style={{background:'white', borderRadius:14, maxWidth:640, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh'}}>
+        style={{background:'white', borderRadius:14, maxWidth:640, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
         <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <div>
             <div className="font-display" style={{fontSize:16, fontWeight:600, color:'#16a34a'}}>✅ 标记完成</div>
@@ -12091,7 +12345,7 @@ const RefundReviewModal = ({ refund, user, onClose, onSubmit }) => {
     <div onClick={onClose}
       style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
       <div onClick={e => e.stopPropagation()}
-        style={{background:'white', borderRadius:14, maxWidth:540, width:'100%', padding:22, maxHeight:'90vh', overflow:'auto'}}>
+        style={{background:'white', borderRadius:14, maxWidth:540, width:'100%', padding:22, maxHeight:'90vh', overflowY:'auto', overflowX:'hidden'}}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
           <div className="font-display" style={{fontSize:17, fontWeight:600, color:'#dc2626'}}>
             💰 {isApproveStage ? '审核退款' : '标记退款完成'}
@@ -13194,9 +13448,9 @@ const KBNewEntryModal = ({ user, toast, onClose, onSaved }) => {
   
   return (
     <div onClick={onClose}
-      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:99999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflow:'auto'}}>
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:99999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()}
-        style={{background:'white', borderRadius:14, maxWidth:720, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh'}}>
+        style={{background:'white', borderRadius:14, maxWidth:720, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
         <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600}}>📚 新建知识库条目</div>
           <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
