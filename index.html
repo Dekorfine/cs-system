@@ -1165,6 +1165,19 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
 
   // 主管解锁历史日期编辑（仅当前会话有效，刷新或切日重置）
   const [adminUnlock, setAdminUnlock] = useState(false);
+  
+  // 🆕 状态下拉菜单当前打开的行 ID（null = 全部关闭）
+  const [statusMenuOpen, setStatusMenuOpen] = useState(null);
+  
+  // 全局点击关闭下拉
+  useEffect(() => {
+    if (!statusMenuOpen) return;
+    const handler = (e) => {
+      if (!e.target.closest('.status-dropdown-wrap')) setStatusMenuOpen(null);
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [statusMenuOpen]);
 
   const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
 
@@ -2098,7 +2111,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
             <thead>
               <tr>
                 <th style={{width:'36px'}}>#</th>
-                <th style={{width:'115px'}}>状态</th>
+                <th style={{width:'120px', minWidth:'120px'}}>状态</th>
                 <th style={{minWidth:'220px'}}>客户邮箱/联系方式</th>
                 {isAdmin && showAll && <th style={{width:'90px'}}>员工</th>}
                 <th style={{width:'80px'}}>网站</th>
@@ -2142,16 +2155,62 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                       </div>
                     </td>
                     <td>
-                      <select disabled={!editable} value={r.status} onChange={e => updateRow(r.id, {status:e.target.value})} 
-                        style={{
-                          padding:'5px 8px', fontSize:'13px', width:'100%', fontWeight:600,
-                          border:'1px solid ' + (r.status==='pending' ? '#86868b' : r.status==='following' ? '#ff9500' : r.status==='waiting' ? '#0071e3' : r.status==='resolved' ? '#34c759' : '#86868b'),
-                          background: r.status==='pending' ? '#f5f5f7' : r.status==='following' ? '#fff7ed' : r.status==='waiting' ? '#e0f2fe' : r.status==='resolved' ? '#dcfce7' : '#fef3c7',
-                          color: r.status==='pending' ? '#525252' : r.status==='following' ? '#9a3412' : r.status==='waiting' ? '#075985' : r.status==='resolved' ? '#14532d' : '#854d0e',
-                          borderRadius:6, cursor: editable ? 'pointer' : 'default',
-                        }}>
-                        {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-                      </select>
+                      {(() => {
+                        const cur = STATUSES.find(s => s.key === r.status) || STATUSES[0];
+                        const styleMap = {
+                          pending:     { bg:'#f5f5f7', border:'#86868b', color:'#525252' },
+                          following:   { bg:'#fff7ed', border:'#ff9500', color:'#9a3412' },
+                          waiting:     { bg:'#e0f2fe', border:'#0071e3', color:'#075985' },
+                          resolved:    { bg:'#dcfce7', border:'#34c759', color:'#14532d' },
+                          transferred: { bg:'#fef3c7', border:'#d97706', color:'#854d0e' },
+                        };
+                        const curStyle = styleMap[cur.key] || styleMap.pending;
+                        const isOpen = statusMenuOpen === r.id;
+                        return (
+                          <div className="status-dropdown-wrap" style={{position:'relative', minWidth:'95px'}}>
+                            <button disabled={!editable}
+                              onClick={(e) => { e.stopPropagation(); setStatusMenuOpen(isOpen ? null : r.id); }}
+                              style={{
+                                width:'100%', padding:'6px 8px', fontSize:13, fontWeight:600,
+                                borderRadius:6, cursor: editable ? 'pointer' : 'default',
+                                background: curStyle.bg, color: curStyle.color, border:'1px solid ' + curStyle.border,
+                                display:'flex', alignItems:'center', justifyContent:'space-between', gap:4,
+                                fontFamily:'inherit', whiteSpace:'nowrap',
+                                opacity: editable ? 1 : 0.6,
+                              }}>
+                              <span>{cur.label}</span>
+                              {editable && <span style={{fontSize:9, opacity:0.6}}>▼</span>}
+                            </button>
+                            {isOpen && editable && (
+                              <div style={{
+                                position:'absolute', top:'100%', left:0, marginTop:4,
+                                background:'white', border:'1px solid var(--line)', borderRadius:8,
+                                boxShadow:'0 8px 24px rgba(0,0,0,.12)', zIndex:50, minWidth:'120px', overflow:'hidden',
+                              }}>
+                                {STATUSES.map(s => {
+                                  const ss = styleMap[s.key] || styleMap.pending;
+                                  const active = s.key === r.status;
+                                  return (
+                                    <div key={s.key} onClick={() => { updateRow(r.id, {status:s.key}); setStatusMenuOpen(null); }}
+                                      style={{
+                                        padding:'7px 12px', fontSize:13, cursor:'pointer',
+                                        background: active ? ss.bg : 'white',
+                                        color: active ? ss.color : 'var(--ink-2)',
+                                        fontWeight: active ? 600 : 400,
+                                        borderLeft: active ? '3px solid ' + ss.border : '3px solid transparent',
+                                        whiteSpace:'nowrap', transition:'background .1s',
+                                      }}
+                                      onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#f5f5f7'; }}
+                                      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'white'; }}>
+                                      {s.label}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td>
                       <div style={{position:'relative'}}>
