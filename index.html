@@ -2880,146 +2880,135 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
         />
       )}
 
-      {/* 主表格 */}
-      <div className="paper rounded-2xl fade-in" style={{overflow:'hidden'}}>
-        <div style={{overflowX:'auto', overflowY:'visible'}} className="scrollbar-thin">
-          <table style={{minWidth:'1180px'}}>
-            <thead>
-              <tr>
-                <th style={{width:'30px'}}>#</th>
-                <th style={{width:'92px', minWidth:'92px'}}>状态</th>
-                <th style={{minWidth:'170px'}}>客户邮箱/联系方式</th>
-                {isAdmin && showAll && <th style={{width:'70px'}}>员工</th>}
-                <th style={{width:'52px'}}>网站</th>
-                <th style={{width:'150px'}}>时段 · 时长</th>
-                <th style={{width:'72px'}}>难度</th>
-                <th style={{width:'90px'}}>事项</th>
-                <th style={{minWidth:'130px'}}>订单号/备注</th>
-                <th style={{width:'100px'}}>下次跟进</th>
-                <th style={{width:'130px'}}>截图 · 事件</th>
-                <th style={{width:'30px'}}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableRecords.length === 0 ? (
-                <tr>
-                  <td colSpan={isAdmin && showAll ? 12 : 11} style={{textAlign:'center', padding:'30px 12px', color:'var(--ink-3)', fontSize:'13px'}}>
-                    {sourceRecords.length === 0
-                      ? '暂无记录 · 点击下方"+ 添加一行"开始'
-                      : `无匹配记录（共 ${sourceRecords.length} 条，被筛选条件过滤）`}
-                  </td>
-                </tr>
-              ) : pagedRecords.map((r, localIdx) => {
-                const idx = viewMode === 'all' ? (safePage - 1) * pageSize + localIdx : localIdx;
-                const dispStatus = getDisplayStatus(r);
-                const statusCls = `status-${dispStatus}`;
-                const ownerName = employees.find(e => e.id === r.ownerId)?.name || '—';
-                const editable = canEditRecord(r, user, adminUnlock);
-                // 🆕 重复邮箱检测：在所有 visibleRecords 里找同样邮箱的其他记录
-                const emailNorm = (r.customer || '').trim().toLowerCase();
-                const dupRecords = emailNorm 
-                  ? visibleRecords.filter(rr => rr.id !== r.id && (rr.customer || '').trim().toLowerCase() === emailNorm)
-                  : [];
-                const isDup = dupRecords.length > 0;
-                return (
-                  <tr key={r.id}>
-                    <td>
-                      <div className="flex items-center gap-1.5">
-                        <div className={`status-bar ${statusCls}`} style={{minHeight:'24px'}}></div>
-                        <span className="font-mono text-[11px]" style={{color:'var(--ink-4)'}}>{idx+1}</span>
-                      </div>
-                    </td>
-                    <td>
-                      {(() => {
-                        const cur = STATUSES.find(s => s.key === r.status) || STATUSES[0];
-                        const styleMap = {
-                          pending:     { bg:'#f5f5f7', border:'#86868b', color:'#525252' },
-                          following:   { bg:'#fff7ed', border:'#ff9500', color:'#9a3412' },
-                          waiting:     { bg:'#e0f2fe', border:'#0071e3', color:'#075985' },
-                          resolved:    { bg:'#dcfce7', border:'#34c759', color:'#14532d' },
-                          transferred: { bg:'#fef3c7', border:'#d97706', color:'#854d0e' },
-                        };
-                        const curStyle = styleMap[cur.key] || styleMap.pending;
-                        const isOpen = statusMenuOpen === r.id;
-                        return (
-                          <div className="status-dropdown-wrap" style={{position:'relative', minWidth:'90px'}}>
-                            <button disabled={!editable}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!isOpen) {
-                                  // 计算 button 在屏幕上的位置,下拉用 fixed 定位
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  setStatusDropdownPos({ 
-                                    top: rect.bottom + 4, 
-                                    left: rect.left, 
-                                    width: Math.max(rect.width, 110)
-                                  });
-                                  setStatusMenuOpen(r.id);
-                                } else {
-                                  setStatusMenuOpen(null);
-                                }
-                              }}
-                              style={{
-                                width:'100%', padding:'5px 6px', fontSize:12, fontWeight:600,
-                                borderRadius:6, cursor: editable ? 'pointer' : 'default',
-                                background: curStyle.bg, color: curStyle.color, border:'1px solid ' + curStyle.border,
-                                display:'flex', alignItems:'center', justifyContent:'space-between', gap:2,
-                                fontFamily:'inherit', whiteSpace:'nowrap',
-                                opacity: editable ? 1 : 0.6,
-                              }}>
-                              <span>{cur.label}</span>
-                              {editable && <span style={{fontSize:8, opacity:0.6}}>▼</span>}
-                            </button>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                    <td>
-                      <div style={{position:'relative'}}>
-                        <input disabled={!editable} value={r.customer} onChange={e => updateRow(r.id, {customer:e.target.value})} 
-                          placeholder="客户邮箱（点这里输入）" 
-                          style={{
-                            padding:'5px 8px', fontSize:'12px',
-                            paddingRight: isDup ? '52px' : '8px',
-                            background: isDup ? '#fef3c7' : undefined,
-                            border: isDup ? '1px solid #f59e0b' : undefined,
-                          }}
-                          title={isDup ? `⚠ 重复邮箱：另有 ${dupRecords.length} 条同邮箱记录\n${dupRecords.slice(0,3).map(d => `· ${d.date} ${d.orderRef || ''}`).join('\n')}` : ''}
-                        />
-                        {isDup && (
-                          <span style={{
-                            position:'absolute', right:6, top:'50%', transform:'translateY(-50%)',
-                            background:'#f59e0b', color:'white', fontSize:9, fontWeight:700,
-                            padding:'2px 6px', borderRadius:10, pointerEvents:'none',
-                          }} title={`重复 ${dupRecords.length} 次`}>
-                            ⚠ {dupRecords.length}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    {isAdmin && showAll && <td><span className="text-[11px]" style={{color:'var(--ink-3)'}}>{ownerName}</span></td>}
-                    <td>
-                      <select disabled={!editable} value={r.site} onChange={e => updateRow(r.id, {site:e.target.value})} style={{padding:'4px 8px', fontSize:'11px'}}>
-                        <option value="">选...</option>
+      {/* 🆕 卡片式 UI - 重新设计 */}
+      <div className="paper rounded-2xl fade-in" style={{overflow:'hidden', padding:'14px'}}>
+        {tableRecords.length === 0 ? (
+          <div style={{textAlign:'center', padding:'50px 12px', color:'var(--ink-3)', fontSize:'14px'}}>
+            {sourceRecords.length === 0
+              ? <>暂无记录 · 点击下方 <strong style={{color:'var(--accent)'}}>+ 添加一行</strong> 开始</>
+              : `无匹配记录(共 ${sourceRecords.length} 条,被筛选条件过滤)`}
+          </div>
+        ) : (
+          <div style={{display:'flex', flexDirection:'column', gap:10}}>
+            {pagedRecords.map((r, localIdx) => {
+              const idx = viewMode === 'all' ? (safePage - 1) * pageSize + localIdx : localIdx;
+              const dispStatus = getDisplayStatus(r);
+              const statusCls = `status-${dispStatus}`;
+              const ownerName = employees.find(e => e.id === r.ownerId)?.name || '—';
+              const editable = canEditRecord(r, user, adminUnlock);
+              const emailNorm = (r.customer || '').trim().toLowerCase();
+              const dupRecords = emailNorm 
+                ? visibleRecords.filter(rr => rr.id !== r.id && (rr.customer || '').trim().toLowerCase() === emailNorm)
+                : [];
+              const isDup = dupRecords.length > 0;
+              const cur = STATUSES.find(s => s.key === r.status) || STATUSES[0];
+              const statusStyleMap = {
+                pending:     { bg:'#f5f5f7', border:'#86868b', color:'#525252', stripe:'#86868b' },
+                following:   { bg:'#fff7ed', border:'#ff9500', color:'#9a3412', stripe:'#ff9500' },
+                waiting:     { bg:'#e0f2fe', border:'#0071e3', color:'#075985', stripe:'#0071e3' },
+                resolved:    { bg:'#dcfce7', border:'#34c759', color:'#14532d', stripe:'#34c759' },
+                transferred: { bg:'#fef3c7', border:'#d97706', color:'#854d0e', stripe:'#d97706' },
+              };
+              const curStyle = statusStyleMap[cur.key] || statusStyleMap.pending;
+              const ev = getRecordEvents(r.id);
+              const evCount = ev.aftersales.length + ev.refills.length + ev.refunds.length;
+              
+              return (
+                <div key={r.id}
+                  style={{
+                    background:'white',
+                    border:'1px solid ' + (editable ? 'var(--line)' : '#e5e5e7'),
+                    borderLeft: '4px solid ' + curStyle.stripe,
+                    borderRadius:12,
+                    padding:'14px 16px',
+                    opacity: editable ? 1 : 0.85,
+                    transition:'all .15s',
+                    position:'relative',
+                  }}>
+                  
+                  {/* Header: 序号 + 状态 + 客户 + 员工 + 删除 */}
+                  <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12, flexWrap:'wrap'}}>
+                    <span style={{fontSize:11, color:'var(--ink-4)', fontFamily:'monospace', fontWeight:600, minWidth:24}}>#{idx+1}</span>
+                    
+                    {/* 状态选择 - 显眼 */}
+                    <button disabled={!editable}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (statusMenuOpen !== r.id) {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setStatusDropdownPos({ top: rect.bottom + 4, left: rect.left, width: Math.max(rect.width, 110) });
+                          setStatusMenuOpen(r.id);
+                        } else { setStatusMenuOpen(null); }
+                      }}
+                      style={{
+                        padding:'5px 12px', fontSize:12, fontWeight:600,
+                        borderRadius:14, cursor: editable ? 'pointer' : 'default',
+                        background: curStyle.bg, color: curStyle.color, border:'1px solid ' + curStyle.border,
+                        display:'inline-flex', alignItems:'center', gap:4,
+                        fontFamily:'inherit', whiteSpace:'nowrap',
+                        opacity: editable ? 1 : 0.6,
+                      }}>
+                      {cur.label}
+                      {editable && <span style={{fontSize:8, opacity:0.6}}>▼</span>}
+                    </button>
+                    
+                    {/* 客户邮箱 (输入框) - 主信息 */}
+                    <div style={{flex:'1 1 200px', minWidth:0, position:'relative'}}>
+                      <input disabled={!editable} value={r.customer} onChange={e => updateRow(r.id, {customer:e.target.value})}
+                        placeholder="📧 客户邮箱/联系方式"
+                        style={{
+                          width:'100%',
+                          padding:'7px 12px', fontSize:'13px', fontWeight:500,
+                          paddingRight: isDup ? '56px' : '12px',
+                          background: isDup ? '#fef3c7' : '#fafafa',
+                          border: '1px solid ' + (isDup ? '#f59e0b' : 'transparent'),
+                          borderRadius: 8,
+                        }}
+                        title={isDup ? `⚠ 重复邮箱:另有 ${dupRecords.length} 条同邮箱记录` : ''}
+                      />
+                      {isDup && (
+                        <span style={{
+                          position:'absolute', right:8, top:'50%', transform:'translateY(-50%)',
+                          padding:'2px 7px', fontSize:10, fontWeight:700,
+                          background:'#f59e0b', color:'white', borderRadius:8,
+                        }}>⚠ x{dupRecords.length + 1}</span>
+                      )}
+                    </div>
+                    
+                    {/* 员工 (admin 看团队时) */}
+                    {isAdmin && showAll && (
+                      <span style={{padding:'3px 10px', background:'#e0e7ff', color:'#4338ca', borderRadius:14, fontSize:11, fontWeight:600, whiteSpace:'nowrap'}}>
+                        👤 {ownerName}
+                      </span>
+                    )}
+                    
+                    {/* 删除按钮 */}
+                    {editable ? (
+                      <button onClick={() => deleteRow(r.id)} title="放入回收站"
+                        style={{padding:'5px 9px', background:'transparent', border:'1px solid var(--line)', borderRadius:8, cursor:'pointer', color:'var(--bad)', fontSize:14, fontFamily:'inherit'}}>
+                        🗑
+                      </button>
+                    ) : (
+                      <span title="历史记录已锁定" style={{fontSize:14, opacity:0.4}}>🔒</span>
+                    )}
+                  </div>
+                  
+                  {/* 字段网格 - 响应式 */}
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:10, marginBottom:10}}>
+                    {/* 网站 */}
+                    <div>
+                      <label style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>🌐 网站</label>
+                      <select disabled={!editable} value={r.website} onChange={e => updateRow(r.id, {website:e.target.value})}
+                        style={{width:'100%', padding:'7px 10px', fontSize:13, border:'1px solid var(--line)', borderRadius:7, background:'white'}}>
+                        <option value="">选择网站...</option>
                         {SITES.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
-                    </td>
-                    <td>
-                      <div style={{display:'flex', flexDirection:'column', gap:3}}>
-                        <div style={{display:'flex', gap:3, alignItems:'center'}}>
-                          <input disabled={!editable} type="time" value={r.startTime} onChange={e => updateRow(r.id, {startTime:e.target.value})} style={{padding:'3px 4px', fontSize:'10px', flex:1, minWidth:0}} />
-                          <span style={{fontSize:9, color:'var(--ink-4)'}}>→</span>
-                          <input disabled={!editable} type="time" value={r.endTime} onChange={e => updateRow(r.id, {endTime:e.target.value})} style={{padding:'3px 4px', fontSize:'10px', flex:1, minWidth:0}} />
-                        </div>
-                        <div style={{textAlign:'center'}}>
-                          <span className="font-mono text-[10px] font-bold" style={{color: r.durationMin > 10 ? 'var(--bad)' : r.durationMin >= 5 ? 'var(--gold)' : 'var(--ink-3)'}}>
-                            {r.durationMin > 0 ? '⏱ ' + fmtDuration(r.durationMin) : '⏱ —'}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="flex gap-1">
+                    </div>
+                    
+                    {/* 难度 */}
+                    <div>
+                      <label style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>📊 难度</label>
+                      <div style={{display:'flex', gap:3}}>
                         {['easy','mid','hard'].map(d => {
                           const isActive = r.difficulty === d;
                           const isSuggested = isActive && r.diffSuggested;
@@ -3027,84 +3016,100 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                           return (
                             <button key={d} disabled={!editable} className={`diff-btn ${cls} ${isSuggested?'suggested':''}`}
                               onClick={() => updateRow(r.id, {difficulty:d, diffSuggested:false})}
-                              title={isSuggested ? '系统建议 · 点击确认或更改' : ''}>
+                              title={isSuggested ? '系统建议 · 点击确认或更改' : ''}
+                              style={{flex:1, padding:'6px 0', fontSize:12}}>
                               {d==='easy'?'易':d==='mid'?'中':'复'}
                               {isSuggested && ' 🤖'}
                             </button>
                           );
                         })}
                       </div>
-                    </td>
-                    <td>
-                      <select disabled={!editable} value={r.category} onChange={e => updateRow(r.id, {category:e.target.value})} style={{padding:'4px 8px', fontSize:'11px'}}>
-                        <option value="">选...</option>
+                    </div>
+                    
+                    {/* 事项 */}
+                    <div>
+                      <label style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>📋 咨询事项</label>
+                      <select disabled={!editable} value={r.category} onChange={e => updateRow(r.id, {category:e.target.value})}
+                        style={{width:'100%', padding:'7px 10px', fontSize:13, border:'1px solid var(--line)', borderRadius:7, background:'white'}}>
+                        <option value="">选事项...</option>
                         {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        {r.category && !CATEGORIES.includes(r.category) && <option value={r.category}>{r.category}</option>}
                       </select>
-                    </td>
-                    <td>
-                      <input disabled={!editable} value={r.orderRef + (r.note ? '|' + r.note : '')}
-                        onChange={e => {
-                          const v = e.target.value;
-                          const parts = v.split('|');
-                          updateRow(r.id, {orderRef:parts[0]||'', note:parts.slice(1).join('|')});
-                        }}
-                        placeholder="订单号|备注" style={{padding:'5px 8px', fontSize:'12px'}} />
-                    </td>
-                    <td>
-                      <input disabled={!editable} type="date" value={r.nextFollowUp || ""} onChange={e => updateRow(r.id, {nextFollowUp:e.target.value})} style={{padding:'4px 6px', fontSize:'11px'}} />
-                    </td>
-                    <td>
-                      <div style={{display:'flex', flexDirection:'column', gap:4}}>
-                        {/* 第 1 行：截图按钮 + 已有事件徽章 */}
-                        <div style={{display:'flex', alignItems:'center', gap:4}}>
-                          <button className="btn-sec" onClick={() => setFollowUpModal(r.id)} title={editable ? '打开跟进/截图窗口' : '只读查看（历史日期）'} style={{padding:'3px 8px', display:'inline-flex', alignItems:'center', gap:'3px', fontSize:11}}>
-                            {r.screenshots?.length > 0 && <><Icon name="image" className="w-3 h-3" />{r.screenshots.length}</>}
-                            {r.followUps?.length > 0 && <>· {r.followUps.length}</>}
-                            {!r.screenshots?.length && !r.followUps?.length && <Icon name={editable ? 'edit' : 'image'} className="w-3 h-3" />}
-                          </button>
-                          {/* 🆕 已关联事件徽章 */}
-                          {(() => {
-                            const ev = getRecordEvents(r.id);
-                            const n = ev.aftersales.length + ev.refills.length + ev.refunds.length;
-                            if (n === 0) return null;
-                            return (
-                              <button onClick={() => setFollowUpModal(r.id)} title="查看关联的售后/补件/退款事件"
-                                style={{padding:'2px 5px', background:'#fef9c3', color:'#a16207', border:'1px solid #fcd34d', borderRadius:4, cursor:'pointer', fontSize:10, fontWeight:600, fontFamily:'inherit', display:'inline-flex', gap:2, whiteSpace:'nowrap'}}>
-                                {ev.aftersales.length > 0 && <span title="售后">🔧{ev.aftersales.length}</span>}
-                                {ev.refills.length > 0 && <span title="补件">📦{ev.refills.length}</span>}
-                                {ev.refunds.length > 0 && <span title="退款">💰{ev.refunds.length}</span>}
-                              </button>
-                            );
-                          })()}
-                        </div>
-                        {/* 第 2 行：📌 添加事件 - 折叠式下拉(节省横向空间) */}
-                        {editable && (
-                          <EventActionDropdown record={r}
-                            onAftersale={() => setEventEditor({ kind:'aftersale', record:r })}
-                            onRefill={() => setEventEditor({ kind:'refill', record:r })}
-                            onRefund={() => setEventEditor({ kind:'refund', record:r })}
-                            onChargeback={() => setSmartEditor({ kind:'chargeback', record:r })}
-                            onCustom={() => setSmartEditor({ kind:'custom', record:r })}
-                            onPhoto={() => setSmartEditor({ kind:'photo', record:r })}
-                          />
-                        )}
+                    </div>
+                    
+                    {/* 时段 */}
+                    <div style={{gridColumn:'span 2'}}>
+                      <label style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>
+                        ⏱ 时段 {r.durationMin > 0 && <span style={{marginLeft:6, color: r.durationMin > 10 ? 'var(--bad)' : r.durationMin >= 5 ? 'var(--gold)' : 'var(--ink-3)', fontWeight:700}}>· {fmtDuration(r.durationMin)}</span>}
+                      </label>
+                      <div style={{display:'flex', gap:6, alignItems:'center'}}>
+                        <input disabled={!editable} type="time" value={r.startTime} onChange={e => updateRow(r.id, {startTime:e.target.value})}
+                          style={{flex:1, padding:'7px 10px', fontSize:13, border:'1px solid var(--line)', borderRadius:7}} />
+                        <span style={{color:'var(--ink-4)', fontSize:13}}>→</span>
+                        <input disabled={!editable} type="time" value={r.endTime} onChange={e => updateRow(r.id, {endTime:e.target.value})}
+                          style={{flex:1, padding:'7px 10px', fontSize:13, border:'1px solid var(--line)', borderRadius:7}} />
                       </div>
-                    </td>
-                    <td>
-                      {editable ? (
-                        <button className="btn-ghost" onClick={() => deleteRow(r.id)} title="放入回收站">
-                          <Icon name="trash" className="w-4 h-4" style={{color:'var(--bad)'}} />
-                        </button>
-                      ) : (
-                        <span title="历史记录已锁定" style={{fontSize:'14px', opacity:0.4}}>🔒</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                    
+                    {/* 下次跟进 */}
+                    <div>
+                      <label style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>📅 下次跟进</label>
+                      <input disabled={!editable} type="date" value={r.nextFollowUp || ""} onChange={e => updateRow(r.id, {nextFollowUp:e.target.value})}
+                        style={{width:'100%', padding:'7px 10px', fontSize:13, border:'1px solid var(--line)', borderRadius:7}} />
+                    </div>
+                  </div>
+                  
+                  {/* 订单号/备注 - 整行 */}
+                  <div style={{marginBottom:10}}>
+                    <label style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>📝 订单号 / 备注</label>
+                    <input disabled={!editable} value={r.orderRef || ''}
+                      onChange={e => updateRow(r.id, {orderRef:e.target.value})}
+                      placeholder="订单号 / 备注 / 沟通要点..."
+                      style={{width:'100%', padding:'8px 12px', fontSize:13, border:'1px solid var(--line)', borderRadius:7}} />
+                  </div>
+                  
+                  {/* Footer: 截图 + 跟进次数 + 事件按钮 */}
+                  <div style={{display:'flex', alignItems:'center', gap:8, paddingTop:10, borderTop:'1px dashed var(--line)', flexWrap:'wrap'}}>
+                    <button className="btn-sec" onClick={() => setFollowUpModal(r.id)}
+                      title={editable ? '打开跟进/截图窗口' : '只读查看'}
+                      style={{padding:'5px 12px', display:'inline-flex', alignItems:'center', gap:5, fontSize:12}}>
+                      <Icon name={r.screenshots?.length > 0 ? 'image' : 'edit'} className="w-3 h-3" />
+                      {r.screenshots?.length > 0 ? `截图 ${r.screenshots.length}` : '加截图/跟进'}
+                      {r.followUps?.length > 0 && <span style={{padding:'1px 6px', background:'#e0f2fe', color:'#075985', borderRadius:8, fontSize:10, fontWeight:600}}>跟进 {r.followUps.length}</span>}
+                    </button>
+                    
+                    {/* 关联事件徽章 */}
+                    {evCount > 0 && (
+                      <button onClick={() => setFollowUpModal(r.id)} title="查看关联的售后/补件/退款事件"
+                        style={{padding:'4px 9px', background:'#fef9c3', color:'#a16207', border:'1px solid #fcd34d', borderRadius:8, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit', display:'inline-flex', gap:4, whiteSpace:'nowrap'}}>
+                        {ev.aftersales.length > 0 && <span title="售后">🔧{ev.aftersales.length}</span>}
+                        {ev.refills.length > 0 && <span title="补件">📦{ev.refills.length}</span>}
+                        {ev.refunds.length > 0 && <span title="退款">💰{ev.refunds.length}</span>}
+                      </button>
+                    )}
+                    
+                    {/* 弹性间隔 */}
+                    <div style={{flex:1}}></div>
+                    
+                    {/* 事件按钮 - 紧凑下拉 */}
+                    {editable && (
+                      <div style={{minWidth:140}}>
+                        <EventActionDropdown record={r}
+                          onAftersale={() => setEventEditor({ kind:'aftersale', record:r })}
+                          onRefill={() => setEventEditor({ kind:'refill', record:r })}
+                          onRefund={() => setEventEditor({ kind:'refund', record:r })}
+                          onChargeback={() => setSmartEditor({ kind:'chargeback', record:r })}
+                          onCustom={() => setSmartEditor({ kind:'custom', record:r })}
+                          onPhoto={() => setSmartEditor({ kind:'photo', record:r })}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="p-3 border-t" style={{borderColor:'var(--line)', background:'var(--bg)'}}>
           {canEditRecord({date:viewDate}, user, adminUnlock) ? (
             <button onClick={addRow} className="w-full py-2 rounded-lg border-2 border-dashed text-sm font-bold flex items-center justify-center gap-2 transition-colors" style={{borderColor:'var(--line)', color:'var(--accent)', background:'white'}}>
