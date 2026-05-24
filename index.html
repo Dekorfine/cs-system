@@ -3141,44 +3141,54 @@ const GREETINGS_LIB = {
 };
 
 const DailyGreeting = ({ user }) => {
-  const today = new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const hour = now.getHours();
   
-  // 每天显示一次（同一天刷新不重新显示，dismissed 后存到 localStorage）
+  // 🆕 早中晚三段 - 每天每段每个用户最多显示一次（一天最多 3 次）
+  // 早: 5-11 点 · 中: 11-18 点 · 晚: 18+ / -5 点
+  const timeSlot = hour >= 5 && hour < 11 ? 'morning'
+                 : hour >= 11 && hour < 18 ? 'noon'
+                 : 'evening';
+  const storageKey = `greeting_shown_${user.id}_${today}_${timeSlot}`;
+  
   const [hidden, setHidden] = useState(() => {
     try {
-      const lastDismiss = localStorage.getItem('greeting_dismissed_' + user.id);
-      return lastDismiss === today;
+      return localStorage.getItem(storageKey) === '1';
     } catch { return false; }
   });
+  
+  // 渲染时立即标记"已显示",避免同一时段刷新页面又出来
+  useEffect(() => {
+    if (!hidden) {
+      try { localStorage.setItem(storageKey, '1'); } catch {}
+    }
+  }, [storageKey, hidden]);
   
   if (hidden) return null;
   
   const name = user.alias || user.name;
-  const hour = new Date().getHours();
-  const dayOfWeek = new Date().getDay();  // 0 = 周日
+  const dayOfWeek = now.getDay();  // 0 = 周日
   
-  // 选 bucket
+  // 选 bucket - 根据当前时段 + 星期挑选语料
   let bucket;
   if (dayOfWeek === 0 || dayOfWeek === 6) {
     bucket = GREETINGS_LIB.weekend;
-  } else if (dayOfWeek === 1 && hour >= 5 && hour < 12) {
+  } else if (dayOfWeek === 1 && timeSlot === 'morning') {
     bucket = GREETINGS_LIB.monday;
-  } else if (dayOfWeek === 5 && hour >= 14 && hour < 22) {
+  } else if (dayOfWeek === 5 && (timeSlot === 'noon' || timeSlot === 'evening')) {
     bucket = GREETINGS_LIB.friday;
-  } else if (hour >= 5 && hour < 11) {
+  } else if (timeSlot === 'morning') {
     bucket = GREETINGS_LIB.morning;
-  } else if (hour >= 11 && hour < 14) {
-    bucket = GREETINGS_LIB.noon;
-  } else if (hour >= 14 && hour < 18) {
-    bucket = GREETINGS_LIB.afternoon;
-  } else if (hour >= 18 && hour < 22) {
-    bucket = GREETINGS_LIB.evening;
+  } else if (timeSlot === 'noon') {
+    // 中段(11-18)再细分一下中午/下午,让语料更准
+    bucket = hour < 14 ? GREETINGS_LIB.noon : GREETINGS_LIB.afternoon;
   } else {
-    bucket = GREETINGS_LIB.late;
+    bucket = hour >= 18 && hour < 22 ? GREETINGS_LIB.evening : GREETINGS_LIB.late;
   }
   
-  // 用日期+用户 id 做种子（同一天对同一个人显示同一句）
-  const seed = (parseInt(today.replace(/-/g, '')) + user.id.split('').reduce((s,c) => s + c.charCodeAt(0), 0)) % bucket.length;
+  // 用日期+用户 id+时段 做种子（同时段对同一个人显示同一句）
+  const seed = (parseInt(today.replace(/-/g, '')) + user.id.split('').reduce((s,c) => s + c.charCodeAt(0), 0) + timeSlot.charCodeAt(0)) % bucket.length;
   const greeting = bucket[seed].replace('{name}', name);
   
   // 时段对应的颜色调
@@ -3203,7 +3213,7 @@ const DailyGreeting = ({ user }) => {
   const colors = getColors();
   
   const dismiss = () => {
-    try { localStorage.setItem('greeting_dismissed_' + user.id, today); } catch {}
+    try { localStorage.setItem(storageKey, '1'); } catch {}
     setHidden(true);
   };
   
