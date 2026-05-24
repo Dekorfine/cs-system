@@ -630,7 +630,7 @@ const INITIAL_EMPLOYEES = [
   { id:'u_kuang', name:'邝雅琦', alias:'', sites:'财务·运费对账', role:'finance', password:'finance123', title:'财务·运费对账' },
   { id:'u_jiang', name:'江春芸', alias:'', sites:'财务·运费对账', role:'finance', password:'finance123', title:'财务·运费对账' },
   // 🔗 协调员 — 对接工厂/客服/跟单/供应商，所有功能全开放
-  { id:'u_liuqiang', name:'刘强', alias:'', sites:'对接工厂·跟单·供应商', role:'admin', password:'admin123', title:'协调员·跨部门对接' },
+  { id:'u_liuqiang', name:'刘强', alias:'', sites:'对接工厂·客服', role:'admin', password:'admin123', title:'对接工厂·客服' },
 ];
 
 const CATEGORIES = [
@@ -896,9 +896,9 @@ const LoginScreen = ({ employees, onLogin }) => {
                   <div style={{fontSize:'14px', fontWeight:500, color:'var(--ink)', letterSpacing:'-.003em'}}>
                     {e.name}{e.alias && <span style={{color:'var(--ink-3)', fontWeight:400, marginLeft:4}}>{e.alias}</span>}
                   </div>
-                  {e.role === 'super_admin' && <div style={{fontSize:'11px', color:'var(--accent)', marginTop:2, fontWeight:600}}>👑 总管 · Manager</div>}
-                  {e.role === 'admin' && <div style={{fontSize:'11px', color:'var(--accent)', marginTop:2, fontWeight:500}}>⭐ 主管 · Admin</div>}
-                  {e.role === 'finance' && <div style={{fontSize:'11px', color:'#a85e00', marginTop:2, fontWeight:500}}>💰 财务 · Finance</div>}
+                  {e.role === 'super_admin' && <div style={{fontSize:'11px', color:'var(--accent)', marginTop:2, fontWeight:600}}>👑 {e.title || '总管 · Manager'}</div>}
+                  {e.role === 'admin' && <div style={{fontSize:'11px', color:'var(--accent)', marginTop:2, fontWeight:500}}>⭐ {e.title || '主管 · Admin'}</div>}
+                  {e.role === 'finance' && <div style={{fontSize:'11px', color:'#a85e00', marginTop:2, fontWeight:500}}>💰 {e.title || '财务 · Finance'}</div>}
                   {e.sites && <div style={{fontSize:'11px', color:'var(--ink-4)', marginTop:3}}>{e.sites}</div>}
                 </div>
               );
@@ -918,9 +918,9 @@ const LoginScreen = ({ employees, onLogin }) => {
                   欢迎，{sel.name}{sel.alias && ` ${sel.alias}`}
                 </div>
                 <div style={{fontSize:'13px', color:'var(--ink-3)'}}>
-                  {sel.role === 'super_admin' ? '👑 客服部总管 · 拥有全部权限' :
-                   sel.role === 'admin' ? '⭐ 主管账号' :
-                   sel.role === 'finance' ? '💰 财务账号' :
+                  {sel.role === 'super_admin' ? `👑 ${sel.title || '客服部总管 · 拥有全部权限'}` :
+                   sel.role === 'admin' ? `⭐ ${sel.title || '主管账号'}` :
+                   sel.role === 'finance' ? `💰 ${sel.title || '财务账号'}` :
                    '员工账号'}
                 </div>
               </div>
@@ -977,6 +977,7 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
   const tabs = [
     { key:'cs', label:'客服跟进', badge: stats.overdue },
     { key:'events', label:'📋 工作主线', badge: stats.pendingEvents },
+    { key:'suppliers', label:'🏭 供应商' },
     { key:'kb', label:'知识库' },
     { key:'report', label:'汇报', badge: stats.ticketInbox },
     { key:'quote', label:'报价单' },
@@ -1055,6 +1056,7 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
             <div style={{fontSize:13, fontWeight:500, color:'var(--ink)', lineHeight:1.1, textAlign:'left'}}>
               {user.name}{user.alias && <span style={{color:'var(--ink-3)', fontWeight:400, marginLeft:3}}>{user.alias}</span>}
               <div style={{fontSize:10, color:'var(--ink-4)', fontWeight:400, marginTop:1}}>{
+                user.title ? `${user.title} · 点击切换` :
                 user.role === 'super_admin' ? '总管 · 点击切换' :
                 user.role === 'admin' ? '主管 · 点击切换' :
                 user.role === 'finance' ? '财务 · 点击切换' : '员工 · 点击切换'
@@ -2140,7 +2142,14 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                       </div>
                     </td>
                     <td>
-                      <select disabled={!editable} value={r.status} onChange={e => updateRow(r.id, {status:e.target.value})} style={{padding:'4px 8px', fontSize:'11px', width:'100%'}}>
+                      <select disabled={!editable} value={r.status} onChange={e => updateRow(r.id, {status:e.target.value})} 
+                        style={{
+                          padding:'5px 8px', fontSize:'13px', width:'100%', fontWeight:600,
+                          border:'1px solid ' + (r.status==='pending' ? '#86868b' : r.status==='following' ? '#ff9500' : r.status==='waiting' ? '#0071e3' : r.status==='resolved' ? '#34c759' : '#86868b'),
+                          background: r.status==='pending' ? '#f5f5f7' : r.status==='following' ? '#fff7ed' : r.status==='waiting' ? '#e0f2fe' : r.status==='resolved' ? '#dcfce7' : '#fef3c7',
+                          color: r.status==='pending' ? '#525252' : r.status==='following' ? '#9a3412' : r.status==='waiting' ? '#075985' : r.status==='resolved' ? '#14532d' : '#854d0e',
+                          borderRadius:6, cursor: editable ? 'pointer' : 'default',
+                        }}>
                         {STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
                       </select>
                     </td>
@@ -4269,7 +4278,7 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
       </div>
       
       {section === 'suppliers' && (
-        <SuppliersManagement toast={toast} />
+        <SuppliersManagement toast={toast} user={user} />
       )}
 
       {section === 'cloud' && (
@@ -7293,9 +7302,10 @@ const KbModule = ({ user, toast }) => {
 // 云同步设置模块（嵌入员工管理顶部）
 // ============================================================
 // ============================================================
-// 🏭 供应商管理 - admin 增删查改 + 搜索 + 显示统计
+// 🏭 供应商管理 - 所有人可新增/编辑/搜索，仅 admin 可删除
 // ============================================================
-const SuppliersManagement = ({ toast }) => {
+const SuppliersManagement = ({ toast, user }) => {
+  const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -7488,19 +7498,31 @@ const SuppliersManagement = ({ toast }) => {
                     {s.total_aftersales || 0}
                   </td>
                   <td>
-                    <button onClick={() => toggleActive(s)}
-                      style={{padding:'2px 8px', fontSize:10, fontWeight:600, borderRadius:10, cursor:'pointer', fontFamily:'inherit',
+                    {isAdmin ? (
+                      <button onClick={() => toggleActive(s)}
+                        style={{padding:'2px 8px', fontSize:10, fontWeight:600, borderRadius:10, cursor:'pointer', fontFamily:'inherit',
+                          background: s.active !== false ? '#dcfce7' : '#f5f5f5',
+                          color: s.active !== false ? '#15803d' : '#666',
+                          border: '1px solid ' + (s.active !== false ? '#86efac' : '#ddd'),
+                        }}>
+                        {s.active !== false ? '● 启用' : '○ 停用'}
+                      </button>
+                    ) : (
+                      <span style={{padding:'2px 8px', fontSize:10, fontWeight:600, borderRadius:10, fontFamily:'inherit',
                         background: s.active !== false ? '#dcfce7' : '#f5f5f5',
                         color: s.active !== false ? '#15803d' : '#666',
                         border: '1px solid ' + (s.active !== false ? '#86efac' : '#ddd'),
                       }}>
-                      {s.active !== false ? '● 启用' : '○ 停用'}
-                    </button>
+                        {s.active !== false ? '● 启用' : '○ 停用'}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <div style={{display:'flex', gap:2}}>
                       <button onClick={() => startEdit(s)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11}} title="编辑">✏️</button>
-                      <button onClick={() => handleDelete(s)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11, color:'var(--bad)'}} title="删除">🗑</button>
+                      {isAdmin && (
+                        <button onClick={() => handleDelete(s)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11, color:'var(--bad)'}} title="删除（仅主管可见）">🗑</button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -7511,7 +7533,7 @@ const SuppliersManagement = ({ toast }) => {
       )}
       
       <div style={{marginTop:14, padding:10, background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:8, fontSize:11, color:'#075985'}}>
-        💡 <strong>说明：</strong> 删除供应商不影响已创建的售后/退款记录（关联会变为空）。建议优先用「停用」让历史记录可追溯。所有客服在创建事件时都能在下拉中搜索到供应商。
+        💡 <strong>说明：</strong> 所有客服都可以新增和编辑供应商，删除/停用功能仅主管可用（保护历史数据完整性）。所有客服在「📋 工作主线」创建事件时都能在下拉中搜索到供应商。
       </div>
     </div>
   );
@@ -7600,7 +7622,7 @@ const CloudSettingsCard = ({ cfg, setCfg, toast, onApply }) => {
 // ============================================================
 const App = () => {
   // 员工 (localStorage + 云同步备份) - 加版本号机制，代码里改了 INITIAL_EMPLOYEES 后能自动覆盖
-  const EMPLOYEES_VERSION = 4;  // 加刘强协调员账号
+  const EMPLOYEES_VERSION = 5;  // 刘强 title 改为"对接工厂·客服"
   const [employees, setEmployees] = useState(() => {
     const storedVer = STORE.get('employees_version', 0);
     if (storedVer < EMPLOYEES_VERSION) {
@@ -7965,6 +7987,9 @@ const App = () => {
         )}
         {activeTab === 'events' && (
           <EventsModule user={user} employees={employees} records={records} toast={toast} cloudOn={cloudOn} />
+        )}
+        {activeTab === 'suppliers' && (
+          <SuppliersManagement toast={toast} user={user} />
         )}
         {/* iframe 类模块用 display 切换，避免切 tab 时丢失填写的数据 */}
         {visitedTabs.has('finance') && (
