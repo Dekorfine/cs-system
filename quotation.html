@@ -3014,6 +3014,86 @@ async function cloudSave() {
     currentLoadedPath = saved.id;
     currentLoadedSha = saved.updated_at;
     loadCloudList();
+    // 🆕 新建报价单时弹"回访提醒"对话框
+    if (!isUpdate) {
+      setTimeout(() => promptFollowUpReminder(buyerNameDisplay || '客户', piNo), 600);
+    }
+  }
+}
+
+// 🆕 设置回访提醒（保存到 workspace_records 让客服跟进系统接管）
+async function promptFollowUpReminder(customerName, piRef) {
+  const buyerEmail = (document.getElementById('buyerEmail')?.value || '').trim();
+  if (!buyerEmail) {
+    // 没邮箱也提示一下
+    showToast('💡 客户邮箱未填，可在跟进系统手动建提醒', 'info');
+    return;
+  }
+  const choice = prompt(
+    `📌 设置回访提醒\n\n` +
+    `客户：${customerName} (${buyerEmail})\n` +
+    `报价：${piRef || '(无 PI)'}\n\n` +
+    `输入回访天数，或直接回车跳过：\n` +
+    `  3  = 3 天后（推荐 · 新客户跟进）\n` +
+    `  7  = 7 天后（标准）\n` +
+    `  15 = 15 天后（长期跟进）\n` +
+    `  其他数字 = 自定义天数`,
+    '7'
+  );
+  if (!choice || isNaN(parseInt(choice))) return;
+  const days = parseInt(choice);
+  if (days < 1 || days > 90) { alert('天数请在 1-90 之间'); return; }
+  // 计算未来日期
+  const followUpDate = new Date();
+  followUpDate.setDate(followUpDate.getDate() + days);
+  const nextFollowUp = followUpDate.toISOString().slice(0, 10);
+  
+  // 从工作台 localStorage 读取当前用户 + 云配置
+  let currentUser = null;
+  let cloudCfg = null;
+  try {
+    currentUser = JSON.parse(localStorage.getItem('current_user') || 'null');
+    cloudCfg = JSON.parse(localStorage.getItem('cloud_config') || 'null');
+  } catch(e) {}
+  if (!currentUser || !cloudCfg || !cloudCfg.url) {
+    showToast('⚠ 请先在工作台登录后再设置回访提醒', 'err');
+    return;
+  }
+  // 构造跟进记录
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const recordId = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const record = {
+    id: recordId,
+    ownerId: currentUser.id,
+    date: todayStr,
+    customer: buyerEmail,
+    site: 'RD',  // 默认网站
+    orderRef: piRef || '',
+    category: '报价',
+    note: `📌 回访提醒 · ${customerName}\n报价：${piRef || '-'} · ${days}天回访`,
+    status: 'following',
+    nextFollowUp: nextFollowUp,
+    difficulty: 'mid',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  // 直接 POST 到 Supabase
+  try {
+    const resp = await fetch(cloudCfg.url + '/rest/v1/workspace_records', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': cloudCfg.key,
+        'Authorization': 'Bearer ' + cloudCfg.key,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify(record),
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    showToast(`✓ 已设置 ${days} 天后回访提醒（${nextFollowUp}）`, 'ok');
+  } catch(e) {
+    console.error('回访提醒创建失败：', e);
+    showToast('❌ 创建回访失败：' + e.message, 'err');
   }
 }
 

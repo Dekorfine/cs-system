@@ -1269,6 +1269,157 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
       return aDate.localeCompare(bDate);
     });
   }, [reminders]);
+  
+  // 🆕 高频投诉客户监控（同邮箱 ≥5 封记录 = 疑似投诉/重要客户）
+  const HIGH_FREQ_THRESHOLD = 5;
+  const highFreqCustomers = useMemo(() => {
+    if (!isAdmin) return [];  // 只主管视角看
+    const emailMap = {};
+    records.filter(r => !r.deleted && r.customer).forEach(r => {
+      const email = r.customer.trim().toLowerCase();
+      if (!email) return;
+      if (!emailMap[email]) emailMap[email] = [];
+      emailMap[email].push(r);
+    });
+    return Object.entries(emailMap)
+      .filter(([, list]) => list.length >= HIGH_FREQ_THRESHOLD)
+      .map(([email, list]) => {
+        const unresolved = list.filter(r => r.status !== 'resolved').length;
+        const owners = [...new Set(list.map(r => r.ownerId))].map(id => employees.find(e => e.id === id)?.name).filter(Boolean);
+        const latestDate = list.map(r => r.date).sort().slice(-1)[0];
+        return { email, count: list.length, unresolved, owners, latestDate, records: list };
+      })
+      .sort((a, b) => b.unresolved - a.unresolved || b.count - a.count);
+  }, [records, isAdmin, employees]);
+  
+  // 高频客户面板展开
+  const [highFreqExpanded, setHighFreqExpanded] = useState(false);
+  
+  // 🆕 生成日报/周报/团队周报
+  const generateReport = (mode) => {
+    const today = todayISO();
+    let startDate, endDate, title;
+    if (mode === 'day') {
+      startDate = endDate = today;
+      title = `📋 客服日报 · ${today}`;
+    } else if (mode === 'week') {
+      const t = new Date(today);
+      const wd = t.getDay() || 7;  // 1=周一 ... 7=周日
+      const monday = new Date(t); monday.setDate(t.getDate() - wd + 1);
+      startDate = monday.toISOString().slice(0, 10);
+      endDate = today;
+      title = `📅 客服周报 · ${startDate} ~ ${endDate}`;
+    } else {  // team
+      const t = new Date(today);
+      const wd = t.getDay() || 7;
+      const monday = new Date(t); monday.setDate(t.getDate() - wd + 1);
+      startDate = monday.toISOString().slice(0, 10);
+      endDate = today;
+      title = `👥 团队周报 · ${startDate} ~ ${endDate}`;
+    }
+    // 数据范围
+    const scope = mode === 'team' 
+      ? records.filter(r => !r.deleted)  // 全员
+      : records.filter(r => !r.deleted && r.ownerId === user.id);  // 我的
+    const inRange = scope.filter(r => r.date >= startDate && r.date <= endDate);
+    
+    let report = `${title}\n`;
+    report += `生成人：${user.name}${user.alias ? ' ' + user.alias : ''}\n`;
+    report += `生成时间：${nowISO().slice(0, 16).replace('T', ' ')}\n`;
+    report += `${'═'.repeat(40)}\n\n`;
+    
+    if (mode === 'team') {
+      // 团队周报 - 按员工分组
+      const byOwner = {};
+      inRange.forEach(r => {
+        if (!byOwner[r.ownerId]) byOwner[r.ownerId] = [];
+        byOwner[r.ownerId].push(r);
+      });
+      report += `📊 本周团队整体表现\n`;
+      report += `• 总邮件数：${inRange.length} 封\n`;
+      report += `• 总时长：${fmtDuration(inRange.reduce((s, r) => s + (r.durationMin || 0), 0))}\n`;
+      report += `• 已解决：${inRange.filter(r => r.status === 'resolved').length} 单\n`;
+      report += `• 逾期未跟：${inRange.filter(r => r.status !== 'resolved' && r.nextFollowUp && r.nextFollowUp < today).length} 单\n`;
+      report += `• 升级到主管：${inRange.filter(r => r.escalated).length} 单\n\n`;
+      report += `👥 员工明细\n`;
+      Object.entries(byOwner).forEach(([oid, list]) => {
+        const emp = employees.find(e => e.id === oid);
+        const resolved = list.filter(r => r.status === 'resolved').length;
+        const mins = list.reduce((s, r) => s + (r.durationMin || 0), 0);
+        report += `\n— ${emp?.name || '?'}${emp?.alias ? ' ' + emp.alias : ''}\n`;
+        report += `  邮件 ${list.length} 封 · 总时长 ${fmtDuration(mins)} · 已解决 ${resolved} 单`;
+        if (list.filter(r => r.escalated).length > 0) {
+          report += ` · 升级 ${list.filter(r => r.escalated).length}`;
+        }
+      });
+    } else {
+      // 日报/周报 - 个人
+      const easy = inRange.filter(r => r.difficulty === 'easy').length;
+      const mid = inRange.filter(r => r.difficulty === 'mid').length;
+      const hard = inRange.filter(r => r.difficulty === 'hard').length;
+      const resolved = inRange.filter(r => r.status === 'resolved').length;
+      const escalated = inRange.filter(r => r.escalated).length;
+      
+      report += `📊 ${mode === 'day' ? '今日' : '本周'}数据\n`;
+      report += `• 邮件总数：${inRange.length} 封\n`;
+      report += `• 总时长：${fmtDuration(inRange.reduce((s, r) => s + (r.durationMin || 0), 0))}\n`;
+      report += `• 难度分布：简单 ${easy} / 中等 ${mid} / 复杂 ${hard}\n`;
+      report += `• 已解决：${resolved} 单（${inRange.length > 0 ? Math.round(resolved / inRange.length * 100) : 0}%）\n`;
+      if (escalated > 0) report += `• 已升级主管：${escalated} 单\n`;
+      
+      // 按网站分类
+      const bySite = {};
+      inRange.forEach(r => {
+        if (!r.site) return;
+        bySite[r.site] = (bySite[r.site] || 0) + 1;
+      });
+      if (Object.keys(bySite).length > 0) {
+        report += `\n🌐 网站分布\n`;
+        Object.entries(bySite).sort((a, b) => b[1] - a[1]).forEach(([s, n]) => {
+          report += `• ${s}：${n} 封\n`;
+        });
+      }
+      
+      // 咨询事项分布
+      const byCat = {};
+      inRange.forEach(r => {
+        if (!r.category) return;
+        byCat[r.category] = (byCat[r.category] || 0) + 1;
+      });
+      if (Object.keys(byCat).length > 0) {
+        report += `\n📋 咨询事项 TOP 5\n`;
+        Object.entries(byCat).sort((a, b) => b[1] - a[1]).slice(0, 5).forEach(([c, n]) => {
+          report += `• ${c}：${n} 封\n`;
+        });
+      }
+      
+      // 跟进中工作
+      const pendingNext = scope.filter(r => r.status !== 'resolved' && r.nextFollowUp);
+      const overdue = pendingNext.filter(r => r.nextFollowUp < today);
+      const todayDue = pendingNext.filter(r => r.nextFollowUp === today);
+      if (overdue.length + todayDue.length > 0) {
+        report += `\n⚠ 待跟进\n`;
+        if (overdue.length > 0) report += `• 逾期：${overdue.length} 单\n`;
+        if (todayDue.length > 0) report += `• 今日到期：${todayDue.length} 单\n`;
+      }
+    }
+    
+    report += `\n${'─'.repeat(40)}\n生成自统一工作台`;
+    
+    // 复制到剪贴板
+    const ta = document.createElement('textarea');
+    ta.value = report;
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+      toast('✓ 报告已复制到剪贴板，可粘贴到微信/钉钉/邮件');
+    } catch(e) {
+      // 失败时弹窗显示
+      alert(report);
+    }
+    document.body.removeChild(ta);
+  };
 
   // 转交工作 - 改 ownerId + 保留历史 + 通知新负责人
   const transferRecord = (recordId, newOwnerId) => {
@@ -1360,6 +1511,61 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
               ✓ 确认接手全部
             </button>
           </div>
+        </div>
+      )}
+      
+      {/* 🆕 高频投诉客户监控 (仅主管视角，邮箱出现 ≥5 次) */}
+      {highFreqCustomers.length > 0 && (
+        <div className="paper rounded-2xl fade-in" style={{overflow:'hidden', background:'#fef2f2', border:'1.5px solid #f87171'}}>
+          <div className="p-4 flex items-center justify-between gap-3 flex-wrap" style={{cursor:'pointer'}}
+            onClick={() => setHighFreqExpanded(v => !v)}>
+            <div style={{display:'flex', alignItems:'center', gap:10}}>
+              <span style={{fontSize:24}}>🆘</span>
+              <div>
+                <div style={{fontSize:14, fontWeight:600, color:'#991b1b'}}>
+                  发现 {highFreqCustomers.length} 个高频投诉/重要客户
+                </div>
+                <div style={{fontSize:12, color:'#b91c1c', marginTop:2}}>
+                  这些邮箱有 ≥5 封历史邮件 · 共 {highFreqCustomers.reduce((s, c) => s + c.unresolved, 0)} 单未解决
+                </div>
+              </div>
+            </div>
+            <button className="btn-ghost" style={{padding:'4px 10px', fontSize:11}}>
+              {highFreqExpanded ? '▲ 收起' : '▼ 查看详情'}
+            </button>
+          </div>
+          {highFreqExpanded && (
+            <div style={{borderTop:'1px solid #fca5a5', maxHeight:380, overflow:'auto'}}>
+              {highFreqCustomers.map(c => (
+                <div key={c.email} style={{padding:'12px 16px', borderBottom:'1px solid #fecaca', display:'flex', alignItems:'center', gap:12, fontSize:13, background:'white'}}>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                      <span style={{fontWeight:600, color:'#991b1b'}}>{c.email}</span>
+                      <span className="tag" style={{background:'#fef2f2', color:'#dc2626', fontSize:10, padding:'1px 6px', border:'1px solid #fca5a5'}}>
+                        📧 {c.count} 封历史
+                      </span>
+                      {c.unresolved > 0 && (
+                        <span className="tag" style={{background:'#dc2626', color:'white', fontSize:10, padding:'1px 6px'}}>
+                          ⚠ {c.unresolved} 单未解决
+                        </span>
+                      )}
+                    </div>
+                    <div style={{fontSize:11, color:'var(--ink-3)', marginTop:2}}>
+                      最后联系：{c.latestDate} · 跟进人：{c.owners.join(', ') || '?'}
+                    </div>
+                  </div>
+                  <button className="btn-sec" style={{padding:'4px 10px', fontSize:11}}
+                    onClick={() => {
+                      setSearch(c.email);
+                      setHighFreqExpanded(false);
+                      toast(`✓ 已筛选 ${c.email} 的所有记录`);
+                    }}>
+                    🔍 查看全部
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       
@@ -1661,6 +1867,31 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
             toast(`📋 提醒：逾期 ${overdueCount} 单 · 今日 ${todayCount} 单`);
           } : null} />
       </div>
+      
+      {/* 🆕 一键生成日报/周报 */}
+      <div className="paper rounded-2xl p-3 fade-in" style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap'}}>
+        <div style={{display:'flex', alignItems:'center', gap:8}}>
+          <span style={{fontSize:18}}>📊</span>
+          <span style={{fontSize:13, fontWeight:600, color:'var(--ink)'}}>工作汇报</span>
+          <span style={{fontSize:11, color:'var(--ink-3)'}}>· 一键生成文字汇报（复制后可粘贴到微信/钉钉）</span>
+        </div>
+        <div style={{display:'flex', gap:6}}>
+          <button className="btn-sec" style={{padding:'5px 12px', fontSize:12}}
+            onClick={() => generateReport('day')}>
+            📋 今日报告
+          </button>
+          <button className="btn-sec" style={{padding:'5px 12px', fontSize:12}}
+            onClick={() => generateReport('week')}>
+            📅 本周汇总
+          </button>
+          {isAdmin && (
+            <button className="btn-sec" style={{padding:'5px 12px', fontSize:12}}
+              onClick={() => generateReport('team')}>
+              👥 团队周报
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* 主表格 */}
       <div className="paper rounded-2xl overflow-hidden fade-in">
@@ -1847,6 +2078,9 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
         return (
           <FollowUpModal
             record={r}
+            user={user}
+            employees={employees}
+            cloudOn={cloudOn}
             readonly={!modalEditable}
             onClose={() => setFollowUpModal(null)}
             onUpdate={(patch) => updateRow(followUpModal, patch)}
@@ -2217,7 +2451,51 @@ const BatchTransferModal = ({ employees, records, user, fromUserId, setFromUserI
   );
 };
 
-const FollowUpModal = ({ record, onClose, onUpdate, toast, readonly = false }) => {
+const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, cloudOn, readonly = false }) => {
+  const [escalateModal, setEscalateModal] = useState(false);
+  const [escalateReason, setEscalateReason] = useState('');
+  const [escalateUrgency, setEscalateUrgency] = useState('high');
+  
+  const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
+  
+  // 一键升级 → 自动建工单到 workspace_tickets
+  const submitEscalate = async () => {
+    if (!escalateReason.trim()) { alert('请填写需要主管协助的原因'); return; }
+    const admins = (employees || []).filter(e => e.role === 'admin' || e.role === 'super_admin');
+    if (admins.length === 0) { alert('没有找到主管账号'); return; }
+    const targetAdmin = admins[0];  // 默认升级给第一个主管/总管
+    const ticket = {
+      id: uid(),
+      title: `🚨 棘手邮件升级 · ${record.customer || record.orderRef || '(无标题)'}`,
+      content: `客户：${record.customer || '-'}\n订单：${record.orderRef || '-'}\n网站：${record.site || '-'}\n咨询事项：${record.category || '-'}\n\n【客服需要协助的原因】\n${escalateReason}\n\n【已跟进备注】\n${record.note || '(无)'}\n\n点跟进记录 ID：${record.id}`,
+      priority: escalateUrgency,
+      department: 'service',
+      from_id: user.id,
+      from_name: user.name + (user.alias ? ' ' + user.alias : ''),
+      target_id: targetAdmin.id,
+      target_name: targetAdmin.name + (targetAdmin.alias ? ' ' + targetAdmin.alias : ''),
+      status: 'pending',
+      record_ref: record.id,
+      created_at: nowISO(),
+      updated_at: nowISO(),
+    };
+    try {
+      if (cloudOn && CLOUD.client) {
+        const { error } = await CLOUD.client.from('workspace_tickets').upsert(ticket);
+        if (error) throw error;
+      } else {
+        const local = STORE.get('tickets_local', []);
+        STORE.set('tickets_local', [ticket, ...local]);
+      }
+      // 同时把记录状态改为 escalated（透过 status 字段不能用，加 escalated 字段）
+      onUpdate({ escalated: true, escalatedAt: nowISO(), escalateReason: escalateReason });
+      toast(`✓ 已升级给主管 ${targetAdmin.name}，请等待处理`);
+      setEscalateModal(false);
+      setEscalateReason('');
+    } catch (e) {
+      alert('❌ 升级失败：' + e.message);
+    }
+  };
   const [newFollowText, setNewFollowText] = useState('');
   const [newFollowStatus, setNewFollowStatus] = useState(record.status);
   const fileInputRef = useRef(null);
@@ -2296,15 +2574,90 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, readonly = false }) =
             <div className="flex items-center gap-2">
               <span className="font-display text-lg font-bold">跟进 & 截图</span>
               {readonly && <span className="tag" style={{background:'rgba(168,168,160,0.18)', color:'var(--ink-3)', fontSize:'10px'}}>🔒 历史只读</span>}
+              {record.escalated && <span className="tag" style={{background:'#fef2f2', color:'#dc2626', fontSize:'10px', border:'1px solid #fca5a5'}}>🚨 已升级</span>}
             </div>
             <div className="text-xs font-mono mt-0.5" style={{color:'var(--ink-3)'}}>
               {record.customer || '未填客户'} · {record.category || '未选事项'} · {record.date}
             </div>
           </div>
-          <button className="btn-ghost" onClick={onClose}>
-            <Icon name="x" className="w-5 h-5" />
-          </button>
+          <div style={{display:'flex', gap:8, alignItems:'center'}}>
+            {!readonly && !isAdmin && !record.escalated && (
+              <button onClick={() => setEscalateModal(true)}
+                title="把这封棘手邮件交给主管处理"
+                style={{padding:'6px 14px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit'}}
+                onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}>
+                🚨 升级主管
+              </button>
+            )}
+            <button className="btn-ghost" onClick={onClose}>
+              <Icon name="x" className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+        
+        {/* 升级历史显示 */}
+        {record.escalated && record.escalateReason && (
+          <div style={{padding:12, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:8, marginBottom:14}}>
+            <div style={{fontSize:12, fontWeight:600, color:'#991b1b', marginBottom:4}}>
+              🚨 已在 {record.escalatedAt?.slice(0,16).replace('T',' ')} 升级给主管
+            </div>
+            <div style={{fontSize:12, color:'#7f1d1d', whiteSpace:'pre-wrap'}}>{record.escalateReason}</div>
+          </div>
+        )}
+        
+        {/* 升级弹窗 */}
+        {escalateModal && (
+          <div onClick={() => setEscalateModal(false)} 
+            style={{position:'absolute', inset:0, background:'rgba(0,0,0,.4)', zIndex:10, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'inherit'}}>
+            <div onClick={e => e.stopPropagation()}
+              style={{background:'white', borderRadius:12, padding:20, maxWidth:480, width:'90%', boxShadow:'0 12px 32px rgba(0,0,0,.2)'}}>
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
+                <span style={{fontSize:24}}>🚨</span>
+                <div>
+                  <div style={{fontWeight:600, fontSize:16}}>升级给主管</div>
+                  <div style={{fontSize:11, color:'var(--ink-3)'}}>把这封棘手邮件交给主管协助处理</div>
+                </div>
+              </div>
+              <div style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>紧急程度</div>
+              <div style={{display:'flex', gap:6, marginBottom:12}}>
+                {[
+                  { key:'normal', label:'一般', color:'#0ea5e9', bg:'#e0f2fe' },
+                  { key:'high',   label:'紧急', color:'#ea580c', bg:'#fff7ed' },
+                  { key:'urgent', label:'非常紧急', color:'#dc2626', bg:'#fef2f2' },
+                ].map(opt => (
+                  <button key={opt.key} onClick={() => setEscalateUrgency(opt.key)}
+                    style={{
+                      flex:1, padding:'8px', borderRadius:8, cursor:'pointer', fontFamily:'inherit',
+                      border: '1px solid ' + (escalateUrgency === opt.key ? opt.color : 'var(--line)'),
+                      background: escalateUrgency === opt.key ? opt.bg : 'white',
+                      color: escalateUrgency === opt.key ? opt.color : 'var(--ink-3)',
+                      fontWeight: escalateUrgency === opt.key ? 600 : 400,
+                      fontSize: 12,
+                    }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>
+                需要主管协助的原因 <span style={{color:'#dc2626'}}>*</span>
+              </div>
+              <textarea value={escalateReason} onChange={e => setEscalateReason(e.target.value)}
+                placeholder="比如：客户要求 100% 全款退款但订单已发出，超出我授权范围；或客户态度激烈要求投诉到老板..."
+                style={{width:'100%', minHeight:80, padding:8, border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit', resize:'vertical', boxSizing:'border-box'}} />
+              <div style={{fontSize:10, color:'var(--ink-4)', marginTop:6, marginBottom:12}}>
+                💡 主管会在「汇报工单」tab 看到这条升级单，附带这条跟进的完整上下文
+              </div>
+              <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
+                <button onClick={() => setEscalateModal(false)} className="btn-sec" style={{padding:'8px 16px'}}>取消</button>
+                <button onClick={submitEscalate} disabled={!escalateReason.trim()}
+                  style={{padding:'8px 20px', background:'#dc2626', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13, opacity: escalateReason.trim() ? 1 : 0.5}}>
+                  🚨 确认升级
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 截图区 */}
         <div className="mb-5">
@@ -4219,6 +4572,11 @@ const QuoteModule = ({ user, toast }) => {
         const maxH = window.innerHeight - 160;
         setIframeHeight(Math.min(maxH, Math.max(600, e.data.height + 20)) + 'px');
       }
+      if (e.data?.type === 'iframe-modal-open' && e.data?.source === 'quotation') {
+        if (iframeRef.current) {
+          iframeRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
@@ -4672,6 +5030,12 @@ const KbModule = ({ user, toast }) => {
       if (e.data?.type === 'iframe-resize' && e.data?.source === 'kb') {
         const maxH = window.innerHeight - 160;
         setIframeHeight(Math.min(maxH, Math.max(600, e.data.height + 20)) + 'px');
+      }
+      // 🆕 KB 内打开 modal 时，把 iframe 滚到 viewport 顶部，确保 modal 可见
+      if (e.data?.type === 'iframe-modal-open' && e.data?.source === 'kb') {
+        if (iframeRef.current) {
+          iframeRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       }
     };
     window.addEventListener('message', handler);
