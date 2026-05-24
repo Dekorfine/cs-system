@@ -5870,10 +5870,11 @@ const AdminOverviewDashboard = ({ user, employees, toast }) => {
 
 
 const ChargebackOwnersSettings = ({ employees, user, toast }) => {
-  // 按网站映射: { VK: [uid1], 其他: [uid2], weekend: [uid3] }
+  // 按网站映射 + 周六值班 + 周日值班
   const [siteOwners, setSiteOwners] = useState({});  // site -> uid
   const [defaultOwner, setDefaultOwner] = useState('');  // 其他网站默认负责人
-  const [weekendOwner, setWeekendOwner] = useState('');  // 周末轮值
+  const [saturdayOwner, setSaturdayOwner] = useState('');  // 🆕 周六值班
+  const [sundayOwner, setSundayOwner] = useState('');      // 🆕 周日值班
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -5884,12 +5885,14 @@ const ChargebackOwnersSettings = ({ employees, user, toast }) => {
     try {
       const { data } = await CLOUD.client.from('system_settings').select('*').eq('key', 'chargeback_owners').single();
       const cfg = data?.value || {};
-      // 新格式: { site_owners: {VK:'uid'}, default_owner:'uid', weekend_owner:'uid' }
-      // 兼容旧格式: { user_ids:[], user_names:[] }
-      if (cfg.site_owners || cfg.default_owner || cfg.weekend_owner) {
+      // 新格式: { site_owners, default_owner, saturday_owner, sunday_owner }
+      // 旧格式: { weekend_owner } (周六/日都用同一个)
+      // 更旧格式: { user_ids:[] }
+      if (cfg.site_owners || cfg.default_owner || cfg.saturday_owner || cfg.sunday_owner || cfg.weekend_owner) {
         setSiteOwners(cfg.site_owners || {});
         setDefaultOwner(cfg.default_owner || '');
-        setWeekendOwner(cfg.weekend_owner || '');
+        setSaturdayOwner(cfg.saturday_owner || cfg.weekend_owner || '');
+        setSundayOwner(cfg.sunday_owner || cfg.weekend_owner || '');
       } else if ((cfg.user_ids || []).length > 0) {
         setDefaultOwner(cfg.user_ids[0]);
       }
@@ -5906,7 +5909,8 @@ const ChargebackOwnersSettings = ({ employees, user, toast }) => {
     const allUids = [...new Set([
       ...Object.values(siteOwners).filter(Boolean),
       defaultOwner,
-      weekendOwner,
+      saturdayOwner,
+      sundayOwner,
     ].filter(Boolean))];
     const allNames = allUids.map(uid => {
       const e = employees.find(x => x.id === uid);
@@ -5919,7 +5923,8 @@ const ChargebackOwnersSettings = ({ employees, user, toast }) => {
         value: {
           site_owners: siteOwners,
           default_owner: defaultOwner,
-          weekend_owner: weekendOwner,
+          saturday_owner: saturdayOwner,
+          sunday_owner: sundayOwner,
           // 旧格式兼容
           user_ids: allUids,
           user_names: allNames,
@@ -5951,26 +5956,34 @@ const ChargebackOwnersSettings = ({ employees, user, toast }) => {
   
   if (loading) return <div className="paper rounded-2xl p-10" style={{textAlign:'center'}}>⏳ 加载中...</div>;
   
+  const getEmployeeLabel = (uid) => {
+    if (!uid) return null;
+    const e = visibleEmployees.find(x => x.id === uid);
+    return e ? e.name + (e.alias ? ' ' + e.alias : '') : null;
+  };
+  
   return (
     <div className="paper rounded-2xl p-6">
       <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:6}}>
         <span style={{fontSize:24}}>🚨</span>
         <div>
           <div className="font-display" style={{fontSize:18, fontWeight:600, letterSpacing:'-.022em'}}>拒付负责人配置</div>
-          <div style={{fontSize:13, color:'var(--ink-3)'}}>按网站指派 · 周末轮值 · 创建拒付时自动指派</div>
+          <div style={{fontSize:13, color:'var(--ink-3)'}}>按网站指派 · 周六/周日各自值班 · 创建拒付时自动指派</div>
         </div>
       </div>
       
       <div className="rounded-lg p-3 mt-4" style={{background:'#fef3c7', color:'#854d0e', fontSize:13, lineHeight:1.7}}>
         <strong>💡 工作机制：</strong><br/>
-        · 创建拒付时,系统根据「拒付平台」+ 「网站」+ 「当前是否周末」自动指派负责人<br/>
-        · 例如: VK 网站的所有拒付 → Tammy; 其他网站 → Aletta; 周末 → 轮值人员<br/>
+        · <strong>工作日</strong>(周一至周五):根据网站自动指派,例如 VK → Tammy / 其他网站 → Aletta<br/>
+        · <strong>周六</strong>:由"周六值班人"接手所有网站的新拒付<br/>
+        · <strong>周日</strong>:由"周日值班人"接手所有网站的新拒付<br/>
+        · 两位拒付负责人都能看到对方的拒付(协同工作),只是自动指派会区分<br/>
         · 截止前 <strong>7/3/1 天</strong> 触发桌面通知 + 顶部红色横幅给负责人 + 主管<br/>
         · 逾期持续告警,直到状态改为「胜诉/败诉/已关闭」
       </div>
       
       <div style={{marginTop:18}}>
-        <div style={{fontSize:14, fontWeight:600, marginBottom:10, color:'var(--ink)'}}>① 按网站指派</div>
+        <div style={{fontSize:14, fontWeight:600, marginBottom:10, color:'var(--ink)'}}>① 工作日 · 按网站指派</div>
         {SITES.map(site => (
           <div key={site} style={{display:'grid', gridTemplateColumns:'80px 1fr', gap:10, marginBottom:8, alignItems:'center'}}>
             <div style={{fontWeight:600, fontSize:13, color:'#dc2626', padding:'5px 12px', background:'#fef2f2', borderRadius:6, textAlign:'center'}}>{site}</div>
@@ -5988,10 +6001,17 @@ const ChargebackOwnersSettings = ({ employees, user, toast }) => {
         {renderEmployeeSelect(defaultOwner, setDefaultOwner, '选择默认负责人(建议:Aletta)')}
       </div>
       
-      <div style={{marginTop:16, padding:'16px', background:'#fffbeb', borderRadius:10, border:'1px solid #fbbf24'}}>
-        <div style={{fontSize:14, fontWeight:600, marginBottom:6, color:'#854d0e'}}>③ 周末轮值负责人</div>
-        <div style={{fontSize:11, color:'#92400e', marginBottom:10}}>周末(周六/周日)创建的所有拒付,无论网站,都指派给此人</div>
-        {renderEmployeeSelect(weekendOwner, setWeekendOwner, '选择周末轮值人员(建议:Aletta)')}
+      <div style={{marginTop:16, display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+        <div style={{padding:'16px', background:'#fffbeb', borderRadius:10, border:'1px solid #fbbf24'}}>
+          <div style={{fontSize:14, fontWeight:600, marginBottom:6, color:'#854d0e'}}>③ 周六值班 🌅</div>
+          <div style={{fontSize:11, color:'#92400e', marginBottom:10}}>周六创建的所有拒付,无论网站,都指派给此人</div>
+          {renderEmployeeSelect(saturdayOwner, setSaturdayOwner, '选择周六值班(例如:Aletta)')}
+        </div>
+        <div style={{padding:'16px', background:'#eef2ff', borderRadius:10, border:'1px solid #818cf8'}}>
+          <div style={{fontSize:14, fontWeight:600, marginBottom:6, color:'#3730a3'}}>④ 周日值班 🌙</div>
+          <div style={{fontSize:11, color:'#3730a3', marginBottom:10}}>周日创建的所有拒付,无论网站,都指派给此人</div>
+          {renderEmployeeSelect(sundayOwner, setSundayOwner, '选择周日值班(例如:Tammy)')}
+        </div>
       </div>
       
       <div style={{marginTop:20, padding:'12px 16px', background:'#f0f9ff', borderRadius:8, fontSize:12, color:'#075985'}}>
@@ -6007,10 +6027,12 @@ const ChargebackOwnersSettings = ({ employees, user, toast }) => {
             </div>
           );
         })}
-        {weekendOwner && (() => {
-          const w = visibleEmployees.find(e => e.id === weekendOwner);
-          return w && <div style={{marginTop:6, color:'#854d0e'}}><strong>📅 周末</strong> → {w.name}{w.alias ? ' ' + w.alias : ''}(覆盖所有网站)</div>;
-        })()}
+        {(saturdayOwner || sundayOwner) && (
+          <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed #93c5fd'}}>
+            {saturdayOwner && <div style={{color:'#854d0e'}}><strong>🌅 周六值班</strong> → {getEmployeeLabel(saturdayOwner) || '?'}(覆盖所有网站)</div>}
+            {sundayOwner && <div style={{color:'#3730a3', marginTop:3}}><strong>🌙 周日值班</strong> → {getEmployeeLabel(sundayOwner) || '?'}(覆盖所有网站)</div>}
+          </div>
+        )}
       </div>
       
       <button onClick={handleSave} disabled={saving}
@@ -9248,18 +9270,27 @@ const ChargebackEditor = ({ cb, user, employees, onClose, onSaved, toast }) => {
   const [saving, setSaving] = useState(false);
   const [autoAssignInfo, setAutoAssignInfo] = useState('');  // 显示自动指派依据
   
-  // 🆕 智能自动指派 - 根据网站 + 是否周末
+  // 🆕 智能自动指派 - 周六/周日分别值班 + 工作日按网站
   const autoAssignByConfig = (siteValue, employeesList, config) => {
     if (!config) return { ids: [], info: '' };
     const now = new Date();
     const day = now.getDay();  // 0 = Sunday, 6 = Saturday
-    const isWeekend = (day === 0 || day === 6);
     
-    // 周末优先用周末轮值
-    if (isWeekend && config.weekend_owner) {
-      return { ids: [config.weekend_owner], info: '📅 周末轮值' };
+    // 🌙 周日值班
+    if (day === 0) {
+      const sundayUid = config.sunday_owner || config.weekend_owner;  // 兼容旧字段
+      if (sundayUid) {
+        return { ids: [sundayUid], info: '🌙 周日值班(覆盖所有网站)' };
+      }
     }
-    // 网站指派
+    // 🌅 周六值班
+    if (day === 6) {
+      const saturdayUid = config.saturday_owner || config.weekend_owner;
+      if (saturdayUid) {
+        return { ids: [saturdayUid], info: '🌅 周六值班(覆盖所有网站)' };
+      }
+    }
+    // 工作日:按网站
     if (siteValue && config.site_owners && config.site_owners[siteValue]) {
       return { ids: [config.site_owners[siteValue]], info: `🌐 ${siteValue} 网站专人` };
     }
