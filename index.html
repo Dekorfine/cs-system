@@ -559,6 +559,30 @@ const CLOUD = {
       return true;
     } catch(e) { console.error('CLOUD.deleteImage', e); return false; }
   },
+  // 🆕 通用文件上传 (支持 PDF / PPT / XLSX / DOCX / 图片 / 视频 等)
+  async uploadFile(bucket, file, prefix = '') {
+    if (!this.client) return null;
+    try {
+      const safeName = (file.name || 'file').replace(/[^\w\u4e00-\u9fa5.-]/g, '_').slice(0, 80);
+      const fname = `${prefix}${Date.now()}_${Math.random().toString(36).slice(2,7)}_${safeName}`;
+      const { data, error } = await this.client.storage.from(bucket).upload(fname, file, { 
+        upsert:false, 
+        contentType: file.type || 'application/octet-stream',
+      });
+      if (error) throw error;
+      const { data:urlData } = this.client.storage.from(bucket).getPublicUrl(data.path);
+      return { 
+        path: data.path, 
+        url: urlData.publicUrl,
+        name: file.name,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+      };
+    } catch(e) {
+      console.error('CLOUD.uploadFile', e);
+      return null;
+    }
+  },
 };
 
 // 🔗 协调员配置 - 接收所有事件的"对接人"
@@ -631,6 +655,8 @@ const INITIAL_EMPLOYEES = [
   { id:'u_jiang', name:'江春芸', alias:'', sites:'财务·运费对账', role:'finance', password:'finance123', title:'财务·运费对账' },
   // 🔗 协调员 — 对接工厂/客服/跟单/供应商，所有功能全开放
   { id:'u_liuqiang', name:'刘强', alias:'', sites:'对接工厂·客服', role:'admin', password:'admin123', title:'对接工厂·客服' },
+  // 🔒 老板（不在登录列表显示，需要从右下角隐藏入口登录）
+  { id:'u_martin', name:'Martin', alias:'', sites:'CEO', role:'super_admin', password:'qq923923', title:'CEO · 创始人', hideFromList:true },
 ];
 
 const CATEGORIES = [
@@ -855,6 +881,21 @@ const LoginScreen = ({ employees, onLogin }) => {
   const [selectedId, setSelectedId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  
+  // 🔒 老板秘密登录入口
+  const [bossLoginOpen, setBossLoginOpen] = useState(false);
+  const [bossName, setBossName] = useState('');
+  const [bossPwd, setBossPwd] = useState('');
+  const [bossError, setBossError] = useState('');
+  
+  const tryBossLogin = () => {
+    const hiddenUsers = employees.filter(e => e.hideFromList);
+    const found = hiddenUsers.find(u => 
+      u.name.toLowerCase() === bossName.trim().toLowerCase() && u.password === bossPwd
+    );
+    if (!found) { setBossError('账号或密码不正确'); return; }
+    onLogin(found);
+  };
 
   const sel = employees.find(e => e.id === selectedId);
 
@@ -883,7 +924,7 @@ const LoginScreen = ({ employees, onLogin }) => {
         {/* Employee grid */}
         <div style={{padding:'32px 48px'}}>
           <div className="grid grid-cols-3 md:grid-cols-5 gap-3" style={{gap:'14px'}}>
-            {employees.map(e => {
+            {employees.filter(e => !e.hideFromList).map(e => {
               const isSelected = selectedId === e.id;
               const initials = (e.name || '?').slice(-1);
               return (
@@ -963,6 +1004,60 @@ const LoginScreen = ({ employees, onLogin }) => {
           </div>
         )}
       </div>
+      
+      {/* 🔒 隐藏入口 - 右下角小点 */}
+      <button 
+        onClick={() => { setBossLoginOpen(true); setBossError(''); }} 
+        title=""
+        style={{
+          position:'fixed', right:14, bottom:14,
+          width:14, height:14, border:'none', background:'rgba(0,0,0,.06)',
+          borderRadius:'50%', cursor:'pointer', opacity:.4, transition:'opacity .15s, transform .15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.transform = 'scale(1.3)'; }}
+        onMouseLeave={e => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.transform = 'scale(1)'; }}
+      />
+      
+      {/* 老板登录弹窗 */}
+      {bossLoginOpen && (
+        <div onClick={() => setBossLoginOpen(false)}
+          style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+          <div onClick={e => e.stopPropagation()}
+            style={{background:'white', borderRadius:14, maxWidth:400, width:'100%', padding:28}}>
+            <div style={{textAlign:'center', marginBottom:20}}>
+              <div style={{fontSize:36, marginBottom:8}}>🔒</div>
+              <div className="font-display" style={{fontSize:17, fontWeight:600}}>管理入口</div>
+              <div style={{fontSize:12, color:'var(--ink-3)', marginTop:4}}>仅限授权人员</div>
+            </div>
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>用户名</label>
+              <input value={bossName} onChange={e => { setBossName(e.target.value); setBossError(''); }}
+                onKeyDown={e => e.key === 'Enter' && tryBossLogin()}
+                placeholder="输入用户名"
+                style={{width:'100%', padding:'10px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:14, fontFamily:'inherit'}} />
+            </div>
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>密码</label>
+              <input type="password" value={bossPwd} onChange={e => { setBossPwd(e.target.value); setBossError(''); }}
+                onKeyDown={e => e.key === 'Enter' && tryBossLogin()}
+                placeholder="输入密码" autoFocus
+                style={{width:'100%', padding:'10px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:14, fontFamily:'inherit'}} />
+            </div>
+            {bossError && (
+              <div style={{padding:8, background:'#fef2f2', color:'#dc2626', borderRadius:6, fontSize:12, marginBottom:12, textAlign:'center'}}>
+                {bossError}
+              </div>
+            )}
+            <div style={{display:'flex', gap:8}}>
+              <button onClick={() => setBossLoginOpen(false)} className="btn-sec" style={{flex:1, padding:'10px'}}>取消</button>
+              <button onClick={tryBossLogin} disabled={!bossName.trim() || !bossPwd}
+                style={{flex:2, padding:'10px', background:'var(--accent)', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:14, opacity: (bossName.trim() && bossPwd) ? 1 : 0.5}}>
+                进入
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -970,12 +1065,13 @@ const LoginScreen = ({ employees, onLogin }) => {
 // ============================================================
 // 顶部导航
 // ============================================================
-const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn, employees, switchAccount }) => {
+const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn, employees, switchAccount, onOpenSearch }) => {
   const [switchModalOpen, setSwitchModalOpen] = useState(false);
   const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
   const isFinanceVisible = (user.role === 'finance' || user.role === 'admin' || user.role === 'super_admin');
   const tabs = [
     { key:'cs', label:'客服跟进', badge: stats.overdue },
+    { key:'briefings', label:'📢 会议纪要' },
     { key:'events', label:'📋 工作主线', badge: stats.pendingEvents },
     { key:'suppliers', label:'🏭 供应商' },
     { key:'kb', label:'知识库' },
@@ -1021,6 +1117,22 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
         </div>
 
         <div className="flex items-center gap-3">
+          {/* 🔍 全局搜索 */}
+          <button
+            onClick={onOpenSearch}
+            title="搜索任何内容 (Ctrl+K)"
+            style={{
+              display:'flex', alignItems:'center', gap:6, padding:'5px 10px 5px 10px',
+              background:'var(--bg-elevated)', border:'1px solid var(--line)', borderRadius:'var(--radius-pill)',
+              cursor:'pointer', fontFamily:'inherit', fontSize:12, color:'var(--ink-3)', transition:'all .15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.color = 'var(--ink-3)'; }}
+          >
+            🔍 <span className="hidden sm:inline">搜索</span>
+            <kbd style={{padding:'1px 5px', background:'var(--bg)', borderRadius:3, fontSize:10, marginLeft:2, border:'1px solid var(--line)'}}>⌘K</kbd>
+          </button>
+          
           <button
             onClick={requestNotifPerm}
             title={bellLabel}
@@ -1075,7 +1187,7 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
                 </div>
                 <div style={{fontSize:11, color:'var(--ink-3)', marginBottom:10}}>当前：<strong>{user.name}{user.alias && ' ' + user.alias}</strong> · 选择要切换到的账号：</div>
                 <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:8, maxHeight:380, overflow:'auto'}}>
-                  {employees.filter(e => e.id !== user.id).map(emp => (
+                  {employees.filter(e => e.id !== user.id && !e.hideFromList).map(emp => (
                     <button key={emp.id}
                       onClick={() => { switchAccount && switchAccount(emp); setSwitchModalOpen(false); }}
                       style={{
@@ -1693,6 +1805,12 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
 
   return (
     <div className="space-y-5">
+      {/* 🌅 每日温暖问候 */}
+      <DailyGreeting user={user} />
+      
+      {/* 📢 本周会议要点（如果有发布的） */}
+      <BriefingCard user={user} toast={toast} />
+      
       {/* 🆕 进入工作台时显示转交通知（如果有） */}
       {incomingTransfers.length > 0 && (
         <div className="paper rounded-2xl p-4 fade-in" style={{background:'#fef7ec', border:'1.5px solid var(--gold)'}}>
@@ -2557,6 +2675,456 @@ const StatCard = ({ label, value, unit, color, hint, onClick, active }) => {
 // ============================================================
 // 🆕 多图上传组件（粘贴 / 拖拽 / 点击 + 自动分类标签）
 // ============================================================
+// ============================================================
+// 🆕 文件类型识别 + 工具函数
+// ============================================================
+const getFileTypeInfo = (fileObj) => {
+  const name = fileObj.name || '';
+  const mime = fileObj.type || '';
+  const ext = name.split('.').pop()?.toLowerCase() || '';
+  
+  if (mime.startsWith('image/') || ['jpg','jpeg','png','gif','webp','svg'].includes(ext)) {
+    return { kind:'image', icon:'🖼', color:'#0369a1', label:'图片' };
+  }
+  if (mime.startsWith('video/') || ['mp4','webm','mov','avi'].includes(ext)) {
+    return { kind:'video', icon:'🎬', color:'#7c3aed', label:'视频' };
+  }
+  if (mime.startsWith('audio/') || ['mp3','wav','ogg'].includes(ext)) {
+    return { kind:'audio', icon:'🎵', color:'#0891b2', label:'音频' };
+  }
+  if (ext === 'pdf' || mime === 'application/pdf') {
+    return { kind:'pdf', icon:'📕', color:'#dc2626', label:'PDF' };
+  }
+  if (['ppt','pptx'].includes(ext) || mime.includes('presentation') || mime.includes('powerpoint')) {
+    return { kind:'pptx', icon:'📊', color:'#d97706', label:'PPT' };
+  }
+  if (['xls','xlsx'].includes(ext) || mime.includes('spreadsheet') || mime.includes('excel')) {
+    return { kind:'xlsx', icon:'📈', color:'#16a34a', label:'Excel' };
+  }
+  if (['doc','docx'].includes(ext) || mime.includes('wordprocessingml') || mime.includes('msword')) {
+    return { kind:'docx', icon:'📘', color:'#1d4ed8', label:'Word' };
+  }
+  if (['txt','csv','md'].includes(ext) || mime.startsWith('text/')) {
+    return { kind:'text', icon:'📄', color:'#525252', label:'文本' };
+  }
+  if (['zip','rar','7z'].includes(ext)) {
+    return { kind:'zip', icon:'📦', color:'#737373', label:'压缩包' };
+  }
+  return { kind:'other', icon:'📎', color:'#737373', label:'文件' };
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes && bytes !== 0) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+};
+
+// ============================================================
+// 🆕 文件预览 modal - 支持 PDF / Office / 图片 / 视频
+// ============================================================
+const FilePreviewModal = ({ file, onClose }) => {
+  if (!file) return null;
+  const typeInfo = getFileTypeInfo(file);
+  
+  const renderPreview = () => {
+    if (typeInfo.kind === 'image') {
+      return <img src={file.url} style={{maxWidth:'100%', maxHeight:'80vh', objectFit:'contain'}} />;
+    }
+    if (typeInfo.kind === 'video') {
+      return <video src={file.url} controls autoPlay style={{maxWidth:'100%', maxHeight:'80vh', background:'black'}} />;
+    }
+    if (typeInfo.kind === 'audio') {
+      return (
+        <div style={{padding:40, background:'white', borderRadius:12, minWidth:400}}>
+          <div style={{fontSize:64, textAlign:'center', marginBottom:14}}>🎵</div>
+          <audio src={file.url} controls autoPlay style={{width:'100%'}} />
+        </div>
+      );
+    }
+    if (typeInfo.kind === 'pdf') {
+      return <iframe src={file.url} style={{width:'90vw', height:'85vh', border:'none', borderRadius:8, background:'white'}} title="PDF 预览" />;
+    }
+    if (['pptx','xlsx','docx'].includes(typeInfo.kind)) {
+      const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.url)}`;
+      return (
+        <div style={{width:'92vw', height:'85vh', background:'white', borderRadius:8, overflow:'hidden'}}>
+          <iframe src={officeUrl} style={{width:'100%', height:'100%', border:'none'}} title="Office 预览" allowFullScreen />
+        </div>
+      );
+    }
+    return (
+      <div style={{padding:40, background:'white', borderRadius:12, textAlign:'center', minWidth:340}}>
+        <div style={{fontSize:64, marginBottom:14}}>{typeInfo.icon}</div>
+        <div style={{fontSize:16, fontWeight:600, marginBottom:6}}>{file.name || '文件'}</div>
+        <div style={{fontSize:12, color:'var(--ink-3)', marginBottom:16}}>
+          {typeInfo.label} · {formatFileSize(file.size)}
+        </div>
+        <div style={{fontSize:11, color:'#854d0e', marginBottom:14, padding:10, background:'#fef3c7', borderRadius:6, border:'1px solid #fcd34d'}}>
+          💡 此类型暂不支持在线预览，请下载到本地查看
+        </div>
+        <a href={file.url} download={file.name} target="_blank" rel="noopener noreferrer"
+          style={{display:'inline-block', padding:'10px 24px', background:'var(--accent)', color:'white', borderRadius:8, textDecoration:'none', fontSize:13, fontWeight:600}}>
+          📥 下载文件
+        </a>
+      </div>
+    );
+  };
+  
+  return (
+    <div onClick={onClose}
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.85)', zIndex:10000, display:'flex', flexDirection:'column', padding:20, gap:10}}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', color:'white', flexShrink:0}}>
+        <div style={{display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0}}>
+          <span style={{fontSize:24}}>{typeInfo.icon}</span>
+          <div style={{flex:1, minWidth:0}}>
+            <div style={{fontSize:14, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{file.name || '附件'}</div>
+            <div style={{fontSize:11, opacity:.7}}>{typeInfo.label} · {formatFileSize(file.size)}</div>
+          </div>
+        </div>
+        <div style={{display:'flex', gap:8, flexShrink:0}}>
+          <a href={file.url} download={file.name} target="_blank" rel="noopener noreferrer"
+            style={{padding:'6px 14px', background:'rgba(255,255,255,.15)', color:'white', borderRadius:6, textDecoration:'none', fontSize:12, fontWeight:600}}>
+            📥 下载
+          </a>
+          <button onClick={onClose} style={{padding:'6px 14px', background:'rgba(255,255,255,.15)', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}>
+            ✕ 关闭
+          </button>
+        </div>
+      </div>
+      <div onClick={e => e.stopPropagation()} style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden'}}>
+        {renderPreview()}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 🆕 通用多文件上传（支持任意类型）
+// ============================================================
+const MultiFileUploader = ({ files, setFiles, bucket = 'briefing-files', maxSize = 50, accept = '*' }) => {
+  const fileInputRef = React.useRef(null);
+  const dropRef = React.useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
+  
+  const uploadOne = async (file) => {
+    if (file.size > maxSize * 1024 * 1024) { 
+      alert(`"${file.name}" 超过 ${maxSize}MB 限制，请压缩后再上传`); 
+      return; 
+    }
+    setUploading(true);
+    try {
+      const res = await CLOUD.uploadFile(bucket, file);
+      if (!res) { alert('上传失败：' + file.name); setUploading(false); return; }
+      const newFile = {
+        id: 'f_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+        url: res.url,
+        path: res.path,
+        name: res.name,
+        size: res.size,
+        type: res.type,
+        uploaded_at: new Date().toISOString(),
+      };
+      setFiles([...(files || []), newFile]);
+    } catch(e) {
+      alert('上传失败: ' + e.message);
+    }
+    setUploading(false);
+  };
+  
+  const handleFiles = async (fileList) => {
+    if (!fileList) return;
+    for (const f of Array.from(fileList)) {
+      await uploadOne(f);
+    }
+  };
+  
+  useEffect(() => {
+    const handler = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const it of items) {
+        const f = it.getAsFile();
+        if (f) { uploadOne(f); e.preventDefault(); break; }
+      }
+    };
+    const el = dropRef.current;
+    if (!el) return;
+    el.addEventListener('paste', handler);
+    return () => el.removeEventListener('paste', handler);
+  }, [files]);
+  
+  const removeFile = async (file) => {
+    if (!confirm(`删除 "${file.name}"？`)) return;
+    if (file.path) await CLOUD.deleteImage(bucket, file.path);
+    setFiles(files.filter(f => f.id !== file.id));
+  };
+  
+  return (
+    <div>
+      <div 
+        ref={dropRef}
+        tabIndex={0}
+        onClick={() => fileInputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-soft)'; }}
+        onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.background = '#fafafa'; }}
+        onDrop={e => { 
+          e.preventDefault(); 
+          e.currentTarget.style.borderColor = 'var(--line)'; 
+          e.currentTarget.style.background = '#fafafa';
+          handleFiles(e.dataTransfer.files); 
+        }}
+        style={{
+          border:'2px dashed var(--line)', borderRadius:10, padding:'16px',
+          textAlign:'center', cursor:'pointer', background:'#fafafa',
+          transition:'all .15s', outline:'none',
+        }}>
+        <div style={{fontSize:13, color:'var(--ink-2)', fontWeight:500}}>
+          {uploading ? '⏳ 上传中...' : '📎 拖拽 / 粘贴 / 点击上传文件'}
+        </div>
+        <div style={{fontSize:10, color:'var(--ink-4)', marginTop:4}}>
+          支持图片 / PDF / PPT / Excel / Word / 视频等 · 单文件最大 {maxSize}MB · 可批量
+        </div>
+        <input ref={fileInputRef} type="file" accept={accept} multiple style={{display:'none'}}
+          onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+      </div>
+      
+      {files && files.length > 0 && (
+        <div style={{display:'flex', flexDirection:'column', gap:6, marginTop:10}}>
+          {files.map(f => {
+            const info = getFileTypeInfo(f);
+            return (
+              <div key={f.id} style={{display:'flex', alignItems:'center', gap:10, padding:8, background:'white', border:'1px solid var(--line)', borderRadius:8}}>
+                {info.kind === 'image' ? (
+                  <img src={f.url} style={{width:40, height:40, objectFit:'cover', borderRadius:5, flexShrink:0, cursor:'pointer'}} onClick={() => setPreviewFile(f)} />
+                ) : (
+                  <div style={{width:40, height:40, background: info.color + '15', borderRadius:5, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0, cursor:'pointer'}} onClick={() => setPreviewFile(f)}>
+                    {info.icon}
+                  </div>
+                )}
+                <div style={{flex:1, minWidth:0, cursor:'pointer'}} onClick={() => setPreviewFile(f)}>
+                  <div style={{fontSize:13, color:'var(--ink)', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{f.name || '未命名'}</div>
+                  <div style={{fontSize:10, color:'var(--ink-3)', marginTop:2}}>
+                    <span style={{padding:'1px 5px', background: info.color + '15', color: info.color, borderRadius:3, fontWeight:600}}>{info.label}</span>
+                    {' · '}{formatFileSize(f.size)}
+                  </div>
+                </div>
+                <button onClick={() => setPreviewFile(f)}
+                  style={{padding:'4px 10px', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit', flexShrink:0}}>
+                  👁 预览
+                </button>
+                <button onClick={() => removeFile(f)}
+                  style={{padding:'4px 8px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:5, cursor:'pointer', fontSize:11, fontFamily:'inherit', flexShrink:0}}>
+                  ✕
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      
+      {previewFile && <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
+    </div>
+  );
+};
+
+// ============================================================
+// 🆕 文件芯片（列表中紧凑显示一个文件，点击预览）
+// ============================================================
+const FileChip = ({ file, onClick }) => {
+  const info = getFileTypeInfo(file);
+  return (
+    <div onClick={onClick}
+      style={{
+        display:'flex', alignItems:'center', gap:8, padding:'6px 10px',
+        background:'white', border:'1px solid var(--line)', borderRadius:6,
+        cursor:'pointer', fontSize:12, transition:'all .15s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = info.color; e.currentTarget.style.background = info.color + '08'; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.background = 'white'; }}>
+      <span style={{fontSize:18, flexShrink:0}}>{info.icon}</span>
+      <div style={{flex:1, minWidth:0}}>
+        <div style={{color:'var(--ink)', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{file.name || '附件'}</div>
+        <div style={{fontSize:10, color:'var(--ink-3)'}}>{info.label} · {formatFileSize(file.size)}</div>
+      </div>
+      <span style={{color: info.color, fontSize:11, flexShrink:0, fontWeight:600}}>预览 ›</span>
+    </div>
+  );
+};
+
+// ============================================================
+// 🆕 每日温暖问候 - 根据时间和姓名生成个性化的一句话
+// ============================================================
+const GREETINGS_LIB = {
+  // 早晨 5-11 点
+  morning: [
+    '{name}，早安 ☀️ 今天又是元气满满的一天',
+    '早上好 {name}，慢慢来，一切都来得及',
+    '哈喽 {name}，听说今天会比昨天更好',
+    '{name}，早安！希望今天遇到的客户都很温柔',
+    '嘿 {name}，准备好开始今天的小冒险了吗',
+    '{name}，新的一天，从一杯水开始吧 💧',
+    '早安 {name}，请允许我说一句：你比想象中更厉害',
+    '{name}，深呼吸，从容应对，今天我们一起加油 🌿',
+    '早上好 {name}，愿今天的邮件都好回复',
+    '嗨 {name}，今天的你格外可爱（认真的）',
+    '{name}，新的一天开始啦，记得对自己温柔一点',
+    '早安 {name}，听到没——你今天会很顺利的 ✨',
+    '{name}，请允许我提醒你：你已经做得很好了',
+  ],
+  // 中午 11-14 点
+  noon: [
+    '{name}，午饭好好吃，别忘了喝水',
+    '嗨 {name}，吃点好的吧，下午的力气全靠它了 🍱',
+    '{name}，记得抬头看看外面的阳光哦 🌤',
+    '午安 {name}，再坚持一小会儿就可以吃饭啦',
+    '{name}，给眼睛放个假，不看屏幕 30 秒',
+    '中午好 {name}，给胃一点温柔吧',
+    '{name}，工作再忙，也要好好吃饭哦',
+  ],
+  // 下午 14-18 点
+  afternoon: [
+    '{name}，下午好，一杯咖啡时间到 ☕',
+    '嗨 {name}，最艰难的时候过去了，加油 🌈',
+    '{name}，离下班又近了一步，要不要奖励一下自己',
+    '下午也要好好的 {name}，你已经做得很棒了',
+    '{name}，喝杯水歇一下，不急',
+    '嘿 {name}，下午的阳光是不是温柔了一些',
+    '{name}，记得伸个懒腰，肩颈不要太累',
+  ],
+  // 晚上 18-22 点
+  evening: [
+    '{name}，辛苦了，今天的你很努力 ❤️',
+    '嗨 {name}，到点了，回家吧，今天到此为止',
+    '{name}，今天的工作交给明天的你处理，OK',
+    '累了就早点休息 {name}，没什么是睡一觉解决不了的',
+    '{name}，今天你帮了很多人，谢谢你',
+    '辛苦啦 {name}，今晚记得吃顿好的 🍲',
+    '{name}，今天又是好好打工的一天，你真棒',
+  ],
+  // 深夜 22-5 点
+  late: [
+    '{name}，这么晚还在，注意身体哦 🌙',
+    '{name}，再不睡就要变身了，赶紧休息',
+    '嘿 {name}，明天再说吧，今晚先好好睡',
+    '{name}，世界很大，但你需要先睡个好觉',
+    '夜深了 {name}，工作可以慢慢做，身体只有一个',
+  ],
+  // 周一专属
+  monday: [
+    '{name}，新的一周，新的开始 ✨',
+    '周一的 {name}，慢热没关系，给自己一点时间',
+    '{name}，周一好，今天不需要完美，能完成就行',
+  ],
+  // 周五专属
+  friday: [
+    '{name}，撑过今天就是周末啦 🎉',
+    '周五好 {name}，今天也要把笑容带回家',
+    '{name}，今天的你要再坚持一下下',
+  ],
+  // 周末（在加班）
+  weekend: [
+    '{name}，周末还在工作，记得多休息一会儿',
+    '{name}，是元气满满的一天还是想躺平的一天？都可以',
+    '嘿 {name}，工作和生活，今天先选生活吧',
+  ],
+};
+
+const DailyGreeting = ({ user }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  
+  // 每天显示一次（同一天刷新不重新显示，dismissed 后存到 localStorage）
+  const [hidden, setHidden] = useState(() => {
+    try {
+      const lastDismiss = localStorage.getItem('greeting_dismissed_' + user.id);
+      return lastDismiss === today;
+    } catch { return false; }
+  });
+  
+  if (hidden) return null;
+  
+  const name = user.alias || user.name;
+  const hour = new Date().getHours();
+  const dayOfWeek = new Date().getDay();  // 0 = 周日
+  
+  // 选 bucket
+  let bucket;
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    bucket = GREETINGS_LIB.weekend;
+  } else if (dayOfWeek === 1 && hour >= 5 && hour < 12) {
+    bucket = GREETINGS_LIB.monday;
+  } else if (dayOfWeek === 5 && hour >= 14 && hour < 22) {
+    bucket = GREETINGS_LIB.friday;
+  } else if (hour >= 5 && hour < 11) {
+    bucket = GREETINGS_LIB.morning;
+  } else if (hour >= 11 && hour < 14) {
+    bucket = GREETINGS_LIB.noon;
+  } else if (hour >= 14 && hour < 18) {
+    bucket = GREETINGS_LIB.afternoon;
+  } else if (hour >= 18 && hour < 22) {
+    bucket = GREETINGS_LIB.evening;
+  } else {
+    bucket = GREETINGS_LIB.late;
+  }
+  
+  // 用日期+用户 id 做种子（同一天对同一个人显示同一句）
+  const seed = (parseInt(today.replace(/-/g, '')) + user.id.split('').reduce((s,c) => s + c.charCodeAt(0), 0)) % bucket.length;
+  const greeting = bucket[seed].replace('{name}', name);
+  
+  // 时段对应的颜色调
+  const getColors = () => {
+    if (bucket === GREETINGS_LIB.morning || bucket === GREETINGS_LIB.monday) {
+      return { bg:'linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)', border:'#fbbf24', text:'#854d0e', accent:'#d97706' };
+    }
+    if (bucket === GREETINGS_LIB.noon) {
+      return { bg:'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)', border:'#67e8f9', text:'#155e75', accent:'#0891b2' };
+    }
+    if (bucket === GREETINGS_LIB.afternoon) {
+      return { bg:'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', border:'#7dd3fc', text:'#075985', accent:'#0369a1' };
+    }
+    if (bucket === GREETINGS_LIB.evening || bucket === GREETINGS_LIB.friday) {
+      return { bg:'linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%)', border:'#f9a8d4', text:'#831843', accent:'#be185d' };
+    }
+    if (bucket === GREETINGS_LIB.late) {
+      return { bg:'linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)', border:'#9ca3af', text:'#374151', accent:'#4b5563' };
+    }
+    return { bg:'linear-gradient(135deg, #fdf4ff 0%, #fae8ff 100%)', border:'#e9d5ff', text:'#581c87', accent:'#7c3aed' };
+  };
+  const colors = getColors();
+  
+  const dismiss = () => {
+    try { localStorage.setItem('greeting_dismissed_' + user.id, today); } catch {}
+    setHidden(true);
+  };
+  
+  return (
+    <div className="fade-in" style={{
+      padding:'14px 18px', borderRadius:14, background: colors.bg, border:'1px solid ' + colors.border,
+      display:'flex', alignItems:'center', justifyContent:'space-between', gap:10,
+    }}>
+      <div style={{display:'flex', alignItems:'center', gap:12, flex:1, minWidth:0}}>
+        <div style={{
+          width:40, height:40, borderRadius:'50%', background: colors.accent, color:'white',
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:600,
+          flexShrink:0, boxShadow:'0 2px 8px ' + colors.accent + '40',
+        }}>
+          {(user.name || '?').slice(-1)}
+        </div>
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{fontSize:15, fontWeight:600, color: colors.text, lineHeight:1.4}}>{greeting}</div>
+        </div>
+      </div>
+      <button onClick={dismiss} title="今天不再显示"
+        style={{padding:'4px 10px', background:'transparent', color: colors.text, border:'1px solid ' + colors.border, borderRadius:6, cursor:'pointer', fontSize:11, fontFamily:'inherit', flexShrink:0, opacity:.7}}
+        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+        onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}>
+        ✕
+      </button>
+    </div>
+  );
+};
+
 const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'product', maxSize = 10 }) => {
   const fileInputRef = React.useRef(null);
   const dropRef = React.useRef(null);
@@ -4476,7 +5044,7 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
               </tr>
             </thead>
             <tbody>
-              {employees.map((e, idx) => {
+              {employees.filter(e => !e.hideFromList || e.id === user.id).map((e, idx) => {
                 const isEditing = editingId === e.id;
                 return (
                   <tr key={e.id}>
@@ -5682,6 +6250,935 @@ const QuoteModule = ({ user, toast }) => {
 // ============================================================
 // 🆕 EventsModule - 工作主线管理中心（售后/补件/退款汇总 + 导出）
 // ============================================================
+// ============================================================
+// 📢 BriefingCard - 员工首页展示本周会议要点卡片
+// ============================================================
+const BriefingCard = ({ user, toast }) => {
+  const [briefing, setBriefing] = useState(null);
+  const [expanded, setExpanded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [previewFile, setPreviewFile] = useState(null);
+  
+  // 加载最新已发布的会议纪要（置顶优先 + 最新）
+  const loadLatest = async () => {
+    if (!CLOUD.client) { setLoading(false); return; }
+    try {
+      const { data, error } = await CLOUD.client
+        .from('weekly_briefings')
+        .select('*')
+        .eq('published', true)
+        .order('pinned', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (!error && data && data.length > 0) setBriefing(data[0]);
+    } catch(e) { console.warn('加载会议要点失败', e); }
+    setLoading(false);
+  };
+  useEffect(() => { loadLatest(); }, []);
+  
+  // 标记已读
+  const markRead = async () => {
+    if (!briefing) return;
+    const readBy = { ...(briefing.read_by || {}), [user.id]: new Date().toISOString() };
+    try {
+      await CLOUD.client.from('weekly_briefings').update({ read_by: readBy }).eq('id', briefing.id);
+      setBriefing({ ...briefing, read_by: readBy });
+    } catch(e) { console.warn('标记已读失败', e); }
+  };
+  
+  if (loading) return null;
+  if (!briefing) return null;  // 没有发布的纪要就不显示
+  
+  const isRead = briefing.read_by && briefing.read_by[user.id];
+  const highlights = briefing.highlights || [];
+  const workPlans = briefing.work_plans || [];
+  const attachments = briefing.attachments || [];
+  const myPlans = workPlans.filter(p => p.assignee_id === user.id);
+  const otherPlans = workPlans.filter(p => p.assignee_id !== user.id);
+  
+  // 计算几天前发布
+  const daysAgo = briefing.published_at ? Math.floor((Date.now() - new Date(briefing.published_at).getTime()) / 86400000) : null;
+  
+  return (
+    <div className="paper rounded-2xl fade-in" style={{
+      overflow:'hidden',
+      background: briefing.pinned ? 'linear-gradient(135deg, #fef9c3 0%, #fef3c7 100%)' : 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+      border: '1.5px solid ' + (briefing.pinned ? '#fbbf24' : '#7dd3fc'),
+    }}>
+      {/* 头部 */}
+      <div style={{padding:'14px 18px', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap'}}
+        onClick={() => setExpanded(v => !v)}>
+        <div style={{display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0}}>
+          <div style={{fontSize:28, flexShrink:0}}>{briefing.pinned ? '📌' : '📢'}</div>
+          <div style={{flex:1, minWidth:0}}>
+            <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+              <span style={{fontSize:14, fontWeight:600, color: briefing.pinned ? '#854d0e' : '#075985'}}>{briefing.week_label}</span>
+              {!isRead && (
+                <span style={{padding:'1px 6px', background:'#dc2626', color:'white', borderRadius:8, fontSize:10, fontWeight:600}}>未读</span>
+              )}
+              {myPlans.length > 0 && (
+                <span style={{padding:'1px 6px', background:'#dc2626', color:'white', borderRadius:8, fontSize:10, fontWeight:600}}>
+                  我有 {myPlans.length} 项任务
+                </span>
+              )}
+              {daysAgo !== null && (
+                <span style={{fontSize:10, color: briefing.pinned ? '#a16207' : '#0369a1'}}>
+                  {daysAgo === 0 ? '今天' : daysAgo === 1 ? '昨天' : `${daysAgo} 天前`}发布
+                </span>
+              )}
+            </div>
+            <div style={{fontSize:15, fontWeight:700, color: briefing.pinned ? '#7c2d12' : '#0c4a6e', marginTop:3, lineHeight:1.3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace: expanded ? 'normal' : 'nowrap'}}>
+              {briefing.title}
+            </div>
+          </div>
+        </div>
+        <button style={{padding:'5px 12px', background: briefing.pinned ? '#fbbf24' : '#0369a1', color: briefing.pinned ? '#7c2d12' : 'white', border:'none', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}>
+          {expanded ? '▲ 收起' : '▼ 查看详情'}
+        </button>
+      </div>
+      
+      {/* 展开内容 */}
+      {expanded && (
+        <div style={{padding:'0 18px 18px', borderTop:'1px solid ' + (briefing.pinned ? '#fcd34d' : '#bae6fd')}}>
+          {/* 我的任务（高亮显示） */}
+          {myPlans.length > 0 && (
+            <div style={{marginTop:14, padding:12, background:'rgba(220,38,38,.06)', border:'1px solid #fca5a5', borderRadius:8}}>
+              <div style={{fontSize:12, fontWeight:600, color:'#991b1b', marginBottom:8, display:'flex', alignItems:'center', gap:6}}>
+                🎯 我的工作任务（{myPlans.length}）
+              </div>
+              {myPlans.map(p => (
+                <div key={p.id} style={{padding:'6px 0', borderBottom:'1px dashed #fca5a5', fontSize:13, color:'#7f1d1d', display:'flex', alignItems:'flex-start', gap:8}}>
+                  <span style={{flexShrink:0, marginTop:2}}>{p.done ? '✅' : '⬜'}</span>
+                  <div style={{flex:1}}>
+                    {p.text}
+                    {p.deadline && <span style={{marginLeft:6, fontSize:11, color:'#dc2626', fontWeight:600}}>· 截止 {p.deadline}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* 重点要点 */}
+          {highlights.length > 0 && (
+            <div style={{marginTop:14}}>
+              <div style={{fontSize:12, fontWeight:600, color: briefing.pinned ? '#7c2d12' : '#0c4a6e', marginBottom:6}}>⭐ 本周重点</div>
+              <div style={{display:'flex', flexDirection:'column', gap:5}}>
+                {highlights.map((h, i) => (
+                  <div key={h.id || i} style={{padding:'7px 10px', background:'white', borderRadius:6, fontSize:13, color:'var(--ink)', display:'flex', alignItems:'flex-start', gap:8, borderLeft:'3px solid ' + (h.priority === 'high' ? '#dc2626' : briefing.pinned ? '#fbbf24' : '#0369a1')}}>
+                    <span style={{flexShrink:0, fontWeight:600, color: h.priority === 'high' ? '#dc2626' : 'var(--ink-3)'}}>
+                      {h.priority === 'high' ? '🔥' : '•'}
+                    </span>
+                    <div style={{flex:1}}>
+                      {h.tag && <span style={{padding:'1px 6px', background: briefing.pinned ? '#fef3c7' : '#e0f2fe', color: briefing.pinned ? '#854d0e' : '#075985', borderRadius:4, fontSize:10, fontWeight:600, marginRight:6}}>{h.tag}</span>}
+                      {h.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* 其他人的工作计划（仅 admin 看完整版，员工看一个概览） */}
+          {otherPlans.length > 0 && (
+            <div style={{marginTop:14}}>
+              <div style={{fontSize:12, fontWeight:600, color: briefing.pinned ? '#7c2d12' : '#0c4a6e', marginBottom:6}}>📋 团队工作分配（{otherPlans.length}）</div>
+              <div style={{display:'flex', flexDirection:'column', gap:4}}>
+                {otherPlans.map(p => (
+                  <div key={p.id} style={{padding:'5px 10px', background:'rgba(255,255,255,.6)', borderRadius:5, fontSize:12, color:'var(--ink-2)', display:'flex', alignItems:'flex-start', gap:8}}>
+                    <span style={{flexShrink:0, marginTop:1}}>{p.done ? '✅' : '⬜'}</span>
+                    <span style={{padding:'1px 6px', background: briefing.pinned ? '#fef3c7' : '#e0f2fe', color: briefing.pinned ? '#854d0e' : '#075985', borderRadius:4, fontSize:10, fontWeight:600, flexShrink:0}}>{p.assignee_name || '未分配'}</span>
+                    <div style={{flex:1}}>
+                      {p.text}
+                      {p.deadline && <span style={{marginLeft:6, fontSize:10, color:'var(--ink-3)'}}>· {p.deadline}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* 详细内容正文 */}
+          {briefing.content && (
+            <div style={{marginTop:14}}>
+              <div style={{fontSize:12, fontWeight:600, color: briefing.pinned ? '#7c2d12' : '#0c4a6e', marginBottom:6}}>📝 会议详情</div>
+              <div style={{padding:'10px 12px', background:'white', borderRadius:6, fontSize:13, color:'var(--ink-2)', whiteSpace:'pre-wrap', lineHeight:1.6}}>
+                {briefing.content}
+              </div>
+            </div>
+          )}
+          
+          {/* 附件 - 支持多种格式预览 */}
+          {attachments.length > 0 && (
+            <div style={{marginTop:14}}>
+              <div style={{fontSize:12, fontWeight:600, color: briefing.pinned ? '#7c2d12' : '#0c4a6e', marginBottom:6}}>📎 附件 ({attachments.length})</div>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:6}}>
+                {attachments.map((a, i) => (
+                  <FileChip key={a.id || i} file={a} onClick={() => setPreviewFile(a)} />
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* 底部信息 + 操作 */}
+          <div style={{marginTop:14, paddingTop:10, borderTop:'1px dashed ' + (briefing.pinned ? '#fcd34d' : '#bae6fd'), display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:6}}>
+            <div style={{fontSize:10, color: briefing.pinned ? '#a16207' : '#0369a1'}}>
+              发布人：{briefing.created_by_name} · {(briefing.published_at || briefing.created_at || '').slice(0,16).replace('T', ' ')}
+              {briefing.read_by && Object.keys(briefing.read_by).length > 0 && (
+                <span style={{marginLeft:8}}>· 已读 {Object.keys(briefing.read_by).length} 人</span>
+              )}
+            </div>
+            {!isRead && (
+              <button onClick={markRead}
+                style={{padding:'4px 12px', background:'white', color: briefing.pinned ? '#854d0e' : '#0369a1', border:'1px solid ' + (briefing.pinned ? '#fcd34d' : '#7dd3fc'), borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                ✓ 标记已读
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* 文件预览 (支持 PDF/PPT/Excel/图片/视频等) */}
+      {previewFile && <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
+    </div>
+  );
+};
+
+// ============================================================
+// 📢 BriefingsModule - 主管管理会议要点 + 员工查看历史
+// ============================================================
+const BriefingsModule = ({ user, employees, toast, cloudOn }) => {
+  const [briefings, setBriefings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null);  // briefing 对象或 'new'
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  
+  const loadAll = async () => {
+    setLoading(true);
+    try {
+      const list = await CLOUD.list('weekly_briefings', { order:{col:'created_at', asc:false}, limit:200 });
+      // admin 看全部，员工只看已发布
+      const visible = isAdmin ? (list || []) : (list || []).filter(b => b.published);
+      setBriefings(visible);
+    } catch(e) { toast('❌ 加载失败：' + e.message); }
+    setLoading(false);
+  };
+  useEffect(() => { loadAll(); }, []);
+  
+  const handleDelete = async (id) => {
+    if (!confirm('确认删除此会议纪要？')) return;
+    const ok = await CLOUD.del('weekly_briefings', id);
+    if (ok) { toast('✓ 已删除'); loadAll(); }
+  };
+  
+  const togglePinned = async (b) => {
+    const res = await CLOUD.upsert('weekly_briefings', { ...b, pinned: !b.pinned });
+    if (res) { toast(b.pinned ? '✓ 已取消置顶' : '✓ 已置顶'); loadAll(); }
+  };
+  
+  const togglePublished = async (b) => {
+    const now = new Date().toISOString();
+    const updates = { ...b, published: !b.published };
+    if (!b.published) updates.published_at = b.published_at || now;
+    const res = await CLOUD.upsert('weekly_briefings', updates);
+    if (res) { toast(b.published ? '✓ 已撤回（员工看不到了）' : '✓ 已发布（所有员工首页可见）'); loadAll(); }
+  };
+  
+  if (loading) return <div style={{padding:40, textAlign:'center'}}>⏳ 加载中...</div>;
+  
+  return (
+    <div className="space-y-4">
+      <div className="paper rounded-2xl p-4 fade-in">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10}}>
+          <div>
+            <div className="font-display" style={{fontSize:17, fontWeight:600, color:'var(--ink)'}}>📢 会议纪要 / 工作计划</div>
+            <div style={{fontSize:12, color:'var(--ink-3)', marginTop:4}}>
+              {isAdmin 
+                ? `共 ${briefings.length} 条 · 已发布 ${briefings.filter(b => b.published).length} 条 · 主管可创建/编辑/发布`
+                : `共 ${briefings.length} 条已发布纪要 · 点击查看完整内容`}
+            </div>
+          </div>
+          <div style={{display:'flex', gap:6}}>
+            <button onClick={loadAll} className="btn-sec" style={{padding:'6px 12px', fontSize:12}}>🔄 刷新</button>
+            {isAdmin && (
+              <button onClick={() => setEditing('new')} className="btn-pri" style={{padding:'6px 14px', fontSize:12}}>+ 新建会议要点</button>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {briefings.length === 0 ? (
+        <div className="paper rounded-2xl p-12 fade-in" style={{textAlign:'center', color:'var(--ink-3)'}}>
+          📋 暂无会议纪要{isAdmin && ' · 点右上角"新建会议要点"开始'}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {briefings.map(b => (
+            <BriefingItem key={b.id} briefing={b} user={user} isAdmin={isAdmin}
+              onEdit={() => setEditing(b)}
+              onDelete={() => handleDelete(b.id)}
+              onTogglePin={() => togglePinned(b)}
+              onTogglePub={() => togglePublished(b)} />
+          ))}
+        </div>
+      )}
+      
+      {editing && (
+        <BriefingEditor briefing={editing === 'new' ? null : editing} user={user} employees={employees}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); loadAll(); }}
+          toast={toast} />
+      )}
+    </div>
+  );
+};
+
+// 会议纪要列表项
+const BriefingItem = ({ briefing, user, isAdmin, onEdit, onDelete, onTogglePin, onTogglePub }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [itemPreview, setItemPreview] = useState(null);
+  const highlights = briefing.highlights || [];
+  const workPlans = briefing.work_plans || [];
+  const attachments = briefing.attachments || [];
+  const myPlans = workPlans.filter(p => p.assignee_id === user.id);
+  const isRead = briefing.read_by && briefing.read_by[user.id];
+  
+  return (
+    <div className="paper rounded-2xl fade-in" style={{
+      overflow:'hidden',
+      border: '1.5px solid ' + (briefing.pinned ? '#fbbf24' : briefing.published ? '#7dd3fc' : '#e5e5e5'),
+      background: briefing.pinned ? '#fffbeb' : briefing.published ? 'white' : '#fafafa',
+      opacity: briefing.published ? 1 : 0.7,
+    }}>
+      <div style={{padding:'12px 16px', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', gap:10}}
+        onClick={() => setExpanded(v => !v)}>
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+            {briefing.pinned && <span style={{fontSize:14}}>📌</span>}
+            <span style={{fontSize:13, fontWeight:600, color: briefing.pinned ? '#854d0e' : 'var(--ink)'}}>{briefing.week_label}</span>
+            {!briefing.published && <span style={{padding:'1px 6px', background:'#e5e5e5', color:'#666', borderRadius:6, fontSize:10, fontWeight:600}}>草稿</span>}
+            {briefing.published && !isRead && <span style={{padding:'1px 6px', background:'#dc2626', color:'white', borderRadius:6, fontSize:10, fontWeight:600}}>未读</span>}
+            {myPlans.length > 0 && <span style={{padding:'1px 6px', background:'#fef2f2', color:'#dc2626', borderRadius:6, fontSize:10, fontWeight:600}}>我 {myPlans.length} 项</span>}
+          </div>
+          <div style={{fontSize:14, fontWeight:600, color:'var(--ink)', marginTop:3}}>{briefing.title}</div>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginTop:3}}>
+            {briefing.created_by_name} · {(briefing.published_at || briefing.created_at || '').slice(0,10)}
+            {' · '}{highlights.length} 要点 · {workPlans.length} 任务 · {attachments.length} 附件
+            {briefing.read_by && Object.keys(briefing.read_by).length > 0 && <> · 已读 {Object.keys(briefing.read_by).length} 人</>}
+          </div>
+        </div>
+        <div style={{display:'flex', gap:4, alignItems:'center', flexShrink:0}} onClick={e => e.stopPropagation()}>
+          {isAdmin && (
+            <>
+              <button onClick={onTogglePub} title={briefing.published ? '撤回发布' : '发布给员工'}
+                style={{padding:'4px 10px', background: briefing.published ? '#dcfce7' : '#0369a1', color: briefing.published ? '#15803d' : 'white', border:'1px solid ' + (briefing.published ? '#86efac' : '#0369a1'), borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                {briefing.published ? '✓ 已发布' : '📢 发布'}
+              </button>
+              <button onClick={onTogglePin} title={briefing.pinned ? '取消置顶' : '置顶'}
+                style={{padding:'4px 8px', background:'transparent', border:'none', cursor:'pointer', fontSize:14}}>
+                {briefing.pinned ? '📌' : '📍'}
+              </button>
+              <button onClick={onEdit} className="btn-ghost" style={{padding:'4px 8px', fontSize:11}}>✏️</button>
+              <button onClick={onDelete} className="btn-ghost" style={{padding:'4px 8px', fontSize:11, color:'var(--bad)'}}>🗑</button>
+            </>
+          )}
+          <button className="btn-sec" style={{padding:'4px 10px', fontSize:11}}>
+            {expanded ? '▲' : '▼'}
+          </button>
+        </div>
+      </div>
+      {expanded && (
+        <div style={{borderTop:'1px solid var(--line)', padding:'14px 16px', background:'rgba(255,255,255,.6)'}}>
+          {highlights.length > 0 && (
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', marginBottom:6}}>⭐ 本周重点</div>
+              {highlights.map((h, i) => (
+                <div key={h.id || i} style={{padding:'6px 10px', background:'white', borderRadius:5, fontSize:13, marginBottom:4, borderLeft:'3px solid ' + (h.priority === 'high' ? '#dc2626' : '#0369a1')}}>
+                  {h.priority === 'high' && '🔥 '}{h.tag && <span style={{padding:'1px 5px', background:'#e0f2fe', color:'#075985', borderRadius:3, fontSize:10, marginRight:6}}>{h.tag}</span>}{h.text}
+                </div>
+              ))}
+            </div>
+          )}
+          {workPlans.length > 0 && (
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', marginBottom:6}}>📋 工作计划</div>
+              {workPlans.map((p, i) => (
+                <div key={p.id || i} style={{padding:'6px 10px', background:'white', borderRadius:5, fontSize:13, marginBottom:4, display:'flex', gap:6, alignItems:'flex-start'}}>
+                  <span>{p.done ? '✅' : '⬜'}</span>
+                  {p.assignee_name && <span style={{padding:'1px 5px', background:'#fef3c7', color:'#854d0e', borderRadius:3, fontSize:10, flexShrink:0}}>{p.assignee_name}</span>}
+                  <span style={{flex:1}}>{p.text}</span>
+                  {p.deadline && <span style={{fontSize:10, color:'#dc2626', flexShrink:0}}>截止 {p.deadline}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          {briefing.content && (
+            <div style={{padding:10, background:'white', borderRadius:6, fontSize:13, whiteSpace:'pre-wrap', lineHeight:1.6, marginBottom:12}}>
+              {briefing.content}
+            </div>
+          )}
+          {attachments.length > 0 && (
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:6}}>
+              {attachments.map((a, i) => (
+                <FileChip key={a.id || i} file={a} onClick={() => setItemPreview(a)} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {itemPreview && <FilePreviewModal file={itemPreview} onClose={() => setItemPreview(null)} />}
+    </div>
+  );
+};
+
+// 会议纪要编辑器
+const BriefingEditor = ({ briefing, user, employees, onClose, onSaved, toast }) => {
+  const isEdit = !!briefing;
+  const [weekLabel, setWeekLabel] = useState(briefing?.week_label || `${new Date().getFullYear()} 第 ${Math.ceil((new Date() - new Date(new Date().getFullYear(), 0, 1)) / (7 * 86400000))} 周`);
+  const [title, setTitle] = useState(briefing?.title || '');
+  const [content, setContent] = useState(briefing?.content || '');
+  const [highlights, setHighlights] = useState(briefing?.highlights || []);
+  const [workPlans, setWorkPlans] = useState(briefing?.work_plans || []);
+  const [attachments, setAttachments] = useState(briefing?.attachments || []);
+  const [pinned, setPinned] = useState(briefing?.pinned || false);
+  const [saving, setSaving] = useState(false);
+  
+  const addHighlight = () => setHighlights([...highlights, { id: 'h_' + Date.now().toString(36), text:'', priority:'normal', tag:'' }]);
+  const addWorkPlan = () => setWorkPlans([...workPlans, { id: 'p_' + Date.now().toString(36), text:'', assignee_id:'', assignee_name:'', deadline:'', done:false }]);
+  
+  const handleSubmit = async (publishNow = false) => {
+    if (!title.trim()) { alert('请填写会议标题'); return; }
+    if (!weekLabel.trim()) { alert('请填写期号/标题'); return; }
+    setSaving(true);
+    const now = new Date().toISOString();
+    const payload = {
+      week_label: weekLabel.trim(),
+      title: title.trim(),
+      content: content.trim() || null,
+      highlights: highlights.filter(h => (h.text || '').trim()),
+      work_plans: workPlans.filter(p => (p.text || '').trim()),
+      attachments: attachments,
+      pinned,
+      published: publishNow || briefing?.published || false,
+      published_at: (publishNow || briefing?.published) ? (briefing?.published_at || now) : null,
+      created_by: briefing?.created_by || user.id,
+      created_by_name: briefing?.created_by_name || (user.name + (user.alias ? ' ' + user.alias : '')),
+      created_at: briefing?.created_at || now,
+      updated_at: now,
+    };
+    if (isEdit) payload.id = briefing.id;
+    if (briefing?.read_by) payload.read_by = briefing.read_by;
+    
+    try {
+      const res = await CLOUD.upsert('weekly_briefings', payload);
+      if (res) {
+        toast(publishNow ? '✓ 已保存并发布给所有员工' : '✓ 已保存草稿');
+        onSaved();
+      } else {
+        alert('保存失败');
+      }
+    } catch(e) { alert('保存失败：' + e.message); }
+    setSaving(false);
+  };
+  
+  return (
+    <div onClick={onClose}
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'3vh 20px', overflow:'auto'}}>
+      <div onClick={e => e.stopPropagation()}
+        style={{background:'white', borderRadius:14, maxWidth:780, width:'100%', display:'flex', flexDirection:'column', maxHeight:'94vh'}}>
+        <div style={{padding:'16px 20px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0}}>
+          <div className="font-display" style={{fontSize:17, fontWeight:600, color:'#0369a1'}}>
+            📢 {isEdit ? '编辑' : '新建'}会议纪要
+          </div>
+          <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+        </div>
+        
+        <div style={{padding:20, overflow:'auto', flex:1}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:10, marginBottom:14}}>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>期号 / 日期 *</label>
+              <input value={weekLabel} onChange={e => setWeekLabel(e.target.value)} placeholder="2026 第 22 周"
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+            </div>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>会议标题 *</label>
+              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="例：本周客服流程优化 + 售后处理规范"
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+            </div>
+          </div>
+          
+          {/* 重点要点 */}
+          <div style={{marginBottom:14}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)'}}>⭐ 本周重点（{highlights.length}）</label>
+              <button onClick={addHighlight} className="btn-sec" style={{padding:'3px 10px', fontSize:11}}>+ 加要点</button>
+            </div>
+            {highlights.length === 0 ? (
+              <div style={{padding:10, background:'#f9fafb', border:'1px dashed var(--line)', borderRadius:6, fontSize:11, color:'var(--ink-3)', textAlign:'center'}}>暂无要点，点上方"+ 加要点"开始</div>
+            ) : (
+              highlights.map((h, idx) => (
+                <div key={h.id} style={{display:'flex', gap:6, marginBottom:6, alignItems:'center'}}>
+                  <select value={h.priority || 'normal'} onChange={e => { const next = [...highlights]; next[idx] = {...h, priority:e.target.value}; setHighlights(next); }}
+                    style={{width:90, padding:'6px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, background:'white'}}>
+                    <option value="normal">📍 一般</option>
+                    <option value="high">🔥 重要</option>
+                  </select>
+                  <input value={h.tag || ''} onChange={e => { const next = [...highlights]; next[idx] = {...h, tag:e.target.value}; setHighlights(next); }} placeholder="分类标签（选填）"
+                    style={{width:110, padding:'6px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}} />
+                  <input value={h.text} onChange={e => { const next = [...highlights]; next[idx] = {...h, text:e.target.value}; setHighlights(next); }} placeholder="重点内容..."
+                    style={{flex:1, padding:'6px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}} />
+                  <button onClick={() => setHighlights(highlights.filter((_, i) => i !== idx))}
+                    style={{padding:'6px 8px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:6, cursor:'pointer', fontSize:12}}>×</button>
+                </div>
+              ))
+            )}
+          </div>
+          
+          {/* 工作计划 */}
+          <div style={{marginBottom:14}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)'}}>📋 工作计划 / 任务分配（{workPlans.length}）</label>
+              <button onClick={addWorkPlan} className="btn-sec" style={{padding:'3px 10px', fontSize:11}}>+ 加任务</button>
+            </div>
+            {workPlans.length === 0 ? (
+              <div style={{padding:10, background:'#f9fafb', border:'1px dashed var(--line)', borderRadius:6, fontSize:11, color:'var(--ink-3)', textAlign:'center'}}>暂无任务</div>
+            ) : (
+              workPlans.map((p, idx) => (
+                <div key={p.id} style={{display:'flex', gap:6, marginBottom:6, alignItems:'center'}}>
+                  <select value={p.assignee_id || ''} onChange={e => {
+                    const emp = employees.find(em => em.id === e.target.value);
+                    const next = [...workPlans]; next[idx] = {...p, assignee_id:e.target.value, assignee_name: emp ? emp.name + (emp.alias ? ' ' + emp.alias : '') : ''};
+                    setWorkPlans(next);
+                  }}
+                    style={{width:130, padding:'6px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, background:'white'}}>
+                    <option value="">所有人</option>
+                    {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name}{emp.alias ? ' ' + emp.alias : ''}</option>)}
+                  </select>
+                  <input value={p.text} onChange={e => { const next = [...workPlans]; next[idx] = {...p, text:e.target.value}; setWorkPlans(next); }} placeholder="任务内容..."
+                    style={{flex:1, padding:'6px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}} />
+                  <input type="date" value={p.deadline || ''} onChange={e => { const next = [...workPlans]; next[idx] = {...p, deadline:e.target.value}; setWorkPlans(next); }} title="截止日期"
+                    style={{width:130, padding:'6px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}} />
+                  <button onClick={() => setWorkPlans(workPlans.filter((_, i) => i !== idx))}
+                    style={{padding:'6px 8px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:6, cursor:'pointer', fontSize:12}}>×</button>
+                </div>
+              ))
+            )}
+          </div>
+          
+          {/* 详细正文 */}
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>📝 会议详细内容（选填）</label>
+            <textarea value={content} onChange={e => setContent(e.target.value)}
+              placeholder="开会的详细笔记 / 流程说明 / 注意事项..."
+              style={{width:'100%', minHeight:120, padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical', lineHeight:1.6}} />
+          </div>
+          
+          {/* 附件 - 支持 PDF/PPT/Excel/Word/图片/视频 */}
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>📎 附件文件（选填 · 支持 PDF / PPT / Excel / Word / 图片 / 视频）</label>
+            <MultiFileUploader files={attachments} setFiles={setAttachments} bucket="briefing-files" maxSize={50} />
+          </div>
+          
+          {/* 置顶选项 */}
+          <label style={{display:'flex', alignItems:'center', gap:6, padding:8, background:'#fef9c3', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:600, color:'#854d0e'}}>
+            <input type="checkbox" checked={pinned} onChange={e => setPinned(e.target.checked)} />
+            📌 置顶（员工首页永久显示在最前）
+          </label>
+        </div>
+        
+        <div style={{padding:'14px 20px', borderTop:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0, gap:8}}>
+          <div style={{fontSize:10, color:'var(--ink-3)'}}>
+            💡 「保存草稿」员工看不到，「发布」后所有员工首页立即显示
+          </div>
+          <div style={{display:'flex', gap:8}}>
+            <button onClick={onClose} className="btn-sec" style={{padding:'8px 16px'}}>取消</button>
+            <button onClick={() => handleSubmit(false)} disabled={saving} className="btn-sec" style={{padding:'8px 18px', fontWeight:600}}>
+              💾 保存草稿
+            </button>
+            <button onClick={() => handleSubmit(true)} disabled={saving}
+              style={{padding:'8px 22px', background:'#0369a1', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13, opacity: saving ? 0.5 : 1}}>
+              {saving ? '保存中...' : '📢 保存并发布'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 🔍 全局智能搜索 - 跨平台所有数据
+// ============================================================
+const GlobalSearch = ({ open, onClose, user, employees, records, setActiveTab, onJumpToRecord }) => {
+  const [query, setQuery] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [extraData, setExtraData] = useState({ suppliers:[], aftersales:[], refills:[], refunds:[], briefings:[], kb:[], tickets:[] });
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const inputRef = React.useRef(null);
+  
+  // 打开时加载额外数据 + 自动聚焦
+  useEffect(() => {
+    if (!open) return;
+    setQuery('');
+    setSelectedIdx(0);
+    setTimeout(() => inputRef.current?.focus(), 50);
+    setLoading(true);
+    (async () => {
+      try {
+        const [sup, af, rf, rfd, bf, kb, tk] = await Promise.all([
+          CLOUD.list('suppliers', { limit:1000 }),
+          CLOUD.list('aftersales', { limit:500 }),
+          CLOUD.list('refills', { limit:500 }),
+          CLOUD.list('refunds', { limit:500 }),
+          CLOUD.list('weekly_briefings', { limit:50 }),
+          CLOUD.list('workspace_kb', { limit:500 }),
+          CLOUD.list('workspace_tickets', { limit:300 }),
+        ]);
+        setExtraData({
+          suppliers: sup || [],
+          aftersales: af || [],
+          refills: rf || [],
+          refunds: rfd || [],
+          briefings: bf || [],
+          kb: kb || [],
+          tickets: tk || [],
+        });
+      } catch(e) { console.warn('加载搜索数据失败', e); }
+      setLoading(false);
+    })();
+  }, [open]);
+  
+  // 键盘快捷键
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+  
+  // 搜索结果（分类）
+  const results = useMemo(() => {
+    if (!query.trim()) return [];
+    const q = query.trim().toLowerCase();
+    const all = [];
+    
+    // 1. 客服记录
+    (records || []).filter(r => !r.deleted).forEach(r => {
+      const hay = [r.customer, r.orderRef, r.note, r.category, r.site, r.date, employees.find(e=>e.id===r.ownerId)?.name].filter(Boolean).join(' ').toLowerCase();
+      if (hay.includes(q)) {
+        all.push({
+          kind:'record', icon:'📧', label:'客服记录', color:'#0369a1',
+          title: r.customer || '(无邮箱)',
+          desc: `${r.date} · ${r.category || '未选事项'} · ${r.orderRef || ''}`,
+          extra: r.note,
+          owner: employees.find(e => e.id === r.ownerId)?.name,
+          target: { tab:'cs', recordId: r.id },
+          data: r,
+        });
+      }
+    });
+    
+    // 2. 售后事件
+    (extraData.aftersales || []).forEach(a => {
+      const hay = [a.order_ref, a.customer, a.product_name, a.issue_detail, a.damaged_part, a.supplier_name, a.notes, a.issue_type_custom].filter(Boolean).join(' ').toLowerCase();
+      if (hay.includes(q)) {
+        const issue = ISSUE_TYPES.find(i => i.key === a.issue_type);
+        const status = AFTERSALE_STATUSES.find(s => s.key === a.status);
+        all.push({
+          kind:'aftersale', icon:'🔧', label:'售后事件', color:'#ea580c',
+          title: `${a.order_ref || '?'} · ${a.product_name || ''}`,
+          desc: `${issue?.label || ''}${a.damaged_part ? ' · ' + a.damaged_part : ''} · ${a.supplier_name || ''}`,
+          extra: a.issue_detail,
+          status: status?.label,
+          target: { tab:'events', subTab:'aftersales' },
+          data: a,
+        });
+      }
+    });
+    
+    // 3. 补件
+    (extraData.refills || []).forEach(r => {
+      const itemsStr = (r.items || []).map(i => i.item).join(' ');
+      const hay = [r.order_ref, r.customer, itemsStr, r.supplier_name, r.notes, r.tracking_number].filter(Boolean).join(' ').toLowerCase();
+      if (hay.includes(q)) {
+        const status = REFILL_STATUSES.find(s => s.key === r.status);
+        all.push({
+          kind:'refill', icon:'📦', label:'补件事件', color:'#0369a1',
+          title: `${r.order_ref || '?'} · ${itemsStr.slice(0, 40)}`,
+          desc: `${r.supplier_name || ''} · 共 ${(r.items || []).length} 项`,
+          extra: r.notes,
+          status: status?.label,
+          target: { tab:'events', subTab:'refills' },
+          data: r,
+        });
+      }
+    });
+    
+    // 4. 退款
+    (extraData.refunds || []).forEach(r => {
+      const hay = [r.order_ref, r.customer, r.product_name, r.refund_reason, r.supplier_name, r.refund_type_custom, r.payment_method_custom, r.external_refund_id].filter(Boolean).join(' ').toLowerCase();
+      if (hay.includes(q)) {
+        const type = REFUND_TYPES.find(t => t.key === r.refund_type);
+        const status = REFUND_STATUSES.find(s => s.key === r.status);
+        all.push({
+          kind:'refund', icon:'💰', label:'退款', color:'#dc2626',
+          title: `${r.order_ref || '?'} · ${r.currency} ${parseFloat(r.amount).toFixed(2)}`,
+          desc: `${type?.label || ''} · ${r.payment_method || ''}`,
+          extra: r.refund_reason,
+          status: status?.label,
+          target: { tab:'events', subTab:'refunds' },
+          data: r,
+        });
+      }
+    });
+    
+    // 5. 供应商
+    (extraData.suppliers || []).forEach(s => {
+      const hay = [s.name, s.contact_person, s.alipay, s.category, s.notes].filter(Boolean).join(' ').toLowerCase();
+      if (hay.includes(q)) {
+        all.push({
+          kind:'supplier', icon:'🏭', label:'供应商', color:'#16a34a',
+          title: s.name,
+          desc: `${s.contact_person ? '👤 ' + s.contact_person : ''} ${s.alipay ? '· 💳 ' + s.alipay : ''}`,
+          extra: `售后 ${s.total_aftersales || 0} 单`,
+          target: { tab:'suppliers' },
+          data: s,
+        });
+      }
+    });
+    
+    // 6. 知识库
+    (extraData.kb || []).forEach(k => {
+      const hay = [k.title, k.content, k.category, k.tags && (Array.isArray(k.tags) ? k.tags.join(' ') : k.tags)].filter(Boolean).join(' ').toLowerCase();
+      if (hay.includes(q)) {
+        all.push({
+          kind:'kb', icon:'📚', label:'知识库', color:'#7c3aed',
+          title: k.title || '(无标题)',
+          desc: `${k.category || ''}`,
+          extra: (k.content || '').slice(0, 150),
+          target: { tab:'kb' },
+          data: k,
+        });
+      }
+    });
+    
+    // 7. 会议纪要
+    (extraData.briefings || []).filter(b => b.published).forEach(b => {
+      const highlightsStr = (b.highlights || []).map(h => h.text).join(' ');
+      const plansStr = (b.work_plans || []).map(p => p.text).join(' ');
+      const hay = [b.title, b.week_label, b.content, highlightsStr, plansStr].filter(Boolean).join(' ').toLowerCase();
+      if (hay.includes(q)) {
+        all.push({
+          kind:'briefing', icon:'📢', label:'会议纪要', color:'#0891b2',
+          title: b.title,
+          desc: `${b.week_label} · ${(b.highlights || []).length} 要点 · ${(b.work_plans || []).length} 任务`,
+          extra: b.content,
+          target: { tab:'briefings' },
+          data: b,
+        });
+      }
+    });
+    
+    // 8. 工单
+    (extraData.tickets || []).forEach(t => {
+      const hay = [t.title, t.content, t.from_name, t.target_name].filter(Boolean).join(' ').toLowerCase();
+      if (hay.includes(q)) {
+        all.push({
+          kind:'ticket', icon:'📋', label:'工单', color:'#d97706',
+          title: t.title || '(无标题)',
+          desc: `${t.from_name} → ${t.target_name} · ${t.status || ''}`,
+          extra: t.content,
+          target: { tab:'report' },
+          data: t,
+        });
+      }
+    });
+    
+    // 9. 员工
+    employees.filter(e => !e.hideFromList || e.id === user.id).forEach(emp => {
+      const hay = [emp.name, emp.alias, emp.sites, emp.title].filter(Boolean).join(' ').toLowerCase();
+      if (hay.includes(q)) {
+        all.push({
+          kind:'employee', icon:'👤', label:'员工', color:'#5e5ce6',
+          title: `${emp.name}${emp.alias ? ' ' + emp.alias : ''}`,
+          desc: `${emp.title || ''} · ${emp.sites || ''}`,
+          target: null,
+          data: emp,
+        });
+      }
+    });
+    
+    // 10. 平台功能（"如何"类搜索）
+    const features = [
+      { keys:['售后','补件','退款','事件'], title:'📋 工作主线', desc:'查看所有售后/补件/退款事件', target:{tab:'events'} },
+      { keys:['供应商','工厂'], title:'🏭 供应商管理', desc:'693 家供应商搜索 + 新增', target:{tab:'suppliers'} },
+      { keys:['知识','回复','模板'], title:'📚 知识库', desc:'280+ 客服回复模板', target:{tab:'kb'} },
+      { keys:['报价','quote','pi'], title:'📝 报价单', desc:'生成报价单', target:{tab:'quote'} },
+      { keys:['财务','计算器'], title:'🧮 财务计算器', desc:'订单财务计算', target:{tab:'finance'} },
+      { keys:['运费','物流'], title:'🚚 运费支付', desc:'运费对账', target:{tab:'freight'} },
+      { keys:['看板','统计','报表'], title:'📊 数据看板', desc:'团队数据统计', target:{tab:'dashboard'} },
+      { keys:['工单','汇报'], title:'💬 汇报工单', desc:'员工汇报问题', target:{tab:'report'} },
+      { keys:['会议','纪要','要点'], title:'📢 会议纪要', desc:'主管发布的会议要点', target:{tab:'briefings'} },
+      { keys:['回收','删除'], title:'🗑 回收站', desc:'恢复删除的数据', target:{tab:'trash'} },
+      { keys:['设置','配置','员工管理'], title:'⚙ 设置', desc:'云配置 / 员工管理', target:{tab:'admin'} },
+    ];
+    features.forEach(f => {
+      if (f.keys.some(k => k.toLowerCase().includes(q) || q.includes(k.toLowerCase()))) {
+        all.push({
+          kind:'feature', icon:'⚡', label:'功能', color:'#525252',
+          title: f.title,
+          desc: f.desc,
+          target: f.target,
+          data: f,
+        });
+      }
+    });
+    
+    return all.slice(0, 80);  // 最多 80 条
+  }, [query, records, extraData, employees, user]);
+  
+  // 按 kind 分组
+  const grouped = useMemo(() => {
+    const g = {};
+    results.forEach(r => {
+      if (!g[r.kind]) g[r.kind] = { label: r.label, icon: r.icon, color: r.color, items: [] };
+      g[r.kind].items.push(r);
+    });
+    return g;
+  }, [results]);
+  
+  const handleClick = (item) => {
+    if (item.target && item.target.tab) {
+      setActiveTab(item.target.tab);
+      if (item.target.recordId && onJumpToRecord) onJumpToRecord(item.target.recordId);
+    }
+    onClose();
+  };
+  
+  if (!open) return null;
+  
+  return (
+    <div onClick={onClose}
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'8vh 20px'}}>
+      <div onClick={e => e.stopPropagation()}
+        style={{background:'white', borderRadius:14, maxWidth:720, width:'100%', display:'flex', flexDirection:'column', maxHeight:'80vh', boxShadow:'0 24px 64px rgba(0,0,0,.3)'}}>
+        {/* 搜索框 */}
+        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', alignItems:'center', gap:10}}>
+          <span style={{fontSize:20}}>🔍</span>
+          <input ref={inputRef}
+            value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="搜索客户邮箱 / 订单号 / 供应商 / 退款 / 知识库 / 功能..."
+            style={{flex:1, padding:'8px 0', border:'none', outline:'none', fontSize:15, fontFamily:'inherit'}} />
+          {query && (
+            <button onClick={() => setQuery('')} style={{padding:'4px 10px', background:'var(--bg)', border:'none', borderRadius:6, cursor:'pointer', fontSize:11, color:'var(--ink-3)'}}>清空</button>
+          )}
+          <kbd style={{padding:'3px 8px', background:'var(--bg)', borderRadius:5, fontSize:11, color:'var(--ink-3)', border:'1px solid var(--line)'}}>ESC</kbd>
+        </div>
+        
+        {/* 结果区 */}
+        <div style={{flex:1, overflow:'auto', padding: query ? 8 : 24}}>
+          {!query.trim() ? (
+            <div style={{textAlign:'center', padding:'24px 0', color:'var(--ink-3)', fontSize:13}}>
+              <div style={{fontSize:36, marginBottom:10}}>🔍</div>
+              <div style={{fontWeight:600, marginBottom:6, color:'var(--ink-2)', fontSize:14}}>智能搜索全平台</div>
+              <div style={{marginBottom:16}}>可以搜索任意客户邮箱、订单号、供应商、退款、知识库、功能页面</div>
+              <div style={{display:'flex', flexWrap:'wrap', gap:8, justifyContent:'center', maxWidth:500, margin:'0 auto'}}>
+                {['john@', 'V99299', '品诚', '退款', '运输损坏', '会议', '供应商', '报价'].map(s => (
+                  <button key={s} onClick={() => setQuery(s)}
+                    style={{padding:'5px 12px', background:'var(--bg)', border:'1px solid var(--line)', borderRadius:14, cursor:'pointer', fontSize:11, fontFamily:'inherit', color:'var(--ink-2)'}}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : loading && results.length === 0 ? (
+            <div style={{textAlign:'center', padding:30, color:'var(--ink-3)', fontSize:13}}>⏳ 搜索中...</div>
+          ) : results.length === 0 ? (
+            <div style={{textAlign:'center', padding:40, color:'var(--ink-3)', fontSize:13}}>
+              <div style={{fontSize:36, marginBottom:8}}>🔍</div>
+              没有找到包含 "<strong style={{color:'var(--ink-2)'}}>{query}</strong>" 的内容
+            </div>
+          ) : (
+            <div>
+              <div style={{fontSize:11, color:'var(--ink-3)', padding:'4px 10px', marginBottom:6}}>
+                找到 <strong style={{color:'var(--ink)'}}>{results.length}</strong> 条结果
+              </div>
+              {Object.entries(grouped).map(([kind, group]) => (
+                <div key={kind} style={{marginBottom:14}}>
+                  <div style={{padding:'4px 10px', fontSize:11, fontWeight:600, color: group.color, display:'flex', alignItems:'center', gap:6}}>
+                    <span>{group.icon}</span>
+                    <span>{group.label} ({group.items.length})</span>
+                  </div>
+                  {group.items.map((item, idx) => (
+                    <div key={kind + '_' + idx} onClick={() => handleClick(item)}
+                      style={{
+                        padding:'8px 12px', borderRadius:8, cursor:'pointer', marginBottom:2,
+                        borderLeft:'3px solid ' + group.color,
+                        background:'white', transition:'background .1s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = group.color + '08'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'white'}>
+                      <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:3}}>
+                        <span style={{fontSize:13, fontWeight:600, color:'var(--ink)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                          {highlightMatch(item.title, query)}
+                        </span>
+                        {item.status && (
+                          <span style={{padding:'1px 6px', background: group.color + '15', color: group.color, borderRadius:4, fontSize:10, fontWeight:600, flexShrink:0}}>{item.status}</span>
+                        )}
+                        {item.owner && (
+                          <span style={{padding:'1px 6px', background:'var(--bg)', color:'var(--ink-3)', borderRadius:4, fontSize:10, flexShrink:0}}>{item.owner}</span>
+                        )}
+                      </div>
+                      {item.desc && (
+                        <div style={{fontSize:11, color:'var(--ink-3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                          {highlightMatch(item.desc, query)}
+                        </div>
+                      )}
+                      {item.extra && item.kind !== 'feature' && (
+                        <div style={{fontSize:11, color:'var(--ink-3)', marginTop:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', opacity:.8}}>
+                          {highlightMatch(String(item.extra).slice(0, 100), query)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {/* 底部 */}
+        <div style={{padding:'10px 18px', borderTop:'1px solid var(--line)', background:'var(--bg)', fontSize:10, color:'var(--ink-3)', display:'flex', justifyContent:'space-between'}}>
+          <div>💡 提示：可以搜邮箱、订单号、供应商名、退款原因、会议要点</div>
+          <div>
+            <kbd style={{padding:'1px 5px', background:'white', border:'1px solid var(--line)', borderRadius:3, fontSize:10}}>Ctrl+K</kbd> 打开搜索
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 高亮匹配文字
+const highlightMatch = (text, query) => {
+  if (!text || !query) return text;
+  const txt = String(text);
+  const q = query.trim();
+  if (!q) return txt;
+  const lower = txt.toLowerCase();
+  const qLower = q.toLowerCase();
+  const idx = lower.indexOf(qLower);
+  if (idx < 0) return txt;
+  return (
+    <>
+      {txt.slice(0, idx)}
+      <span style={{background:'#fef3c7', color:'#854d0e', fontWeight:600, padding:'0 2px', borderRadius:2}}>{txt.slice(idx, idx + q.length)}</span>
+      {txt.slice(idx + q.length)}
+    </>
+  );
+};
+
 const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
   const [subTab, setSubTab] = useState('aftersales');  // aftersales | refills | refunds | summary
   const [suppliers, setSuppliers] = useState([]);
@@ -7681,7 +9178,7 @@ const CloudSettingsCard = ({ cfg, setCfg, toast, onApply }) => {
 // ============================================================
 const App = () => {
   // 员工 (localStorage + 云同步备份) - 加版本号机制，代码里改了 INITIAL_EMPLOYEES 后能自动覆盖
-  const EMPLOYEES_VERSION = 5;  // 刘强 title 改为"对接工厂·客服"
+  const EMPLOYEES_VERSION = 6;  // Martin 老板账号 + 隐藏列表
   const [employees, setEmployees] = useState(() => {
     const storedVer = STORE.get('employees_version', 0);
     if (storedVer < EMPLOYEES_VERSION) {
@@ -8005,9 +9502,39 @@ const App = () => {
     return <LoginScreen employees={employees} onLogin={onLogin} />;
   }
 
+  // 🔍 全局智能搜索
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    const handler = (e) => {
+      // Ctrl+K / Cmd+K
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+      // 斜杠快捷键（如果焦点不在输入框）
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+  
   return (
     <div className="min-h-screen">
-      <TopNav user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} stats={stats} notifPerm={notifPerm} requestNotifPerm={requestNotifPerm} cloudOn={cloudOn} employees={employees} switchAccount={switchAccount} />
+      <TopNav user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} stats={stats} notifPerm={notifPerm} requestNotifPerm={requestNotifPerm} cloudOn={cloudOn} employees={employees} switchAccount={switchAccount} onOpenSearch={() => setSearchOpen(true)} />
+      
+      {/* 🔍 全局搜索 */}
+      <GlobalSearch 
+        open={searchOpen} 
+        onClose={() => setSearchOpen(false)}
+        user={user}
+        employees={employees}
+        records={records}
+        setActiveTab={setActiveTab}
+        onJumpToRecord={null}  // 暂时不实现跳转到具体行
+      />
       
       {/* 🆕 云同步状态横幅 - 失败时大红警告 */}
       {cloudOn === false && (
@@ -8043,6 +9570,9 @@ const App = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {activeTab === 'cs' && (
           <CSModule user={user} employees={employees} records={records} setRecords={setRecords} toast={toast} cloudOn={cloudOn} />
+        )}
+        {activeTab === 'briefings' && (
+          <BriefingsModule user={user} employees={employees} toast={toast} cloudOn={cloudOn} />
         )}
         {activeTab === 'events' && (
           <EventsModule user={user} employees={employees} records={records} toast={toast} cloudOn={cloudOn} />
