@@ -561,6 +561,52 @@ const CLOUD = {
   },
 };
 
+// 🔗 协调员配置 - 接收所有事件的"对接人"
+const COORDINATOR_IDS = ['u_liuqiang'];  // 谁是协调员，未来可加更多
+
+// 🔗 自动给协调员发工单通知（事件创建时）
+async function notifyCoordinator(kind, eventData, creator) {
+  if (!CLOUD.client) return;  // 离线模式跳过
+  const kindLabel = kind === 'aftersale' ? '🔧 售后' : kind === 'refill' ? '📦 补件' : '💰 退款';
+  const targetId = COORDINATOR_IDS[0];
+  
+  let summary = '';
+  if (kind === 'aftersale') {
+    const issue = ISSUE_TYPES.find(i => i.key === eventData.issue_type)?.label || eventData.issue_type;
+    summary = `问题：${issue}${eventData.damaged_part ? ' · ' + eventData.damaged_part : ''}\n${eventData.issue_detail || ''}`;
+  } else if (kind === 'refill') {
+    const itemsList = (eventData.items || []).map(it => `${it.item || '?'} × ${it.qty || 1}${it.unit || ''}`).join('，');
+    summary = `补件清单：${itemsList}`;
+  } else if (kind === 'refund') {
+    const type = REFUND_TYPES.find(t => t.key === eventData.refund_type)?.label || eventData.refund_type;
+    summary = `${type} · ${eventData.currency} ${parseFloat(eventData.amount).toFixed(2)}\n${eventData.refund_reason || ''}`;
+  }
+  
+  const ticket = {
+    id: 'tk_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+    title: `${kindLabel} · ${eventData.order_ref || ''}${eventData.supplier_name ? ' · ' + eventData.supplier_name : ''}`,
+    content: `【自动同步】${creator.name}${creator.alias ? ' ' + creator.alias : ''} 创建了一条${kindLabel}事件\n\n订单号：${eventData.order_ref || '-'}\n客户：${eventData.customer || '-'}\n供应商：${eventData.supplier_name || '-'}\n\n${summary}\n\n💡 点击「📋 工作主线」tab 查看完整事件（含图片）`,
+    priority: kind === 'refund' ? 'high' : 'normal',
+    department: 'coordination',
+    from_id: creator.id,
+    from_name: creator.name + (creator.alias ? ' ' + creator.alias : ''),
+    target_id: targetId,
+    target_name: '刘强',
+    status: 'pending',
+    event_ref: eventData.id ? `${kind}:${eventData.id}` : null,
+    auto_synced: true,  // 标记为自动同步，方便筛选
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  
+  try {
+    await CLOUD.client.from('workspace_tickets').upsert(ticket);
+  } catch(e) {
+    console.warn('自动通知协调员失败:', e.message);
+    // 不阻塞主流程
+  }
+}
+
 // ============================================================
 // 初始员工数据
 // ============================================================
@@ -583,6 +629,8 @@ const INITIAL_EMPLOYEES = [
   // 💰 财务部 — 运费对账岗位
   { id:'u_kuang', name:'邝雅琦', alias:'', sites:'财务·运费对账', role:'finance', password:'finance123', title:'财务·运费对账' },
   { id:'u_jiang', name:'江春芸', alias:'', sites:'财务·运费对账', role:'finance', password:'finance123', title:'财务·运费对账' },
+  // 🔗 协调员 — 对接工厂/客服/跟单/供应商，所有功能全开放
+  { id:'u_liuqiang', name:'刘强', alias:'', sites:'对接工厂·跟单·供应商', role:'admin', password:'admin123', title:'协调员·跨部门对接' },
 ];
 
 const CATEGORIES = [
@@ -2044,7 +2092,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
       {/* 主表格 */}
       <div className="paper rounded-2xl overflow-hidden fade-in">
         <div className="overflow-x-auto scrollbar-thin">
-          <table style={{minWidth:'1100px'}}>
+          <table style={{minWidth:'1280px'}}>
             <thead>
               <tr>
                 <th style={{width:'36px'}}>#</th>
@@ -2059,7 +2107,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                 <th style={{width:'120px'}}>咨询事项</th>
                 <th style={{minWidth:'160px'}}>订单号/备注</th>
                 <th style={{width:'140px'}}>下次跟进</th>
-                <th style={{width:'80px'}}>截图/跟进</th>
+                <th style={{width:'250px'}}>截图/跟进 · 事件</th>
                 <th style={{width:'50px'}}></th>
               </tr>
             </thead>
@@ -2195,19 +2243,25 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                         })()}
                         {/* 🆕 快捷加事件按钮 */}
                         {editable && (
-                          <div style={{display:'inline-flex', gap:2}}>
+                          <div style={{display:'inline-flex', gap:3, marginLeft:4}}>
                             <button onClick={() => setEventEditor({ kind:'aftersale', record:r })} title="加售后事件"
-                              style={{padding:'2px 5px', background:'transparent', border:'none', cursor:'pointer', fontSize:11, opacity:0.5, transition:'opacity .1s'}}
-                              onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                              onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}>🔧</button>
+                              style={{padding:'3px 8px', background:'#fff7ed', color:'#ea580c', border:'1px solid #fdba74', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:2, transition:'all .15s'}}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; e.currentTarget.style.color = 'white'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.color = '#ea580c'; }}>
+                              🔧售后
+                            </button>
                             <button onClick={() => setEventEditor({ kind:'refill', record:r })} title="加补件事件"
-                              style={{padding:'2px 5px', background:'transparent', border:'none', cursor:'pointer', fontSize:11, opacity:0.5, transition:'opacity .1s'}}
-                              onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                              onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}>📦</button>
+                              style={{padding:'3px 8px', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:2, transition:'all .15s'}}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#0369a1'; e.currentTarget.style.color = 'white'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; }}>
+                              📦补件
+                            </button>
                             <button onClick={() => setEventEditor({ kind:'refund', record:r })} title="加退款事件"
-                              style={{padding:'2px 5px', background:'transparent', border:'none', cursor:'pointer', fontSize:11, opacity:0.5, transition:'opacity .1s'}}
-                              onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                              onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}>💰</button>
+                              style={{padding:'3px 8px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit', display:'inline-flex', alignItems:'center', gap:2, transition:'all .15s'}}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}>
+                              💰退款
+                            </button>
                           </div>
                         )}
                       </div>
@@ -2655,6 +2709,7 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
   
   // 售后专属
   const [issueType, setIssueType] = useState(existingEvent?.issue_type || 'transport_damage');
+  const [issueTypeCustom, setIssueTypeCustom] = useState(existingEvent?.issue_type_custom || '');
   const [damagedPart, setDamagedPart] = useState(existingEvent?.damaged_part || '');
   const [productName, setProductName] = useState(existingEvent?.product_name || '');
   const [issueDetail, setIssueDetail] = useState(existingEvent?.issue_detail || '');
@@ -2664,15 +2719,17 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
   const [aftersaleStatus, setAftersaleStatus] = useState(existingEvent?.status || 'pending_remind');
   
   // 补件专属
-  const [refillItems, setRefillItems] = useState(existingEvent?.items || [{ item:'', qty:1, unit:'套' }]);
+  const [refillItems, setRefillItems] = useState(existingEvent?.items || [{ item:'', qty:1, unit:'套', attachments:[] }]);
   const [expectedShipDate, setExpectedShipDate] = useState(existingEvent?.expected_ship_date || '');
   const [refillStatus, setRefillStatus] = useState(existingEvent?.status || 'pending_order');
   
   // 退款专属
   const [refundType, setRefundType] = useState(existingEvent?.refund_type || 'quality_issue');
+  const [refundTypeCustom, setRefundTypeCustom] = useState(existingEvent?.refund_type_custom || '');
   const [amount, setAmount] = useState(existingEvent?.amount || '');
   const [currency, setCurrency] = useState(existingEvent?.currency || 'USD');
   const [paymentMethod, setPaymentMethod] = useState(existingEvent?.payment_method || 'shopify_payments');
+  const [paymentMethodCustom, setPaymentMethodCustom] = useState(existingEvent?.payment_method_custom || '');
   const [refundReason, setRefundReason] = useState(existingEvent?.refund_reason || '');
   
   const supplier = suppliers.find(s => s.id === supplierId);
@@ -2698,10 +2755,16 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
     let table, payload;
     if (kind === 'aftersale') {
       table = 'aftersales';
+      // "其他" 类型必须填自定义
+      if (issueType === 'other' && !issueTypeCustom.trim()) {
+        alert('问题类型选了"其他"，请填写具体类型');
+        setSaving(false); return;
+      }
       payload = {
         ...base,
         product_name: productName.trim() || null,
         issue_type: issueType,
+        issue_type_custom: issueType === 'other' ? issueTypeCustom.trim() : null,
         damaged_part: damagedPart.trim() || null,
         issue_detail: issueDetail.trim() || null,
         country: country.trim() || null,
@@ -2711,7 +2774,7 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
       };
     } else if (kind === 'refill') {
       table = 'refills';
-      // 过滤掉空的补件项
+      // 过滤掉空的补件项（保留 attachments 字段）
       const validItems = refillItems.filter(i => (i.item || '').trim());
       if (validItems.length === 0) { alert('请至少填一项补件清单'); setSaving(false); return; }
       payload = {
@@ -2725,15 +2788,26 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
       const amt = parseFloat(amount);
       if (isNaN(amt) || amt <= 0) { alert('请填写正确的退款金额'); setSaving(false); return; }
       if (!refundReason.trim()) { alert('请填写退款原因详情'); setSaving(false); return; }
+      // "其他" 类型必须填自定义
+      if (refundType === 'other' && !refundTypeCustom.trim()) {
+        alert('退款类型选了"其他"，请填写具体类型');
+        setSaving(false); return;
+      }
+      if (paymentMethod === 'other' && !paymentMethodCustom.trim()) {
+        alert('支付方式选了"其他"，请填写具体方式');
+        setSaving(false); return;
+      }
       payload = {
         ...base,
         product_name: productName.trim() || null,
         refund_type: refundType,
+        refund_type_custom: refundType === 'other' ? refundTypeCustom.trim() : null,
         amount: amt,
         currency,
         payment_method: paymentMethod,
+        payment_method_custom: paymentMethod === 'other' ? paymentMethodCustom.trim() : null,
         refund_reason: refundReason.trim(),
-        status: 'pending',
+        status: existingEvent?.status || 'pending',
       };
     }
     
@@ -2743,6 +2817,10 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
     try {
       const res = await CLOUD.upsert(table, payload);
       if (res) {
+        // 🔗 自动通知协调员（刘强）— 仅创建时通知，编辑不重复通知
+        if (!isEdit) {
+          notifyCoordinator(kind, res[0] || payload, user);
+        }
         onSaved && onSaved(res[0] || payload);
         onClose();
       } else {
@@ -2815,6 +2893,15 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
                   </select>
                 </div>
               </div>
+              {/* 🆕 问题类型 = 其他 → 显示自定义输入 */}
+              {issueType === 'other' && (
+                <div style={{marginBottom:14, padding:10, background:'#fef9c3', border:'1px solid #fde68a', borderRadius:8}}>
+                  <label style={{fontSize:11, fontWeight:600, color:'#854d0e', display:'block', marginBottom:4}}>💡 请说明具体是什么类型的问题 *</label>
+                  <input value={issueTypeCustom} onChange={e => setIssueTypeCustom(e.target.value)}
+                    placeholder="例如：包装漏水、配件氧化、电源线规格不匹配..."
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid #fcd34d', borderRadius:6, fontSize:13, background:'white'}} />
+                </div>
+              )}
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14}}>
                 <div>
                   <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>产品名</label>
@@ -2857,33 +2944,49 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
           {kind === 'refill' && (
             <>
               <div style={{marginBottom:14}}>
-                <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>补件清单 *</label>
+                <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>补件清单 *  <span style={{color:'var(--ink-4)', fontWeight:400, fontSize:10}}>· 每一项可单独上传图片</span></label>
                 {refillItems.map((it, idx) => (
-                  <div key={idx} style={{display:'flex', gap:6, marginBottom:6}}>
-                    <input value={it.item} onChange={e => {
-                      const next = [...refillItems]; next[idx] = { ...next[idx], item: e.target.value };
-                      setRefillItems(next);
-                    }} placeholder="灯头电线"
-                      style={{flex:2, padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
-                    <input type="number" value={it.qty} onChange={e => {
-                      const next = [...refillItems]; next[idx] = { ...next[idx], qty: parseInt(e.target.value) || 1 };
-                      setRefillItems(next);
-                    }} min={1}
-                      style={{width:60, padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
-                    <input value={it.unit || '套'} onChange={e => {
-                      const next = [...refillItems]; next[idx] = { ...next[idx], unit: e.target.value };
-                      setRefillItems(next);
-                    }} placeholder="套/个"
-                      style={{width:60, padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
-                    {refillItems.length > 1 && (
-                      <button onClick={() => setRefillItems(refillItems.filter((_, i) => i !== idx))}
-                        style={{padding:'6px 10px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:6, cursor:'pointer', fontSize:13}}>×</button>
-                    )}
+                  <div key={idx} style={{marginBottom:10, padding:10, background:'#f8fafc', border:'1px solid var(--line)', borderRadius:8}}>
+                    <div style={{display:'flex', gap:6, marginBottom:8, alignItems:'center'}}>
+                      <span style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', width:24}}>#{idx+1}</span>
+                      <input value={it.item} onChange={e => {
+                        const next = [...refillItems]; next[idx] = { ...next[idx], item: e.target.value };
+                        setRefillItems(next);
+                      }} placeholder="配件名（如：灯头电线）"
+                        style={{flex:2, padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                      <input type="number" value={it.qty} onChange={e => {
+                        const next = [...refillItems]; next[idx] = { ...next[idx], qty: parseInt(e.target.value) || 1 };
+                        setRefillItems(next);
+                      }} min={1}
+                        style={{width:60, padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                      <input value={it.unit || '套'} onChange={e => {
+                        const next = [...refillItems]; next[idx] = { ...next[idx], unit: e.target.value };
+                        setRefillItems(next);
+                      }} placeholder="单位"
+                        style={{width:60, padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                      {refillItems.length > 1 && (
+                        <button onClick={() => setRefillItems(refillItems.filter((_, i) => i !== idx))}
+                          style={{padding:'6px 10px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:6, cursor:'pointer', fontSize:13}}>×</button>
+                      )}
+                    </div>
+                    {/* 🆕 每个补件项的独立图片上传 */}
+                    <div style={{paddingLeft:30}}>
+                      <div style={{fontSize:10, color:'var(--ink-3)', marginBottom:4}}>
+                        📷 此配件的图片 {it.attachments && it.attachments.length > 0 && <span style={{color:'var(--accent)', fontWeight:600}}>({it.attachments.length})</span>}
+                      </div>
+                      <MultiImageUploader 
+                        attachments={it.attachments || []} 
+                        setAttachments={(atts) => {
+                          const next = [...refillItems]; next[idx] = { ...next[idx], attachments: atts };
+                          setRefillItems(next);
+                        }}
+                        defaultLabel="product" />
+                    </div>
                   </div>
                 ))}
-                <button onClick={() => setRefillItems([...refillItems, { item:'', qty:1, unit:'套' }])}
-                  style={{padding:'4px 10px', background:'var(--bg)', border:'1px dashed var(--line)', borderRadius:6, cursor:'pointer', fontSize:12, color:'var(--ink-2)', fontFamily:'inherit', width:'100%'}}>
-                  + 添加一项
+                <button onClick={() => setRefillItems([...refillItems, { item:'', qty:1, unit:'套', attachments:[] }])}
+                  style={{padding:'8px 10px', background:'var(--bg)', border:'1px dashed var(--line)', borderRadius:6, cursor:'pointer', fontSize:12, color:'var(--ink-2)', fontFamily:'inherit', width:'100%'}}>
+                  + 添加一项配件
                 </button>
               </div>
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14}}>
@@ -2922,6 +3025,15 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
                     </button>
                   ))}
                 </div>
+                {/* 🆕 退款类型 = 其他 → 自定义输入 */}
+                {refundType === 'other' && (
+                  <div style={{marginTop:8, padding:10, background:'#fef9c3', border:'1px solid #fde68a', borderRadius:8}}>
+                    <label style={{fontSize:11, fontWeight:600, color:'#854d0e', display:'block', marginBottom:4}}>💡 请说明具体退款类型 *</label>
+                    <input value={refundTypeCustom} onChange={e => setRefundTypeCustom(e.target.value)}
+                      placeholder="例如：账单争议、客户改主意、地址错误..."
+                      style={{width:'100%', padding:'6px 10px', border:'1px solid #fcd34d', borderRadius:6, fontSize:13, background:'white'}} />
+                  </div>
+                )}
               </div>
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14}}>
                 <div>
@@ -2949,6 +3061,15 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
                   </select>
                 </div>
               </div>
+              {/* 🆕 支付方式 = 其他 → 自定义输入 */}
+              {paymentMethod === 'other' && (
+                <div style={{marginBottom:14, padding:10, background:'#fef9c3', border:'1px solid #fde68a', borderRadius:8}}>
+                  <label style={{fontSize:11, fontWeight:600, color:'#854d0e', display:'block', marginBottom:4}}>💡 请说明具体支付方式 *</label>
+                  <input value={paymentMethodCustom} onChange={e => setPaymentMethodCustom(e.target.value)}
+                    placeholder="例如：银行转账、Klarna、Affirm、Apple Pay..."
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid #fcd34d', borderRadius:6, fontSize:13, background:'white'}} />
+                </div>
+              )}
               <div style={{marginBottom:14}}>
                 <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>产品名</label>
                 <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="Marie Petite Surface Ceiling Lamp"
@@ -4140,8 +4261,13 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
           <button className={`tab-btn ${section==='cloud'?'active':''}`} onClick={() => setSection('cloud')}>☁ 云同步设置</button>
           <button className={`tab-btn ${section==='gemini'?'active':''}`} onClick={() => setSection('gemini')}>✨ Gemini AI</button>
           <button className={`tab-btn ${section==='employees'?'active':''}`} onClick={() => setSection('employees')}>👥 员工管理 ({employees.length})</button>
+          <button className={`tab-btn ${section==='suppliers'?'active':''}`} onClick={() => setSection('suppliers')}>🏭 供应商管理</button>
         </div>
       </div>
+      
+      {section === 'suppliers' && (
+        <SuppliersManagement toast={toast} />
+      )}
 
       {section === 'cloud' && (
         <CloudSettingsCard cfg={cloudCfg} setCfg={setCloudCfg} toast={toast} onApply={onCloudApply} />
@@ -5677,7 +5803,7 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
         {[
           { key:'aftersales', label:'🔧 售后清单', count: filteredAftersales.length, color:'#ea580c' },
           { key:'refills',    label:'📦 补件追踪', count: filteredRefills.length, color:'#0369a1' },
-          { key:'refunds',    label:'💰 退款管理', count: filteredRefunds.length, color:'#dc2626', restrict: !isFinance },
+          { key:'refunds',    label:'💰 退款管理', count: filteredRefunds.length, color:'#dc2626' },
           { key:'summary',    label:'📊 月度汇总', count: null, color:'#16a34a' },
         ].filter(t => !t.restrict).map(t => (
           <button key={t.key} onClick={() => setSubTab(t.key)}
@@ -5783,7 +5909,7 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
           onDelete={(id) => deleteEvent('refill', id)}
           onUpdateStatus={updateRefillStatus} />
       )}
-      {subTab === 'refunds' && isFinance && (
+      {subTab === 'refunds' && (
         <RefundsTable items={filteredRefunds} employees={employees} suppliers={suppliers} user={user} isFinance={isFinance}
           onEdit={(e) => setEditEvent({ kind:'refund', event:e })}
           onDelete={(id) => deleteEvent('refund', id)}
@@ -5874,7 +6000,7 @@ const AftersalesTable = ({ items, employees, suppliers, user, isAdmin, onEdit, o
                     <td style={{fontSize:12, fontWeight:600, color:'var(--ink)'}}>{e.order_ref}</td>
                     <td style={{fontSize:12}}>{e.supplier_name || '-'}</td>
                     <td style={{fontSize:12, lineHeight:1.4}}>
-                      {issue && <span style={{padding:'1px 5px', background: issue.color + '15', color: issue.color, borderRadius:3, fontSize:10, fontWeight:600, marginRight:4}}>{issue.label}</span>}
+                      {issue && <span style={{padding:'1px 5px', background: issue.color + '15', color: issue.color, borderRadius:3, fontSize:10, fontWeight:600, marginRight:4}}>{issue.label}{e.issue_type === 'other' && e.issue_type_custom ? `: ${e.issue_type_custom}` : ''}</span>}
                       {e.damaged_part && <span style={{color:'var(--ink-3)', marginRight:4}}>· {e.damaged_part}</span>}
                       {e.issue_detail && <div style={{color:'var(--ink-2)', marginTop:2, fontSize:11, maxWidth:'400px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.issue_detail}</div>}
                     </td>
@@ -6077,11 +6203,11 @@ const RefundsTable = ({ items, employees, suppliers, user, isFinance, onEdit, on
                       <div style={{color:'var(--ink-2)', fontSize:11, maxWidth:'400px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.refund_reason}</div>
                     </td>
                     <td>
-                      {type && <span style={{padding:'2px 8px', background: type.bg, color: type.color, borderRadius:10, fontSize:10, fontWeight:600}}>{type.label}</span>}
+                      {type && <span style={{padding:'2px 8px', background: type.bg, color: type.color, borderRadius:10, fontSize:10, fontWeight:600}}>{type.label}{r.refund_type === 'other' && r.refund_type_custom ? `: ${r.refund_type_custom}` : ''}</span>}
                     </td>
                     <td style={{fontSize:13, fontWeight:600, color:'#dc2626'}}>{r.currency} {parseFloat(r.amount).toFixed(2)}</td>
                     <td style={{fontSize:11}}>
-                      {pay && <span style={{color: pay.color, fontWeight:500}}>{pay.label}</span>}
+                      {pay && <span style={{color: pay.color, fontWeight:500}}>{pay.label}{r.payment_method === 'other' && r.payment_method_custom ? `: ${r.payment_method_custom}` : ''}</span>}
                     </td>
                     <td>
                       {r.attachments && r.attachments.length > 0 ? (
@@ -7163,6 +7289,231 @@ const KbModule = ({ user, toast }) => {
 // ============================================================
 // 云同步设置模块（嵌入员工管理顶部）
 // ============================================================
+// ============================================================
+// 🏭 供应商管理 - admin 增删查改 + 搜索 + 显示统计
+// ============================================================
+const SuppliersManagement = ({ toast }) => {
+  const [suppliers, setSuppliers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [showNew, setShowNew] = useState(false);
+  const [newSupplier, setNewSupplier] = useState({ name:'', contact_person:'', alipay:'', category:'', notes:'' });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  
+  const loadSuppliers = async () => {
+    setLoading(true);
+    try {
+      const list = await CLOUD.list('suppliers', { order:{col:'name', asc:true}, limit:2000 });
+      setSuppliers(list || []);
+    } catch(e) { toast('❌ 加载失败: ' + e.message); }
+    setLoading(false);
+  };
+  useEffect(() => { loadSuppliers(); }, []);
+  
+  const handleCreate = async () => {
+    if (!newSupplier.name.trim()) { alert('请填写供应商名'); return; }
+    // 检查重名
+    if (suppliers.some(s => s.name === newSupplier.name.trim())) {
+      alert(`供应商 "${newSupplier.name.trim()}" 已存在`);
+      return;
+    }
+    const payload = {
+      name: newSupplier.name.trim(),
+      contact_person: newSupplier.contact_person.trim() || null,
+      alipay: newSupplier.alipay.trim() || null,
+      category: newSupplier.category.trim() || null,
+      notes: newSupplier.notes.trim() || '手动新增',
+      active: true,
+    };
+    const res = await CLOUD.upsert('suppliers', payload);
+    if (res) {
+      toast('✓ 已新增供应商');
+      setNewSupplier({ name:'', contact_person:'', alipay:'', category:'', notes:'' });
+      setShowNew(false);
+      loadSuppliers();
+    } else {
+      toast('❌ 新增失败');
+    }
+  };
+  
+  const startEdit = (s) => {
+    setEditingId(s.id);
+    setEditForm({ ...s });
+  };
+  
+  const saveEdit = async () => {
+    if (!editForm.name?.trim()) { alert('请填写供应商名'); return; }
+    const payload = {
+      ...editForm,
+      name: editForm.name.trim(),
+      contact_person: (editForm.contact_person || '').trim() || null,
+      alipay: (editForm.alipay || '').trim() || null,
+      category: (editForm.category || '').trim() || null,
+    };
+    const res = await CLOUD.upsert('suppliers', payload);
+    if (res) {
+      toast('✓ 已更新');
+      setEditingId(null);
+      loadSuppliers();
+    } else {
+      toast('❌ 更新失败');
+    }
+  };
+  
+  const handleDelete = async (s) => {
+    if (s.total_aftersales > 0) {
+      if (!confirm(`供应商 "${s.name}" 有 ${s.total_aftersales} 单售后历史，确定要删除吗？\n\n建议改为停用而非删除。`)) return;
+    } else {
+      if (!confirm(`确认删除供应商 "${s.name}"？`)) return;
+    }
+    const ok = await CLOUD.del('suppliers', s.id);
+    if (ok) {
+      toast('✓ 已删除');
+      loadSuppliers();
+    } else {
+      toast('❌ 删除失败（可能有关联的售后/退款记录）');
+    }
+  };
+  
+  const toggleActive = async (s) => {
+    const res = await CLOUD.upsert('suppliers', { ...s, active: !s.active });
+    if (res) { loadSuppliers(); toast(s.active ? '✓ 已停用' : '✓ 已启用'); }
+  };
+  
+  const filtered = useMemo(() => {
+    if (!search.trim()) return suppliers;
+    const q = search.toLowerCase();
+    return suppliers.filter(s => 
+      (s.name || '').toLowerCase().includes(q) || 
+      (s.contact_person || '').toLowerCase().includes(q) ||
+      (s.alipay || '').toLowerCase().includes(q) ||
+      (s.category || '').toLowerCase().includes(q)
+    );
+  }, [suppliers, search]);
+  
+  return (
+    <div className="paper rounded-2xl p-5">
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8}}>
+        <div>
+          <div className="font-display" style={{fontSize:17, fontWeight:600}}>🏭 供应商管理</div>
+          <div style={{fontSize:12, color:'var(--ink-3)', marginTop:4}}>
+            共 {suppliers.length} 家供应商 · 显示 {filtered.length} 家
+            {filtered.filter(s => !s.active).length > 0 && <span style={{color:'var(--ink-4)'}}> · {filtered.filter(s => !s.active).length} 家已停用</span>}
+          </div>
+        </div>
+        <div style={{display:'flex', gap:6}}>
+          <button className="btn-sec" onClick={loadSuppliers} style={{padding:'5px 12px', fontSize:12}}>🔄 刷新</button>
+          <button className="btn-pri" onClick={() => setShowNew(true)} style={{padding:'5px 14px', fontSize:12}}>+ 新增供应商</button>
+        </div>
+      </div>
+      
+      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 搜索供应商名 / 收款人 / 支付宝 / 类别..."
+        style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, marginBottom:14}} />
+      
+      {showNew && (
+        <div style={{padding:14, background:'#f0fdf4', border:'1px solid #86efac', borderRadius:10, marginBottom:14}}>
+          <div style={{fontSize:13, fontWeight:600, color:'#14532d', marginBottom:10}}>+ 新增供应商</div>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8}}>
+            <input value={newSupplier.name} onChange={e => setNewSupplier({...newSupplier, name:e.target.value})}
+              placeholder="供应商名 *（如：三洪）"
+              style={{padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+            <input value={newSupplier.contact_person} onChange={e => setNewSupplier({...newSupplier, contact_person:e.target.value})}
+              placeholder="收款人姓名"
+              style={{padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+            <input value={newSupplier.alipay} onChange={e => setNewSupplier({...newSupplier, alipay:e.target.value})}
+              placeholder="支付宝账号（手机/邮箱）"
+              style={{padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+            <input value={newSupplier.category} onChange={e => setNewSupplier({...newSupplier, category:e.target.value})}
+              placeholder="主营类别（吊灯/吸顶/壁灯...）"
+              style={{padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+          </div>
+          <input value={newSupplier.notes} onChange={e => setNewSupplier({...newSupplier, notes:e.target.value})}
+            placeholder="备注（选填）"
+            style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, marginBottom:8}} />
+          <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
+            <button className="btn-sec" onClick={() => { setShowNew(false); setNewSupplier({ name:'', contact_person:'', alipay:'', category:'', notes:'' }); }} style={{padding:'5px 12px', fontSize:12}}>取消</button>
+            <button className="btn-pri" onClick={handleCreate} style={{padding:'5px 14px', fontSize:12}}>✓ 新增</button>
+          </div>
+        </div>
+      )}
+      
+      {loading ? (
+        <div style={{padding:30, textAlign:'center', color:'var(--ink-3)', fontSize:13}}>⏳ 加载中...</div>
+      ) : filtered.length === 0 ? (
+        <div style={{padding:30, textAlign:'center', color:'var(--ink-3)', fontSize:13}}>没有符合条件的供应商</div>
+      ) : (
+        <div className="overflow-x-auto" style={{maxHeight:600, overflowY:'auto'}}>
+          <table style={{minWidth:'800px', width:'100%'}}>
+            <thead style={{position:'sticky', top:0, background:'var(--bg-elevated)', zIndex:1}}>
+              <tr>
+                <th style={{width:'36px'}}>#</th>
+                <th style={{minWidth:'140px'}}>供应商名</th>
+                <th style={{width:'120px'}}>收款人</th>
+                <th style={{width:'180px'}}>支付宝</th>
+                <th style={{width:'120px'}}>主营类别</th>
+                <th style={{width:'70px'}}>售后数</th>
+                <th style={{width:'90px'}}>状态</th>
+                <th style={{width:'130px'}}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((s, idx) => editingId === s.id ? (
+                <tr key={s.id} style={{background:'#fef9c3'}}>
+                  <td>{idx + 1}</td>
+                  <td><input value={editForm.name || ''} onChange={e => setEditForm({...editForm, name:e.target.value})} style={{width:'100%', padding:'4px 6px', fontSize:12, border:'1px solid var(--line)', borderRadius:4}} /></td>
+                  <td><input value={editForm.contact_person || ''} onChange={e => setEditForm({...editForm, contact_person:e.target.value})} style={{width:'100%', padding:'4px 6px', fontSize:12, border:'1px solid var(--line)', borderRadius:4}} /></td>
+                  <td><input value={editForm.alipay || ''} onChange={e => setEditForm({...editForm, alipay:e.target.value})} style={{width:'100%', padding:'4px 6px', fontSize:12, border:'1px solid var(--line)', borderRadius:4}} /></td>
+                  <td><input value={editForm.category || ''} onChange={e => setEditForm({...editForm, category:e.target.value})} style={{width:'100%', padding:'4px 6px', fontSize:12, border:'1px solid var(--line)', borderRadius:4}} /></td>
+                  <td style={{fontSize:12, textAlign:'center'}}>{s.total_aftersales || 0}</td>
+                  <td><label style={{display:'flex', alignItems:'center', gap:4, fontSize:11}}><input type="checkbox" checked={editForm.active !== false} onChange={e => setEditForm({...editForm, active:e.target.checked})} /> 启用</label></td>
+                  <td>
+                    <div style={{display:'flex', gap:3}}>
+                      <button className="btn-pri" onClick={saveEdit} style={{padding:'3px 8px', fontSize:11}}>✓</button>
+                      <button className="btn-sec" onClick={() => setEditingId(null)} style={{padding:'3px 8px', fontSize:11}}>×</button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={s.id} style={{opacity: s.active === false ? 0.5 : 1}}>
+                  <td style={{fontSize:11, color:'var(--ink-4)'}}>{idx + 1}</td>
+                  <td style={{fontSize:13, fontWeight:600}}>{s.name}</td>
+                  <td style={{fontSize:12, color:'var(--ink-2)'}}>{s.contact_person || '-'}</td>
+                  <td style={{fontSize:11, color:'var(--ink-3)', fontFamily:'monospace'}}>{s.alipay || '-'}</td>
+                  <td style={{fontSize:12, color:'var(--ink-3)'}}>{s.category || '-'}</td>
+                  <td style={{fontSize:12, textAlign:'center', color: s.total_aftersales > 10 ? '#dc2626' : 'var(--ink-3)', fontWeight: s.total_aftersales > 0 ? 600 : 400}}>
+                    {s.total_aftersales || 0}
+                  </td>
+                  <td>
+                    <button onClick={() => toggleActive(s)}
+                      style={{padding:'2px 8px', fontSize:10, fontWeight:600, borderRadius:10, cursor:'pointer', fontFamily:'inherit',
+                        background: s.active !== false ? '#dcfce7' : '#f5f5f5',
+                        color: s.active !== false ? '#15803d' : '#666',
+                        border: '1px solid ' + (s.active !== false ? '#86efac' : '#ddd'),
+                      }}>
+                      {s.active !== false ? '● 启用' : '○ 停用'}
+                    </button>
+                  </td>
+                  <td>
+                    <div style={{display:'flex', gap:2}}>
+                      <button onClick={() => startEdit(s)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11}} title="编辑">✏️</button>
+                      <button onClick={() => handleDelete(s)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11, color:'var(--bad)'}} title="删除">🗑</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      
+      <div style={{marginTop:14, padding:10, background:'#f0f9ff', border:'1px solid #bae6fd', borderRadius:8, fontSize:11, color:'#075985'}}>
+        💡 <strong>说明：</strong> 删除供应商不影响已创建的售后/退款记录（关联会变为空）。建议优先用「停用」让历史记录可追溯。所有客服在创建事件时都能在下拉中搜索到供应商。
+      </div>
+    </div>
+  );
+};
+
 const CloudSettingsCard = ({ cfg, setCfg, toast, onApply }) => {
   const [url, setUrl] = useState(cfg.url || DEFAULT_SB_URL);
   const [key, setKey] = useState(cfg.key || '');
@@ -7246,7 +7597,7 @@ const CloudSettingsCard = ({ cfg, setCfg, toast, onApply }) => {
 // ============================================================
 const App = () => {
   // 员工 (localStorage + 云同步备份) - 加版本号机制，代码里改了 INITIAL_EMPLOYEES 后能自动覆盖
-  const EMPLOYEES_VERSION = 3;  // 改了员工资料就 +1
+  const EMPLOYEES_VERSION = 4;  // 加刘强协调员账号
   const [employees, setEmployees] = useState(() => {
     const storedVer = STORE.get('employees_version', 0);
     if (storedVer < EMPLOYEES_VERSION) {
@@ -7332,9 +7683,12 @@ const App = () => {
   const sanitizeRecordForCloud = (r) => {
     const cleaned = { ...r };
     // 这些字段如果是 "" 必须改 null，否则 Postgres 报错
-    ['nextFollowUp', 'date', 'deletedAt', 'createdAt', 'updatedAt', 'escalatedAt'].forEach(k => {
+    ['nextFollowUp', 'date', 'deletedAt', 'createdAt', 'updatedAt', 'escalatedAt', 'transferUnreadFor'].forEach(k => {
       if (cleaned[k] === '' || cleaned[k] === undefined) cleaned[k] = null;
     });
+    // 这些字段如果是 undefined 必须填值（boolean 类型）
+    if (cleaned.escalated === undefined) cleaned.escalated = false;
+    if (cleaned.escalateReason === undefined) cleaned.escalateReason = null;
     // status 不能空
     if (!cleaned.status) cleaned.status = 'pending';
     return cleaned;
