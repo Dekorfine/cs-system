@@ -536,6 +536,29 @@ const CLOUD = {
       return true;
     } catch(e) { console.error('CLOUD.del', table, e); return false; }
   },
+  // 🆕 Storage 上传到 aftersales-images bucket
+  async uploadImage(bucket, file, prefix = '') {
+    if (!this.client) return null;
+    try {
+      const ext = (file.name?.split('.').pop() || 'png').toLowerCase();
+      const fname = `${prefix}${Date.now()}_${Math.random().toString(36).slice(2,7)}.${ext}`;
+      const { data, error } = await this.client.storage.from(bucket).upload(fname, file, { upsert:false, contentType:file.type || 'image/png' });
+      if (error) throw error;
+      const { data:urlData } = this.client.storage.from(bucket).getPublicUrl(data.path);
+      return { path: data.path, url: urlData.publicUrl };
+    } catch(e) {
+      console.error('CLOUD.uploadImage', e);
+      return null;
+    }
+  },
+  async deleteImage(bucket, path) {
+    if (!this.client) return false;
+    try {
+      const { error } = await this.client.storage.from(bucket).remove([path]);
+      if (error) throw error;
+      return true;
+    } catch(e) { console.error('CLOUD.deleteImage', e); return false; }
+  },
 };
 
 // ============================================================
@@ -574,6 +597,65 @@ const STATUSES = [
   { key:'waiting',     label:'等客户', cls:'status-waiting' },
   { key:'resolved',    label:'已解决', cls:'status-resolved' },
   { key:'transferred', label:'已转交', cls:'status-resolved' },
+];
+
+// 🆕 售后问题类型
+const ISSUE_TYPES = [
+  { key:'transport_damage',  label:'运输损坏',  color:'#dc2626' },
+  { key:'functional_defect', label:'功能性缺陷', color:'#ea580c' },
+  { key:'appearance_flaw',   label:'外观瑕疵',   color:'#ca8a04' },
+  { key:'missing_parts',     label:'缺件',       color:'#7c3aed' },
+  { key:'wrong_shipment',    label:'错发',       color:'#0369a1' },
+  { key:'color_diff',        label:'颜色色差',   color:'#db2777' },
+  { key:'size_issue',        label:'尺寸问题',   color:'#0891b2' },
+  { key:'other',             label:'其他',       color:'#525252' },
+];
+
+// 🆕 售后状态
+const AFTERSALE_STATUSES = [
+  { key:'pending_remind', label:'待催货', color:'#ca8a04', bg:'#fef9c3' },
+  { key:'reminded',       label:'已催货', color:'#ea580c', bg:'#fff7ed' },
+  { key:'pending_return', label:'待回货', color:'#0369a1', bg:'#e0f2fe' },
+  { key:'returned',       label:'已回货', color:'#16a34a', bg:'#dcfce7' },
+  { key:'customer_refund',label:'客户退款', color:'#dc2626', bg:'#fef2f2' },
+  { key:'closed',         label:'关闭',    color:'#525252', bg:'#f5f5f5' },
+];
+
+// 🆕 补件状态
+const REFILL_STATUSES = [
+  { key:'pending_order', label:'待下单', color:'#ca8a04' },
+  { key:'ordered',       label:'已下单', color:'#0369a1' },
+  { key:'shipped',       label:'已发货', color:'#7c3aed' },
+  { key:'delivered',     label:'已签收', color:'#16a34a' },
+  { key:'cancelled',     label:'取消',   color:'#525252' },
+];
+
+// 🆕 退款类型
+const REFUND_TYPES = [
+  { key:'resale',          label:'转售',         color:'#ca8a04', bg:'#fef9c3' },
+  { key:'size_mismatch',   label:'尺寸不适合',    color:'#0891b2', bg:'#e0f2fe' },
+  { key:'quality_issue',   label:'产品质量问题',  color:'#16a34a', bg:'#dcfce7' },
+  { key:'color_mismatch',  label:'颜色不符',      color:'#db2777', bg:'#fce7f3' },
+  { key:'customer_cancel', label:'客户主动取消',  color:'#525252', bg:'#f5f5f5' },
+  { key:'logistics',       label:'物流问题',      color:'#ea580c', bg:'#fff7ed' },
+  { key:'other',           label:'其他',         color:'#7c3aed', bg:'#ede9fe' },
+];
+
+// 🆕 退款支付方式
+const REFUND_PAYMENT_METHODS = [
+  { key:'shopify_payments', label:'Shopify Payments', color:'#5b3aff' },
+  { key:'stripe_card',      label:'Stripe Card',      color:'#7c3aed' },
+  { key:'paypal',           label:'PayPal',           color:'#0070ba' },
+  { key:'wire_transfer',    label:'Wire Transfer',    color:'#16a34a' },
+  { key:'other',            label:'其他',             color:'#525252' },
+];
+
+// 🆕 退款审核状态
+const REFUND_STATUSES = [
+  { key:'pending',   label:'待审核', color:'#ca8a04', bg:'#fef9c3' },
+  { key:'approved',  label:'已审核', color:'#0369a1', bg:'#e0f2fe' },
+  { key:'completed', label:'已完成', color:'#16a34a', bg:'#dcfce7' },
+  { key:'rejected',  label:'拒绝',   color:'#dc2626', bg:'#fef2f2' },
 ];
 
 // ============================================================
@@ -846,6 +928,7 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
   const isFinanceVisible = (user.role === 'finance' || user.role === 'admin' || user.role === 'super_admin');
   const tabs = [
     { key:'cs', label:'客服跟进', badge: stats.overdue },
+    { key:'events', label:'📋 工作主线', badge: stats.pendingEvents },
     { key:'kb', label:'知识库' },
     { key:'report', label:'汇报', badge: stats.ticketInbox },
     { key:'quote', label:'报价单' },
@@ -1011,7 +1094,7 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
 // ============================================================
 // 客服跟进表 - 主模块
 // ============================================================
-const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
+const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudOn }) => {
   const [viewDate, setViewDate] = useState(todayISO());
   const [filterStatus, setFilterStatus] = useState('all');
   const [showAll, setShowAll] = useState(() => {
@@ -1294,6 +1377,71 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
   
   // 高频客户面板展开
   const [highFreqExpanded, setHighFreqExpanded] = useState(false);
+  
+  // 🆕 事件管理 (售后/补件/退款) + 供应商
+  const [suppliers, setSuppliers] = useState([]);
+  const [aftersales, setAftersales] = useState([]);
+  const [refills, setRefills] = useState([]);
+  const [refunds, setRefunds] = useState([]);
+  const [eventEditor, setEventEditor] = useState(null);  // { kind, record, existingEvent? }
+  
+  // 启动时加载这些数据
+  useEffect(() => {
+    if (!cloudOn) return;
+    (async () => {
+      try {
+        const [sup, af, rf, rfd] = await Promise.all([
+          CLOUD.list('suppliers', { order:{col:'name', asc:true}, limit:1000 }),
+          CLOUD.list('aftersales', { order:{col:'created_at', asc:false}, limit:500 }),
+          CLOUD.list('refills', { order:{col:'created_at', asc:false}, limit:500 }),
+          CLOUD.list('refunds', { order:{col:'created_at', asc:false}, limit:500 }),
+        ]);
+        if (sup) setSuppliers(sup);
+        if (af)  setAftersales(af);
+        if (rf)  setRefills(rf);
+        if (rfd) setRefunds(rfd);
+      } catch(e) { console.error('加载事件数据失败:', e); }
+    })();
+  }, [cloudOn]);
+  
+  // 事件 CRUD
+  const handleEventSaved = (savedEvent) => {
+    let nextAftersales = aftersales;
+    let nextRefills = refills;
+    let nextRefunds = refunds;
+    if (eventEditor.kind === 'aftersale') {
+      nextAftersales = (() => {
+        const idx = aftersales.findIndex(e => e.id === savedEvent.id);
+        if (idx >= 0) { const next = [...aftersales]; next[idx] = savedEvent; return next; }
+        return [savedEvent, ...aftersales];
+      })();
+      setAftersales(nextAftersales);
+    } else if (eventEditor.kind === 'refill') {
+      nextRefills = (() => {
+        const idx = refills.findIndex(e => e.id === savedEvent.id);
+        if (idx >= 0) { const next = [...refills]; next[idx] = savedEvent; return next; }
+        return [savedEvent, ...refills];
+      })();
+      setRefills(nextRefills);
+    } else if (eventEditor.kind === 'refund') {
+      nextRefunds = (() => {
+        const idx = refunds.findIndex(e => e.id === savedEvent.id);
+        if (idx >= 0) { const next = [...refunds]; next[idx] = savedEvent; return next; }
+        return [savedEvent, ...refunds];
+      })();
+      setRefunds(nextRefunds);
+    }
+    // 同步更新 cache 让顶部徽章实时更新
+    STORE.set('events_cache', { aftersales: nextAftersales, refunds: nextRefunds, refills: nextRefills });
+    toast(`✓ ${eventEditor.kind === 'aftersale' ? '售后' : eventEditor.kind === 'refill' ? '补件' : '退款'}事件已保存`);
+  };
+  
+  // 计算某条 record 关联的事件
+  const getRecordEvents = (recordId) => ({
+    aftersales: aftersales.filter(e => e.record_id === recordId),
+    refills:    refills.filter(e => e.record_id === recordId),
+    refunds:    refunds.filter(e => e.record_id === recordId),
+  });
   
   // 🆕 生成日报/周报/团队周报
   const generateReport = (mode) => {
@@ -2022,14 +2170,47 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
                         placeholder="订单号|备注" style={{padding:'5px 8px', fontSize:'12px'}} />
                     </td>
                     <td>
-                      <input disabled={!editable} type="date" value={r.nextFollowUp} onChange={e => updateRow(r.id, {nextFollowUp:e.target.value})} style={{padding:'4px 6px', fontSize:'11px'}} />
+                      <input disabled={!editable} type="date" value={r.nextFollowUp || ""} onChange={e => updateRow(r.id, {nextFollowUp:e.target.value})} style={{padding:'4px 6px', fontSize:'11px'}} />
                     </td>
                     <td>
-                      <button className="btn-sec" onClick={() => setFollowUpModal(r.id)} title={editable ? '打开跟进/截图窗口' : '只读查看（历史日期）'} style={{padding:'4px 10px', display:'inline-flex', alignItems:'center', gap:'4px'}}>
-                        {r.screenshots?.length > 0 && <><Icon name="image" className="w-3 h-3" />{r.screenshots.length}</>}
-                        {r.followUps?.length > 0 && <>· {r.followUps.length}</>}
-                        {!r.screenshots?.length && !r.followUps?.length && <Icon name={editable ? 'edit' : 'image'} className="w-3 h-3" />}
-                      </button>
+                      <div style={{display:'flex', alignItems:'center', gap:4, flexWrap:'wrap'}}>
+                        <button className="btn-sec" onClick={() => setFollowUpModal(r.id)} title={editable ? '打开跟进/截图窗口' : '只读查看（历史日期）'} style={{padding:'4px 10px', display:'inline-flex', alignItems:'center', gap:'4px'}}>
+                          {r.screenshots?.length > 0 && <><Icon name="image" className="w-3 h-3" />{r.screenshots.length}</>}
+                          {r.followUps?.length > 0 && <>· {r.followUps.length}</>}
+                          {!r.screenshots?.length && !r.followUps?.length && <Icon name={editable ? 'edit' : 'image'} className="w-3 h-3" />}
+                        </button>
+                        {/* 🆕 已关联事件徽章 */}
+                        {(() => {
+                          const ev = getRecordEvents(r.id);
+                          const n = ev.aftersales.length + ev.refills.length + ev.refunds.length;
+                          if (n === 0) return null;
+                          return (
+                            <button onClick={() => setFollowUpModal(r.id)} title="查看关联的售后/补件/退款事件"
+                              style={{padding:'3px 6px', background:'#fef9c3', color:'#a16207', border:'1px solid #fcd34d', borderRadius:5, cursor:'pointer', fontSize:10, fontWeight:600, fontFamily:'inherit', display:'inline-flex', gap:3}}>
+                              {ev.aftersales.length > 0 && <span title="售后">🔧{ev.aftersales.length}</span>}
+                              {ev.refills.length > 0 && <span title="补件">📦{ev.refills.length}</span>}
+                              {ev.refunds.length > 0 && <span title="退款">💰{ev.refunds.length}</span>}
+                            </button>
+                          );
+                        })()}
+                        {/* 🆕 快捷加事件按钮 */}
+                        {editable && (
+                          <div style={{display:'inline-flex', gap:2}}>
+                            <button onClick={() => setEventEditor({ kind:'aftersale', record:r })} title="加售后事件"
+                              style={{padding:'2px 5px', background:'transparent', border:'none', cursor:'pointer', fontSize:11, opacity:0.5, transition:'opacity .1s'}}
+                              onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                              onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}>🔧</button>
+                            <button onClick={() => setEventEditor({ kind:'refill', record:r })} title="加补件事件"
+                              style={{padding:'2px 5px', background:'transparent', border:'none', cursor:'pointer', fontSize:11, opacity:0.5, transition:'opacity .1s'}}
+                              onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                              onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}>📦</button>
+                            <button onClick={() => setEventEditor({ kind:'refund', record:r })} title="加退款事件"
+                              style={{padding:'2px 5px', background:'transparent', border:'none', cursor:'pointer', fontSize:11, opacity:0.5, transition:'opacity .1s'}}
+                              onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                              onMouseLeave={e => e.currentTarget.style.opacity = '0.5'}>💰</button>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td>
                       {editable ? (
@@ -2075,6 +2256,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
         // 用户点开自己的转交记录 → 标记已读
         if (r.transferUnreadFor === user.id) markTransferRead(r.id);
         const modalEditable = canEditRecord(r, user, adminUnlock);
+        const recordEvents = getRecordEvents(r.id);
         return (
           <FollowUpModal
             record={r}
@@ -2085,9 +2267,25 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast }) => {
             onClose={() => setFollowUpModal(null)}
             onUpdate={(patch) => updateRow(followUpModal, patch)}
             toast={toast}
+            recordEvents={recordEvents}
+            onAddEvent={(kind) => setEventEditor({ kind, record: r })}
+            onEditEvent={(kind, evt) => setEventEditor({ kind, record: r, existingEvent: evt })}
           />
         );
       })()}
+      
+      {/* 🆕 事件编辑器 modal (售后/补件/退款) */}
+      {eventEditor && (
+        <EventEditorModal
+          kind={eventEditor.kind}
+          record={eventEditor.record}
+          existingEvent={eventEditor.existingEvent}
+          suppliers={suppliers}
+          user={user}
+          onClose={() => setEventEditor(null)}
+          onSaved={handleEventSaved}
+        />
+      )}
       
       {/* 转交工作 modal */}
       {transferModal && (() => {
@@ -2228,6 +2426,588 @@ const StatCard = ({ label, value, unit, color, hint, onClick, active }) => {
 // ============================================================
 // 跟进 / 截图 Modal
 // ============================================================
+// ============================================================
+// 批量转交工作 Modal — 主管选源员工 + 多选记录 + 选目标员工
+// ============================================================
+// ============================================================
+// 🆕 多图上传组件（粘贴 / 拖拽 / 点击 + 自动分类标签）
+// ============================================================
+const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'product', maxSize = 10 }) => {
+  const fileInputRef = React.useRef(null);
+  const dropRef = React.useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [previewIdx, setPreviewIdx] = useState(null);
+  
+  // 标签选项
+  const LABELS = [
+    { key:'product',       label:'📦 产品图',   color:'#0369a1' },
+    { key:'damage',        label:'💥 损坏图',   color:'#dc2626' },
+    { key:'communication', label:'💬 沟通图',   color:'#7c3aed' },
+    { key:'notes',         label:'📝 备注图',   color:'#525252' },
+    { key:'receipt',       label:'🧾 凭证',     color:'#16a34a' },
+  ];
+  
+  const uploadFile = async (file, label = defaultLabel) => {
+    if (!file.type.startsWith('image/')) { alert('只能上传图片'); return; }
+    if (file.size > maxSize * 1024 * 1024) { alert(`图片大小不能超过 ${maxSize}MB`); return; }
+    setUploading(true);
+    try {
+      const res = await CLOUD.uploadImage('aftersales-images', file);
+      if (!res) { alert('上传失败'); setUploading(false); return; }
+      const newAttach = {
+        id: 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+        url: res.url,
+        path: res.path,
+        label: label,
+        size: file.size,
+        uploaded_at: new Date().toISOString(),
+      };
+      setAttachments([...(attachments || []), newAttach]);
+    } catch(e) {
+      alert('上传失败: ' + e.message);
+    }
+    setUploading(false);
+  };
+  
+  // 粘贴
+  useEffect(() => {
+    const handler = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const it of items) {
+        if (it.type.startsWith('image/')) {
+          const f = it.getAsFile();
+          if (f) { uploadFile(f); e.preventDefault(); break; }
+        }
+      }
+    };
+    const el = dropRef.current;
+    if (!el) return;
+    el.addEventListener('paste', handler);
+    return () => el.removeEventListener('paste', handler);
+  }, [attachments]);
+  
+  const handleFiles = (files) => {
+    if (!files) return;
+    Array.from(files).forEach(f => uploadFile(f));
+  };
+  
+  const removeAttach = async (att) => {
+    if (!confirm('删除这张图？')) return;
+    if (att.path) await CLOUD.deleteImage('aftersales-images', att.path);
+    setAttachments(attachments.filter(a => a.id !== att.id));
+  };
+  
+  const changeLabel = (att, newLabel) => {
+    setAttachments(attachments.map(a => a.id === att.id ? { ...a, label: newLabel } : a));
+  };
+  
+  return (
+    <div>
+      <div 
+        ref={dropRef}
+        tabIndex={0}
+        onClick={() => fileInputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-soft)'; }}
+        onDragLeave={e => { e.currentTarget.style.borderColor = 'var(--line)'; e.currentTarget.style.background = '#fafafa'; }}
+        onDrop={e => { 
+          e.preventDefault(); 
+          e.currentTarget.style.borderColor = 'var(--line)'; 
+          e.currentTarget.style.background = '#fafafa';
+          handleFiles(e.dataTransfer.files); 
+        }}
+        style={{
+          border:'2px dashed var(--line)', borderRadius:10, padding:'16px',
+          textAlign:'center', cursor:'pointer', background:'#fafafa',
+          transition:'all .15s', outline:'none',
+        }}>
+        <div style={{fontSize:13, color:'var(--ink-2)', fontWeight:500}}>
+          {uploading ? '⏳ 上传中...' : '📷 拖拽 / 粘贴 (Ctrl+V) / 点击上传图片'}
+        </div>
+        <div style={{fontSize:10, color:'var(--ink-4)', marginTop:4}}>
+          支持多张 · JPG/PNG/WebP · 最大 {maxSize}MB
+        </div>
+        <input ref={fileInputRef} type="file" accept="image/*" multiple style={{display:'none'}}
+          onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
+      </div>
+      
+      {/* 已上传图片网格 */}
+      {attachments && attachments.length > 0 && (
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:8, marginTop:10}}>
+          {attachments.map((att, idx) => {
+            const labelInfo = LABELS.find(l => l.key === att.label) || LABELS[0];
+            return (
+              <div key={att.id} style={{position:'relative', border:'1px solid var(--line)', borderRadius:8, overflow:'hidden', background:'white'}}>
+                <div style={{height:100, position:'relative', background:'#f3f4f6', overflow:'hidden', cursor:'pointer'}}
+                  onClick={() => setPreviewIdx(idx)}>
+                  <img src={att.url} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} />
+                  <button onClick={e => { e.stopPropagation(); removeAttach(att); }}
+                    style={{position:'absolute', top:4, right:4, background:'rgba(220,38,38,.9)', color:'white', border:'none', borderRadius:'50%', width:22, height:22, cursor:'pointer', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                    ×
+                  </button>
+                </div>
+                <select value={att.label || 'product'} onChange={e => changeLabel(att, e.target.value)}
+                  style={{width:'100%', border:'none', borderTop:'1px solid var(--line)', padding:'4px 6px', fontSize:10, background:labelInfo.color + '20', color:labelInfo.color, fontWeight:600, cursor:'pointer'}}>
+                  {LABELS.map(l => <option key={l.key} value={l.key}>{l.label}</option>)}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      
+      {/* 图片放大预览 */}
+      {previewIdx !== null && attachments[previewIdx] && (
+        <div onClick={() => setPreviewIdx(null)}
+          style={{position:'fixed', inset:0, background:'rgba(0,0,0,.85)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, cursor:'pointer'}}>
+          <img src={attachments[previewIdx].url} style={{maxWidth:'95%', maxHeight:'95%', objectFit:'contain'}} />
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// 🆕 供应商可搜索下拉选择器 (693 家供应商搜索筛选)
+// ============================================================
+const SupplierSelect = ({ suppliers, value, onChange, placeholder = '选择供应商...' }) => {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const ref = React.useRef(null);
+  
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return suppliers.slice(0, 50);
+    return suppliers.filter(s => 
+      (s.name || '').toLowerCase().includes(q) || 
+      (s.contact_person || '').toLowerCase().includes(q)
+    ).slice(0, 100);
+  }, [suppliers, query]);
+  
+  const selected = suppliers.find(s => s.id === value || s.id === parseInt(value));
+  
+  return (
+    <div ref={ref} style={{position:'relative'}}>
+      <input
+        type="text"
+        placeholder={placeholder}
+        value={open ? query : (selected ? selected.name + (selected.contact_person ? ' · ' + selected.contact_person : '') : '')}
+        onChange={e => { setQuery(e.target.value); setOpen(true); }}
+        onFocus={() => { setQuery(''); setOpen(true); }}
+        style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}
+      />
+      {selected && !open && (
+        <button onClick={() => onChange(null)}
+          style={{position:'absolute', right:6, top:'50%', transform:'translateY(-50%)', background:'transparent', border:'none', color:'var(--ink-4)', cursor:'pointer', fontSize:14}}>×</button>
+      )}
+      {open && (
+        <div style={{position:'absolute', top:'100%', left:0, right:0, marginTop:2, background:'white', border:'1px solid var(--line)', borderRadius:8, maxHeight:300, overflow:'auto', zIndex:100, boxShadow:'0 8px 20px rgba(0,0,0,.1)'}}>
+          {filtered.length === 0 ? (
+            <div style={{padding:'12px', textAlign:'center', color:'var(--ink-4)', fontSize:12}}>
+              {query ? `没找到 "${query}"` : '加载中...'}
+            </div>
+          ) : (
+            filtered.map(s => (
+              <div key={s.id}
+                onClick={() => { onChange(s.id); setOpen(false); setQuery(''); }}
+                style={{padding:'8px 12px', cursor:'pointer', borderBottom:'1px solid var(--bg)', fontSize:12, transition:'background .1s'}}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'white'}>
+                <div style={{fontWeight:600, color:'var(--ink)'}}>{s.name}</div>
+                <div style={{fontSize:10, color:'var(--ink-3)', marginTop:1}}>
+                  {s.contact_person ? `👤 ${s.contact_person}` : ''}
+                  {s.alipay ? ` · 💳 ${s.alipay}` : ''}
+                </div>
+              </div>
+            ))
+          )}
+          {filtered.length === 50 && !query && (
+            <div style={{padding:'6px 12px', fontSize:10, color:'var(--ink-4)', textAlign:'center', borderTop:'1px solid var(--line)'}}>
+              显示前 50 家 · 搜索可看更多 (共 {suppliers.length} 家)
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// 🆕 添加事件 Modal - 售后 / 补件 / 退款 统一入口
+// ============================================================
+const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, existingEvent = null }) => {
+  // kind: 'aftersale' | 'refill' | 'refund'
+  const isEdit = !!existingEvent;
+  const [saving, setSaving] = useState(false);
+  
+  // 共用字段
+  const [orderRef, setOrderRef] = useState(existingEvent?.order_ref || record?.orderRef || '');
+  const [customer, setCustomer] = useState(existingEvent?.customer || record?.customer || '');
+  const [supplierId, setSupplierId] = useState(existingEvent?.supplier_id || null);
+  const [attachments, setAttachments] = useState(existingEvent?.attachments || []);
+  const [notes, setNotes] = useState(existingEvent?.notes || '');
+  
+  // 售后专属
+  const [issueType, setIssueType] = useState(existingEvent?.issue_type || 'transport_damage');
+  const [damagedPart, setDamagedPart] = useState(existingEvent?.damaged_part || '');
+  const [productName, setProductName] = useState(existingEvent?.product_name || '');
+  const [issueDetail, setIssueDetail] = useState(existingEvent?.issue_detail || '');
+  const [country, setCountry] = useState(existingEvent?.country || '');
+  const [packer, setPacker] = useState(existingEvent?.packer || '');
+  const [qc, setQc] = useState(existingEvent?.qc || '');
+  const [aftersaleStatus, setAftersaleStatus] = useState(existingEvent?.status || 'pending_remind');
+  
+  // 补件专属
+  const [refillItems, setRefillItems] = useState(existingEvent?.items || [{ item:'', qty:1, unit:'套' }]);
+  const [expectedShipDate, setExpectedShipDate] = useState(existingEvent?.expected_ship_date || '');
+  const [refillStatus, setRefillStatus] = useState(existingEvent?.status || 'pending_order');
+  
+  // 退款专属
+  const [refundType, setRefundType] = useState(existingEvent?.refund_type || 'quality_issue');
+  const [amount, setAmount] = useState(existingEvent?.amount || '');
+  const [currency, setCurrency] = useState(existingEvent?.currency || 'USD');
+  const [paymentMethod, setPaymentMethod] = useState(existingEvent?.payment_method || 'shopify_payments');
+  const [refundReason, setRefundReason] = useState(existingEvent?.refund_reason || '');
+  
+  const supplier = suppliers.find(s => s.id === supplierId);
+  
+  // 提交
+  const handleSubmit = async () => {
+    if (!orderRef.trim()) { alert('请填写订单号'); return; }
+    setSaving(true);
+    const now = new Date().toISOString();
+    const base = {
+      record_id: record?.id || null,
+      order_ref: orderRef.trim(),
+      customer: customer.trim() || null,
+      supplier_id: supplierId,
+      supplier_name: supplier?.name || null,
+      attachments: attachments,
+      notes: notes.trim() || null,
+      created_by: user.id,
+      created_by_name: user.name + (user.alias ? ' ' + user.alias : ''),
+      updated_at: now,
+    };
+    
+    let table, payload;
+    if (kind === 'aftersale') {
+      table = 'aftersales';
+      payload = {
+        ...base,
+        product_name: productName.trim() || null,
+        issue_type: issueType,
+        damaged_part: damagedPart.trim() || null,
+        issue_detail: issueDetail.trim() || null,
+        country: country.trim() || null,
+        packer: packer.trim() || null,
+        qc: qc.trim() || null,
+        status: aftersaleStatus,
+      };
+    } else if (kind === 'refill') {
+      table = 'refills';
+      // 过滤掉空的补件项
+      const validItems = refillItems.filter(i => (i.item || '').trim());
+      if (validItems.length === 0) { alert('请至少填一项补件清单'); setSaving(false); return; }
+      payload = {
+        ...base,
+        items: validItems,
+        expected_ship_date: expectedShipDate || null,
+        status: refillStatus,
+      };
+    } else {  // refund
+      table = 'refunds';
+      const amt = parseFloat(amount);
+      if (isNaN(amt) || amt <= 0) { alert('请填写正确的退款金额'); setSaving(false); return; }
+      if (!refundReason.trim()) { alert('请填写退款原因详情'); setSaving(false); return; }
+      payload = {
+        ...base,
+        product_name: productName.trim() || null,
+        refund_type: refundType,
+        amount: amt,
+        currency,
+        payment_method: paymentMethod,
+        refund_reason: refundReason.trim(),
+        status: 'pending',
+      };
+    }
+    
+    if (isEdit) payload.id = existingEvent.id;
+    else if (!isEdit) payload.created_at = now;
+    
+    try {
+      const res = await CLOUD.upsert(table, payload);
+      if (res) {
+        onSaved && onSaved(res[0] || payload);
+        onClose();
+      } else {
+        alert('保存失败，请检查网络');
+      }
+    } catch(e) { alert('保存失败: ' + e.message); }
+    setSaving(false);
+  };
+  
+  // UI 标题 + 颜色
+  const titleInfo = {
+    aftersale: { icon:'🔧', title:'售后事件', color:'#ea580c' },
+    refill:    { icon:'📦', title:'补件事件', color:'#0369a1' },
+    refund:    { icon:'💰', title:'退款事件', color:'#dc2626' },
+  }[kind];
+  
+  return (
+    <div onClick={onClose}
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'5vh 20px', overflow:'auto'}}>
+      <div onClick={e => e.stopPropagation()}
+        style={{background:'white', borderRadius:14, maxWidth:680, width:'100%', display:'flex', flexDirection:'column', maxHeight:'90vh'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0}}>
+          <div>
+            <div className="font-display" style={{fontSize:17, fontWeight:600, color: titleInfo.color, display:'flex', alignItems:'center', gap:8}}>
+              <span style={{fontSize:22}}>{titleInfo.icon}</span>
+              {isEdit ? '编辑' : '添加'}{titleInfo.title}
+            </div>
+            {record && (
+              <div style={{fontSize:11, color:'var(--ink-3)', marginTop:4}}>
+                关联跟进：{record.customer || record.orderRef || '(无主题)'} · {record.date}
+              </div>
+            )}
+          </div>
+          <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+        </div>
+        
+        {/* Body - 可滚动 */}
+        <div style={{padding:'18px 22px', overflow:'auto', flex:1}}>
+          {/* 共用字段：订单号 + 客户 */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14}}>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>订单号 *</label>
+              <input value={orderRef} onChange={e => setOrderRef(e.target.value)} placeholder="V99299"
+                style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+            </div>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>客户邮箱/名字</label>
+              <input value={customer} onChange={e => setCustomer(e.target.value)} placeholder="user@example.com"
+                style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+            </div>
+          </div>
+          
+          {/* 售后专属字段 */}
+          {kind === 'aftersale' && (
+            <>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14}}>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>问题类型 *</label>
+                  <select value={issueType} onChange={e => setIssueType(e.target.value)}
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
+                    {ISSUE_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>当前状态</label>
+                  <select value={aftersaleStatus} onChange={e => setAftersaleStatus(e.target.value)}
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
+                    {AFTERSALE_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14}}>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>产品名</label>
+                  <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="Modern Lava Pendant Lamp"
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                </div>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>损坏部位</label>
+                  <input value={damagedPart} onChange={e => setDamagedPart(e.target.value)} placeholder="灯头电线"
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                </div>
+              </div>
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>问题详细描述</label>
+                <textarea value={issueDetail} onChange={e => setIssueDetail(e.target.value)} 
+                  placeholder="灯头电线烧坏，原地址补发一套灯头电线"
+                  style={{width:'100%', minHeight:60, padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>国家</label>
+                  <input value={country} onChange={e => setCountry(e.target.value)} placeholder="US"
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                </div>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>打包责任人</label>
+                  <input value={packer} onChange={e => setPacker(e.target.value)} placeholder="杨丽分"
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                </div>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>质检责任人</label>
+                  <input value={qc} onChange={e => setQc(e.target.value)}
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                </div>
+              </div>
+            </>
+          )}
+          
+          {/* 补件专属字段 */}
+          {kind === 'refill' && (
+            <>
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>补件清单 *</label>
+                {refillItems.map((it, idx) => (
+                  <div key={idx} style={{display:'flex', gap:6, marginBottom:6}}>
+                    <input value={it.item} onChange={e => {
+                      const next = [...refillItems]; next[idx] = { ...next[idx], item: e.target.value };
+                      setRefillItems(next);
+                    }} placeholder="灯头电线"
+                      style={{flex:2, padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                    <input type="number" value={it.qty} onChange={e => {
+                      const next = [...refillItems]; next[idx] = { ...next[idx], qty: parseInt(e.target.value) || 1 };
+                      setRefillItems(next);
+                    }} min={1}
+                      style={{width:60, padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                    <input value={it.unit || '套'} onChange={e => {
+                      const next = [...refillItems]; next[idx] = { ...next[idx], unit: e.target.value };
+                      setRefillItems(next);
+                    }} placeholder="套/个"
+                      style={{width:60, padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                    {refillItems.length > 1 && (
+                      <button onClick={() => setRefillItems(refillItems.filter((_, i) => i !== idx))}
+                        style={{padding:'6px 10px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:6, cursor:'pointer', fontSize:13}}>×</button>
+                    )}
+                  </div>
+                ))}
+                <button onClick={() => setRefillItems([...refillItems, { item:'', qty:1, unit:'套' }])}
+                  style={{padding:'4px 10px', background:'var(--bg)', border:'1px dashed var(--line)', borderRadius:6, cursor:'pointer', fontSize:12, color:'var(--ink-2)', fontFamily:'inherit', width:'100%'}}>
+                  + 添加一项
+                </button>
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14}}>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>预计发货日期</label>
+                  <input type="date" value={expectedShipDate} onChange={e => setExpectedShipDate(e.target.value)}
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                </div>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>状态</label>
+                  <select value={refillStatus} onChange={e => setRefillStatus(e.target.value)}
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
+                    {REFILL_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
+          
+          {/* 退款专属字段 */}
+          {kind === 'refund' && (
+            <>
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:6}}>退款类型 *</label>
+                <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+                  {REFUND_TYPES.map(t => (
+                    <button key={t.key} onClick={() => setRefundType(t.key)}
+                      style={{
+                        padding:'5px 12px', borderRadius:14, fontSize:11, cursor:'pointer', fontFamily:'inherit',
+                        border: '1px solid ' + (refundType === t.key ? t.color : 'var(--line)'),
+                        background: refundType === t.key ? t.bg : 'white',
+                        color: refundType === t.key ? t.color : 'var(--ink-3)',
+                        fontWeight: refundType === t.key ? 600 : 400,
+                      }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14}}>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>退款金额 *</label>
+                  <div style={{display:'flex', gap:4}}>
+                    <input type="number" value={amount} onChange={e => setAmount(e.target.value)} 
+                      step="0.01" placeholder="88.00"
+                      style={{flex:1, padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                    <select value={currency} onChange={e => setCurrency(e.target.value)}
+                      style={{padding:'6px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white', width:75}}>
+                      <option value="USD">USD</option>
+                      <option value="EUR">EUR</option>
+                      <option value="GBP">GBP</option>
+                      <option value="CAD">CAD</option>
+                      <option value="AUD">AUD</option>
+                      <option value="CNY">CNY</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>支付方式 *</label>
+                  <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
+                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
+                    {REFUND_PAYMENT_METHODS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>产品名</label>
+                <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="Marie Petite Surface Ceiling Lamp"
+                  style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+              </div>
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>退款原因详情 *</label>
+                <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)} 
+                  placeholder="Marie Petite Surface Ceiling Lamp颜色太黄了，对质量也不满，退50% 88USD给客户"
+                  style={{width:'100%', minHeight:70, padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
+              </div>
+              <div style={{padding:10, background:'#fff7ed', border:'1px solid #fdba74', borderRadius:6, fontSize:11, color:'#9a3412', marginBottom:14}}>
+                💡 创建后状态为「待审核」 · 财务/admin 角色会在「💰 退款管理」面板看到此单 · 审核通过后操作 Shopify/Stripe 实际退款，再回来标记为「已完成」
+              </div>
+            </>
+          )}
+          
+          {/* 共用：供应商 */}
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>
+              供应商 {suppliers.length > 0 && <span style={{color:'var(--ink-4)', fontWeight:400}}>（共 {suppliers.length} 家可选）</span>}
+            </label>
+            <SupplierSelect suppliers={suppliers} value={supplierId} onChange={setSupplierId} />
+          </div>
+          
+          {/* 共用：图片附件 */}
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:6}}>
+              图片附件 {attachments.length > 0 && <span style={{color:'var(--accent)', fontWeight:600}}>({attachments.length})</span>}
+            </label>
+            <MultiImageUploader 
+              attachments={attachments} 
+              setAttachments={setAttachments}
+              defaultLabel={kind === 'refund' ? 'damage' : (kind === 'aftersale' ? 'damage' : 'product')} />
+          </div>
+          
+          {/* 共用：备注 */}
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>备注</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} 
+              placeholder="补充信息..."
+              style={{width:'100%', minHeight:50, padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
+          </div>
+        </div>
+        
+        {/* Footer */}
+        <div style={{padding:'14px 22px', borderTop:'1px solid var(--line)', display:'flex', justifyContent:'flex-end', gap:8, flexShrink:0}}>
+          <button onClick={onClose} className="btn-sec" style={{padding:'8px 18px'}}>取消</button>
+          <button onClick={handleSubmit} disabled={saving}
+            style={{padding:'8px 22px', background: titleInfo.color, color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13, opacity: saving ? 0.6 : 1}}>
+            {saving ? '保存中...' : (isEdit ? '✓ 更新' : '✓ 保存事件')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 // ============================================================
 // 批量转交工作 Modal — 主管选源员工 + 多选记录 + 选目标员工
 // ============================================================
@@ -2451,7 +3231,7 @@ const BatchTransferModal = ({ employees, records, user, fromUserId, setFromUserI
   );
 };
 
-const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, cloudOn, readonly = false }) => {
+const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, cloudOn, readonly = false, recordEvents = null, onAddEvent, onEditEvent }) => {
   const [escalateModal, setEscalateModal] = useState(false);
   const [escalateReason, setEscalateReason] = useState('');
   const [escalateUrgency, setEscalateUrgency] = useState('high');
@@ -2606,6 +3386,103 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
           </div>
         )}
         
+        {/* 🆕 工作事件区 (售后/补件/退款) */}
+        {recordEvents && onAddEvent && (
+          <div style={{padding:14, background:'#f8fafc', border:'1px solid var(--line)', borderRadius:10, marginBottom:14}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+              <div style={{fontSize:13, fontWeight:600, color:'var(--ink)'}}>
+                📋 关联工作事件 ({recordEvents.aftersales.length + recordEvents.refills.length + recordEvents.refunds.length})
+              </div>
+              {!readonly && (
+                <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+                  <button onClick={() => onAddEvent('aftersale')}
+                    style={{padding:'4px 10px', background:'#fff7ed', color:'#ea580c', border:'1px solid #fdba74', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                    🔧 加售后
+                  </button>
+                  <button onClick={() => onAddEvent('refill')}
+                    style={{padding:'4px 10px', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                    📦 加补件
+                  </button>
+                  <button onClick={() => onAddEvent('refund')}
+                    style={{padding:'4px 10px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                    💰 加退款
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* 已关联事件列表 */}
+            {recordEvents.aftersales.length === 0 && recordEvents.refills.length === 0 && recordEvents.refunds.length === 0 ? (
+              <div style={{fontSize:11, color:'var(--ink-3)', textAlign:'center', padding:'8px 0'}}>
+                暂无事件 · 点上方按钮添加售后 / 补件 / 退款
+              </div>
+            ) : (
+              <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                {recordEvents.aftersales.map(e => {
+                  const issue = ISSUE_TYPES.find(i => i.key === e.issue_type);
+                  const status = AFTERSALE_STATUSES.find(s => s.key === e.status);
+                  return (
+                    <div key={'a'+e.id} onClick={() => onEditEvent && onEditEvent('aftersale', e)}
+                      style={{padding:'6px 10px', background:'#fff7ed', border:'1px solid #fdba74', borderRadius:6, fontSize:11, display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, cursor:'pointer'}}>
+                      <div style={{flex:1, minWidth:0}}>
+                        <span style={{fontWeight:600, color:'#9a3412'}}>🔧 售后</span>
+                        {issue && <span style={{marginLeft:6, color:'var(--ink-2)'}}>{issue.label}</span>}
+                        {e.damaged_part && <span style={{marginLeft:6, color:'var(--ink-3)'}}>· {e.damaged_part}</span>}
+                        {e.attachments && e.attachments.length > 0 && <span style={{marginLeft:6, color:'var(--ink-3)'}}>📷 {e.attachments.length}</span>}
+                      </div>
+                      {status && (
+                        <span style={{padding:'1px 6px', borderRadius:4, fontSize:10, fontWeight:600, color:status.color, background:status.bg}}>
+                          {status.label}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                {recordEvents.refills.map(e => {
+                  const status = REFILL_STATUSES.find(s => s.key === e.status);
+                  const itemCount = (e.items || []).length;
+                  return (
+                    <div key={'rf'+e.id} onClick={() => onEditEvent && onEditEvent('refill', e)}
+                      style={{padding:'6px 10px', background:'#e0f2fe', border:'1px solid #7dd3fc', borderRadius:6, fontSize:11, display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, cursor:'pointer'}}>
+                      <div style={{flex:1, minWidth:0}}>
+                        <span style={{fontWeight:600, color:'#075985'}}>📦 补件</span>
+                        <span style={{marginLeft:6, color:'var(--ink-2)'}}>{itemCount} 种配件</span>
+                        {e.supplier_name && <span style={{marginLeft:6, color:'var(--ink-3)'}}>· {e.supplier_name}</span>}
+                        {e.attachments && e.attachments.length > 0 && <span style={{marginLeft:6, color:'var(--ink-3)'}}>📷 {e.attachments.length}</span>}
+                      </div>
+                      {status && (
+                        <span style={{padding:'1px 6px', borderRadius:4, fontSize:10, fontWeight:600, color:status.color, background:status.color + '15'}}>
+                          {status.label}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                {recordEvents.refunds.map(e => {
+                  const type = REFUND_TYPES.find(t => t.key === e.refund_type);
+                  const status = REFUND_STATUSES.find(s => s.key === e.status);
+                  return (
+                    <div key={'rd'+e.id} onClick={() => onEditEvent && onEditEvent('refund', e)}
+                      style={{padding:'6px 10px', background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:6, fontSize:11, display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, cursor:'pointer'}}>
+                      <div style={{flex:1, minWidth:0}}>
+                        <span style={{fontWeight:600, color:'#991b1b'}}>💰 退款</span>
+                        <span style={{marginLeft:6, color:'#dc2626', fontWeight:600}}>{e.currency} {parseFloat(e.amount).toFixed(2)}</span>
+                        {type && <span style={{marginLeft:6, color:'var(--ink-2)'}}>· {type.label}</span>}
+                        {e.attachments && e.attachments.length > 0 && <span style={{marginLeft:6, color:'var(--ink-3)'}}>📷 {e.attachments.length}</span>}
+                      </div>
+                      {status && (
+                        <span style={{padding:'1px 6px', borderRadius:4, fontSize:10, fontWeight:600, color:status.color, background:status.bg}}>
+                          {status.label}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+        
         {/* 升级弹窗 */}
         {escalateModal && (
           <div onClick={() => setEscalateModal(false)} 
@@ -2754,7 +3631,7 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
         {/* 下次跟进设置 */}
         <div className="pt-4 border-t flex items-center gap-3" style={{borderColor:'var(--line)'}}>
           <span className="text-xs font-bold" style={{color:'var(--ink-2)'}}>下次跟进日期:</span>
-          <input disabled={readonly} type="date" value={record.nextFollowUp} onChange={e => onUpdate({nextFollowUp:e.target.value})} style={{width:'160px'}} />
+          <input disabled={readonly} type="date" value={record.nextFollowUp || ""} onChange={e => onUpdate({nextFollowUp:e.target.value})} style={{width:'160px'}} />
           {record.nextFollowUp && !readonly && (
             <button className="btn-ghost text-[11px]" onClick={() => onUpdate({nextFollowUp:''})}>清除</button>
           )}
@@ -4605,6 +5482,1222 @@ const QuoteModule = ({ user, toast }) => {
   );
 };
 
+// ============================================================
+// 🆕 EventsModule - 工作主线管理中心（售后/补件/退款汇总 + 导出）
+// ============================================================
+const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
+  const [subTab, setSubTab] = useState('aftersales');  // aftersales | refills | refunds | summary
+  const [suppliers, setSuppliers] = useState([]);
+  const [aftersales, setAftersales] = useState([]);
+  const [refills, setRefills] = useState([]);
+  const [refunds, setRefunds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editEvent, setEditEvent] = useState(null);  // { kind, event }
+  const [exportPanel, setExportPanel] = useState(false);
+  const [refundReview, setRefundReview] = useState(null);  // 审核 modal
+  
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  const isFinance = user.role === 'finance' || isAdmin;  // 财务+admin 都能管退款
+  
+  // 加载全部数据
+  const loadAll = async () => {
+    if (!cloudOn) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const [sup, af, rf, rfd] = await Promise.all([
+        CLOUD.list('suppliers', { order:{col:'name', asc:true}, limit:1000 }),
+        CLOUD.list('aftersales', { order:{col:'created_at', asc:false}, limit:2000 }),
+        CLOUD.list('refills', { order:{col:'created_at', asc:false}, limit:2000 }),
+        CLOUD.list('refunds', { order:{col:'created_at', asc:false}, limit:2000 }),
+      ]);
+      setSuppliers(sup || []);
+      setAftersales(af || []);
+      setRefills(rf || []);
+      setRefunds(rfd || []);
+      // 🆕 写 cache 给顶部徽章用
+      STORE.set('events_cache', { aftersales: af || [], refunds: rfd || [], refills: rf || [] });
+    } catch(e) { toast('❌ 加载失败: ' + e.message); }
+    setLoading(false);
+  };
+  useEffect(() => { loadAll(); }, [cloudOn]);
+  
+  // 筛选 state - 公用
+  const [filterMonth, setFilterMonth] = useState(() => new Date().toISOString().slice(0, 7));  // YYYY-MM
+  const [filterSupplier, setFilterSupplier] = useState('');  // supplier id
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterIssue, setFilterIssue] = useState('all');
+  const [filterRefundType, setFilterRefundType] = useState('all');
+  const [filterOwner, setFilterOwner] = useState('all');
+  const [search, setSearch] = useState('');
+  
+  // 月份范围
+  const monthRange = useMemo(() => {
+    if (!filterMonth) return { start: null, end: null };
+    const [y, m] = filterMonth.split('-').map(Number);
+    const start = `${y}-${String(m).padStart(2,'0')}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const end = `${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    return { start, end };
+  }, [filterMonth]);
+  
+  // 过滤函数（共用）
+  const inMonth = (e) => {
+    if (!monthRange.start) return true;
+    const created = (e.created_at || '').slice(0, 10);
+    return created >= monthRange.start && created <= monthRange.end;
+  };
+  const matchSupplier = (e) => !filterSupplier || e.supplier_id === parseInt(filterSupplier);
+  const matchOwner    = (e) => filterOwner === 'all' || e.created_by === filterOwner;
+  const matchSearch   = (e) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return [e.order_ref, e.customer, e.product_name, e.notes, e.damaged_part, e.refund_reason, e.supplier_name]
+      .filter(Boolean).join(' ').toLowerCase().includes(q);
+  };
+  
+  const filteredAftersales = useMemo(() => aftersales.filter(e => 
+    inMonth(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) &&
+    (filterStatus === 'all' || e.status === filterStatus) &&
+    (filterIssue === 'all' || e.issue_type === filterIssue)
+  ), [aftersales, filterMonth, filterSupplier, filterStatus, filterIssue, filterOwner, search]);
+  
+  const filteredRefills = useMemo(() => refills.filter(e =>
+    inMonth(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) &&
+    (filterStatus === 'all' || e.status === filterStatus)
+  ), [refills, filterMonth, filterSupplier, filterStatus, filterOwner, search]);
+  
+  const filteredRefunds = useMemo(() => refunds.filter(e =>
+    inMonth(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) &&
+    (filterStatus === 'all' || e.status === filterStatus) &&
+    (filterRefundType === 'all' || e.refund_type === filterRefundType)
+  ), [refunds, filterMonth, filterSupplier, filterStatus, filterRefundType, filterOwner, search]);
+  
+  // 月度统计
+  const monthlyStats = useMemo(() => {
+    // 售后
+    const asInMonth = aftersales.filter(inMonth);
+    const asBySupplier = {};
+    const asByIssue = {};
+    asInMonth.forEach(e => {
+      const s = e.supplier_name || '(未指定)';
+      asBySupplier[s] = (asBySupplier[s] || 0) + 1;
+      const i = ISSUE_TYPES.find(t => t.key === e.issue_type)?.label || e.issue_type || '(未指定)';
+      asByIssue[i] = (asByIssue[i] || 0) + 1;
+    });
+    
+    // 退款（已完成的算金额）
+    const rdInMonth = refunds.filter(inMonth);
+    const rdCompleted = rdInMonth.filter(r => r.status === 'completed' || r.status === 'approved');
+    const totalAmount = rdCompleted.reduce((s, r) => {
+      // 简单按 USD 算（实际多币种需汇率，这里展示用）
+      return s + parseFloat(r.amount || 0);
+    }, 0);
+    const rdByType = {};
+    const rdByTypeAmount = {};
+    rdCompleted.forEach(r => {
+      const t = REFUND_TYPES.find(x => x.key === r.refund_type)?.label || r.refund_type;
+      rdByType[t] = (rdByType[t] || 0) + 1;
+      rdByTypeAmount[t] = (rdByTypeAmount[t] || 0) + parseFloat(r.amount || 0);
+    });
+    
+    // 补件
+    const rfInMonth = refills.filter(inMonth);
+    
+    return {
+      aftersales: { total: asInMonth.length, bySupplier: asBySupplier, byIssue: asByIssue },
+      refunds: { total: rdInMonth.length, completed: rdCompleted.length, totalAmount, byType: rdByType, byTypeAmount: rdByTypeAmount, pending: rdInMonth.filter(r => r.status === 'pending').length },
+      refills: { total: rfInMonth.length, byStatus: rfInMonth.reduce((acc, e) => { acc[e.status] = (acc[e.status] || 0) + 1; return acc; }, {}) },
+    };
+  }, [aftersales, refunds, refills, monthRange]);
+  
+  // 售后状态更新
+  const updateAftersaleStatus = async (id, status, extraFields = {}) => {
+    const item = aftersales.find(a => a.id === id);
+    if (!item) return;
+    const updated = { ...item, status, ...extraFields, updated_at: new Date().toISOString() };
+    const res = await CLOUD.upsert('aftersales', updated);
+    if (res) {
+      setAftersales(prev => prev.map(a => a.id === id ? (res[0] || updated) : a));
+      toast('✓ 状态已更新');
+    } else toast('❌ 更新失败');
+  };
+  
+  // 补件状态更新
+  const updateRefillStatus = async (id, status) => {
+    const item = refills.find(r => r.id === id);
+    if (!item) return;
+    const updated = { ...item, status, updated_at: new Date().toISOString() };
+    if (status === 'shipped' && !item.actual_ship_date) updated.actual_ship_date = new Date().toISOString().slice(0,10);
+    const res = await CLOUD.upsert('refills', updated);
+    if (res) {
+      setRefills(prev => prev.map(r => r.id === id ? (res[0] || updated) : r));
+      toast('✓ 状态已更新');
+    } else toast('❌ 更新失败');
+  };
+  
+  // 退款审核 + 完成
+  const reviewRefund = async (refund, action, notes = '', extraFields = {}) => {
+    const now = new Date().toISOString();
+    let payload;
+    if (action === 'approve') {
+      payload = { ...refund, status:'approved', approved_by:user.id, approved_by_name:user.name + (user.alias ? ' ' + user.alias : ''), approved_at:now, approval_notes:notes, updated_at:now };
+    } else if (action === 'reject') {
+      payload = { ...refund, status:'rejected', approved_by:user.id, approved_by_name:user.name + (user.alias ? ' ' + user.alias : ''), approved_at:now, approval_notes:notes, updated_at:now };
+    } else if (action === 'complete') {
+      payload = { ...refund, status:'completed', processed_by:user.id, processed_by_name:user.name + (user.alias ? ' ' + user.alias : ''), processed_at:now, processing_notes:notes, external_refund_id:extraFields.external_refund_id || null, updated_at:now };
+    }
+    const res = await CLOUD.upsert('refunds', payload);
+    if (res) {
+      setRefunds(prev => prev.map(r => r.id === refund.id ? (res[0] || payload) : r));
+      toast(`✓ ${action === 'approve' ? '已批准' : action === 'reject' ? '已拒绝' : '已完成'}退款`);
+      setRefundReview(null);
+    } else toast('❌ 操作失败');
+  };
+  
+  // 删除事件
+  const deleteEvent = async (kind, id) => {
+    if (!confirm('确认删除该事件？')) return;
+    const table = kind === 'aftersale' ? 'aftersales' : kind === 'refill' ? 'refills' : 'refunds';
+    const ok = await CLOUD.del(table, id);
+    if (ok) {
+      if (kind === 'aftersale') setAftersales(prev => prev.filter(a => a.id !== id));
+      else if (kind === 'refill') setRefills(prev => prev.filter(r => r.id !== id));
+      else if (kind === 'refund') setRefunds(prev => prev.filter(r => r.id !== id));
+      toast('✓ 已删除');
+    }
+  };
+  
+  if (loading) return <div style={{padding:40, textAlign:'center', color:'var(--ink-3)'}}>⏳ 加载中...</div>;
+  
+  // 当前在哪个 sub-tab 决定渲染哪个表格
+  return (
+    <div className="space-y-4">
+      {/* Sub-tab 切换栏 */}
+      <div className="paper rounded-2xl p-3 fade-in" style={{display:'flex', flexWrap:'wrap', gap:6, alignItems:'center'}}>
+        {[
+          { key:'aftersales', label:'🔧 售后清单', count: filteredAftersales.length, color:'#ea580c' },
+          { key:'refills',    label:'📦 补件追踪', count: filteredRefills.length, color:'#0369a1' },
+          { key:'refunds',    label:'💰 退款管理', count: filteredRefunds.length, color:'#dc2626', restrict: !isFinance },
+          { key:'summary',    label:'📊 月度汇总', count: null, color:'#16a34a' },
+        ].filter(t => !t.restrict).map(t => (
+          <button key={t.key} onClick={() => setSubTab(t.key)}
+            style={{
+              padding:'7px 14px', borderRadius:8,
+              border:'1px solid ' + (subTab === t.key ? t.color : 'var(--line)'),
+              background: subTab === t.key ? t.color + '15' : 'white',
+              color: subTab === t.key ? t.color : 'var(--ink-2)',
+              cursor:'pointer', fontSize:13, fontFamily:'inherit',
+              fontWeight: subTab === t.key ? 600 : 500,
+              display:'flex', alignItems:'center', gap:6,
+            }}>
+            {t.label}
+            {t.count !== null && (
+              <span style={{padding:'1px 6px', background: subTab === t.key ? t.color : 'var(--bg)', color: subTab === t.key ? 'white' : 'var(--ink-3)', borderRadius:10, fontSize:10, fontWeight:600}}>
+                {t.count}
+              </span>
+            )}
+          </button>
+        ))}
+        <div style={{marginLeft:'auto', display:'flex', gap:6}}>
+          <button onClick={loadAll} className="btn-sec" style={{padding:'5px 12px', fontSize:12}}>🔄 刷新</button>
+          <button onClick={() => setExportPanel(true)} className="btn-pri" style={{padding:'5px 14px', fontSize:12}}>📥 导出报表</button>
+        </div>
+      </div>
+      
+      {/* 筛选区 */}
+      {subTab !== 'summary' && (
+        <div className="paper rounded-2xl p-3 fade-in" style={{display:'flex', flexWrap:'wrap', gap:8, alignItems:'center'}}>
+          <input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
+            style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}} />
+          
+          <select value={filterSupplier} onChange={e => setFilterSupplier(e.target.value)}
+            style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, maxWidth:160}}>
+            <option value="">全部供应商</option>
+            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}{s.contact_person ? ` · ${s.contact_person}` : ''}</option>)}
+          </select>
+          
+          {subTab === 'aftersales' && (
+            <>
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}}>
+                <option value="all">全部状态</option>
+                {AFTERSALE_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+              <select value={filterIssue} onChange={e => setFilterIssue(e.target.value)}
+                style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}}>
+                <option value="all">全部问题类型</option>
+                {ISSUE_TYPES.map(i => <option key={i.key} value={i.key}>{i.label}</option>)}
+              </select>
+            </>
+          )}
+          {subTab === 'refills' && (
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}}>
+              <option value="all">全部状态</option>
+              {REFILL_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+            </select>
+          )}
+          {subTab === 'refunds' && (
+            <>
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}}>
+                <option value="all">全部状态</option>
+                {REFUND_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+              <select value={filterRefundType} onChange={e => setFilterRefundType(e.target.value)}
+                style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}}>
+                <option value="all">全部退款类型</option>
+                {REFUND_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </select>
+            </>
+          )}
+          
+          {isAdmin && (
+            <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)}
+              style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}}>
+              <option value="all">全部员工</option>
+              {employees.filter(e => e.role !== 'finance').map(e => <option key={e.id} value={e.id}>{e.name}{e.alias ? ' ' + e.alias : ''}</option>)}
+            </select>
+          )}
+          
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 搜索订单/客户/产品/备注..."
+            style={{flex:1, minWidth:180, padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}} />
+          
+          {(filterSupplier || filterStatus !== 'all' || filterIssue !== 'all' || filterRefundType !== 'all' || filterOwner !== 'all' || search) && (
+            <button onClick={() => { setFilterSupplier(''); setFilterStatus('all'); setFilterIssue('all'); setFilterRefundType('all'); setFilterOwner('all'); setSearch(''); }}
+              className="btn-ghost" style={{padding:'5px 10px', fontSize:11}}>清除筛选</button>
+          )}
+        </div>
+      )}
+      
+      {/* 内容区 */}
+      {subTab === 'aftersales' && (
+        <AftersalesTable items={filteredAftersales} employees={employees} suppliers={suppliers} user={user} isAdmin={isAdmin}
+          onEdit={(e) => setEditEvent({ kind:'aftersale', event:e })}
+          onDelete={(id) => deleteEvent('aftersale', id)}
+          onUpdateStatus={updateAftersaleStatus} />
+      )}
+      {subTab === 'refills' && (
+        <RefillsTable items={filteredRefills} employees={employees} suppliers={suppliers} user={user} isAdmin={isAdmin}
+          onEdit={(e) => setEditEvent({ kind:'refill', event:e })}
+          onDelete={(id) => deleteEvent('refill', id)}
+          onUpdateStatus={updateRefillStatus} />
+      )}
+      {subTab === 'refunds' && isFinance && (
+        <RefundsTable items={filteredRefunds} employees={employees} suppliers={suppliers} user={user} isFinance={isFinance}
+          onEdit={(e) => setEditEvent({ kind:'refund', event:e })}
+          onDelete={(id) => deleteEvent('refund', id)}
+          onReview={(refund) => setRefundReview(refund)} />
+      )}
+      {subTab === 'summary' && (
+        <SummaryPanel stats={monthlyStats} filterMonth={filterMonth} setFilterMonth={setFilterMonth} 
+          aftersales={aftersales} refunds={refunds} refills={refills} suppliers={suppliers} />
+      )}
+      
+      {/* 事件编辑器 */}
+      {editEvent && (
+        <EventEditorModal
+          kind={editEvent.kind}
+          record={null}
+          existingEvent={editEvent.event}
+          suppliers={suppliers}
+          user={user}
+          onClose={() => setEditEvent(null)}
+          onSaved={(saved) => {
+            if (editEvent.kind === 'aftersale') setAftersales(prev => prev.map(a => a.id === saved.id ? saved : a));
+            else if (editEvent.kind === 'refill') setRefills(prev => prev.map(r => r.id === saved.id ? saved : r));
+            else setRefunds(prev => prev.map(r => r.id === saved.id ? saved : r));
+            toast('✓ 已更新');
+          }}
+        />
+      )}
+      
+      {/* 退款审核 modal */}
+      {refundReview && (
+        <RefundReviewModal refund={refundReview} user={user} onClose={() => setRefundReview(null)} onSubmit={reviewRefund} />
+      )}
+      
+      {/* 导出报表 */}
+      {exportPanel && (
+        <ExportPanel onClose={() => setExportPanel(false)}
+          aftersales={filteredAftersales} refills={filteredRefills} refunds={filteredRefunds}
+          suppliers={suppliers} employees={employees}
+          subTab={subTab} filterMonth={filterMonth} toast={toast} />
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// 售后清单表格
+// ============================================================
+const AftersalesTable = ({ items, employees, suppliers, user, isAdmin, onEdit, onDelete, onUpdateStatus }) => {
+  const [openImageId, setOpenImageId] = useState(null);
+  
+  if (items.length === 0) return (
+    <div className="paper rounded-2xl p-12 fade-in" style={{textAlign:'center', color:'var(--ink-3)', fontSize:13}}>
+      🎉 暂无符合条件的售后记录
+    </div>
+  );
+  
+  return (
+    <>
+      <div className="paper rounded-2xl overflow-hidden fade-in">
+        <div className="overflow-x-auto">
+          <table style={{minWidth:'1200px'}}>
+            <thead>
+              <tr>
+                <th style={{width:'36px'}}>#</th>
+                <th style={{width:'85px'}}>日期</th>
+                <th style={{width:'120px'}}>订单号</th>
+                <th style={{width:'100px'}}>供应商</th>
+                <th>售后原因</th>
+                <th style={{width:'100px'}}>图片</th>
+                <th style={{width:'100px'}}>已处理日期</th>
+                <th style={{width:'90px'}}>创建人</th>
+                <th style={{width:'110px'}}>状态</th>
+                <th style={{width:'80px'}}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((e, idx) => {
+                const issue = ISSUE_TYPES.find(i => i.key === e.issue_type);
+                const status = AFTERSALE_STATUSES.find(s => s.key === e.status);
+                const creator = employees.find(emp => emp.id === e.created_by);
+                const dispDate = (e.created_at || '').slice(5, 10).replace('-', '.');
+                const remindDate = e.last_remind_date ? `${e.last_remind_date.slice(5).replace('-', '.')}已催` : '';
+                const returnDate = e.return_date ? `${e.return_date.slice(5).replace('-', '.')}已回` : '';
+                return (
+                  <tr key={e.id}>
+                    <td>{idx + 1}</td>
+                    <td style={{fontSize:12}}>{dispDate}</td>
+                    <td style={{fontSize:12, fontWeight:600, color:'var(--ink)'}}>{e.order_ref}</td>
+                    <td style={{fontSize:12}}>{e.supplier_name || '-'}</td>
+                    <td style={{fontSize:12, lineHeight:1.4}}>
+                      {issue && <span style={{padding:'1px 5px', background: issue.color + '15', color: issue.color, borderRadius:3, fontSize:10, fontWeight:600, marginRight:4}}>{issue.label}</span>}
+                      {e.damaged_part && <span style={{color:'var(--ink-3)', marginRight:4}}>· {e.damaged_part}</span>}
+                      {e.issue_detail && <div style={{color:'var(--ink-2)', marginTop:2, fontSize:11, maxWidth:'400px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.issue_detail}</div>}
+                    </td>
+                    <td>
+                      {e.attachments && e.attachments.length > 0 ? (
+                        <button onClick={() => setOpenImageId(e.id)}
+                          style={{display:'flex', alignItems:'center', gap:4, padding:'3px 6px', background:'#f0f9ff', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontFamily:'inherit', fontSize:11, fontWeight:600}}>
+                          📷 {e.attachments.length}
+                        </button>
+                      ) : '-'}
+                    </td>
+                    <td style={{fontSize:11, color:'var(--ink-2)'}}>
+                      {remindDate && <div>{remindDate}</div>}
+                      {returnDate && <div style={{color:'#16a34a'}}>{returnDate}</div>}
+                    </td>
+                    <td style={{fontSize:11, color:'var(--ink-3)'}}>{creator?.name || e.created_by_name || '?'}</td>
+                    <td>
+                      <select value={e.status} onChange={ev => onUpdateStatus(e.id, ev.target.value, ev.target.value === 'reminded' ? { last_remind_date: new Date().toISOString().slice(0,10) } : ev.target.value === 'returned' ? { return_date: new Date().toISOString().slice(0,10) } : {})}
+                        style={{padding:'3px 6px', fontSize:11, border:'1px solid ' + (status?.color || 'var(--line)'), borderRadius:4, background: status?.bg || 'white', color: status?.color || 'var(--ink-2)', fontWeight:600, cursor:'pointer'}}>
+                        {AFTERSALE_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                      </select>
+                    </td>
+                    <td>
+                      <div style={{display:'flex', gap:2}}>
+                        <button onClick={() => onEdit(e)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11}} title="编辑">✏️</button>
+                        {(isAdmin || e.created_by === user.id) && (
+                          <button onClick={() => onDelete(e.id)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11, color:'var(--bad)'}} title="删除">🗑</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {openImageId && (
+        <ImageGalleryModal event={items.find(e => e.id === openImageId)} onClose={() => setOpenImageId(null)} />
+      )}
+    </>
+  );
+};
+
+// ============================================================
+// 补件追踪表格
+// ============================================================
+const RefillsTable = ({ items, employees, suppliers, user, isAdmin, onEdit, onDelete, onUpdateStatus }) => {
+  const [openImageId, setOpenImageId] = useState(null);
+  if (items.length === 0) return (
+    <div className="paper rounded-2xl p-12 fade-in" style={{textAlign:'center', color:'var(--ink-3)', fontSize:13}}>
+      📦 暂无符合条件的补件记录
+    </div>
+  );
+  return (
+    <>
+      <div className="paper rounded-2xl overflow-hidden fade-in">
+        <div className="overflow-x-auto">
+          <table style={{minWidth:'1100px'}}>
+            <thead>
+              <tr>
+                <th style={{width:'36px'}}>#</th>
+                <th style={{width:'85px'}}>日期</th>
+                <th style={{width:'120px'}}>订单号</th>
+                <th style={{width:'100px'}}>供应商</th>
+                <th>补件清单</th>
+                <th style={{width:'80px'}}>图片</th>
+                <th style={{width:'95px'}}>预计发货</th>
+                <th style={{width:'95px'}}>实际发货</th>
+                <th style={{width:'90px'}}>创建人</th>
+                <th style={{width:'95px'}}>状态</th>
+                <th style={{width:'80px'}}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((e, idx) => {
+                const status = REFILL_STATUSES.find(s => s.key === e.status);
+                const creator = employees.find(emp => emp.id === e.created_by);
+                const dispDate = (e.created_at || '').slice(5, 10).replace('-', '.');
+                const itemsList = (e.items || []).map(it => `${it.item || '?'} × ${it.qty || 1}${it.unit || ''}`).join('，');
+                return (
+                  <tr key={e.id}>
+                    <td>{idx + 1}</td>
+                    <td style={{fontSize:12}}>{dispDate}</td>
+                    <td style={{fontSize:12, fontWeight:600}}>{e.order_ref}</td>
+                    <td style={{fontSize:12}}>{e.supplier_name || '-'}</td>
+                    <td style={{fontSize:12, lineHeight:1.4}}>{itemsList || '-'}</td>
+                    <td>
+                      {e.attachments && e.attachments.length > 0 ? (
+                        <button onClick={() => setOpenImageId(e.id)}
+                          style={{padding:'3px 6px', background:'#f0f9ff', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                          📷 {e.attachments.length}
+                        </button>
+                      ) : '-'}
+                    </td>
+                    <td style={{fontSize:11, color:'var(--ink-2)'}}>{e.expected_ship_date || '-'}</td>
+                    <td style={{fontSize:11, color:'#16a34a', fontWeight:e.actual_ship_date ? 600 : 400}}>{e.actual_ship_date || '-'}</td>
+                    <td style={{fontSize:11, color:'var(--ink-3)'}}>{creator?.name || e.created_by_name || '?'}</td>
+                    <td>
+                      <select value={e.status} onChange={ev => onUpdateStatus(e.id, ev.target.value)}
+                        style={{padding:'3px 6px', fontSize:11, border:'1px solid ' + (status?.color || 'var(--line)'), borderRadius:4, background: (status?.color || 'gray') + '15', color: status?.color || 'var(--ink-2)', fontWeight:600, cursor:'pointer'}}>
+                        {REFILL_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+                      </select>
+                    </td>
+                    <td>
+                      <div style={{display:'flex', gap:2}}>
+                        <button onClick={() => onEdit(e)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11}}>✏️</button>
+                        {(isAdmin || e.created_by === user.id) && (
+                          <button onClick={() => onDelete(e.id)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11, color:'var(--bad)'}}>🗑</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {openImageId && (
+        <ImageGalleryModal event={items.find(e => e.id === openImageId)} onClose={() => setOpenImageId(null)} />
+      )}
+    </>
+  );
+};
+
+// ============================================================
+// 退款管理表格 + 两步审核
+// ============================================================
+const RefundsTable = ({ items, employees, suppliers, user, isFinance, onEdit, onDelete, onReview }) => {
+  const [openImageId, setOpenImageId] = useState(null);
+  // 顶部汇总
+  const summary = useMemo(() => {
+    const byStatus = items.reduce((acc, r) => { acc[r.status] = (acc[r.status] || 0) + 1; return acc; }, {});
+    const totalPending = items.filter(r => r.status === 'pending').reduce((s,r) => s + parseFloat(r.amount || 0), 0);
+    const totalCompleted = items.filter(r => r.status === 'completed').reduce((s,r) => s + parseFloat(r.amount || 0), 0);
+    return { byStatus, totalPending, totalCompleted };
+  }, [items]);
+  
+  if (items.length === 0) return (
+    <div className="paper rounded-2xl p-12 fade-in" style={{textAlign:'center', color:'var(--ink-3)', fontSize:13}}>
+      💰 暂无符合条件的退款记录
+    </div>
+  );
+  return (
+    <>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:8, marginBottom:8}}>
+        <div className="paper rounded-xl p-3" style={{background:'#fef9c3', border:'1px solid #fde68a'}}>
+          <div style={{fontSize:11, color:'#854d0e'}}>待审核</div>
+          <div style={{fontSize:20, fontWeight:700, color:'#a16207'}}>{summary.byStatus.pending || 0}</div>
+          <div style={{fontSize:11, color:'#854d0e'}}>USD {summary.totalPending.toFixed(2)}</div>
+        </div>
+        <div className="paper rounded-xl p-3" style={{background:'#e0f2fe', border:'1px solid #bae6fd'}}>
+          <div style={{fontSize:11, color:'#075985'}}>已审核（待退）</div>
+          <div style={{fontSize:20, fontWeight:700, color:'#0369a1'}}>{summary.byStatus.approved || 0}</div>
+        </div>
+        <div className="paper rounded-xl p-3" style={{background:'#dcfce7', border:'1px solid #86efac'}}>
+          <div style={{fontSize:11, color:'#14532d'}}>已完成</div>
+          <div style={{fontSize:20, fontWeight:700, color:'#15803d'}}>{summary.byStatus.completed || 0}</div>
+          <div style={{fontSize:11, color:'#14532d'}}>USD {summary.totalCompleted.toFixed(2)}</div>
+        </div>
+        <div className="paper rounded-xl p-3" style={{background:'#fef2f2', border:'1px solid #fca5a5'}}>
+          <div style={{fontSize:11, color:'#7f1d1d'}}>已拒绝</div>
+          <div style={{fontSize:20, fontWeight:700, color:'#991b1b'}}>{summary.byStatus.rejected || 0}</div>
+        </div>
+      </div>
+      <div className="paper rounded-2xl overflow-hidden fade-in">
+        <div className="overflow-x-auto">
+          <table style={{minWidth:'1200px'}}>
+            <thead>
+              <tr>
+                <th style={{width:'36px'}}>#</th>
+                <th style={{width:'85px'}}>日期</th>
+                <th style={{width:'110px'}}>订单号</th>
+                <th style={{width:'90px'}}>创建人</th>
+                <th>退款原因</th>
+                <th style={{width:'100px'}}>类型</th>
+                <th style={{width:'90px'}}>金额</th>
+                <th style={{width:'130px'}}>支付方式</th>
+                <th style={{width:'70px'}}>图片</th>
+                <th style={{width:'95px'}}>状态</th>
+                <th style={{width:'110px'}}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((r, idx) => {
+                const type = REFUND_TYPES.find(t => t.key === r.refund_type);
+                const status = REFUND_STATUSES.find(s => s.key === r.status);
+                const pay = REFUND_PAYMENT_METHODS.find(p => p.key === r.payment_method);
+                const creator = employees.find(emp => emp.id === r.created_by);
+                const dispDate = (r.created_at || '').slice(5, 10).replace('-', '.');
+                return (
+                  <tr key={r.id}>
+                    <td>{idx + 1}</td>
+                    <td style={{fontSize:12}}>{dispDate}</td>
+                    <td style={{fontSize:12, fontWeight:600}}>{r.order_ref}</td>
+                    <td style={{fontSize:11, color:'var(--ink-3)'}}>{creator?.name || r.created_by_name || '?'}</td>
+                    <td style={{fontSize:12, lineHeight:1.4}}>
+                      {r.product_name && <div style={{fontWeight:600, color:'var(--ink-2)'}}>{r.product_name}</div>}
+                      <div style={{color:'var(--ink-2)', fontSize:11, maxWidth:'400px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.refund_reason}</div>
+                    </td>
+                    <td>
+                      {type && <span style={{padding:'2px 8px', background: type.bg, color: type.color, borderRadius:10, fontSize:10, fontWeight:600}}>{type.label}</span>}
+                    </td>
+                    <td style={{fontSize:13, fontWeight:600, color:'#dc2626'}}>{r.currency} {parseFloat(r.amount).toFixed(2)}</td>
+                    <td style={{fontSize:11}}>
+                      {pay && <span style={{color: pay.color, fontWeight:500}}>{pay.label}</span>}
+                    </td>
+                    <td>
+                      {r.attachments && r.attachments.length > 0 ? (
+                        <button onClick={() => setOpenImageId(r.id)}
+                          style={{padding:'3px 6px', background:'#f0f9ff', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                          📷 {r.attachments.length}
+                        </button>
+                      ) : '-'}
+                    </td>
+                    <td>
+                      <span style={{padding:'3px 8px', background: status?.bg, color: status?.color, borderRadius:5, fontSize:11, fontWeight:600}}>
+                        {status?.label}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{display:'flex', gap:2, flexWrap:'wrap'}}>
+                        {isFinance && r.status === 'pending' && (
+                          <button onClick={() => onReview(r)} className="btn-pri" style={{padding:'3px 8px', fontSize:11}} title="审核">审核</button>
+                        )}
+                        {isFinance && r.status === 'approved' && (
+                          <button onClick={() => onReview(r)} className="btn-pri" style={{padding:'3px 8px', fontSize:11, background:'#16a34a'}} title="标记已完成">✓ 完成</button>
+                        )}
+                        <button onClick={() => onEdit(r)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11}}>✏️</button>
+                        {(isFinance || r.created_by === user.id) && r.status === 'pending' && (
+                          <button onClick={() => onDelete(r.id)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11, color:'var(--bad)'}}>🗑</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {openImageId && (
+        <ImageGalleryModal event={items.find(e => e.id === openImageId)} onClose={() => setOpenImageId(null)} />
+      )}
+    </>
+  );
+};
+
+// ============================================================
+// 退款审核 modal (财务审批 + 完成)
+// ============================================================
+const RefundReviewModal = ({ refund, user, onClose, onSubmit }) => {
+  const [notes, setNotes] = useState('');
+  const [externalRefundId, setExternalRefundId] = useState('');
+  const isApproveStage = refund.status === 'pending';
+  const isCompleteStage = refund.status === 'approved';
+  const type = REFUND_TYPES.find(t => t.key === refund.refund_type);
+  const pay = REFUND_PAYMENT_METHODS.find(p => p.key === refund.payment_method);
+  
+  return (
+    <div onClick={onClose}
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      <div onClick={e => e.stopPropagation()}
+        style={{background:'white', borderRadius:14, maxWidth:540, width:'100%', padding:22, maxHeight:'90vh', overflow:'auto'}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
+          <div className="font-display" style={{fontSize:17, fontWeight:600, color:'#dc2626'}}>
+            💰 {isApproveStage ? '审核退款' : '标记退款完成'}
+          </div>
+          <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+        </div>
+        
+        {/* 退款信息预览 */}
+        <div style={{padding:12, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:8, marginBottom:14, fontSize:12}}>
+          <div style={{display:'flex', justifyContent:'space-between', marginBottom:6}}>
+            <span style={{fontWeight:600, color:'#7f1d1d'}}>订单：{refund.order_ref}</span>
+            <span style={{fontSize:16, fontWeight:700, color:'#dc2626'}}>{refund.currency} {parseFloat(refund.amount).toFixed(2)}</span>
+          </div>
+          {refund.product_name && <div style={{color:'var(--ink-2)', marginBottom:4}}>{refund.product_name}</div>}
+          <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:6}}>
+            {type && <span style={{padding:'2px 8px', background:type.bg, color:type.color, borderRadius:10, fontSize:10, fontWeight:600}}>{type.label}</span>}
+            {pay && <span style={{padding:'2px 8px', background:pay.color + '20', color:pay.color, borderRadius:10, fontSize:10, fontWeight:600}}>{pay.label}</span>}
+          </div>
+          <div style={{color:'#7f1d1d', whiteSpace:'pre-wrap', lineHeight:1.5}}>{refund.refund_reason}</div>
+          <div style={{fontSize:10, color:'var(--ink-3)', marginTop:6, borderTop:'1px dashed #fca5a5', paddingTop:6}}>
+            创建人：{refund.created_by_name} · {(refund.created_at || '').slice(0,10)}
+          </div>
+        </div>
+        
+        {/* 审核备注 */}
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:6}}>
+            {isApproveStage ? '审核备注（拒绝时必填原因）' : '完成备注'}
+          </label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder={isApproveStage ? '可以填写审核意见或拒绝原因...' : '可以填写实际退款日期、备注等...'}
+            style={{width:'100%', minHeight:70, padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
+        </div>
+        
+        {/* 完成阶段：外部退款单号 */}
+        {isCompleteStage && (
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:6}}>
+              外部平台退款单号（如 Shopify/Stripe 的退款 ID）
+            </label>
+            <input value={externalRefundId} onChange={e => setExternalRefundId(e.target.value)}
+              placeholder="re_xxxxxxxxxx"
+              style={{width:'100%', padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+          </div>
+        )}
+        
+        {/* 操作按钮 */}
+        <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
+          <button onClick={onClose} className="btn-sec" style={{padding:'8px 16px'}}>取消</button>
+          {isApproveStage && (
+            <>
+              <button onClick={() => onSubmit(refund, 'reject', notes)}
+                disabled={!notes.trim()}
+                style={{padding:'8px 16px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13, opacity: notes.trim() ? 1 : 0.5}}>
+                ✗ 拒绝
+              </button>
+              <button onClick={() => onSubmit(refund, 'approve', notes)}
+                style={{padding:'8px 16px', background:'#0369a1', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13}}>
+                ✓ 审核通过
+              </button>
+            </>
+          )}
+          {isCompleteStage && (
+            <button onClick={() => onSubmit(refund, 'complete', notes, { external_refund_id: externalRefundId })}
+              style={{padding:'8px 16px', background:'#16a34a', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13}}>
+              ✓ 标记退款完成
+            </button>
+          )}
+        </div>
+        
+        <div style={{fontSize:10, color:'var(--ink-4)', marginTop:12, lineHeight:1.5, padding:'8px 10px', background:'#f9fafb', borderRadius:6}}>
+          💡 {isApproveStage 
+            ? '审核通过后，请到 Shopify/Stripe 后台实际操作退款，完成后回到这里点 "✓ 完成"' 
+            : '标记完成后，本笔退款将计入月度统计。请确保 Shopify/Stripe 后台已经实际完成退款。'}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 图片图廊 modal (点击图片缩略图后弹出大图浏览)
+// ============================================================
+const ImageGalleryModal = ({ event, onClose }) => {
+  const [activeIdx, setActiveIdx] = useState(0);
+  if (!event || !event.attachments || event.attachments.length === 0) return null;
+  const imgs = event.attachments;
+  const current = imgs[activeIdx];
+  
+  return (
+    <div onClick={onClose}
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.85)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      <div onClick={e => e.stopPropagation()} style={{maxWidth:'90vw', maxHeight:'90vh', display:'flex', flexDirection:'column', gap:10}}>
+        <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', minHeight:0}}>
+          {imgs.length > 1 && (
+            <button onClick={() => setActiveIdx((activeIdx - 1 + imgs.length) % imgs.length)}
+              style={{position:'absolute', left:-50, top:'50%', transform:'translateY(-50%)', background:'rgba(255,255,255,.2)', color:'white', border:'none', width:40, height:40, borderRadius:'50%', cursor:'pointer', fontSize:20}}>‹</button>
+          )}
+          <img src={current.url} style={{maxWidth:'100%', maxHeight:'80vh', objectFit:'contain'}} />
+          {imgs.length > 1 && (
+            <button onClick={() => setActiveIdx((activeIdx + 1) % imgs.length)}
+              style={{position:'absolute', right:-50, top:'50%', transform:'translateY(-50%)', background:'rgba(255,255,255,.2)', color:'white', border:'none', width:40, height:40, borderRadius:'50%', cursor:'pointer', fontSize:20}}>›</button>
+          )}
+        </div>
+        {imgs.length > 1 && (
+          <div style={{display:'flex', gap:6, justifyContent:'center', flexWrap:'wrap'}}>
+            {imgs.map((im, i) => (
+              <img key={i} src={im.url} onClick={() => setActiveIdx(i)}
+                style={{width:50, height:50, objectFit:'cover', borderRadius:4, cursor:'pointer', border: i === activeIdx ? '2px solid white' : '2px solid transparent', opacity: i === activeIdx ? 1 : 0.6}} />
+            ))}
+          </div>
+        )}
+        <div style={{textAlign:'center', color:'rgba(255,255,255,.8)', fontSize:12}}>
+          {activeIdx + 1} / {imgs.length} · {current.label || ''}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 月度汇总面板 + 图表
+// ============================================================
+const SummaryPanel = ({ stats, filterMonth, setFilterMonth, aftersales, refunds, refills, suppliers }) => {
+  // 计算供应商问题排行（按售后数 + 退款金额）
+  const supplierRanking = useMemo(() => {
+    const map = {};
+    aftersales.filter(e => {
+      if (!filterMonth) return true;
+      return (e.created_at || '').slice(0, 7) === filterMonth;
+    }).forEach(e => {
+      const k = e.supplier_name || '(未指定)';
+      if (!map[k]) map[k] = { name: k, aftersales: 0, refundAmount: 0 };
+      map[k].aftersales++;
+    });
+    refunds.filter(e => {
+      if (!filterMonth) return true;
+      return (e.created_at || '').slice(0, 7) === filterMonth;
+    }).forEach(e => {
+      if (e.status !== 'completed' && e.status !== 'approved') return;
+      const k = e.supplier_name || '(未指定)';
+      if (!map[k]) map[k] = { name: k, aftersales: 0, refundAmount: 0 };
+      map[k].refundAmount += parseFloat(e.amount || 0);
+    });
+    return Object.values(map).sort((a, b) => (b.aftersales + b.refundAmount/100) - (a.aftersales + a.refundAmount/100)).slice(0, 15);
+  }, [aftersales, refunds, filterMonth]);
+  
+  return (
+    <div className="space-y-4">
+      <div className="paper rounded-2xl p-4 fade-in">
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10}}>
+          <div>
+            <div className="font-display" style={{fontSize:17, fontWeight:600}}>📊 月度汇总</div>
+            <div style={{fontSize:12, color:'var(--ink-3)', marginTop:4}}>
+              统计月份：<input type="month" value={filterMonth} onChange={e => setFilterMonth(e.target.value)}
+                style={{padding:'3px 8px', border:'1px solid var(--line)', borderRadius:4, fontSize:12}} />
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* 3 大类总览 */}
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:10}}>
+        <div className="paper rounded-2xl p-4 fade-in" style={{borderTop:'3px solid #ea580c'}}>
+          <div style={{fontSize:12, color:'var(--ink-3)', fontWeight:600}}>🔧 售后总数</div>
+          <div style={{fontSize:32, fontWeight:700, color:'#ea580c', marginTop:4}}>{stats.aftersales.total}</div>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginTop:4}}>本月新建售后事件</div>
+        </div>
+        <div className="paper rounded-2xl p-4 fade-in" style={{borderTop:'3px solid #0369a1'}}>
+          <div style={{fontSize:12, color:'var(--ink-3)', fontWeight:600}}>📦 补件总数</div>
+          <div style={{fontSize:32, fontWeight:700, color:'#0369a1', marginTop:4}}>{stats.refills.total}</div>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginTop:4}}>本月新建补件事件</div>
+        </div>
+        <div className="paper rounded-2xl p-4 fade-in" style={{borderTop:'3px solid #dc2626'}}>
+          <div style={{fontSize:12, color:'var(--ink-3)', fontWeight:600}}>💰 退款金额</div>
+          <div style={{fontSize:32, fontWeight:700, color:'#dc2626', marginTop:4}}>${stats.refunds.totalAmount.toFixed(2)}</div>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginTop:4}}>{stats.refunds.completed} 笔已审批 · {stats.refunds.pending} 笔待审</div>
+        </div>
+      </div>
+      
+      {/* 售后问题类型 + 退款类型 双柱 */}
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(320px, 1fr))', gap:10}}>
+        <div className="paper rounded-2xl p-4 fade-in">
+          <div className="font-display" style={{fontSize:14, fontWeight:600, marginBottom:10}}>🔧 售后问题分布</div>
+          {Object.keys(stats.aftersales.byIssue).length === 0 ? (
+            <div style={{fontSize:12, color:'var(--ink-3)', textAlign:'center', padding:'20px 0'}}>本月暂无数据</div>
+          ) : (
+            Object.entries(stats.aftersales.byIssue).sort((a,b) => b[1] - a[1]).map(([k, n]) => {
+              const max = Math.max(...Object.values(stats.aftersales.byIssue));
+              const pct = (n / max) * 100;
+              return (
+                <div key={k} style={{marginBottom:8}}>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:3}}>
+                    <span>{k}</span>
+                    <span style={{fontWeight:600}}>{n} 单</span>
+                  </div>
+                  <div style={{height:6, background:'var(--bg)', borderRadius:3, overflow:'hidden'}}>
+                    <div style={{height:'100%', width:`${pct}%`, background:'#ea580c', borderRadius:3, transition:'width .3s'}} />
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        
+        <div className="paper rounded-2xl p-4 fade-in">
+          <div className="font-display" style={{fontSize:14, fontWeight:600, marginBottom:10}}>💰 退款类型分布（按金额）</div>
+          {Object.keys(stats.refunds.byTypeAmount).length === 0 ? (
+            <div style={{fontSize:12, color:'var(--ink-3)', textAlign:'center', padding:'20px 0'}}>本月暂无数据</div>
+          ) : (
+            Object.entries(stats.refunds.byTypeAmount).sort((a,b) => b[1] - a[1]).map(([k, amt]) => {
+              const max = Math.max(...Object.values(stats.refunds.byTypeAmount));
+              const pct = (amt / max) * 100;
+              const count = stats.refunds.byType[k] || 0;
+              return (
+                <div key={k} style={{marginBottom:8}}>
+                  <div style={{display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:3}}>
+                    <span>{k} <span style={{color:'var(--ink-4)', fontSize:10}}>({count} 笔)</span></span>
+                    <span style={{fontWeight:600, color:'#dc2626'}}>${amt.toFixed(2)}</span>
+                  </div>
+                  <div style={{height:6, background:'var(--bg)', borderRadius:3, overflow:'hidden'}}>
+                    <div style={{height:'100%', width:`${pct}%`, background:'#dc2626', borderRadius:3, transition:'width .3s'}} />
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+      
+      {/* 供应商排行 */}
+      <div className="paper rounded-2xl p-4 fade-in">
+        <div className="font-display" style={{fontSize:14, fontWeight:600, marginBottom:10}}>🏭 供应商问题排行 TOP 15</div>
+        {supplierRanking.length === 0 ? (
+          <div style={{fontSize:12, color:'var(--ink-3)', textAlign:'center', padding:'20px 0'}}>本月暂无数据</div>
+        ) : (
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:8}}>
+            {supplierRanking.map((s, idx) => (
+              <div key={s.name} style={{padding:10, background:'var(--bg)', borderRadius:8, display:'flex', alignItems:'center', gap:10}}>
+                <span style={{width:24, height:24, background: idx < 3 ? '#dc2626' : 'var(--ink-3)', color:'white', borderRadius:'50%', fontSize:11, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+                  {idx + 1}
+                </span>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{fontSize:12, fontWeight:600, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{s.name}</div>
+                  <div style={{fontSize:10, color:'var(--ink-3)', marginTop:2}}>
+                    🔧 {s.aftersales} 单
+                    {s.refundAmount > 0 && <span style={{marginLeft:6, color:'#dc2626'}}>· 💰 ${s.refundAmount.toFixed(0)}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 导出报表 modal (Excel + PDF, 含图片)
+// ============================================================
+const ExportPanel = ({ onClose, aftersales, refills, refunds, suppliers, employees, subTab, filterMonth, toast }) => {
+  const [exporting, setExporting] = useState(false);
+  const [includeImages, setIncludeImages] = useState(true);
+  const [exportType, setExportType] = useState(subTab === 'summary' ? 'all' : subTab);
+  const [format, setFormat] = useState('excel');
+  
+  // Excel 导出
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      if (!window.XLSX) {
+        // 动态加载 SheetJS
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+      const XLSX = window.XLSX;
+      const wb = XLSX.utils.book_new();
+      
+      const addSheet = (data, name) => {
+        if (data.length === 0) data = [{ '提示': '当前筛选条件下暂无数据' }];
+        const ws = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(wb, ws, name);
+      };
+      
+      if (exportType === 'aftersales' || exportType === 'all') {
+        addSheet(aftersales.map(e => ({
+          '日期': (e.created_at || '').slice(0,10),
+          '订单号': e.order_ref || '',
+          '客户': e.customer || '',
+          '产品': e.product_name || '',
+          '问题类型': ISSUE_TYPES.find(i => i.key === e.issue_type)?.label || e.issue_type,
+          '损坏部位': e.damaged_part || '',
+          '详细描述': e.issue_detail || '',
+          '供应商': e.supplier_name || '',
+          '状态': AFTERSALE_STATUSES.find(s => s.key === e.status)?.label || e.status,
+          '催货日期': e.last_remind_date || '',
+          '回货日期': e.return_date || '',
+          '打包责任人': e.packer || '',
+          '质检责任人': e.qc || '',
+          '创建人': e.created_by_name || '',
+          '图片数量': (e.attachments || []).length,
+          '图片链接': (e.attachments || []).map(a => a.url).join('\n'),
+          '备注': e.notes || '',
+        })), '售后清单');
+      }
+      
+      if (exportType === 'refills' || exportType === 'all') {
+        addSheet(refills.map(e => ({
+          '日期': (e.created_at || '').slice(0,10),
+          '订单号': e.order_ref || '',
+          '客户': e.customer || '',
+          '补件清单': (e.items || []).map(it => `${it.item || '?'} × ${it.qty || 1}${it.unit || ''}`).join('，'),
+          '供应商': e.supplier_name || '',
+          '预计发货': e.expected_ship_date || '',
+          '实际发货': e.actual_ship_date || '',
+          '状态': REFILL_STATUSES.find(s => s.key === e.status)?.label || e.status,
+          '物流单号': e.tracking_number || '',
+          '创建人': e.created_by_name || '',
+          '图片数量': (e.attachments || []).length,
+          '图片链接': (e.attachments || []).map(a => a.url).join('\n'),
+          '备注': e.notes || '',
+        })), '补件追踪');
+      }
+      
+      if (exportType === 'refunds' || exportType === 'all') {
+        addSheet(refunds.map(r => ({
+          '日期': (r.created_at || '').slice(0,10),
+          '订单号': r.order_ref || '',
+          '客户': r.customer || '',
+          '产品': r.product_name || '',
+          '退款类型': REFUND_TYPES.find(t => t.key === r.refund_type)?.label || r.refund_type,
+          '退款原因': r.refund_reason || '',
+          '金额': parseFloat(r.amount).toFixed(2),
+          '货币': r.currency,
+          '支付方式': REFUND_PAYMENT_METHODS.find(p => p.key === r.payment_method)?.label || r.payment_method,
+          '供应商': r.supplier_name || '',
+          '状态': REFUND_STATUSES.find(s => s.key === r.status)?.label || r.status,
+          '创建人': r.created_by_name || '',
+          '审核人': r.approved_by_name || '',
+          '审核时间': (r.approved_at || '').slice(0, 16).replace('T', ' '),
+          '审核备注': r.approval_notes || '',
+          '处理人': r.processed_by_name || '',
+          '处理时间': (r.processed_at || '').slice(0, 16).replace('T', ' '),
+          '外部退款单号': r.external_refund_id || '',
+          '图片数量': (r.attachments || []).length,
+          '图片链接': (r.attachments || []).map(a => a.url).join('\n'),
+        })), '退款管理');
+      }
+      
+      const fname = `客服报表_${filterMonth || '全部'}_${exportType}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      XLSX.writeFile(wb, fname);
+      toast('✓ Excel 已下载');
+      setExporting(false);
+      setTimeout(onClose, 500);
+    } catch(e) {
+      toast('❌ 导出失败：' + e.message);
+      setExporting(false);
+    }
+  };
+  
+  // PDF 导出 (含图片) - 用 window.print + HTML 模板
+  const exportPDF = () => {
+    setExporting(true);
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) { toast('❌ 浏览器拦截了弹窗，请允许'); setExporting(false); return; }
+    
+    const title = `客服月度报表 · ${filterMonth || '全部时段'} · ${exportType === 'aftersales' ? '售后清单' : exportType === 'refills' ? '补件追踪' : exportType === 'refunds' ? '退款管理' : '完整报表'}`;
+    
+    const renderImages = (atts) => {
+      if (!includeImages || !atts || atts.length === 0) return '';
+      return `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">${atts.map(a => `<img src="${a.url}" style="max-width:80px;max-height:80px;object-fit:cover;border:1px solid #ccc;border-radius:4px;" />`).join('')}</div>`;
+    };
+    
+    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>
+  body { font-family: 'Microsoft YaHei','PingFang SC',sans-serif; padding:20px; color:#333; font-size:11px; }
+  h1 { color:#0071e3; border-bottom:2px solid #0071e3; padding-bottom:8px; }
+  h2 { color:#333; margin-top:30px; border-bottom:1px solid #ddd; padding-bottom:6px; }
+  table { width:100%; border-collapse:collapse; margin:12px 0; font-size:10px; }
+  th,td { border:1px solid #ddd; padding:6px 8px; text-align:left; vertical-align:top; }
+  th { background:#f5f5f7; font-weight:600; }
+  tr:nth-child(even) { background:#fafafa; }
+  .tag { display:inline-block; padding:2px 6px; border-radius:8px; font-size:9px; font-weight:600; }
+  .amount { font-weight:600; color:#dc2626; }
+  .header-info { color:#666; font-size:11px; margin:8px 0 20px; }
+  @media print { body { padding:8px; } }
+</style></head><body>
+<h1>${title}</h1>
+<div class="header-info">导出时间：${new Date().toLocaleString('zh-CN')} · 数据条数：售后 ${aftersales.length} · 补件 ${refills.length} · 退款 ${refunds.length}</div>`;
+    
+    if (exportType === 'aftersales' || exportType === 'all') {
+      html += `<h2>🔧 售后清单 (${aftersales.length} 条)</h2><table>
+<thead><tr><th>#</th><th>日期</th><th>订单号</th><th>供应商</th><th>问题/部位</th><th>详细</th><th>图片</th><th>状态</th></tr></thead><tbody>`;
+      aftersales.forEach((e, idx) => {
+        const issue = ISSUE_TYPES.find(i => i.key === e.issue_type);
+        const status = AFTERSALE_STATUSES.find(s => s.key === e.status);
+        html += `<tr>
+<td>${idx+1}</td>
+<td>${(e.created_at||'').slice(5,10)}</td>
+<td>${e.order_ref || '-'}</td>
+<td>${e.supplier_name || '-'}</td>
+<td><span class="tag" style="background:${issue?.color||'gray'}20;color:${issue?.color||'gray'};">${issue?.label||'-'}</span>${e.damaged_part ? '<br/>'+e.damaged_part : ''}</td>
+<td>${(e.issue_detail || '').substring(0, 100)}</td>
+<td>${renderImages(e.attachments)}</td>
+<td><span class="tag" style="background:${status?.bg||'#eee'};color:${status?.color||'#333'};">${status?.label||'-'}</span></td>
+</tr>`;
+      });
+      html += '</tbody></table>';
+    }
+    
+    if (exportType === 'refills' || exportType === 'all') {
+      html += `<h2>📦 补件追踪 (${refills.length} 条)</h2><table>
+<thead><tr><th>#</th><th>日期</th><th>订单号</th><th>供应商</th><th>补件清单</th><th>图片</th><th>预计/实际</th><th>状态</th></tr></thead><tbody>`;
+      refills.forEach((e, idx) => {
+        const status = REFILL_STATUSES.find(s => s.key === e.status);
+        const itemsList = (e.items || []).map(it => `${it.item}×${it.qty}${it.unit||''}`).join('，');
+        html += `<tr>
+<td>${idx+1}</td>
+<td>${(e.created_at||'').slice(5,10)}</td>
+<td>${e.order_ref || '-'}</td>
+<td>${e.supplier_name || '-'}</td>
+<td>${itemsList || '-'}</td>
+<td>${renderImages(e.attachments)}</td>
+<td>${e.expected_ship_date || '-'}<br/><span style="color:#16a34a;">${e.actual_ship_date || '-'}</span></td>
+<td><span class="tag" style="background:${status?.color||'gray'}20;color:${status?.color||'gray'};">${status?.label||'-'}</span></td>
+</tr>`;
+      });
+      html += '</tbody></table>';
+    }
+    
+    if (exportType === 'refunds' || exportType === 'all') {
+      const total = refunds.reduce((s,r) => s + (r.status === 'completed' || r.status === 'approved' ? parseFloat(r.amount||0) : 0), 0);
+      html += `<h2>💰 退款管理 (${refunds.length} 条 · 已审/已完成共 $${total.toFixed(2)})</h2><table>
+<thead><tr><th>#</th><th>日期</th><th>订单号</th><th>退款原因</th><th>类型</th><th>金额</th><th>支付方式</th><th>图片</th><th>状态</th></tr></thead><tbody>`;
+      refunds.forEach((r, idx) => {
+        const type = REFUND_TYPES.find(t => t.key === r.refund_type);
+        const status = REFUND_STATUSES.find(s => s.key === r.status);
+        const pay = REFUND_PAYMENT_METHODS.find(p => p.key === r.payment_method);
+        html += `<tr>
+<td>${idx+1}</td>
+<td>${(r.created_at||'').slice(5,10)}</td>
+<td>${r.order_ref || '-'}</td>
+<td>${r.product_name ? '<strong>'+r.product_name+'</strong><br/>' : ''}${(r.refund_reason || '').substring(0, 120)}</td>
+<td><span class="tag" style="background:${type?.bg||'#eee'};color:${type?.color||'#333'};">${type?.label||'-'}</span></td>
+<td class="amount">${r.currency} ${parseFloat(r.amount).toFixed(2)}</td>
+<td>${pay?.label || '-'}</td>
+<td>${renderImages(r.attachments)}</td>
+<td><span class="tag" style="background:${status?.bg||'#eee'};color:${status?.color||'#333'};">${status?.label||'-'}</span></td>
+</tr>`;
+      });
+      html += '</tbody></table>';
+    }
+    
+    html += `<div style="margin-top:30px;text-align:center;color:#999;font-size:10px;">生成自统一工作台 · ${new Date().toLocaleString()}</div>
+</body></html>`;
+    
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => {
+      win.print();
+      setExporting(false);
+      toast('💡 选择"另存为 PDF"保存到本地');
+      setTimeout(onClose, 800);
+    }, 1500);
+  };
+  
+  return (
+    <div onClick={onClose}
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      <div onClick={e => e.stopPropagation()}
+        style={{background:'white', borderRadius:14, maxWidth:480, width:'100%', padding:22}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
+          <div className="font-display" style={{fontSize:17, fontWeight:600}}>📥 导出月度报表</div>
+          <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+        </div>
+        
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:6}}>导出类型</label>
+          <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+            {[
+              { k:'aftersales', l:'🔧 售后清单', n: aftersales.length },
+              { k:'refills',    l:'📦 补件追踪', n: refills.length },
+              { k:'refunds',    l:'💰 退款管理', n: refunds.length },
+              { k:'all',        l:'📊 全部', n: aftersales.length + refills.length + refunds.length },
+            ].map(o => (
+              <button key={o.k} onClick={() => setExportType(o.k)}
+                style={{
+                  padding:'6px 12px', borderRadius:8,
+                  border:'1px solid ' + (exportType === o.k ? 'var(--accent)' : 'var(--line)'),
+                  background: exportType === o.k ? 'var(--accent-soft)' : 'white',
+                  color: exportType === o.k ? 'var(--accent)' : 'var(--ink-2)',
+                  cursor:'pointer', fontSize:12, fontFamily:'inherit',
+                  fontWeight: exportType === o.k ? 600 : 400,
+                }}>
+                {o.l} <span style={{fontSize:10, opacity:0.7}}>({o.n})</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:6}}>导出格式</label>
+          <div style={{display:'flex', gap:8}}>
+            <button onClick={() => setFormat('excel')}
+              style={{
+                flex:1, padding:'10px', borderRadius:8,
+                border:'1px solid ' + (format === 'excel' ? '#16a34a' : 'var(--line)'),
+                background: format === 'excel' ? '#dcfce7' : 'white',
+                color: format === 'excel' ? '#14532d' : 'var(--ink-2)',
+                cursor:'pointer', fontFamily:'inherit', fontWeight: format === 'excel' ? 600 : 400, fontSize:13,
+              }}>
+              📊 Excel
+              <div style={{fontSize:10, color:'var(--ink-3)', marginTop:2, fontWeight:400}}>含图片链接</div>
+            </button>
+            <button onClick={() => setFormat('pdf')}
+              style={{
+                flex:1, padding:'10px', borderRadius:8,
+                border:'1px solid ' + (format === 'pdf' ? '#dc2626' : 'var(--line)'),
+                background: format === 'pdf' ? '#fef2f2' : 'white',
+                color: format === 'pdf' ? '#991b1b' : 'var(--ink-2)',
+                cursor:'pointer', fontFamily:'inherit', fontWeight: format === 'pdf' ? 600 : 400, fontSize:13,
+              }}>
+              📄 PDF
+              <div style={{fontSize:10, color:'var(--ink-3)', marginTop:2, fontWeight:400}}>嵌入图片</div>
+            </button>
+          </div>
+        </div>
+        
+        {format === 'pdf' && (
+          <label style={{display:'flex', alignItems:'center', gap:6, fontSize:12, padding:8, background:'var(--bg)', borderRadius:6, marginBottom:14, cursor:'pointer'}}>
+            <input type="checkbox" checked={includeImages} onChange={e => setIncludeImages(e.target.checked)} />
+            <span>包含图片缩略图</span>
+            <span style={{color:'var(--ink-4)', fontSize:10, marginLeft:'auto'}}>(关掉可加速)</span>
+          </label>
+        )}
+        
+        <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
+          <button onClick={onClose} className="btn-sec" style={{padding:'8px 16px'}}>取消</button>
+          <button onClick={format === 'excel' ? exportExcel : exportPDF} disabled={exporting}
+            style={{padding:'8px 20px', background:'var(--accent)', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13, opacity: exporting ? 0.5 : 1}}>
+            {exporting ? '⏳ 生成中...' : '📥 立即导出'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// ============================================================
+// 汇报工单 Module - 员工汇报问题 / 主管处理
+// ============================================================
 const ReportModule = ({ user, employees, toast, cloudOn }) => {
   const [tab, setTab] = useState('inbox');  // inbox | mine | new | all (admin)
   const [tickets, setTickets] = useState([]);
@@ -5235,6 +7328,18 @@ const App = () => {
     })();
   }, [cloudOn, user, cloudVersion]);
 
+  // 🛠 清理 record 上传前的空字符串日期 → null（Postgres 不接受 ""）
+  const sanitizeRecordForCloud = (r) => {
+    const cleaned = { ...r };
+    // 这些字段如果是 "" 必须改 null，否则 Postgres 报错
+    ['nextFollowUp', 'date', 'deletedAt', 'createdAt', 'updatedAt', 'escalatedAt'].forEach(k => {
+      if (cleaned[k] === '' || cleaned[k] === undefined) cleaned[k] = null;
+    });
+    // status 不能空
+    if (!cleaned.status) cleaned.status = 'pending';
+    return cleaned;
+  };
+  
   // 写入云端（每次 records 变化，debounced）
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -5245,7 +7350,8 @@ const App = () => {
       const current = recordsRef.current;
       if (current.length === 0) return;
       try {
-        const { error } = await CLOUD.client.from('workspace_records').upsert(current);
+        const cleaned = current.map(sanitizeRecordForCloud);
+        const { error } = await CLOUD.client.from('workspace_records').upsert(cleaned);
         if (error) throw error;
         setCloudSyncError(null);  // 成功，清错误
       } catch(e) {
@@ -5341,7 +7447,7 @@ const App = () => {
   // 统计 badge
   const today = todayISO();
   const stats = useMemo(() => {
-    if (!user) return { overdue:0, dueToday:0, trashCount:0, ticketInbox:0 };
+    if (!user) return { overdue:0, dueToday:0, trashCount:0, ticketInbox:0, pendingEvents:0 };
     const live = records.filter(r => !r.deleted);
     const mine = (user.role === 'admin' || user.role === 'super_admin') ? live : live.filter(r => r.ownerId === user.id);
     const overdue = mine.filter(r => r.status !== 'resolved' && r.nextFollowUp && r.nextFollowUp < today).length;
@@ -5352,7 +7458,14 @@ const App = () => {
     // 工单收件箱（本地缓存计数，准确数字在 ReportModule 内）
     const tickets = STORE.get('tickets_local', []);
     const ticketInbox = tickets.filter(t => (t.target_id === user.id) && (t.status === 'pending' || t.status === 'accepted')).length;
-    return { overdue, dueToday, trashCount: trash, ticketInbox };
+    // 🆕 待处理事件徽章 (财务/admin 看待审退款，其他人看自己创建的所有未关闭事件)
+    const isFinance = user.role === 'finance' || user.role === 'admin' || user.role === 'super_admin';
+    const evCache = STORE.get('events_cache', { aftersales:[], refunds:[], refills:[] });
+    let pendingEvents = 0;
+    if (isFinance) {
+      pendingEvents = (evCache.refunds || []).filter(r => r.status === 'pending').length;
+    }
+    return { overdue, dueToday, trashCount: trash, ticketInbox, pendingEvents };
   }, [records, user, today]);
 
   // 标题栏徽章: (N) 统一工作台
@@ -5437,7 +7550,8 @@ const App = () => {
           ⚠ <strong>云端写入失败</strong>：{cloudSyncError.slice(0, 100)} · 数据可能未同步到云端 · 
           <button onClick={async () => {
             try {
-              const { error } = await CLOUD.client.from('workspace_records').upsert(records);
+              const cleaned = records.map(sanitizeRecordForCloud);
+              const { error } = await CLOUD.client.from('workspace_records').upsert(cleaned);
               if (error) throw error;
               setCloudSyncError(null);
               toast(`✓ 已成功上传 ${records.length} 条记录到云端`);
@@ -5452,7 +7566,10 @@ const App = () => {
       )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {activeTab === 'cs' && (
-          <CSModule user={user} employees={employees} records={records} setRecords={setRecords} toast={toast} />
+          <CSModule user={user} employees={employees} records={records} setRecords={setRecords} toast={toast} cloudOn={cloudOn} />
+        )}
+        {activeTab === 'events' && (
+          <EventsModule user={user} employees={employees} records={records} toast={toast} cloudOn={cloudOn} />
         )}
         {/* iframe 类模块用 display 切换，避免切 tab 时丢失填写的数据 */}
         {visitedTabs.has('finance') && (
