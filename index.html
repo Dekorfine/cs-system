@@ -1016,7 +1016,7 @@ const LoginScreen = ({ employees, onLogin }) => {
   };
 
   return (
-    <div className="login-bg">
+    <div className="login-bg" data-login-screen>
       <div className="login-card fade-in">
         {/* Header */}
         <div style={{padding:'48px 48px 24px', textAlign:'center', borderBottom:'1px solid var(--line)'}}>
@@ -3068,8 +3068,8 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                       style={{width:'100%', padding:'8px 12px', fontSize:13, border:'1px solid var(--line)', borderRadius:7}} />
                   </div>
                   
-                  {/* Footer: 截图 + 跟进次数 + 事件按钮 */}
-                  <div style={{display:'flex', alignItems:'center', gap:8, paddingTop:10, borderTop:'1px dashed var(--line)', flexWrap:'wrap'}}>
+                  {/* Footer: 第一行 - 截图/跟进 + 事件徽章 */}
+                  <div style={{display:'flex', alignItems:'center', gap:8, paddingTop:10, borderTop:'1px dashed var(--line)', flexWrap:'wrap', marginBottom: editable ? 8 : 0}}>
                     <button className="btn-sec" onClick={() => setFollowUpModal(r.id)}
                       title={editable ? '打开跟进/截图窗口' : '只读查看'}
                       style={{padding:'5px 12px', display:'inline-flex', alignItems:'center', gap:5, fontSize:12}}>
@@ -3087,24 +3087,52 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                         {ev.refunds.length > 0 && <span title="退款">💰{ev.refunds.length}</span>}
                       </button>
                     )}
-                    
-                    {/* 弹性间隔 */}
-                    <div style={{flex:1}}></div>
-                    
-                    {/* 事件按钮 - 紧凑下拉 */}
-                    {editable && (
-                      <div style={{minWidth:140}}>
-                        <EventActionDropdown record={r}
-                          onAftersale={() => setEventEditor({ kind:'aftersale', record:r })}
-                          onRefill={() => setEventEditor({ kind:'refill', record:r })}
-                          onRefund={() => setEventEditor({ kind:'refund', record:r })}
-                          onChargeback={() => setSmartEditor({ kind:'chargeback', record:r })}
-                          onCustom={() => setSmartEditor({ kind:'custom', record:r })}
-                          onPhoto={() => setSmartEditor({ kind:'photo', record:r })}
-                        />
-                      </div>
-                    )}
                   </div>
+                  
+                  {/* Footer: 第二行 - 6 个事件按钮平铺 */}
+                  {editable && (
+                    <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6, marginTop:6}}>
+                      <button onClick={() => setEventEditor({ kind:'aftersale', record:r })} title="加售后事件"
+                        style={{padding:'8px 0', background:'#fff7ed', color:'#ea580c', border:'1px solid #fdba74', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2}}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; e.currentTarget.style.color = 'white'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.color = '#ea580c'; }}>
+                        <span style={{fontSize:16}}>🔧</span>
+                        <span>售后</span>
+                      </button>
+                      <button onClick={() => setEventEditor({ kind:'refill', record:r })} title="加补件事件"
+                        style={{padding:'8px 0', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2}}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#0369a1'; e.currentTarget.style.color = 'white'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; }}>
+                        <span style={{fontSize:16}}>📦</span>
+                        <span>补件</span>
+                      </button>
+                      <button onClick={() => setEventEditor({ kind:'refund', record:r })} title="加退款事件"
+                        style={{padding:'8px 0', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2}}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}>
+                        <span style={{fontSize:16}}>💰</span>
+                        <span>退款</span>
+                      </button>
+                      <button onClick={() => setSmartEditor({ kind:'chargeback', record:r })} title="加拒付记录"
+                        style={{padding:'8px 0', background: r.category === '拒付' ? '#dc2626' : '#fef2f2', color: r.category === '拒付' ? 'white' : '#dc2626', border:'1px solid ' + (r.category === '拒付' ? '#7f1d1d' : '#fca5a5'), borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2, position:'relative'}}>
+                        <span style={{fontSize:16}}>🚨</span>
+                        <span>拒付</span>
+                        {r.category === '拒付' && <span style={{position:'absolute', top:-6, right:-6, padding:'1px 5px', background:'#fbbf24', color:'#78350f', borderRadius:8, fontSize:9, fontWeight:700}}>✓</span>}
+                      </button>
+                      <button onClick={() => setSmartEditor({ kind:'custom', record:r })} title="加定制咨询"
+                        style={{padding:'8px 0', background: r.category === '定制咨询' ? '#7c3aed' : '#f5f3ff', color: r.category === '定制咨询' ? 'white' : '#7c3aed', border:'1px solid ' + (r.category === '定制咨询' ? '#5b21b6' : '#c4b5fd'), borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2, position:'relative'}}>
+                        <span style={{fontSize:16}}>🎨</span>
+                        <span>定制</span>
+                        {r.category === '定制咨询' && <span style={{position:'absolute', top:-6, right:-6, padding:'1px 5px', background:'#fbbf24', color:'#78350f', borderRadius:8, fontSize:9, fontWeight:700}}>✓</span>}
+                      </button>
+                      <button onClick={() => setSmartEditor({ kind:'photo', record:r })} title="加实拍核实"
+                        style={{padding:'8px 0', background: r.category === '实拍' ? '#be185d' : '#fdf2f8', color: r.category === '实拍' ? 'white' : '#be185d', border:'1px solid ' + (r.category === '实拍' ? '#831843' : '#fbcfe8'), borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2, position:'relative'}}>
+                        <span style={{fontSize:16}}>📸</span>
+                        <span>实拍</span>
+                        {r.category === '实拍' && <span style={{position:'absolute', top:-6, right:-6, padding:'1px 5px', background:'#fbbf24', color:'#78350f', borderRadius:8, fontSize:9, fontWeight:700}}>✓</span>}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -14219,6 +14247,45 @@ const App = () => {
     fetchDR();
     const t = setInterval(fetchDR, 2 * 60 * 1000);
     return () => clearInterval(t);
+  }, [user]);
+  
+  // 🆕 全局禁用浏览器自动填充 - 除登录页外所有 input 都不允许 Chrome 自动填(账号密码/历史邮箱)
+  useEffect(() => {
+    if (!user) return;  // 未登录时(LoginScreen)不处理,允许浏览器记住账号密码
+    
+    const disableAutofill = () => {
+      // input / textarea / select 都处理
+      document.querySelectorAll('input, textarea').forEach(el => {
+        // 跳过显式标注允许自动填充的(data-keep-autofill 属性)
+        if (el.dataset.keepAutofill !== undefined) return;
+        // 跳过 LoginScreen 内的(以防万一)
+        if (el.closest('[data-login-screen]')) return;
+        // 设置为 new-password(Chrome 唯一会严格遵守的禁填值)
+        if (el.getAttribute('autocomplete') !== 'new-password') {
+          el.setAttribute('autocomplete', 'new-password');
+        }
+        // 还可加 spell-check 关闭
+        if (!el.hasAttribute('spellcheck')) {
+          el.setAttribute('spellcheck', 'false');
+        }
+        // 防止 Edge / 1Password 等密码管理器加图标
+        if (!el.dataset.lpignore) {
+          el.setAttribute('data-lpignore', 'true');
+          el.setAttribute('data-1p-ignore', 'true');
+        }
+      });
+    };
+    
+    disableAutofill();
+    
+    // 监听 DOM 变化(新增的 input 也处理)
+    const observer = new MutationObserver((mutations) => {
+      const hasNewNodes = mutations.some(m => m.addedNodes.length > 0);
+      if (hasNewNodes) disableAutofill();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    return () => observer.disconnect();
   }, [user]);
   
   // 标题栏徽章: (N) 统一工作台
