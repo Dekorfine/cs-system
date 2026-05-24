@@ -666,8 +666,10 @@ const INITIAL_EMPLOYEES = [
   { id:'u_jiang', name:'江春芸', alias:'', sites:'财务·运费对账', role:'finance', password:'finance123', title:'财务·运费对账' },
   // 🔗 协调员 — 对接工厂/客服/跟单/供应商，所有功能全开放
   { id:'u_liuqiang', name:'刘强', alias:'', sites:'对接工厂·客服', role:'admin', password:'admin123', title:'对接工厂·客服' },
-  // 🔒 老板（不在登录列表显示，需要从右下角隐藏入口登录）
+  // 🔒 老板 1（不在登录列表显示，需要从右下角"🔐 管理员"入口登录）
   { id:'u_martin', name:'Martin', alias:'', sites:'CEO', role:'super_admin', password:'qq923923', title:'CEO · 创始人', hideFromList:true },
+  // 🔒 老板 2（不在登录列表显示，需要从右下角"🔐 管理员"入口登录 · 与 Martin 同权）
+  { id:'u_luoyanqiu', name:'罗燕秋', alias:'', sites:'老板', role:'super_admin', password:'qq923923', title:'老板 · 角色管理', hideFromList:true },
 ];
 
 const CATEGORIES = [
@@ -1326,6 +1328,13 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
   // 主管解锁历史日期编辑（仅当前会话有效，刷新或切日重置）
   const [adminUnlock, setAdminUnlock] = useState(false);
   
+  // 🆕 视图模式：'day' 按当日 | 'all' 跨日期所有记录（分页显示）
+  const [viewMode, setViewMode] = useState('day');
+  
+  // 🆕 分页 state（"全部"模式下生效）
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  
   // 🆕 状态下拉菜单当前打开的行 ID（null = 全部关闭）
   const [statusMenuOpen, setStatusMenuOpen] = useState(null);
   const [statusDropdownPos, setStatusDropdownPos] = useState({ top:0, left:0, width:110 });
@@ -1366,9 +1375,21 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
     return visibleRecords.filter(r => r.date === viewDate);
   }, [visibleRecords, viewDate]);
 
-  // 表格显示用：当日 + 搜索/筛选
+  // 🆕 视图源（day = 当日记录,all = 跨日期所有记录）
+  const sourceRecords = useMemo(() => {
+    if (viewMode === 'all') {
+      // 全部模式：所有可见记录（排除空白行）按日期倒序排
+      return visibleRecords
+        .filter(isRecordMeaningful)
+        .slice()
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    }
+    return dayRecords;
+  }, [viewMode, dayRecords, visibleRecords]);
+
+  // 表格显示用：当日 + 搜索/筛选（已应用筛选,未分页）
   const tableRecords = useMemo(() => {
-    let list = dayRecords;
+    let list = sourceRecords;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(r =>
@@ -1383,7 +1404,19 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
     if (filterDifficulty !== 'all') list = list.filter(r => r.difficulty === filterDifficulty);
     if (isAdmin && showAll && filterOwner !== 'all') list = list.filter(r => r.ownerId === filterOwner);
     return list;
-  }, [dayRecords, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, isAdmin, showAll]);
+  }, [sourceRecords, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, isAdmin, showAll]);
+  
+  // 🆕 分页后的数据（在全部模式下分页,当日模式直接显示）
+  const totalPages = Math.max(1, Math.ceil(tableRecords.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedRecords = useMemo(() => {
+    if (viewMode !== 'all') return tableRecords;  // 当日模式不分页
+    const start = (safePage - 1) * pageSize;
+    return tableRecords.slice(start, start + pageSize);
+  }, [tableRecords, viewMode, safePage, pageSize]);
+  
+  // 切换筛选条件时重置到第 1 页
+  useEffect(() => { setPage(1); }, [viewMode, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, pageSize]);
 
   // 导出范围：根据 dateRange 决定，跨日期
   const exportRecords = useMemo(() => {
@@ -1450,6 +1483,150 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
     const filename = `客服跟进_${tag}_${todayISO()}.csv`;
     downloadCSV(rows, filename);
     toast(`✓ 已导出 ${exportRecords.length} 条记录`);
+  };
+  
+  // 🆕 导出 PDF (包含截图) - 用 window.print() 让用户保存为 PDF
+  const handleExportPDF = () => {
+    if (tableRecords.length === 0) { toast('⚠️ 无可导出的记录'); return; }
+    const diffMap = { easy:'简单', mid:'中等', hard:'复杂' };
+    const statusMap = Object.fromEntries(STATUSES.map(s => [s.key, s.label]));
+    const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    
+    const rangeLabel = viewMode === 'day' ? ('日期 ' + viewDate) : '跨日期 · 全部记录';
+    const filterTags = [];
+    if (search.trim()) filterTags.push('关键词: "' + search + '"');
+    if (filterStatus !== 'all') filterTags.push('状态: ' + statusMap[filterStatus]);
+    if (filterSite !== 'all') filterTags.push('网站: ' + filterSite);
+    if (filterCategory !== 'all') filterTags.push('事项: ' + filterCategory);
+    if (filterDifficulty !== 'all') filterTags.push('难度: ' + diffMap[filterDifficulty]);
+    if (isAdmin && showAll && filterOwner !== 'all') {
+      const emp = employees.find(e => e.id === filterOwner);
+      filterTags.push('员工: ' + (emp ? emp.name : '?'));
+    }
+    
+    // 用字符串拼接生成 rowsHTML（避免嵌套 template literal）
+    const rowsHTML = tableRecords.map(function(r, i) {
+      const emp = employees.find(e => e.id === r.ownerId);
+      const empName = emp ? (emp.name + (emp.alias ? ' ' + emp.alias : '')) : '—';
+      const shots = (r.screenshots || []).slice(0, 6);
+      const moreShots = (r.screenshots || []).length - 6;
+      
+      let shotsHTML = '';
+      if (shots.length > 0) {
+        const imgsHTML = shots.map(s => '<img src="' + esc(s.url || s.data || '') + '" alt="截图" />').join('');
+        const moreLabel = moreShots > 0 ? '<span class="more">+' + moreShots + ' 张</span>' : '';
+        shotsHTML = '<div class="shots">' + imgsHTML + moreLabel + '</div>';
+      }
+      
+      const followups = (r.followUps || []).map(f => 
+        '<div class="fu"><span class="fu-time">' + esc((f.time || '').slice(0, 16)) + '</span> ' + esc(f.text || '') + '</div>'
+      ).join('');
+      const followupsBlock = followups ? '<div class="fu-list">' + followups + '</div>' : '';
+      
+      return '<tr>' +
+        '<td class="num">' + (i + 1) + '</td>' +
+        '<td>' + esc(r.date || '') + '</td>' +
+        '<td><span class="status status-' + r.status + '">' + esc(statusMap[r.status] || r.status) + '</span></td>' +
+        '<td>' + esc(r.customer || '') + '</td>' +
+        '<td>' + esc(empName) + '</td>' +
+        '<td>' + esc(r.site || '') + '</td>' +
+        '<td>' + esc(r.startTime || '') + ' ~ ' + esc(r.endTime || '') + '<br><small>' + (r.durationMin || 0) + ' 分钟</small></td>' +
+        '<td>' + esc(diffMap[r.difficulty] || '') + '</td>' +
+        '<td>' + esc(r.category || '') + '</td>' +
+        '<td>' + esc(r.orderRef || '') + '</td>' +
+        '<td>' + esc(r.note || '') + followupsBlock + '</td>' +
+        '<td>' + esc(r.nextFollowUp || '') + '</td>' +
+        '<td class="img-cell">' + shotsHTML + '</td>' +
+      '</tr>';
+    }).join('');
+    
+    const filterBanner = filterTags.length > 0 
+      ? '<div class="filters">🔍 <strong>已应用筛选：</strong> ' + filterTags.map(esc).join(' · ') + '</div>'
+      : '';
+    
+    const exporterName = (user.name || '') + (user.alias ? ' ' + user.alias : '');
+    
+    const html = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>客服记录 - ' + esc(rangeLabel) + '</title>' +
+      '<link rel="preconnect" href="https://fonts.googleapis.com">' +
+      '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
+      '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&display=swap" rel="stylesheet">' +
+      '<style>' +
+        '* { box-sizing: border-box; }' +
+        'body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Microsoft JhengHei", "Source Han Sans CN", "Noto Sans CJK SC", "WenQuanYi Micro Hei", "Heiti SC", SimHei, sans-serif; padding: 20px; color: #1d1d1f; font-size: 11px; line-height: 1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
+        'h1 { font-size: 20px; margin: 0 0 4px; }' +
+        '.meta { color: #86868b; font-size: 11px; margin-bottom: 12px; }' +
+        '.filters { padding: 8px 12px; background: #fef3c7; border-radius: 6px; font-size: 11px; color: #854d0e; margin-bottom: 12px; }' +
+        '.filters strong { color: #92400e; }' +
+        'table { width: 100%; border-collapse: collapse; }' +
+        'th, td { border: 1px solid #d2d2d7; padding: 6px 8px; vertical-align: top; text-align: left; font-size: 11px; }' +
+        'th { background: #f5f5f7; font-weight: 600; color: #424245; }' +
+        '.num { text-align: center; color: #86868b; }' +
+        '.status { padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; white-space: nowrap; }' +
+        '.status-pending { background: #f5f5f7; color: #525252; }' +
+        '.status-following { background: #fff7ed; color: #9a3412; }' +
+        '.status-waiting { background: #e0f2fe; color: #075985; }' +
+        '.status-resolved { background: #dcfce7; color: #14532d; }' +
+        '.status-transferred { background: #fef3c7; color: #854d0e; }' +
+        '.shots { display: flex; flex-wrap: wrap; gap: 3px; }' +
+        '.shots img { width: 80px; height: 60px; object-fit: cover; border-radius: 3px; border: 1px solid #d2d2d7; }' +
+        '.img-cell { min-width: 180px; }' +
+        '.more { font-size: 10px; color: #86868b; align-self: center; padding: 0 4px; }' +
+        '.fu-list { margin-top: 4px; padding-top: 4px; border-top: 1px dashed #e5e5e5; }' +
+        '.fu { font-size: 10px; color: #424245; margin-bottom: 2px; }' +
+        '.fu-time { color: #86868b; margin-right: 4px; }' +
+        'small { color: #86868b; }' +
+        '@page { size: A3 landscape; margin: 8mm; }' +
+        '@media print { body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } table { page-break-inside: auto; } tr { page-break-inside: avoid; } .no-print { display: none; } }' +
+        '.toolbar { position: fixed; top: 12px; right: 12px; display: flex; gap: 8px; z-index: 100; }' +
+        '.toolbar button { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: inherit; border: none; }' +
+        '.btn-print { background: #0071e3; color: white; }' +
+        '.btn-close { background: white; color: #1d1d1f; border: 1px solid #d2d2d7; }' +
+      '</style></head><body>' +
+      '<div class="toolbar no-print">' +
+        '<button class="btn-print" onclick="window.print()">🖨 保存为 PDF</button>' +
+        '<button class="btn-close" onclick="window.close()">✕ 关闭</button>' +
+      '</div>' +
+      '<h1>📋 客服记录</h1>' +
+      '<div class="meta">' +
+        esc(rangeLabel) + ' · 共 <strong>' + tableRecords.length + '</strong> 条记录 · 导出时间：' + new Date().toLocaleString('zh-CN') + ' · 导出人：' + esc(exporterName) +
+      '</div>' +
+      filterBanner +
+      '<table><thead><tr>' +
+        '<th style="width:32px">#</th>' +
+        '<th style="width:78px">日期</th>' +
+        '<th style="width:65px">状态</th>' +
+        '<th style="min-width:140px">客户</th>' +
+        '<th style="width:90px">员工</th>' +
+        '<th style="width:55px">网站</th>' +
+        '<th style="width:95px">时段</th>' +
+        '<th style="width:45px">难度</th>' +
+        '<th style="width:75px">事项</th>' +
+        '<th style="width:90px">订单号</th>' +
+        '<th style="min-width:160px">备注/跟进</th>' +
+        '<th style="width:75px">下次跟进</th>' +
+        '<th>截图</th>' +
+      '</tr></thead><tbody>' + rowsHTML + '</tbody></table>' +
+      '<script>' +
+        'window.addEventListener("load", function() {' +
+          'setTimeout(function() {' +
+            'var imgs = Array.from(document.images);' +
+            'var fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();' +
+            'var imgsReady = Promise.all(imgs.map(function(img) {' +
+              'return img.complete ? Promise.resolve() : new Promise(function(res) { img.onload = img.onerror = res; });' +
+            '}));' +
+            'Promise.all([fontsReady, imgsReady]).then(function() {' +
+              'setTimeout(function() { window.print(); }, 300);' +
+            '});' +
+          '}, 100);' +
+        '});' +
+      '</' + 'script></body></html>';
+    
+    const w = window.open('', '_blank', 'width=1200,height=800');
+    if (!w) { alert('请允许浏览器弹出窗口才能导出 PDF'); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    toast('✓ 已生成 ' + tableRecords.length + ' 条记录的 PDF 预览,请在新窗口点"保存为 PDF"');
   };
 
   // 跟进提醒 - 主管始终看所有员工（不受"查看所有员工"开关影响）
@@ -2192,6 +2369,10 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
             <button className="btn-pri text-xs" onClick={handleExport} title={`导出 ${exportRecords.length} 条到 Excel/CSV`}>
               📥 导出 CSV ({exportRecords.length})
             </button>
+            <button onClick={() => handleExportPDF()} title={`导出当前筛选的 ${tableRecords.length} 条为 PDF（含截图）`}
+              style={{padding:'4px 12px', fontSize:11, background:'#dc2626', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:600}}>
+              📄 导出 PDF ({tableRecords.length})
+            </button>
           </div>
         </div>
         {showFilters && (
@@ -2302,6 +2483,51 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
         </div>
       </div>
 
+      {/* 🆕 视图模式切换 + 顶部分页 */}
+      <div className="paper rounded-2xl p-3 fade-in" style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap'}}>
+        <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+          <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>显示模式：</span>
+          <button onClick={() => setViewMode('day')}
+            style={{
+              padding:'4px 12px', borderRadius:14, fontSize:12, cursor:'pointer', fontFamily:'inherit',
+              border:'1px solid ' + (viewMode === 'day' ? 'var(--accent)' : 'var(--line)'),
+              background: viewMode === 'day' ? 'var(--accent)' : 'white',
+              color: viewMode === 'day' ? 'white' : 'var(--ink-2)',
+              fontWeight: viewMode === 'day' ? 600 : 400,
+            }}>
+            📅 按当日 ({dayRecords.length})
+          </button>
+          <button onClick={() => setViewMode('all')}
+            style={{
+              padding:'4px 12px', borderRadius:14, fontSize:12, cursor:'pointer', fontFamily:'inherit',
+              border:'1px solid ' + (viewMode === 'all' ? 'var(--accent)' : 'var(--line)'),
+              background: viewMode === 'all' ? 'var(--accent)' : 'white',
+              color: viewMode === 'all' ? 'white' : 'var(--ink-2)',
+              fontWeight: viewMode === 'all' ? 600 : 400,
+            }}>
+            📋 全部记录 ({visibleRecords.filter(isRecordMeaningful).length})
+          </button>
+        </div>
+        {viewMode === 'all' && tableRecords.length > pageSize && (
+          <div style={{fontSize:11, color:'var(--ink-3)'}}>
+            筛选后 <strong style={{color:'var(--accent)'}}>{tableRecords.length}</strong> 条 · 当前第 <strong>{safePage}</strong>/{totalPages} 页
+          </div>
+        )}
+      </div>
+
+      {/* 顶部分页（全部模式） */}
+      {viewMode === 'all' && tableRecords.length > 0 && (
+        <Pagination 
+          currentPage={safePage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={tableRecords.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          position="top"
+        />
+      )}
+
       {/* 主表格 */}
       <div className="paper rounded-2xl fade-in" style={{overflow:'hidden'}}>
         <div style={{overflowX:'auto', overflowY:'visible'}} className="scrollbar-thin">
@@ -2328,12 +2554,13 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
               {tableRecords.length === 0 ? (
                 <tr>
                   <td colSpan={isAdmin && showAll ? 14 : 13} style={{textAlign:'center', padding:'30px 12px', color:'var(--ink-3)', fontSize:'13px'}}>
-                    {dayRecords.length === 0
+                    {sourceRecords.length === 0
                       ? '暂无记录 · 点击下方"+ 添加一行"开始'
-                      : `无匹配记录（当日共 ${dayRecords.length} 条，被筛选条件过滤）`}
+                      : `无匹配记录（共 ${sourceRecords.length} 条，被筛选条件过滤）`}
                   </td>
                 </tr>
-              ) : tableRecords.map((r, idx) => {
+              ) : pagedRecords.map((r, localIdx) => {
+                const idx = viewMode === 'all' ? (safePage - 1) * pageSize + localIdx : localIdx;
                 const dispStatus = getDisplayStatus(r);
                 const statusCls = `status-${dispStatus}`;
                 const ownerName = employees.find(e => e.id === r.ownerId)?.name || '—';
@@ -2551,6 +2778,19 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
         </div>
       </div>
 
+      {/* 🆕 底部分页（全部模式） */}
+      {viewMode === 'all' && tableRecords.length > 0 && (
+        <Pagination 
+          currentPage={safePage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={tableRecords.length}
+          onPageChange={(p) => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          onPageSizeChange={setPageSize}
+          position="bottom"
+        />
+      )}
+
       {/* 操作提示 */}
       <div className="text-[10px] font-mono flex flex-wrap gap-4" style={{color:'var(--ink-4)'}}>
         <span>Tab 切换字段</span>
@@ -2728,6 +2968,118 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
           onTransfer={batchTransferRecords}
         />
       )}
+    </div>
+  );
+};
+
+// ============================================================
+// 📄 分页组件 - 首页/上一页/页码/下一页/末页 + 每页条数
+// ============================================================
+const Pagination = ({ currentPage, totalPages, pageSize, totalItems, onPageChange, onPageSizeChange, position = 'bottom' }) => {
+  if (totalItems === 0) return null;
+  
+  // 生成显示的页码 - 当前页前后各 2 页 + 首尾
+  const getPageNumbers = () => {
+    const pages = [];
+    const showAround = 2;
+    
+    if (totalPages <= 7) {
+      // 总页数少 → 全显示
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (currentPage > showAround + 2) pages.push('...');
+      
+      const start = Math.max(2, currentPage - showAround);
+      const end = Math.min(totalPages - 1, currentPage + showAround);
+      for (let i = start; i <= end; i++) pages.push(i);
+      
+      if (currentPage < totalPages - showAround - 1) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+  
+  const startIdx = (currentPage - 1) * pageSize + 1;
+  const endIdx = Math.min(currentPage * pageSize, totalItems);
+  
+  return (
+    <div style={{
+      display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10,
+      padding:'10px 14px', background:'var(--bg-elevated)', borderRadius:10, border:'1px solid var(--line)',
+    }}>
+      <div style={{display:'flex', alignItems:'center', gap:6, flexWrap:'wrap'}}>
+        {/* 首页 */}
+        <button onClick={() => onPageChange(1)} disabled={currentPage === 1}
+          title="第一页"
+          style={{padding:'5px 9px', borderRadius:5, border:'1px solid var(--line)', background:'white', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontSize:12, fontFamily:'inherit', color: currentPage === 1 ? '#ccc' : 'var(--ink-2)'}}>
+          « 首页
+        </button>
+        {/* 上一页 */}
+        <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}
+          style={{padding:'5px 9px', borderRadius:5, border:'1px solid var(--line)', background:'white', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', fontSize:12, fontFamily:'inherit', color: currentPage === 1 ? '#ccc' : 'var(--ink-2)'}}>
+          ‹ 上一页
+        </button>
+        
+        {/* 页码 */}
+        {getPageNumbers().map((p, idx) => 
+          p === '...' ? (
+            <span key={'dot_' + idx} style={{padding:'5px 4px', color:'var(--ink-4)', fontSize:12}}>···</span>
+          ) : (
+            <button key={p} onClick={() => onPageChange(p)}
+              style={{
+                padding:'5px 10px', borderRadius:5, 
+                border:'1px solid ' + (p === currentPage ? 'var(--accent)' : 'var(--line)'),
+                background: p === currentPage ? 'var(--accent)' : 'white',
+                color: p === currentPage ? 'white' : 'var(--ink)',
+                cursor:'pointer', fontSize:12, fontFamily:'inherit', fontWeight: p === currentPage ? 600 : 400,
+                minWidth:32,
+              }}>
+              {p}
+            </button>
+          )
+        )}
+        
+        {/* 下一页 */}
+        <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages}
+          style={{padding:'5px 9px', borderRadius:5, border:'1px solid var(--line)', background:'white', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', fontSize:12, fontFamily:'inherit', color: currentPage === totalPages ? '#ccc' : 'var(--ink-2)'}}>
+          下一页 ›
+        </button>
+        {/* 末页 */}
+        <button onClick={() => onPageChange(totalPages)} disabled={currentPage === totalPages}
+          title="最后一页"
+          style={{padding:'5px 9px', borderRadius:5, border:'1px solid var(--line)', background:'white', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', fontSize:12, fontFamily:'inherit', color: currentPage === totalPages ? '#ccc' : 'var(--ink-2)'}}>
+          末页 »
+        </button>
+        
+        {/* 直接跳转 */}
+        <div style={{display:'flex', alignItems:'center', gap:4, marginLeft:8}}>
+          <span style={{fontSize:11, color:'var(--ink-3)'}}>跳转</span>
+          <input type="number" min={1} max={totalPages} 
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                const p = parseInt(e.target.value);
+                if (p >= 1 && p <= totalPages) { onPageChange(p); e.target.value = ''; }
+              }
+            }}
+            placeholder={String(currentPage)}
+            style={{width:55, padding:'4px 6px', border:'1px solid var(--line)', borderRadius:5, fontSize:12, textAlign:'center'}} />
+          <span style={{fontSize:11, color:'var(--ink-3)'}}>页</span>
+        </div>
+      </div>
+      
+      <div style={{display:'flex', alignItems:'center', gap:8}}>
+        <span style={{fontSize:11, color:'var(--ink-3)'}}>
+          第 <strong style={{color:'var(--ink)'}}>{startIdx}-{endIdx}</strong> 条 / 共 <strong style={{color:'var(--ink)'}}>{totalItems}</strong> 条
+        </span>
+        <select value={pageSize} onChange={e => onPageSizeChange(parseInt(e.target.value))}
+          style={{padding:'4px 8px', border:'1px solid var(--line)', borderRadius:5, fontSize:12, background:'white', fontFamily:'inherit'}}>
+          <option value={50}>50 条/页</option>
+          <option value={100}>100 条/页</option>
+          <option value={200}>200 条/页</option>
+          <option value={500}>500 条/页</option>
+        </select>
+      </div>
     </div>
   );
 };
@@ -5621,9 +5973,12 @@ const FreightModule = ({ user, toast, cloudOn }) => {
     
     win.document.write(`<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><title>运费支付报表 ${monthLabel}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color:#1d1d1f; padding:30px; font-size:13px; line-height:1.5; }
+  body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Microsoft JhengHei", "Source Han Sans CN", "Noto Sans CJK SC", "WenQuanYi Micro Hei", "Heiti SC", SimHei, sans-serif; color:#1d1d1f; padding:30px; font-size:13px; line-height:1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .header { border-bottom: 2px solid #0071e3; padding-bottom:12px; margin-bottom:20px; }
   .header h1 { font-size:24px; font-weight:600; letter-spacing:-.5px; }
   .header .meta { color:#666; font-size:12px; margin-top:6px; }
@@ -5711,7 +6066,10 @@ const FreightModule = ({ user, toast, cloudOn }) => {
 </div>
 
 <scr` + `ipt>
-  window.onload = () => { setTimeout(() => window.print(), 300); };
+  window.onload = () => {
+    const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+    fontsReady.then(() => setTimeout(() => window.print(), 400));
+  };
 </scr` + `ipt>
 
 </body></html>`);
@@ -8330,9 +8688,12 @@ const ExportPanel = ({ onClose, aftersales, refills, refunds, suppliers, employe
       return `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">${atts.map(a => `<img src="${a.url}" style="max-width:80px;max-height:80px;object-fit:cover;border:1px solid #ccc;border-radius:4px;" />`).join('')}</div>`;
     };
     
-    let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+    let html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>${title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  body { font-family: 'Microsoft YaHei','PingFang SC',sans-serif; padding:20px; color:#333; font-size:11px; }
+  body { font-family: "Noto Sans SC", -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Microsoft JhengHei', 'Source Han Sans CN', 'Noto Sans CJK SC', 'WenQuanYi Micro Hei', 'Heiti SC', SimHei, sans-serif; padding:20px; color:#333; font-size:11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   h1 { color:#0071e3; border-bottom:2px solid #0071e3; padding-bottom:8px; }
   h2 { color:#333; margin-top:30px; border-bottom:1px solid #ddd; padding-bottom:6px; }
   table { width:100%; border-collapse:collapse; margin:12px 0; font-size:10px; }
@@ -8415,12 +8776,25 @@ const ExportPanel = ({ onClose, aftersales, refills, refunds, suppliers, employe
     
     win.document.write(html);
     win.document.close();
+    // 等字体 + 图片加载完才打印
     setTimeout(() => {
-      win.print();
-      setExporting(false);
-      toast('💡 选择"另存为 PDF"保存到本地');
-      setTimeout(onClose, 800);
-    }, 1500);
+      try {
+        const fontsReady = win.document.fonts && win.document.fonts.ready ? win.document.fonts.ready : Promise.resolve();
+        const imgsReady = Promise.all(Array.from(win.document.images || []).map(img => 
+          img.complete ? Promise.resolve() : new Promise(res => { img.onload = img.onerror = res; })
+        ));
+        Promise.all([fontsReady, imgsReady]).then(() => {
+          win.print();
+          setExporting(false);
+          toast('💡 选择"另存为 PDF"保存到本地');
+          setTimeout(onClose, 800);
+        });
+      } catch(e) {
+        win.print();
+        setExporting(false);
+        setTimeout(onClose, 800);
+      }
+    }, 800);
   };
   
   return (
@@ -9294,7 +9668,7 @@ const CloudSettingsCard = ({ cfg, setCfg, toast, onApply }) => {
 // ============================================================
 const App = () => {
   // 员工 (localStorage + 云同步备份) - 加版本号机制，代码里改了 INITIAL_EMPLOYEES 后能自动覆盖
-  const EMPLOYEES_VERSION = 6;  // Martin 老板账号 + 隐藏列表
+  const EMPLOYEES_VERSION = 7;  // 加罗燕秋老板账号
   const [employees, setEmployees] = useState(() => {
     const storedVer = STORE.get('employees_version', 0);
     if (storedVer < EMPLOYEES_VERSION) {
