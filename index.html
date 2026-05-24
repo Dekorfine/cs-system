@@ -922,11 +922,20 @@ const LoginScreen = ({ employees, onLogin }) => {
   
   const tryBossLogin = () => {
     const hiddenUsers = employees.filter(e => e.hideFromList);
-    const found = hiddenUsers.find(u => 
-      u.name.toLowerCase() === bossName.trim().toLowerCase() && u.password === bossPwd
-    );
-    if (!found) { setBossError('账号或密码不正确'); return; }
-    onLogin(found);
+    const inputName = bossName.trim().toLowerCase();
+    const userByName = hiddenUsers.find(u => u.name.toLowerCase() === inputName);
+    
+    if (!userByName) {
+      // 账号不存在 — 可能 localStorage 没同步,告知用户
+      const allHidden = hiddenUsers.map(u => u.name).join(' / ') || '(无)';
+      setBossError(`账号不存在 · 当前系统中的管理账号:${allHidden}`);
+      return;
+    }
+    if (userByName.password !== bossPwd) {
+      setBossError('密码不正确');
+      return;
+    }
+    onLogin(userByName);
   };
 
   const sel = employees.find(e => e.id === selectedId);
@@ -9671,9 +9680,14 @@ const App = () => {
   const EMPLOYEES_VERSION = 7;  // 加罗燕秋老板账号
   const [employees, setEmployees] = useState(() => {
     const storedVer = STORE.get('employees_version', 0);
-    if (storedVer < EMPLOYEES_VERSION) {
-      // 版本升级 → 合并 INITIAL_EMPLOYEES 的新数据（按 id），但保留用户自己添加的员工
-      const stored = STORE.get('employees', []);
+    const stored = STORE.get('employees', []);
+    
+    // 🆕 保险机制:即使版本号已经是最新,也检查 INITIAL_EMPLOYEES 里有没有缺失的(比如用户曾经删除过)
+    const missingInitials = INITIAL_EMPLOYEES.filter(i => !stored.some(s => s.id === i.id));
+    const needsUpdate = storedVer < EMPLOYEES_VERSION || missingInitials.length > 0;
+    
+    if (needsUpdate) {
+      // 版本升级 / 补全缺失员工 → 合并 INITIAL_EMPLOYEES 的新数据（按 id），但保留用户自己添加的员工
       const merged = INITIAL_EMPLOYEES.map(initial => {
         const old = stored.find(e => e.id === initial.id);
         // 强制用 INITIAL_EMPLOYEES 的 name/alias/sites/role（覆盖 localStorage），但保留用户改过的密码
@@ -9682,9 +9696,12 @@ const App = () => {
       // 加上用户自己添加的（不在 INITIAL_EMPLOYEES 里的）
       const extras = stored.filter(e => !INITIAL_EMPLOYEES.some(i => i.id === e.id));
       STORE.set('employees_version', EMPLOYEES_VERSION);
+      if (missingInitials.length > 0) {
+        console.log('[员工补充] 自动补入缺失的内置账号:', missingInitials.map(e => e.name).join(', '));
+      }
       return [...merged, ...extras];
     }
-    return STORE.get('employees', INITIAL_EMPLOYEES);
+    return stored.length > 0 ? stored : INITIAL_EMPLOYEES;
   });
   useEffect(() => { STORE.set('employees', employees); }, [employees]);
 
