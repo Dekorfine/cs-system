@@ -3192,7 +3192,16 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
             onUpdate={(patch) => updateRow(followUpModal, patch)}
             toast={toast}
             recordEvents={recordEvents}
-            onAddEvent={(kind) => setEventEditor({ kind, record: r })}
+            onAddEvent={(kind) => {
+              // 旧 3 种(事件主线表)→ 用 EventEditorModal
+              if (['aftersale', 'refill', 'refund'].includes(kind)) {
+                setEventEditor({ kind, record: r });
+              } else {
+                // 新 3 种(拒付/定制/实拍)→ 用 SmartEditor
+                setSmartEditor({ kind, record: r });
+                setFollowUpModal(null);  // 关闭跟进窗,焦点切到新弹窗
+              }
+            }}
             onEditEvent={(kind, evt) => setEventEditor({ kind, record: r, existingEvent: evt })}
           />
         );
@@ -5034,30 +5043,62 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
           </div>
         )}
         
-        {/* 🆕 工作事件区 (售后/补件/退款) */}
+        {/* 🆕 工作事件区 (售后/补件/退款 + 拒付/定制/实拍) */}
         {recordEvents && onAddEvent && (
           <div style={{padding:14, background:'#f8fafc', border:'1px solid var(--line)', borderRadius:10, marginBottom:14}}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, flexWrap:'wrap', gap:8}}>
               <div style={{fontSize:13, fontWeight:600, color:'var(--ink)'}}>
                 📋 关联工作事件 ({recordEvents.aftersales.length + recordEvents.refills.length + recordEvents.refunds.length})
               </div>
-              {!readonly && (
-                <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
-                  <button onClick={() => onAddEvent('aftersale')}
-                    style={{padding:'4px 10px', background:'#fff7ed', color:'#ea580c', border:'1px solid #fdba74', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
-                    🔧 加售后
-                  </button>
-                  <button onClick={() => onAddEvent('refill')}
-                    style={{padding:'4px 10px', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
-                    📦 加补件
-                  </button>
-                  <button onClick={() => onAddEvent('refund')}
-                    style={{padding:'4px 10px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
-                    💰 加退款
-                  </button>
-                </div>
-              )}
+              <div style={{fontSize:11, color:'var(--ink-3)'}}>点下方任一按钮快速添加</div>
             </div>
+            
+            {!readonly && (
+              <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6, marginBottom:10}}>
+                <button onClick={() => onAddEvent('aftersale')}
+                  style={{padding:'10px 0', background:'#fff7ed', color:'#ea580c', border:'1px solid #fdba74', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', display:'flex', flexDirection:'column', alignItems:'center', gap:3, transition:'all .15s'}}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; e.currentTarget.style.color = 'white'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.color = '#ea580c'; }}>
+                  <span style={{fontSize:18}}>🔧</span>
+                  <span>售后</span>
+                </button>
+                <button onClick={() => onAddEvent('refill')}
+                  style={{padding:'10px 0', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', display:'flex', flexDirection:'column', alignItems:'center', gap:3, transition:'all .15s'}}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#0369a1'; e.currentTarget.style.color = 'white'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; }}>
+                  <span style={{fontSize:18}}>📦</span>
+                  <span>补件</span>
+                </button>
+                <button onClick={() => onAddEvent('refund')}
+                  style={{padding:'10px 0', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', display:'flex', flexDirection:'column', alignItems:'center', gap:3, transition:'all .15s'}}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}>
+                  <span style={{fontSize:18}}>💰</span>
+                  <span>退款</span>
+                </button>
+                <button onClick={() => onAddEvent('chargeback')}
+                  style={{padding:'10px 0', background:'#fee2e2', color:'#991b1b', border:'1px solid #f87171', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', display:'flex', flexDirection:'column', alignItems:'center', gap:3, transition:'all .15s'}}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#991b1b'; e.currentTarget.style.color = 'white'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.color = '#991b1b'; }}>
+                  <span style={{fontSize:18}}>🚨</span>
+                  <span>拒付</span>
+                </button>
+                <button onClick={() => onAddEvent('custom')}
+                  style={{padding:'10px 0', background:'#f5f3ff', color:'#7c3aed', border:'1px solid #c4b5fd', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', display:'flex', flexDirection:'column', alignItems:'center', gap:3, transition:'all .15s'}}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#7c3aed'; e.currentTarget.style.color = 'white'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#f5f3ff'; e.currentTarget.style.color = '#7c3aed'; }}>
+                  <span style={{fontSize:18}}>🎨</span>
+                  <span>定制</span>
+                </button>
+                <button onClick={() => onAddEvent('photo')}
+                  style={{padding:'10px 0', background:'#fdf2f8', color:'#be185d', border:'1px solid #fbcfe8', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', display:'flex', flexDirection:'column', alignItems:'center', gap:3, transition:'all .15s'}}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#be185d'; e.currentTarget.style.color = 'white'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#fdf2f8'; e.currentTarget.style.color = '#be185d'; }}>
+                  <span style={{fontSize:18}}>📸</span>
+                  <span>实拍</span>
+                </button>
+              </div>
+            )}
             
             {/* 已关联事件列表 */}
             {recordEvents.aftersales.length === 0 && recordEvents.refills.length === 0 && recordEvents.refunds.length === 0 ? (
