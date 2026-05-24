@@ -7680,6 +7680,13 @@ const App = () => {
   }, [cloudOn, user, cloudVersion]);
 
   // 🛠 清理 record 上传前的空字符串日期 → null（Postgres 不接受 ""）
+  // 🛠 已知"风险字段" - 如果云端 schema 没建会触发 "Could not find the X column" 错误
+  // 这些字段是渐进式加上来的，老 schema 可能没有
+  const RISKY_FIELDS = ['escalated', 'escalatedAt', 'escalateReason', 'transferUnreadFor', 'transferHistory'];
+  
+  // 跟踪上次失败的字段名集合，避免反复重试
+  const skipFieldsRef = useRef(new Set());
+  
   const sanitizeRecordForCloud = (r) => {
     const cleaned = { ...r };
     // 这些字段如果是 "" 必须改 null，否则 Postgres 报错
@@ -7691,7 +7698,37 @@ const App = () => {
     if (cleaned.escalateReason === undefined) cleaned.escalateReason = null;
     // status 不能空
     if (!cleaned.status) cleaned.status = 'pending';
+    // 🆕 剥离已被云端拒绝的字段（schema cache 不识别的）
+    skipFieldsRef.current.forEach(field => { delete cleaned[field]; });
     return cleaned;
+  };
+  
+  // 🆕 智能上传 - 检测 schema 错误自动剥离字段重试
+  const uploadRecordsWithRetry = async (recordsToUpload, maxRetries = 5) => {
+    let attempt = 0;
+    while (attempt < maxRetries) {
+      const cleaned = recordsToUpload.map(sanitizeRecordForCloud);
+      const { error } = await CLOUD.client.from('workspace_records').upsert(cleaned);
+      if (!error) return { ok: true };  // 成功
+      
+      // 提取错误中的字段名："Could not find the 'XXX' column"
+      const match = (error.message || '').match(/Could not find the '([^']+)' column/i);
+      if (match) {
+        const missingField = match[1];
+        // 仅在已知风险字段列表里时才剥离（避免误删核心字段）
+        if (RISKY_FIELDS.some(f => f.toLowerCase() === missingField.toLowerCase()) || missingField.toLowerCase().includes('escal') || missingField.toLowerCase().includes('transfer')) {
+          // 找出 records 里所有的驼峰变体并加入 skip
+          const variants = [missingField, missingField.toLowerCase(), missingField.replace(/_([a-z])/g, (_, c) => c.toUpperCase())];
+          variants.forEach(v => skipFieldsRef.current.add(v));
+          console.warn(`[云端 schema 缺失] 已自动剥离字段 "${missingField}" 重试上传`);
+          attempt++;
+          continue;
+        }
+      }
+      // 不是 schema 错误，直接抛
+      throw error;
+    }
+    throw new Error('多次重试后仍然失败');
   };
   
   // 写入云端（每次 records 变化，debounced）
@@ -7704,10 +7741,8 @@ const App = () => {
       const current = recordsRef.current;
       if (current.length === 0) return;
       try {
-        const cleaned = current.map(sanitizeRecordForCloud);
-        const { error } = await CLOUD.client.from('workspace_records').upsert(cleaned);
-        if (error) throw error;
-        setCloudSyncError(null);  // 成功，清错误
+        await uploadRecordsWithRetry(current);
+        setCloudSyncError(null);
       } catch(e) {
         console.error('云端写入失败', e);
         setCloudSyncError(e.message);
@@ -7904,11 +7939,14 @@ const App = () => {
           ⚠ <strong>云端写入失败</strong>：{cloudSyncError.slice(0, 100)} · 数据可能未同步到云端 · 
           <button onClick={async () => {
             try {
-              const cleaned = records.map(sanitizeRecordForCloud);
-              const { error } = await CLOUD.client.from('workspace_records').upsert(cleaned);
-              if (error) throw error;
+              await uploadRecordsWithRetry(records);
               setCloudSyncError(null);
-              toast(`✓ 已成功上传 ${records.length} 条记录到云端`);
+              const skipped = skipFieldsRef.current.size;
+              if (skipped > 0) {
+                toast(`✓ 已上传 ${records.length} 条（自动剥离了 ${skipped} 个云端缺失字段）`);
+              } else {
+                toast(`✓ 已成功上传 ${records.length} 条记录到云端`);
+              }
             } catch(e) {
               setCloudSyncError(e.message);
               alert('❌ 上传失败：' + e.message);
