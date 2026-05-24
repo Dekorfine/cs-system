@@ -931,7 +931,7 @@ fieldset legend {
       </div>
 
       <div class="cloud-filter-row">
-        <input type="text" id="cloud-search" placeholder="客户 / PI 号 / SKU · Customer / PI / SKU" oninput="renderCloudList()">
+        <input type="text" id="cloud-search" placeholder="客户 / 邮箱 / PI 号 / SKU · Customer / Email / PI / SKU" oninput="renderCloudList()">
         <select id="cloud-date-filter" onchange="renderCloudList()" title="按日期筛选 · Filter by date">
           <option value="all">全部日期 · All dates</option>
           <option value="today">今天 · Today</option>
@@ -1044,7 +1044,18 @@ fieldset legend {
       <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
         <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" >买方信息 · Buyer Information</legend>
         <div class="form-row"><label data-lang-key="buyer_name_address">Buyer Name & Address</label><textarea id="buyer_info" rows="5"></textarea></div>
-        <div class="form-row" style="margin-top:6px;"><label data-lang-key="buyer_email">Buyer Email</label><input type="email" id="buyer_email"></div>
+        <div class="form-row" style="margin-top:6px;">
+          <label data-lang-key="buyer_email">Buyer Email</label>
+          <div style="display:flex;gap:6px;align-items:stretch;">
+            <input type="email" id="buyer_email" style="flex:1;" oninput="checkEmailHistory()">
+            <button type="button" id="email-history-btn" onclick="showEmailHistory()" 
+              style="display:none;padding:6px 10px;border:1px solid #fbbf24;background:#fef3c7;color:#854d0e;border-radius:6px;font-size:11px;cursor:pointer;white-space:nowrap;font-weight:600;"
+              title="查看此邮箱过去的报价">
+              📋 历史 (<span id="email-history-count">0</span>)
+            </button>
+          </div>
+          <div id="email-history-list" style="display:none;margin-top:6px;padding:8px 10px;background:#fef9c3;border:1px solid #fde047;border-radius:6px;font-size:11px;color:#713f12;"></div>
+        </div>
       </fieldset>
 
       <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
@@ -2810,19 +2821,22 @@ async function loadCloudList() {
 
   refreshPiAutoIncrement();
   renderCloudList();
+  if (typeof checkEmailHistory === 'function') checkEmailHistory();  // 🆕 触发邮箱历史检查
   setCloudStatus(`✓ 已加载 ${cloudRecords.length} 条记录 · ${cloudRecords.length} loaded`, 'ok');
 }
 
 // 把 Supabase row 转换成 UI 需要的 cloud record 结构
 function rowToCloudRecord(row) {
   const displayName = (row.buyer_name || '(unnamed customer)').replace(/-/g, ' ');
+  const rawData = row.data || {};
   return {
     user: row.username,
     id: row.id,
     path: row.id,                  // 兼容旧代码用 path
     sha: row.updated_at,           // 用 updated_at 做冲突检测
-    rawData: row.data || {},
+    rawData,
     buyerName: displayName,
+    buyerEmail: (rawData.buyer_email || '').trim().toLowerCase(),  // 🆕 用于按邮箱搜索 + 历史记录
     piNo: row.pi_no || '',
     date: (row.updated_at || '').slice(0,16).replace('T','-').replace(':','-'),
     status: row.status || 'draft',
@@ -2830,6 +2844,90 @@ function rowToCloudRecord(row) {
     quoteName: displayName,
     trashed: !!row.trashed,
   };
+}
+
+// 🆕 按邮箱查同客户历史报价
+function checkEmailHistory() {
+  const email = ($('buyer_email')?.value || '').trim().toLowerCase();
+  const btn = $('email-history-btn');
+  const list = $('email-history-list');
+  if (!email || !email.includes('@')) {
+    if (btn) btn.style.display = 'none';
+    if (list) list.style.display = 'none';
+    return;
+  }
+  if (!cloudRecords || cloudRecords.length === 0) {
+    if (btn) btn.style.display = 'none';
+    return;
+  }
+  const hist = cloudRecords.filter(r => 
+    !r.trashed && r.buyerEmail && r.buyerEmail === email && r.id !== currentLoadedPath
+  );
+  if (hist.length === 0) {
+    if (btn) btn.style.display = 'none';
+    if (list) list.style.display = 'none';
+    return;
+  }
+  if (btn) {
+    btn.style.display = 'inline-flex';
+    const cnt = $('email-history-count');
+    if (cnt) cnt.textContent = hist.length;
+  }
+}
+
+function showEmailHistory() {
+  const email = ($('buyer_email')?.value || '').trim().toLowerCase();
+  if (!email) return;
+  const hist = cloudRecords.filter(r => 
+    !r.trashed && r.buyerEmail && r.buyerEmail === email
+  ).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  
+  const list = $('email-history-list');
+  if (!list) return;
+  
+  if (hist.length === 0) {
+    list.style.display = 'none';
+    return;
+  }
+  
+  const isOpen = list.style.display === 'block';
+  if (isOpen) { list.style.display = 'none'; return; }
+  
+  const statusEmoji = { draft:'📝', sent:'📤', won:'✅', lost:'❌', archived:'📦' };
+  const itemsHTML = hist.map(r => {
+    const dateDisplay = (r.date || '').replace('T', ' ').replace(/-(\d{2})$/, ':$1').slice(0, 16);
+    const amount = r.amount ? `$${r.amount.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '';
+    const isCurrent = r.id === currentLoadedPath;
+    return `<div style="padding:6px 8px;margin-top:4px;background:white;border-radius:4px;border:1px solid #fde047;${isCurrent ? 'border-color:#22c55e;background:#f0fdf4;' : ''}cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:6px;"
+      onclick="loadCloudRecordByPath('${r.path}')"
+      title="点击加载此报价">
+      <div style="flex:1;min-width:0;overflow:hidden;">
+        <strong style="color:#1d1d1f;">${statusEmoji[r.status] || '📋'} ${r.buyerName}</strong>
+        ${r.piNo ? `<span style="color:#7c3aed;margin-left:6px;">PI: ${r.piNo}</span>` : ''}
+        <span style="color:#86868b;margin-left:6px;">${r.user || ''}</span>
+        ${isCurrent ? '<span style="color:#16a34a;margin-left:6px;font-weight:600;">· 当前加载</span>' : ''}
+      </div>
+      <div style="color:#0071e3;font-weight:600;white-space:nowrap;">${amount}</div>
+      <div style="color:#86868b;white-space:nowrap;">${dateDisplay}</div>
+    </div>`;
+  }).join('');
+  
+  list.innerHTML = `<div style="font-weight:600;margin-bottom:4px;">🕐 此邮箱(${email})的历史报价 (${hist.length} 条):</div>` + itemsHTML;
+  list.style.display = 'block';
+}
+
+function loadCloudRecordByPath(path) {
+  const rec = cloudRecords.find(r => r.path === path);
+  if (!rec) return;
+  selectedCloudItem = rec;
+  if (typeof loadFromCloud === 'function') {
+    loadFromCloud();
+  } else if (typeof loadSelectedFromCloud === 'function') {
+    loadSelectedFromCloud();
+  }
+  // 收起历史框
+  const list = $('email-history-list');
+  if (list) list.style.display = 'none';
 }
 
 // 兼容性：旧代码可能调用 parseCloudFile
@@ -2866,8 +2964,8 @@ function renderCloudList() {
     if (!passesDateFilter(r)) return false;
     if (statusFilter && r.status !== statusFilter) return false;
     if (search) {
-      // Search across buyerName, piNo, user, status
-      const hay = `${r.buyerName} ${r.piNo} ${r.user} ${r.status}`.toLowerCase();
+      // Search across buyerName, buyerEmail, piNo, user, status
+      const hay = `${r.buyerName} ${r.buyerEmail || ''} ${r.piNo} ${r.user} ${r.status}`.toLowerCase();
       if (!hay.includes(search)) return false;
     }
     return true;
