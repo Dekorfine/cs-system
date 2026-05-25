@@ -9734,15 +9734,15 @@ const TimeRangeFilter = ({ value, onChange, customStart, customEnd, onCustomChan
   return (
     <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
       <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>
-        {label || '📅 时间范围:'}
+        {label || '🕓 超期筛选:'}
       </span>
       {[
-        { key:'all',  label:'全部'      },
-        { key:'3d',   label:'最近 3 天' },
-        { key:'7d',   label:'最近 7 天' },
-        { key:'14d',  label:'最近 14 天' },
-        { key:'30d',  label:'最近 30 天' },
-        { key:'custom', label:'📆 自定义' },
+        { key:'all',  label:'全部'           },
+        { key:'3d',   label:'超 3 天未处理'  },
+        { key:'7d',   label:'超 7 天未处理'  },
+        { key:'14d',  label:'超 14 天未处理' },
+        { key:'30d',  label:'超 30 天未处理' },
+        { key:'custom', label:'📆 自定义日期' },
       ].map(t => {
         const cnt = counts ? counts[t.key] : null;
         const isActive = value === t.key;
@@ -9782,51 +9782,64 @@ const TimeRangeFilter = ({ value, onChange, customStart, customEnd, onCustomChan
   );
 };
 
-// 🛡 全局时间筛选 - 强健版,支持多种日期字段 + 跨时区安全
-// 用法: filterByTimeRange(records, '7d', null, null, 'created_at')
-//       filterByTimeRange(records, 'custom', '2026-05-01', '2026-05-25', 'date')
+// 🛡 全局时间筛选 - 语义: "超 N 天未处理"
+// 用法: filterByTimeRange(records, '7d', null, null, 'date')
+//       筛出"上次更新时间已超过 7 天"的记录(陈年未跟进)
+// custom 模式: 筛出"创建/更新时间在自定义日期范围内"
 const filterByTimeRange = (list, timeFilter, customStart, customEnd, dateField) => {
   if (!list || list.length === 0) return list;
   if (timeFilter === 'all') return list;
   const today = todayISO();
-  let cutoffStart = null, cutoffEnd = today;
-  if (timeFilter === '3d')   cutoffStart = addDays(today, -2);   // 包含今天共 3 天(含今天)
-  else if (timeFilter === '7d')   cutoffStart = addDays(today, -6);
-  else if (timeFilter === '14d')  cutoffStart = addDays(today, -13);
-  else if (timeFilter === '30d')  cutoffStart = addDays(today, -29);
-  else if (timeFilter === 'custom') { 
-    cutoffStart = customStart; 
-    cutoffEnd = customEnd || today;
-    if (!cutoffStart) return list;  // 自定义但未填起始日期,不过滤
-  }
-  if (!cutoffStart) return list;
   
-  // 字段优先级:传入的 dateField > created_at > createdAt > date > created
-  const tryFields = [dateField, 'created_at', 'createdAt', 'date', 'created'].filter(Boolean);
+  // 自定义日期范围:保留旧语义(范围内创建/更新的)
+  if (timeFilter === 'custom') {
+    if (!customStart) return list;
+    const cutoffStart = customStart;
+    const cutoffEnd = customEnd || today;
+    const tryFields = [dateField, 'updated_at', 'created_at', 'createdAt', 'date', 'created'].filter(Boolean);
+    return list.filter(r => {
+      let raw = null;
+      for (const f of tryFields) { if (r[f]) { raw = r[f]; break; } }
+      if (!raw) return true;
+      let dateStr;
+      if (typeof raw === 'string') dateStr = raw.slice(0, 10);
+      else if (raw instanceof Date) dateStr = raw.toISOString().slice(0, 10);
+      else if (typeof raw === 'number') dateStr = new Date(raw).toISOString().slice(0, 10);
+      else return true;
+      return dateStr >= cutoffStart && dateStr <= cutoffEnd;
+    });
+  }
+  
+  // "超 N 天未处理" 语义
+  let staleDays = null;
+  if (timeFilter === '3d')   staleDays = 3;
+  else if (timeFilter === '7d')   staleDays = 7;
+  else if (timeFilter === '14d')  staleDays = 14;
+  else if (timeFilter === '30d')  staleDays = 30;
+  if (staleDays === null) return list;
+  
+  // 阈值: 最后处理时间 <= cutoff 的算"超 N 天未处理"
+  const cutoff = addDays(today, -staleDays);
   
   return list.filter(r => {
-    // 找到第一个有值的日期字段
-    let raw = null;
-    for (const f of tryFields) {
-      if (r[f]) { raw = r[f]; break; }
-    }
-    if (!raw) return true;  // 无任何日期字段 → 保留(避免误删)
+    // 优先级:updated_at(最后修改) > 传入的 dateField > created_at > date
+    // 取最新的一个(代表"最后一次被处理的时间")
+    const candidates = [r.updated_at, r[dateField], r.created_at, r.createdAt, r.date]
+      .filter(Boolean);
+    if (candidates.length === 0) return false;  // 无日期 → 不算超期(因为不知道何时建的)
     
-    // 统一规范化为 "YYYY-MM-DD" 格式
-    let dateStr;
-    if (typeof raw === 'string') {
-      dateStr = raw.length >= 10 ? raw.slice(0, 10) : raw;
-    } else if (raw instanceof Date) {
-      dateStr = raw.toISOString().slice(0, 10);
-    } else if (typeof raw === 'number') {
-      // 时间戳
-      const d = new Date(raw);
-      dateStr = d.toISOString().slice(0, 10);
-    } else {
-      return true;  // 未知格式 → 保留
+    // 取最新的一次更新时间
+    let latest = '';
+    for (const c of candidates) {
+      const cs = typeof c === 'string' ? c.slice(0, 19) : 
+                 (c instanceof Date ? c.toISOString().slice(0, 19) :
+                  (typeof c === 'number' ? new Date(c).toISOString().slice(0, 19) : ''));
+      if (cs > latest) latest = cs;
     }
+    if (!latest) return false;
     
-    return dateStr >= cutoffStart && dateStr <= cutoffEnd;
+    const latestDate = latest.slice(0, 10);
+    return latestDate <= cutoff;  // 超 N 天没被处理过
   });
 };
 
@@ -9834,34 +9847,39 @@ const filterByTimeRange = (list, timeFilter, customStart, customEnd, dateField) 
 if (typeof window !== 'undefined') {
   window.__debugTimeFilter = (list, timeFilter, dateField) => {
     const today = todayISO();
-    let cutoffStart = null;
-    if (timeFilter === '3d') cutoffStart = addDays(today, -2);
-    else if (timeFilter === '7d') cutoffStart = addDays(today, -6);
-    else if (timeFilter === '14d') cutoffStart = addDays(today, -13);
-    else if (timeFilter === '30d') cutoffStart = addDays(today, -29);
+    let staleDays = null;
+    if (timeFilter === '3d') staleDays = 3;
+    else if (timeFilter === '7d') staleDays = 7;
+    else if (timeFilter === '14d') staleDays = 14;
+    else if (timeFilter === '30d') staleDays = 30;
+    const cutoff = staleDays ? addDays(today, -staleDays) : null;
     
-    console.log(`🔍 时间筛选诊断:
+    console.log(`🔍 超期筛选诊断:
   今天: ${today}
-  筛选: ${timeFilter} (起始 ${cutoffStart} → ${today})
+  筛选: "超 ${staleDays} 天未处理" (阈值: 最后处理 ≤ ${cutoff})
   字段: ${dateField || '默认顺序'}
   输入总数: ${list?.length || 0}`);
     
     if (list && list.length > 0) {
-      const sample = list.slice(0, 5).map(r => ({
-        id: r.id, 
-        date_value: r[dateField] || r.created_at || r.createdAt || r.date || '(无)',
-        匹配: (() => {
-          const raw = r[dateField] || r.created_at || r.createdAt || r.date;
-          if (!raw) return '⚠ 无日期,保留';
-          const d = String(raw).slice(0, 10);
-          if (!cutoffStart) return '✓';
-          return d >= cutoffStart && d <= today ? '✓ 在范围内' : '✗ 超出范围';
-        })(),
-      }));
+      const sample = list.slice(0, 8).map(r => {
+        const candidates = [r.updated_at, r[dateField], r.created_at, r.createdAt, r.date].filter(Boolean);
+        let latest = '';
+        for (const c of candidates) {
+          const cs = typeof c === 'string' ? c.slice(0, 19) : '';
+          if (cs > latest) latest = cs;
+        }
+        const days = latest ? Math.floor((new Date(today) - new Date(latest.slice(0,10))) / 86400000) : null;
+        return {
+          id: r.id, 
+          latest: latest.slice(0, 10) || '(无日期)',
+          天数: days === null ? '?' : days + ' 天',
+          匹配: cutoff && latest ? (latest.slice(0,10) <= cutoff ? '✓ 超 ' + staleDays + ' 天' : '✗') : '?',
+        };
+      });
       console.table(sample);
     }
     const filtered = filterByTimeRange(list, timeFilter, null, null, dateField);
-    console.log(`  筛选后: ${filtered.length} 条`);
+    console.log(`  筛选后: ${filtered.length} 条(超 ${staleDays} 天未处理)`);
     return filtered;
   };
 }
@@ -10183,7 +10201,7 @@ const ChargebacksModule = ({ user, employees, toast }) => {
         <div style={{marginTop:10, paddingTop:10, borderTop:'1px dashed var(--line)'}}>
           <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
             customStart={timeCustom.start} customEnd={timeCustom.end}
-            onCustomChange={setTimeCustom} label="📅 创建时间:"
+            onCustomChange={setTimeCustom} label="🕓 超期筛选:"
             records={list} dateField="created_at" />
         </div>
       </div>
@@ -10732,7 +10750,7 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
         <div style={{marginTop:10, paddingTop:10, borderTop:'1px dashed var(--line)'}}>
           <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
             customStart={timeCustom.start} customEnd={timeCustom.end}
-            onCustomChange={setTimeCustom} label="📅 创建时间:"
+            onCustomChange={setTimeCustom} label="🕓 超期筛选:"
             records={list} dateField="created_at" />
         </div>
       </div>
@@ -11512,7 +11530,7 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
         <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed var(--line)'}}>
           <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
             customStart={timeCustom.start} customEnd={timeCustom.end}
-            onCustomChange={setTimeCustom} label="📅 创建时间:"
+            onCustomChange={setTimeCustom} label="🕓 超期筛选:"
             records={list} dateField="created_at" />
         </div>
       </div>
@@ -11785,7 +11803,7 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
         <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed var(--line)'}}>
           <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
             customStart={timeCustom.start} customEnd={timeCustom.end}
-            onCustomChange={setTimeCustom} label="📅 创建时间:"
+            onCustomChange={setTimeCustom} label="🕓 超期筛选:"
             records={list} dateField="created_at" />
         </div>
       </div>
