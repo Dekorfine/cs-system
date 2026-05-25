@@ -1359,7 +1359,7 @@ const LoginScreen = ({ employees, onLogin }) => {
 // ============================================================
 // 顶部导航
 // ============================================================
-const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn, employees, switchAccount, onOpenSearch }) => {
+const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn, employees, switchAccount, onOpenSearch, cdmUnreadCount = 0, cdmUrgentUnread = 0 }) => {
   const [switchModalOpen, setSwitchModalOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);  // 🆕 "更多"菜单
   const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
@@ -17684,7 +17684,7 @@ const App = () => {
   
   return (
     <div className="min-h-screen">
-      <TopNav user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} stats={stats} notifPerm={notifPerm} requestNotifPerm={requestNotifPerm} cloudOn={cloudOn} employees={employees} switchAccount={switchAccount} onOpenSearch={() => setSearchOpen(true)} />
+      <TopNav user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} stats={stats} notifPerm={notifPerm} requestNotifPerm={requestNotifPerm} cloudOn={cloudOn} employees={employees} switchAccount={switchAccount} onOpenSearch={() => setSearchOpen(true)} cdmUnreadCount={cdmUnreadCount} cdmUrgentUnread={cdmUrgentUnread} />
       
       {/* 🆕 模拟身份横幅 - 主管/老板以其他人身份查看时的提醒 */}
       {(() => {
@@ -17864,7 +17864,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix9c';
+const APP_VERSION = '2026.05.25-fix9c-hotfix1';
 console.log(
   '%c📦 统一工作台 v' + APP_VERSION + ' 已加载\n' +
   '%c如看到旧 bug,请强刷 Ctrl+Shift+R 清除缓存\n' +
