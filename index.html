@@ -5,6 +5,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>统一工作台 · 客服 / 财务 / 报价</title>
+<!-- 🚀 fix11-hotfix3: 提前 DNS+TLS 握手 美工系统域名,iframe 真要加载时跳过握手延迟 -->
+<link rel="preconnect" href="https://dekorfine.github.io" crossorigin>
+<link rel="dns-prefetch" href="https://dekorfine.github.io">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
@@ -238,6 +241,7 @@ select{
 
 /* === Animations === */
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .fade-in{animation:fadeIn .3s cubic-bezier(.4,0,.2,1)}
 @keyframes shake{
   0%,100%{transform:translateX(0)}
@@ -916,15 +920,44 @@ const getCdmClient = () => {
   } catch (e) { console.error('[CDM] 初始化消息总线 client 失败', e); return null; }
 };
 
+// ════════════════════════════════════════════════════════════════════
+// 🆕 v22-CV/CW: 11 类分类 + 默认超时阈值
+// 三方系统 (cs/design/po) 共享同一份分类定义,改一处必须同时改三处
+// ════════════════════════════════════════════════════════════════════
 const CDM_CATEGORIES = [
-  { id:'website_fix', label:'🌐 网站修改', color:'#3b82f6', bg:'#dbeafe' },
-  { id:'price_error', label:'💰 价格错误', color:'#dc2626', bg:'#fee2e2' },
-  { id:'new_product', label:'🆕 新品上架', color:'#10b981', bg:'#dcfce7' },
-  { id:'aftersales',  label:'🛠 售后问题', color:'#f59e0b', bg:'#fef3c7' },
-  { id:'review',      label:'⭐ 评价相关', color:'#a855f7', bg:'#f3e8ff' },
-  { id:'design',      label:'🎨 设计需求', color:'#ec4899', bg:'#fce7f3' },
-  { id:'general',     label:'💬 一般沟通', color:'#78716c', bg:'#f5f5f4' },
+  { id:'product_fix',    label:'🛠 修改产品',    color:'#92400e', bg:'#fef3c7', desc:'颜色/尺寸/字母/参数/SKU/视频/图片/可控硅调光 等错误',
+    defaultTimeout:{ urgent:1, high:2, normal:5, low:14 } },
+  { id:'price_fix',      label:'💰 改卖价',      color:'#991b1b', bg:'#fee2e2', desc:'价格错误 · 通常紧急',
+    defaultTimeout:{ urgent:1, high:1, normal:3, low:7 } },
+  { id:'product_remove', label:'🗑️ 下架删除',    color:'#374151', bg:'#f3f4f6', desc:'产品下架 / 删除',
+    defaultTimeout:{ urgent:1, high:2, normal:5, low:14 } },
+  { id:'new_product',    label:'🆕 上新品',      color:'#1e40af', bg:'#dbeafe', desc:'新品上架 / 客户定制 / 选网站自动派负责美工',
+    defaultTimeout:{ urgent:2, high:5, normal:10, low:21 } },
+  { id:'reviews',        label:'⭐ 做评价',      color:'#92400e', bg:'#fde68a', desc:'产品评价生成(美工协助)',
+    defaultTimeout:{ urgent:2, high:5, normal:7, low:14 } },
+  { id:'design_3d',      label:'🎨 3D 渲染',     color:'#5b21b6', bg:'#ede9fe', desc:'产品 3D 渲染 · 派给绑定网站的设计师',
+    defaultTimeout:{ urgent:3, high:7, normal:14, low:21 } },
+  { id:'install_manual', label:'📐 安装说明书',  color:'#0e7490', bg:'#cffafe', desc:'安装说明书 / 安装图 · 派给设计师',
+    defaultTimeout:{ urgent:3, high:7, normal:14, low:21 } },
+  { id:'custom_lamp',    label:'💡 非标定制',    color:'#9d174d', bg:'#fce7f3', desc:'非标定制灯具 · 派给设计师',
+    defaultTimeout:{ urgent:5, high:10, normal:21, low:30 } },
+  { id:'aftersales',     label:'📞 售后处理',    color:'#166534', bg:'#dcfce7', desc:'售后问题 / 退换货 / 投诉',
+    defaultTimeout:{ urgent:1, high:3, normal:7, low:14 } },
+  { id:'form_feedback',  label:'📋 表单反馈',    color:'#334155', bg:'#f1f5f9', desc:'订单 / 合箱单 / 报价单等表单数据问题',
+    defaultTimeout:{ urgent:2, high:5, normal:7, low:14 } },
+  { id:'general',        label:'💬 其他',        color:'#3730a3', bg:'#e0e7ff', desc:'其他需求 / 网站问题 / 一般沟通',
+    defaultTimeout:{ urgent:2, high:5, normal:7, low:14 } },
 ];
+// 旧分类 → 新分类映射(老数据自动兼容)
+const CDM_LEGACY_CATEGORY_MAP = {
+  'website_fix': 'product_fix',
+  'price_error': 'price_fix',
+  // new_product 同名
+  // aftersales 同名
+  'review':      'reviews',
+  'design':      'design_3d',
+  // general 同名
+};
 const CDM_PRIORITIES = [
   { id:'urgent', label:'🚨 紧急', color:'#dc2626', bg:'#fee2e2' },
   { id:'high',   label:'⚡ 重要', color:'#f59e0b', bg:'#fef3c7' },
@@ -950,7 +983,43 @@ const CDM_RELATED_TYPES = [
   { id:'url',      label:'网页 URL' },
 ];
 
+// 当前客服系统的标识 — 三方系统共享 cross_dept_messages 表时区分自己
+const MY_SYSTEM = 'cs';
+
 const findCdm = (arr, id) => arr.find(x => x.id === id) || arr[arr.length - 1];
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 v22-CV/CW: 超时判定工具函数
+// ════════════════════════════════════════════════════════════════════
+function getCategoryDef(catId) {
+  // 老分类自动映射到新分类
+  const mapped = CDM_LEGACY_CATEGORY_MAP[catId] || catId;
+  return CDM_CATEGORIES.find(c => c.id === mapped) || CDM_CATEGORIES[CDM_CATEGORIES.length - 1];
+}
+function getTimeoutDays(category, priority, system, timeoutOverride) {
+  try {
+    const o = timeoutOverride?.[system]?.[category]?.[priority];
+    if (typeof o === 'number' && o > 0) return o;
+  } catch (e) {}
+  const cat = getCategoryDef(category);
+  return cat.defaultTimeout?.[priority] ?? 7;
+}
+function isOverdue(message, timeoutOverride) {
+  if (!message) return false;
+  const status = message.status || 'pending';
+  if (status === 'done' || status === 'cancelled') return false;
+  const days = getTimeoutDays(message.category, message.priority, message.to_system, timeoutOverride);
+  const createdAt = message.created_at_ms || 0;
+  return Date.now() > (createdAt + days * 86400000);
+}
+function getDueAt(message, timeoutOverride) {
+  const days = getTimeoutDays(message.category, message.priority, message.to_system, timeoutOverride);
+  return (message.created_at_ms || 0) + days * 86400000;
+}
+// 全局暴露,方便调试
+if (typeof window !== 'undefined') {
+  window.__cdmHelpers = { getCategoryDef, getTimeoutDays, isOverdue, getDueAt };
+}
 
 // 🆕 售后状态
 const AFTERSALE_STATUSES = [
@@ -12783,21 +12852,23 @@ const ReviewsModule = ({ user, employees, toast }) => {
         </div>
       )}
       
-      {/* 🆕 fix11: AI 评价生成全屏面板 — 接单后直接在同页面工作 */}
-      {aiPanelReview && (
-        <ReviewAiPanel review={aiPanelReview} user={user}
-          onClose={() => setAiPanelReview(null)}
-          onComplete={() => { 
-            if (aiPanelReview._adhoc) {
-              setAiPanelReview(null);  // ad-hoc 模式下没"完成"概念,关掉就行
-              return;
-            }
-            const r = aiPanelReview;
+      {/* 🆕 fix11: AI 评价生成全屏面板 — 接单后直接在同页面工作
+           🚀 fix11-hotfix3: 永久挂载 + 后台预加载 → 首次打开后切换瞬间无感 */}
+      <ReviewAiPanel
+        visible={!!aiPanelReview}
+        review={aiPanelReview}
+        user={user}
+        onClose={() => setAiPanelReview(null)}
+        onComplete={() => { 
+          if (aiPanelReview?._adhoc) {
             setAiPanelReview(null);
-            setCompleting(r);
-          }}
-        />
-      )}
+            return;
+          }
+          const r = aiPanelReview;
+          setAiPanelReview(null);
+          setCompleting(r);
+        }}
+      />
       
       {editing && (
         <ReviewEditor review={editing === 'new' ? null : editing} user={user} employees={employees}
@@ -12996,40 +13067,70 @@ const ReviewTaskCard = ({ review, user, employees, isAdmin, onEdit, onDelete, on
 
 // ============================================================
 // 🆕 fix11: 评价任务 + AI 生成 全屏面板 (合二为一)
-// 接单后直接在同页面打开,产品信息通过 URL 参数传给美工 iframe
-// 美工系统 v22-CQ+ 会读这些参数自动填表
-// 🆕 fix11-hotfix2: 支持 ad-hoc 模式 (review._adhoc=true) — 不绑定特定任务
+// 🚀 fix11-hotfix3: 性能优化 — iframe 持久挂载 + 稳定 URL + postMessage 传任务上下文
+//    1. iframe 在 ReviewsModule mount 时就开始后台加载
+//    2. URL 只含 cs_user_* (不随任务变),首次加载后不再 reload
+//    3. 任务信息通过 postMessage 推过去 (美工 v22-CQ+ 可以监听 message 事件自动填表)
+//    4. 关闭面板时只 display:none,iframe 状态全保留,再开瞬间显示
 // ============================================================
-const ReviewAiPanel = ({ review, user, onClose, onComplete }) => {
-  const isAdhoc = !!review._adhoc;
-  // 构造 iframe URL — 在原有 cs_user_* 基础上加产品信息
+const ReviewAiPanel = ({ visible, review, user, onClose, onComplete }) => {
+  const isAdhoc = !!review?._adhoc;
+  const hasTask = !!review && !isAdhoc;
+  const iframeRef = useRef(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+
+  // 🚀 稳定 URL — 只含用户信息,不带任务参数,所以永不重新加载
   const iframeSrc = useMemo(() => {
     const params = new URLSearchParams();
     params.set('embed', 'cs-reviews');
     params.set('cs_user_id', user.id || 'cs_unknown');
     params.set('cs_user_name', (user.name || '客服') + (user.alias ? ' ' + user.alias : ''));
     params.set('cs_user_alias', user.alias || '');
-    // 🆕 任务上下文 (ad-hoc 模式下不传) — 美工那边收到这些参数会自动填到产品 URL / 标题 / 数量等
-    if (!isAdhoc) {
-      if (review.id)            params.set('cs_task_id', review.id);
-      if (review.product_url)   params.set('cs_product_url', review.product_url);
-      if (review.product_name)  params.set('cs_product_name', review.product_name);
-      if (review.site)          params.set('cs_site', review.site);
-      if (review.platform)      params.set('cs_platform', review.platform);
-      if (review.priority)      params.set('cs_priority', review.priority);
-      if (review.target_count)  params.set('cs_target_count', String(review.target_count));
-    }
     return `https://dekorfine.github.io/worktrack-kpi/?${params.toString()}`;
-  }, [isAdhoc, review.id, review.product_url, review.product_name, review.site, review.platform, review.priority, review.target_count, user.id, user.name, user.alias]);
+  }, [user.id, user.name, user.alias]);
 
-  // Esc 关闭
+  // 🚀 任务上下文 → postMessage 推给美工 iframe
+  // 美工 v22-CQ+ 可监听 message 事件,type='cs-task-context' 时自动填表
+  // 如果美工还没实现监听器也无害 — 用户能从面板头部看到任务信息,手动复制即可
   useEffect(() => {
+    if (!visible || !hasTask || !iframeLoaded) return;
+    const payload = {
+      type: 'cs-task-context',
+      task: {
+        id: review.id,
+        product_url: review.product_url || '',
+        product_name: review.product_name || '',
+        site: review.site || '',
+        platform: review.platform || '',
+        priority: review.priority || '',
+        target_count: review.target_count || null,
+        notes: review.notes || '',
+      },
+    };
+    // 多发几次,iframe 内部可能还在路由 / 初始化
+    let attempts = 0;
+    const send = () => {
+      try {
+        iframeRef.current?.contentWindow?.postMessage(payload, 'https://dekorfine.github.io');
+      } catch {}
+      attempts++;
+    };
+    send();
+    const intervalId = setInterval(() => {
+      send();
+      if (attempts >= 5) clearInterval(intervalId);
+    }, 500);
+    return () => clearInterval(intervalId);
+  }, [visible, hasTask, iframeLoaded, review?.id]);
+
+  // Esc 关闭 (只在可见时绑定)
+  useEffect(() => {
+    if (!visible) return;
     const onEsc = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onEsc);
     return () => window.removeEventListener('keydown', onEsc);
-  }, [onClose]);
+  }, [visible, onClose]);
 
-  // 复制按钮 helper
   const copy = async (text, label) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -13040,81 +13141,100 @@ const ReviewAiPanel = ({ review, user, onClose, onComplete }) => {
   return ReactDOM.createPortal(
     <div style={{
       position: 'fixed', inset: 0, background: '#fafaf7', zIndex: 99998,
-      display: 'flex', flexDirection: 'column',
+      display: visible ? 'flex' : 'none',
+      flexDirection: 'column',
     }}>
-      {/* 头部 - 任务信息 + 关闭 */}
-      <div style={{
-        padding: '10px 16px', background: 'white',
-        borderBottom: '1px solid var(--line)',
-        display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-        boxShadow: '0 1px 3px rgba(0,0,0,.04)',
-      }}>
-        <div style={{display: 'flex', flexDirection: 'column', flex: 1, minWidth: 200}}>
-          <div style={{display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3}}>
-            <span style={{padding: '2px 8px', background: '#f3e8ff', color: '#7c3aed', borderRadius: 10, fontSize: 10, fontWeight: 700}}>🤖 AI 评价生成</span>
-            {isAdhoc ? (
-              <span style={{padding: '2px 8px', background: '#f5f5f7', color: 'var(--ink-3)', borderRadius: 10, fontSize: 10, fontWeight: 600}}>✨ 临时使用 · 不绑定任务</span>
-            ) : (
-              <>
-                <span style={{padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 10, fontSize: 10, fontWeight: 600}}>👤 我接的任务</span>
-                {review.site && <span style={{padding: '2px 8px', background: '#f5f5f7', color: 'var(--ink-3)', borderRadius: 10, fontSize: 10, fontWeight: 600}}>{review.site}</span>}
-                {review.priority === 'high' && <span style={{padding: '2px 8px', background: '#fee2e2', color: '#dc2626', borderRadius: 10, fontSize: 10, fontWeight: 600}}>🔥 高优先</span>}
-              </>
+      {/* 头部 - 只在可见时渲染(review 可能是 null 的预加载状态) */}
+      {visible && review && (
+        <div style={{
+          padding: '10px 16px', background: 'white',
+          borderBottom: '1px solid var(--line)',
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          boxShadow: '0 1px 3px rgba(0,0,0,.04)',
+          flexShrink: 0,
+        }}>
+          <div style={{display: 'flex', flexDirection: 'column', flex: 1, minWidth: 200}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3}}>
+              <span style={{padding: '2px 8px', background: '#f3e8ff', color: '#7c3aed', borderRadius: 10, fontSize: 10, fontWeight: 700}}>🤖 AI 评价生成</span>
+              {isAdhoc ? (
+                <span style={{padding: '2px 8px', background: '#f5f5f7', color: 'var(--ink-3)', borderRadius: 10, fontSize: 10, fontWeight: 600}}>✨ 临时使用 · 不绑定任务</span>
+              ) : (
+                <>
+                  <span style={{padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 10, fontSize: 10, fontWeight: 600}}>👤 我接的任务</span>
+                  {review.site && <span style={{padding: '2px 8px', background: '#f5f5f7', color: 'var(--ink-3)', borderRadius: 10, fontSize: 10, fontWeight: 600}}>{review.site}</span>}
+                  {review.priority === 'high' && <span style={{padding: '2px 8px', background: '#fee2e2', color: '#dc2626', borderRadius: 10, fontSize: 10, fontWeight: 600}}>🔥 高优先</span>}
+                </>
+              )}
+            </div>
+            <div style={{fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 2}}>
+              {isAdhoc ? 'AI 评价生成工具 (临时模式)' : (review.product_name || '(未命名产品)')}
+            </div>
+            {!isAdhoc && review.product_url && (
+              <div style={{fontSize: 10, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 6}}>
+                <a href={review.product_url} target="_blank" rel="noopener noreferrer"
+                  style={{color: '#0369a1', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 460}}>
+                  🔗 {review.product_url}
+                </a>
+                <button onClick={() => copy(review.product_url, '链接')} title="复制链接"
+                  style={{padding: '1px 6px', background: '#f5f5f7', border: '1px solid var(--line)', borderRadius: 4, cursor: 'pointer', fontSize: 10, fontFamily: 'inherit', color: 'var(--ink-3)'}}>
+                  复制
+                </button>
+              </div>
+            )}
+            {isAdhoc && (
+              <div style={{fontSize: 10, color: 'var(--ink-3)'}}>
+                直接打开美工系统的评价生成工具,不与任何评价任务绑定 — 完成后无需"标记完成"
+              </div>
+            )}
+            {!isAdhoc && review.notes && (
+              <div style={{fontSize: 11, color: '#854d0e', marginTop: 4, padding: '4px 8px', background: '#fefce8', borderRadius: 4, border: '1px solid #fde047', maxWidth: 720}}>
+                💬 任务备注: {review.notes}
+              </div>
             )}
           </div>
-          <div style={{fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 2}}>
-            {isAdhoc ? 'AI 评价生成工具 (临时模式)' : (review.product_name || '(未命名产品)')}
-          </div>
-          {!isAdhoc && review.product_url && (
-            <div style={{fontSize: 10, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 6}}>
-              <a href={review.product_url} target="_blank" rel="noopener noreferrer"
-                style={{color: '#0369a1', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 460}}>
-                🔗 {review.product_url}
-              </a>
-              <button onClick={() => copy(review.product_url, '链接')} title="复制链接"
-                style={{padding: '1px 6px', background: '#f5f5f7', border: '1px solid var(--line)', borderRadius: 4, cursor: 'pointer', fontSize: 10, fontFamily: 'inherit', color: 'var(--ink-3)'}}>
-                复制
+          <div style={{display: 'flex', gap: 6, flexShrink: 0}}>
+            {!iframeLoaded && (
+              <div style={{padding: '6px 10px', background: '#fef3c7', color: '#854d0e', borderRadius: 6, fontSize: 11, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 4}}>
+                <span className="spinner" style={{display: 'inline-block', width: 10, height: 10, border: '1.5px solid #854d0e', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite'}}></span>
+                工具加载中...
+              </div>
+            )}
+            {!isAdhoc && review.target_count && (
+              <div style={{padding: '6px 10px', background: '#f5f5f7', borderRadius: 6, fontSize: 12, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 4}}>
+                <span style={{fontSize: 11, color: 'var(--ink-3)'}}>目标:</span>
+                <strong style={{color: 'var(--ink)'}}>{review.target_count} 条</strong>
+              </div>
+            )}
+            {!isAdhoc && (
+              <button onClick={onComplete}
+                style={{padding: '7px 14px', background: '#16a34a', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit'}}
+                title="生成完成后标记任务完成">
+                ✅ 已完成评价
               </button>
-            </div>
-          )}
-          {isAdhoc && (
-            <div style={{fontSize: 10, color: 'var(--ink-3)'}}>
-              直接打开美工系统的评价生成工具,不与任何评价任务绑定 — 完成后无需"标记完成"
-            </div>
-          )}
-          {!isAdhoc && review.notes && (
-            <div style={{fontSize: 11, color: '#854d0e', marginTop: 4, padding: '4px 8px', background: '#fefce8', borderRadius: 4, border: '1px solid #fde047', maxWidth: 720}}>
-              💬 任务备注: {review.notes}
-            </div>
-          )}
-        </div>
-        <div style={{display: 'flex', gap: 6, flexShrink: 0}}>
-          {!isAdhoc && review.target_count && (
-            <div style={{padding: '6px 10px', background: '#f5f5f7', borderRadius: 6, fontSize: 12, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 4}}>
-              <span style={{fontSize: 11, color: 'var(--ink-3)'}}>目标:</span>
-              <strong style={{color: 'var(--ink)'}}>{review.target_count} 条</strong>
-            </div>
-          )}
-          {!isAdhoc && (
-            <button onClick={onComplete}
-              style={{padding: '7px 14px', background: '#16a34a', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit'}}
-              title="生成完成后标记任务完成">
-              ✅ 已完成评价
+            )}
+            <button onClick={onClose}
+              style={{padding: '7px 14px', background: 'white', color: 'var(--ink-2)', border: '1px solid var(--line)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit'}}
+              title="关闭,返回任务列表(Esc) — 工具状态会保留,下次打开瞬间显示">
+              ← 返回任务列表
             </button>
-          )}
-          <button onClick={onClose}
-            style={{padding: '7px 14px', background: 'white', color: 'var(--ink-2)', border: '1px solid var(--line)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit'}}
-            title="关闭,返回任务列表(Esc)">
-            ← 返回任务列表
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* iframe */}
-      <div style={{flex: 1, padding: '8px', background: '#fafaf7'}}>
+      {/* iframe 永久挂载 — 即使面板不可见也在后台加载,关闭再开瞬间显示 */}
+      <div style={{flex: 1, padding: visible ? '8px' : 0, background: '#fafaf7', minHeight: 0}}>
         <iframe
+          ref={iframeRef}
           src={iframeSrc}
-          style={{width: '100%', height: '100%', border: 'none', borderRadius: 10, background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.06)', display: 'block'}}
+          onLoad={() => setIframeLoaded(true)}
+          loading="eager"
+          style={{
+            width: '100%', height: '100%',
+            border: 'none', borderRadius: visible ? 10 : 0,
+            background: 'white',
+            boxShadow: visible ? '0 1px 3px rgba(0,0,0,.06)' : 'none',
+            display: 'block',
+          }}
           title="AI 评价生成工具"
           allow="clipboard-read; clipboard-write"
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-popups-to-escape-sandbox"
@@ -16500,9 +16620,10 @@ const AiReviewsIframeModule = ({ user }) => {
 // 美工/客服/跟单 三系统共享消息总线 (cross_dept_messages 表)
 // 数据由 App 注入(loadCdmMessages + cdmMessages),realtime 在 App 层订阅
 // ============================================================
-const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }) => {
-  const PAGE_SIZE = 20;
-  const [tab, setTab] = useState('inbox');  // inbox / outbox
+const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast, shopOwners = [], cdmTimeoutConfig = {} }) => {
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  // 🆕 v22-CV/CW: 4 个 tab — inbox / assigned-to-me / overdue / sent
+  const [tab, setTab] = useState('inbox');
   const [filterTime, setFilterTime] = useState('30');  // today / 3 / 7 / 14 / 30 / 90 / all
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
@@ -16510,9 +16631,23 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }
   const [filterFrom, setFilterFrom] = useState('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  // 🆕 v22-CV/CW: 分页支持 20/50/100
+  const [pageSize, setPageSize] = useState(50);
   const [showNew, setShowNew] = useState(false);
   const [openMsgId, setOpenMsgId] = useState(null);
+  // 🆕 v22-CW Round 3b: 主管管理面板
+  const [showShopOwners, setShowShopOwners] = useState(false);
+  const [showTimeoutSettings, setShowTimeoutSettings] = useState(false);
   const openMsg = useMemo(() => (openMsgId ? messages.find(m => m.id === openMsgId) : null), [openMsgId, messages]);
+
+  // 🆕 v22-CV/CW: 进入页面时尝试申请浏览器通知权限
+  useEffect(() => {
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    } catch (e) {}
+  }, []);
 
   // 时间 cutoff (毫秒)
   const cutoffMs = useMemo(() => {
@@ -16524,11 +16659,21 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }
     return Date.now() - days * 24 * 3600 * 1000;
   }, [filterTime]);
 
-  // 收件箱 / 发件箱
+  // 🆕 v22-CV/CW: canSee — 收件箱可以看到 to_system=cs 或自己是 watcher 的工单
+  const canSee = (m) => {
+    if (m.to_system === MY_SYSTEM) return true;
+    if (Array.isArray(m.watchers) && m.watchers.includes(user.id)) return true;
+    return false;
+  };
+
+  // 🆕 v22-CV/CW: 4 个 tab — inbox / assigned-to-me / overdue / sent
   const tabFiltered = useMemo(() => {
-    if (tab === 'inbox') return messages.filter(m => m.to_system === 'cs');
-    return messages.filter(m => m.from_user_id === user.id && m.from_system === 'cs');
-  }, [messages, tab, user.id]);
+    if (tab === 'inbox') return messages.filter(canSee);
+    if (tab === 'assigned-to-me') return messages.filter(m => m.assigned_to_id === user.id);
+    if (tab === 'overdue') return messages.filter(m => canSee(m) && isOverdue(m, cdmTimeoutConfig));
+    // sent
+    return messages.filter(m => m.from_user_id === user.id && m.from_system === MY_SYSTEM);
+  }, [messages, tab, user.id, cdmTimeoutConfig]);
 
   const filtered = useMemo(() => {
     let arr = tabFiltered;
@@ -16541,32 +16686,45 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }
       const kws = search.toLowerCase().split(/\s+/).filter(Boolean);
       arr = arr.filter(m => {
         const hay = [
-          m.title, m.body, m.from_user_name, m.to_user_name, m.related_ref, m.category, m.priority,
+          m.title, m.body, m.from_user_name, m.to_user_name, m.related_ref, m.category, m.priority, m.related_shop, m.assigned_to_name,
           ...(m.thread || []).map(t => t.content),
         ].filter(Boolean).join(' ').toLowerCase();
         return kws.every(kw => hay.includes(kw));
       });
     }
+    // 🆕 v22-CV/CW: 排序 — 超时 > 紧急 > 时间
+    arr = [...arr].sort((a, b) => {
+      const aOverdue = isOverdue(a, cdmTimeoutConfig) ? 1 : 0;
+      const bOverdue = isOverdue(b, cdmTimeoutConfig) ? 1 : 0;
+      if (aOverdue !== bOverdue) return bOverdue - aOverdue;
+      const pri = { urgent:4, high:3, normal:2, low:1 };
+      const aP = pri[a.priority] || 0;
+      const bP = pri[b.priority] || 0;
+      if (aP !== bP) return bP - aP;
+      return (b.created_at_ms || 0) - (a.created_at_ms || 0);
+    });
     return arr;
-  }, [tabFiltered, cutoffMs, filterStatus, filterCategory, filterPriority, filterFrom, search, tab]);
+  }, [tabFiltered, cutoffMs, filterStatus, filterCategory, filterPriority, filterFrom, search, tab, cdmTimeoutConfig]);
 
-  // 统计(仅收件箱)
+  // 🆕 v22-CV/CW: 统计 — 收件箱基础 + overdue + assigned-to-me
   const stats = useMemo(() => {
-    const inbox = messages.filter(m => m.to_system === 'cs');
+    const inbox = messages.filter(canSee);
     return {
-      total:   inbox.length,
-      unread:  inbox.filter(m => !(m.read_by || []).includes(user.id) && m.from_user_id !== user.id).length,
-      pending: inbox.filter(m => m.status === 'pending').length,
-      urgent:  inbox.filter(m => m.priority === 'urgent' && m.status !== 'done' && m.status !== 'cancelled').length,
+      total:    inbox.length,
+      unread:   inbox.filter(m => !(m.read_by || []).includes(user.id) && m.from_user_id !== user.id).length,
+      pending:  inbox.filter(m => m.status === 'pending').length,
+      urgent:   inbox.filter(m => m.priority === 'urgent' && m.status !== 'done' && m.status !== 'cancelled').length,
+      overdue:  inbox.filter(m => isOverdue(m, cdmTimeoutConfig)).length,
+      assignedToMe: messages.filter(m => m.assigned_to_id === user.id && m.status !== 'done' && m.status !== 'cancelled').length,
     };
-  }, [messages, user.id]);
+  }, [messages, user.id, cdmTimeoutConfig]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageItems = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   // 切换 tab / filter 时重置页码
-  useEffect(() => { setPage(1); }, [tab, filterTime, filterStatus, filterCategory, filterPriority, filterFrom, search]);
+  useEffect(() => { setPage(1); }, [tab, filterTime, filterStatus, filterCategory, filterPriority, filterFrom, search, pageSize]);
 
   const timeChips = [
     { key:'today', label:'今天' },
@@ -16589,7 +16747,18 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }
               和 🎨 美工 / 📋 跟单 实时互通 · 消息总线 · 支持图片附件
             </div>
           </div>
-          <div style={{display:'flex', gap:6}}>
+          <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+            {/* 🆕 v22-CW Round 3b: 主管/admin 入口 */}
+            {isAdmin && (
+              <>
+                <button onClick={() => setShowShopOwners(true)} className="btn-sec" style={{padding:'6px 12px', fontSize:12}} title="维护店铺-负责人映射(三方共享)">
+                  🌐 店铺负责人 ({shopOwners.filter(s => s.system === MY_SYSTEM).length})
+                </button>
+                <button onClick={() => setShowTimeoutSettings(true)} className="btn-sec" style={{padding:'6px 12px', fontSize:12}} title="自定义客服部各分类的超时阈值">
+                  ⏰ 超时阈值
+                </button>
+              </>
+            )}
             <button onClick={onReload} disabled={loading} className="btn-sec" style={{padding:'6px 12px', fontSize:12}}>
               {loading ? '⏳' : '🔄'} 刷新
             </button>
@@ -16600,8 +16769,33 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }
         </div>
       </div>
 
-      {/* 统计卡片 */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(170px, 1fr))', gap:10}}>
+      {/* 🆕 v22-CV/CW: 持续提醒横幅 — 防止群消息把工单刷下去 */}
+      {(stats.urgent > 0 || stats.overdue > 0 || (isAdmin && stats.pending > 0)) && (
+        <div style={{
+          background:'linear-gradient(90deg, #fef2f2 0%, #fff7ed 100%)',
+          border:'2px solid #fca5a5', borderRadius:14, padding:'10px 14px',
+          display:'flex', alignItems:'center', gap:12, flexWrap:'wrap',
+        }}>
+          <div style={{width:38, height:38, borderRadius:9, background:'#dc2626', color:'white', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:18, animation:'pulse 2s ease-in-out infinite'}}>🚨</div>
+          <div style={{flex:1, minWidth:200, fontSize:12, color:'#7f1d1d', lineHeight:1.5}}>
+            <div style={{fontWeight:700, fontSize:13}}>⚠️ 还有工单需要处理 · 别让消息被群里刷下去</div>
+            <div style={{marginTop:2}}>
+              {stats.urgent > 0 && <span style={{marginRight:12}}>🚨 紧急 <strong style={{color:'#b91c1c'}}>{stats.urgent}</strong> 条</span>}
+              {stats.overdue > 0 && <span style={{marginRight:12}}>⏰ 超时 <strong style={{color:'#b91c1c'}}>{stats.overdue}</strong> 条</span>}
+              {isAdmin && stats.pending > 0 && <span>⏳ 待处理 <strong>{stats.pending}</strong> 条</span>}
+            </div>
+          </div>
+          {stats.overdue > 0 && (
+            <button onClick={() => setTab('overdue')}
+              style={{padding:'7px 14px', background:'#dc2626', color:'white', border:'none', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', flexShrink:0}}>
+              查看超时
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 统计卡片 — 5 张 */}
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:10}}>
         <div className="paper rounded-2xl p-3" style={{borderLeft:'4px solid #0071e3'}}>
           <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>📥 收件总数</div>
           <div style={{fontSize:26, fontWeight:700, color:'#0071e3', marginTop:2}}>{stats.total}</div>
@@ -16618,20 +16812,44 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }
           <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>🚨 紧急未完成</div>
           <div style={{fontSize:26, fontWeight:700, color: stats.urgent > 0 ? '#dc2626' : 'var(--ink-3)', marginTop:2}}>{stats.urgent}</div>
         </div>
+        {/* 🆕 v22-CV/CW: 超时 卡片 (点击直接跳 overdue tab) */}
+        <div onClick={() => stats.overdue > 0 && setTab('overdue')}
+          className="paper rounded-2xl p-3"
+          style={{
+            borderLeft:'4px solid ' + (stats.overdue > 0 ? '#dc2626' : '#86868b'),
+            cursor: stats.overdue > 0 ? 'pointer' : 'default',
+            background: stats.overdue > 0 ? 'linear-gradient(180deg, #fef2f2 0%, white 100%)' : 'white',
+            animation: stats.overdue > 0 ? 'pulse 2s ease-in-out infinite' : 'none',
+            transition:'transform .12s',
+          }}
+          onMouseEnter={e => { if (stats.overdue > 0) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; }}>
+          <div style={{fontSize:11, color: stats.overdue > 0 ? '#b91c1c' : 'var(--ink-3)', fontWeight:700}}>⏰ 超时</div>
+          <div style={{fontSize:26, fontWeight:700, color: stats.overdue > 0 ? '#b91c1c' : 'var(--ink-3)', marginTop:2}}>{stats.overdue}</div>
+        </div>
       </div>
 
       {/* Tab + 筛选区 */}
       <div className="paper rounded-2xl p-4">
-        {/* inbox/outbox */}
-        <div style={{display:'flex', gap:6, marginBottom:10}}>
-          <button onClick={() => setTab('inbox')}
-            style={{padding:'7px 14px', borderRadius:8, border:'1px solid ' + (tab==='inbox' ? '#0071e3' : 'var(--line)'), background: tab==='inbox' ? '#0071e3' : 'white', color: tab==='inbox' ? 'white' : 'var(--ink-2)', cursor:'pointer', fontSize:13, fontWeight: tab==='inbox' ? 600 : 500, fontFamily:'inherit'}}>
-            📥 收件箱 {tab==='inbox' && <span style={{padding:'1px 6px', background:'rgba(255,255,255,.25)', borderRadius:8, marginLeft:4, fontSize:10}}>{tabFiltered.length}</span>}
-          </button>
-          <button onClick={() => setTab('outbox')}
-            style={{padding:'7px 14px', borderRadius:8, border:'1px solid ' + (tab==='outbox' ? '#0071e3' : 'var(--line)'), background: tab==='outbox' ? '#0071e3' : 'white', color: tab==='outbox' ? 'white' : 'var(--ink-2)', cursor:'pointer', fontSize:13, fontWeight: tab==='outbox' ? 600 : 500, fontFamily:'inherit'}}>
-            📤 发件箱 {tab==='outbox' && <span style={{padding:'1px 6px', background:'rgba(255,255,255,.25)', borderRadius:8, marginLeft:4, fontSize:10}}>{tabFiltered.length}</span>}
-          </button>
+        {/* 🆕 v22-CV/CW: 4 tab — inbox / assigned-to-me / overdue / sent */}
+        <div style={{display:'flex', gap:6, marginBottom:10, flexWrap:'wrap'}}>
+          {[
+            { key:'inbox',           label:'📥 收件箱',     count: messages.filter(canSee).length },
+            { key:'assigned-to-me',  label:'📌 分派给我',   count: stats.assignedToMe, highlight: stats.assignedToMe > 0 },
+            { key:'overdue',         label:'⏰ 超时',       count: stats.overdue, highlight: stats.overdue > 0, danger: true },
+            { key:'sent',            label:'📤 我发起的',   count: messages.filter(m => m.from_user_id === user.id && m.from_system === MY_SYSTEM).length },
+          ].map(t => {
+            const active = tab === t.key;
+            const bgColor = active ? (t.danger ? '#dc2626' : '#0071e3') : 'white';
+            const borderColor = active ? (t.danger ? '#dc2626' : '#0071e3') : (t.highlight ? (t.danger ? '#fca5a5' : '#fbbf24') : 'var(--line)');
+            return (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                style={{padding:'7px 14px', borderRadius:8, border:'1px solid ' + borderColor, background: bgColor, color: active ? 'white' : (t.highlight ? (t.danger ? '#b91c1c' : '#92400e') : 'var(--ink-2)'), cursor:'pointer', fontSize:13, fontWeight: active ? 600 : (t.highlight ? 600 : 500), fontFamily:'inherit', animation: (!active && t.danger && t.highlight) ? 'pulse 2.4s ease-in-out infinite' : 'none'}}>
+                {t.label}{' '}
+                <span style={{padding:'1px 6px', background: active ? 'rgba(255,255,255,.25)' : (t.highlight ? (t.danger ? '#fee2e2' : '#fef3c7') : '#f5f5f7'), color: active ? 'white' : (t.highlight ? (t.danger ? '#b91c1c' : '#92400e') : 'var(--ink-3)'), borderRadius:8, marginLeft:2, fontSize:10, fontWeight:700}}>{t.count}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* 时间 chips */}
@@ -16677,7 +16895,7 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }
 
       {/* 分页器 上 */}
       {totalPages > 1 && (
-        <CdmPager page={safePage} total={totalPages} count={filtered.length} onChange={setPage} />
+        <CdmPager page={safePage} total={totalPages} count={filtered.length} pageSize={pageSize} setPageSize={setPageSize} onChange={setPage} />
       )}
 
       {/* 列表 */}
@@ -16691,6 +16909,7 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }
         <div className="space-y-2">
           {pageItems.map(m => (
             <CdmMessageCard key={m.id} msg={m} user={user} tab={tab}
+              cdmTimeoutConfig={cdmTimeoutConfig}
               onOpen={() => setOpenMsgId(m.id)} />
           ))}
         </div>
@@ -16698,12 +16917,13 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }
 
       {/* 分页器 下 */}
       {totalPages > 1 && (
-        <CdmPager page={safePage} total={totalPages} count={filtered.length} onChange={setPage} />
+        <CdmPager page={safePage} total={totalPages} count={filtered.length} pageSize={pageSize} setPageSize={setPageSize} onChange={setPage} />
       )}
 
       {/* 新建消息 modal */}
       {showNew && (
         <CdmNewMessageModal user={user} employees={employees}
+          shopOwners={shopOwners}
           onClose={() => setShowNew(false)}
           onSent={() => { setShowNew(false); onReload(); toast('✓ 已发送'); }}
           toast={toast} />
@@ -16711,19 +16931,43 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast }
 
       {/* 详情 modal */}
       {openMsg && (
-        <CdmDetailModal msg={openMsg} user={user}
+        <CdmDetailModal msg={openMsg} user={user} employees={employees}
+          shopOwners={shopOwners} cdmTimeoutConfig={cdmTimeoutConfig}
           onClose={() => setOpenMsgId(null)}
           onChanged={onReload}
           toast={toast} />
+      )}
+
+      {/* 🆕 v22-CW Round 3b: 主管管理面板 */}
+      {showShopOwners && (
+        <ShopOwnersManager user={user} employees={employees} shopOwners={shopOwners}
+          onClose={() => setShowShopOwners(false)} toast={toast} />
+      )}
+      {showTimeoutSettings && (
+        <TimeoutSettingsModal user={user} cdmTimeoutConfig={cdmTimeoutConfig}
+          onClose={() => setShowTimeoutSettings(false)} toast={toast} />
       )}
     </div>
   );
 };
 
-// 简单分页器
-const CdmPager = ({ page, total, count, onChange }) => (
+// 简单分页器 — 🆕 v22-CV/CW: 支持 20/50/100 每页切换
+const CdmPager = ({ page, total, count, pageSize, setPageSize, onChange }) => (
   <div className="paper rounded-2xl" style={{padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap'}}>
-    <div style={{fontSize:11, color:'var(--ink-3)'}}>共 {count} 条 · 第 {page} / {total} 页</div>
+    <div style={{display:'flex', alignItems:'center', gap:10, fontSize:11, color:'var(--ink-3)', flexWrap:'wrap'}}>
+      <span>共 {count} 条 · 第 {page} / {total} 页</span>
+      {setPageSize && (
+        <div style={{display:'flex', alignItems:'center', gap:4}}>
+          <span style={{color:'var(--ink-4)'}}>每页:</span>
+          {[20, 50, 100].map(n => (
+            <button key={n} onClick={() => setPageSize(n)}
+              style={{padding:'2px 8px', fontSize:11, borderRadius:5, border:'1px solid ' + (pageSize === n ? '#0071e3' : 'var(--line)'), background: pageSize === n ? '#0071e3' : 'white', color: pageSize === n ? 'white' : 'var(--ink-2)', cursor:'pointer', fontFamily:'inherit', fontWeight: pageSize === n ? 600 : 500}}>
+              {n}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
     <div style={{display:'flex', gap:4}}>
       <button onClick={() => onChange(1)} disabled={page === 1} className="btn-ghost" style={{padding:'3px 10px', fontSize:12, opacity: page===1?0.4:1}}>«</button>
       <button onClick={() => onChange(Math.max(1, page - 1))} disabled={page === 1} className="btn-ghost" style={{padding:'3px 10px', fontSize:12, opacity: page===1?0.4:1}}>‹</button>
@@ -16734,8 +16978,9 @@ const CdmPager = ({ page, total, count, onChange }) => (
 );
 
 // 消息卡片
-const CdmMessageCard = ({ msg, user, tab, onOpen }) => {
-  const cat = findCdm(CDM_CATEGORIES, msg.category);
+// 🆕 v22-CV/CW: 显示 超时角标 / 关联网站 / 分派给 / watcher 数 / 截止剩余天数
+const CdmMessageCard = ({ msg, user, tab, onOpen, cdmTimeoutConfig }) => {
+  const cat = getCategoryDef(msg.category);  // 用 getCategoryDef 而非 findCdm — 旧分类(website_fix 等)自动映射到新分类
   const pri = findCdm(CDM_PRIORITIES, msg.priority);
   const st  = findCdm(CDM_STATUSES, msg.status);
   const peerSystem = tab === 'inbox' ? msg.from_system : msg.to_system;
@@ -16745,26 +16990,34 @@ const CdmMessageCard = ({ msg, user, tab, onOpen }) => {
   const threadCount = (msg.thread || []).length;
   const attCount = (msg.attachments || []).length + (msg.thread || []).reduce((s, t) => s + (t.attachments || []).length, 0);
   const dateStr = msg.created_at_ms ? new Date(msg.created_at_ms).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+  // 🆕 超时判定
+  const overdue = isOverdue(msg, cdmTimeoutConfig);
+  const dueAt = getDueAt(msg, cdmTimeoutConfig);
+  const dueDays = Math.round((dueAt - Date.now()) / 86400000);
+  const watcherCount = Array.isArray(msg.watchers) ? msg.watchers.length : 0;
   
   return (
     <div onClick={onOpen}
       style={{
         padding:'12px 14px',
-        background:'white',
-        border: '1.5px solid ' + (isUnread ? '#0071e3' : 'var(--line)'),
+        background: overdue ? '#fef2f2' : 'white',
+        border: '1.5px solid ' + (overdue ? '#fca5a5' : (isUnread ? '#0071e3' : 'var(--line)')),
         borderRadius:12, cursor:'pointer',
         position:'relative', transition:'all .12s',
       }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,113,227,.15)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+      onMouseEnter={e => { e.currentTarget.style.boxShadow = overdue ? '0 2px 12px rgba(220,38,38,.18)' : '0 2px 12px rgba(0,113,227,.15)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)'; }}>
       {isUnread && (
         <span style={{position:'absolute', top:14, left:-5, width:10, height:10, background:'#0071e3', borderRadius:5, boxShadow:'0 0 0 3px white'}} />
       )}
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap', marginBottom:6}}>
         <div style={{display:'flex', gap:4, alignItems:'center', flexWrap:'wrap'}}>
+          {overdue && <span style={{padding:'2px 8px', background:'#dc2626', color:'white', borderRadius:10, fontSize:10, fontWeight:700, animation:'pulse 1.8s ease-in-out infinite'}}>⏰ 超时</span>}
           <span style={{padding:'2px 8px', background: cat.bg, color: cat.color, borderRadius:10, fontSize:10, fontWeight:600}}>{cat.label}</span>
           <span style={{padding:'2px 8px', background: pri.bg, color: pri.color, borderRadius:10, fontSize:10, fontWeight:600}}>{pri.label}</span>
           <span style={{padding:'2px 8px', background: st.bg, color: st.color, borderRadius:10, fontSize:10, fontWeight:600}}>{st.label}</span>
+          {msg.related_shop && <span style={{padding:'2px 8px', background:'#d1fae5', color:'#065f46', borderRadius:10, fontSize:10, fontWeight:600}}>🌐 {msg.related_shop}</span>}
+          {msg.assigned_to_name && <span style={{padding:'2px 8px', background:'#dbeafe', color:'#1e40af', borderRadius:10, fontSize:10, fontWeight:600}}>📌 {msg.assigned_to_name}</span>}
         </div>
         <div style={{fontSize:11, color:'var(--ink-3)', display:'flex', gap:4, alignItems:'center'}}>
           <span>{tab === 'inbox' ? '来自' : '发给'}</span>
@@ -16780,20 +17033,31 @@ const CdmMessageCard = ({ msg, user, tab, onOpen }) => {
           {msg.body}
         </div>
       )}
-      <div style={{display:'flex', gap:10, fontSize:10, color:'var(--ink-4)', flexWrap:'wrap'}}>
+      <div style={{display:'flex', gap:10, fontSize:10, color:'var(--ink-4)', flexWrap:'wrap', alignItems:'center'}}>
         <span>🕐 {dateStr}</span>
+        {/* 🆕 截止时间 */}
+        {!overdue && msg.status !== 'done' && msg.status !== 'cancelled' && (
+          <span style={{color: dueDays <= 1 ? '#b45309' : 'var(--ink-4)', fontWeight: dueDays <= 1 ? 700 : 400}}>
+            · {dueDays <= 0 ? '今日截止' : `还剩 ${dueDays} 天`}
+          </span>
+        )}
+        {overdue && <span style={{color:'#b91c1c', fontWeight:700}}>· 已逾期 {Math.abs(dueDays)} 天</span>}
         {msg.related_ref && <span>🔗 {msg.related_ref}</span>}
         {threadCount > 0 && <span>💬 {threadCount} 回复</span>}
         {attCount > 0 && <span>📎 {attCount} 附件</span>}
+        {watcherCount > 0 && <span>👁 {watcherCount} 关注</span>}
       </div>
     </div>
   );
 };
 
 // 新建消息 modal
-const CdmNewMessageModal = ({ user, employees, onClose, onSent, toast }) => {
+const CdmNewMessageModal = ({ user, employees, shopOwners = [], onClose, onSent, toast }) => {
   const [toSystem, setToSystem] = useState('design');
+  const [toUserId, setToUserId] = useState('');  // 🆕 v22-CW
   const [toUserName, setToUserName] = useState('');
+  const [relatedShop, setRelatedShop] = useState('');  // 🆕 v22-CW
+  const [watchers, setWatchers] = useState([]);  // 🆕 v22-CW
   const [category, setCategory] = useState('general');
   const [priority, setPriority] = useState('normal');
   const [title, setTitle] = useState('');
@@ -16803,6 +17067,41 @@ const CdmNewMessageModal = ({ user, employees, onClose, onSent, toast }) => {
   const [attachments, setAttachments] = useState([]);
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef(null);
+
+  // 🆕 v22-CW: 可选网站列表(去重)
+  const availableShops = useMemo(() => {
+    return Array.from(new Set((shopOwners || []).map(s => s.shopName))).sort();
+  }, [shopOwners]);
+
+  // 🆕 v22-CW: 选了网站 + 目标部门 → 自动建议负责人(primary > manager > 第一个)
+  useEffect(() => {
+    if (!relatedShop || !toSystem) return;
+    const candidates = (shopOwners || []).filter(s => s.shopName === relatedShop && s.system === toSystem);
+    const primary = candidates.find(c => c.role === 'primary')
+                 || candidates.find(c => c.role === 'manager')
+                 || candidates[0];
+    if (primary && !toUserId) {
+      setToUserId(primary.userId);
+      setToUserName(primary.userName);
+    }
+  }, [relatedShop, toSystem, shopOwners]);
+
+  // 🆕 v22-CW: 网站候选负责人列表 (供 UI 显示给用户选)
+  const shopCandidates = useMemo(() => {
+    if (!relatedShop || !toSystem) return [];
+    return (shopOwners || []).filter(s => s.shopName === relatedShop && s.system === toSystem);
+  }, [relatedShop, toSystem, shopOwners]);
+
+  // 🆕 v22-CW: watcher 候选列表 (目标部门里所有店铺负责人,去掉接收人本人)
+  const watcherCandidates = useMemo(() => {
+    const seen = new Set();
+    return (shopOwners || [])
+      .filter(s => s.system === toSystem && s.userId !== toUserId)
+      .filter(s => { if (seen.has(s.userId)) return false; seen.add(s.userId); return true; });
+  }, [shopOwners, toSystem, toUserId]);
+  const toggleWatcher = (uid) => {
+    setWatchers(prev => prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid]);
+  };
 
   const readFiles = async (files) => {
     const arr = [];
@@ -16850,12 +17149,14 @@ const CdmNewMessageModal = ({ user, employees, onClose, onSent, toast }) => {
     setSending(true);
     const userName = user.name + (user.alias ? ' ' + user.alias : '');
     const msg = {
-      from_system: 'cs',
+      from_system: MY_SYSTEM,
       from_user_id: user.id,
       from_user_name: userName,
       to_system: toSystem,
-      to_user_id: null,
+      to_user_id: toUserId || null,         // 🆕 v22-CW
       to_user_name: toUserName.trim() || null,
+      related_shop: relatedShop || null,    // 🆕 v22-CW
+      watchers: watchers.length ? watchers : null,  // 🆕 v22-CW
       category, priority,
       title: title.trim(),
       body: body.trim() || null,
@@ -16888,16 +17189,81 @@ const CdmNewMessageModal = ({ user, employees, onClose, onSent, toast }) => {
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
             <div>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>发给哪个部门 *</label>
-              <select value={toSystem} onChange={e => setToSystem(e.target.value)}
+              <select value={toSystem} onChange={e => { setToSystem(e.target.value); setToUserId(''); setToUserName(''); setWatchers([]); }}
                 style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white', fontFamily:'inherit'}}>
                 {CDM_SYSTEMS.filter(s => s.id !== 'cs').map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
               </select>
             </div>
             <div>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>指定接收人 (选填)</label>
-              <input value={toUserName} onChange={e => setToUserName(e.target.value)} placeholder="留空 = 整个部门可见"
+              <input value={toUserName} onChange={e => { setToUserName(e.target.value); setToUserId(''); }}
+                placeholder="留空 = 整个部门可见"
                 style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit'}} />
             </div>
+          </div>
+          {/* 🆕 v22-CW: 关联网站 + 自动建议负责人 */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>
+                🌐 关联网站 <span style={{color:'var(--ink-4)', fontWeight:400}}>· 选后自动派负责人</span>
+              </label>
+              <select value={relatedShop} onChange={e => { setRelatedShop(e.target.value); setToUserId(''); setToUserName(''); }}
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white', fontFamily:'inherit'}}>
+                <option value="">— 不关联 —</option>
+                {availableShops.map(shop => <option key={shop} value={shop}>{shop}</option>)}
+              </select>
+              {availableShops.length === 0 && (
+                <div style={{marginTop:4, fontSize:10, color:'var(--ink-4)'}}>暂无店铺数据 · 主管可在"🌐 店铺负责人"维护</div>
+              )}
+            </div>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>
+                建议负责人 <span style={{color:'var(--ink-4)', fontWeight:400}}>· 点选切换</span>
+              </label>
+              {shopCandidates.length === 0 ? (
+                <div style={{padding:'7px 10px', background:'#fafafa', border:'1px dashed var(--line)', borderRadius:7, fontSize:11, color:'var(--ink-4)'}}>
+                  {relatedShop ? '该网站尚未注册负责人' : '选网站后显示'}
+                </div>
+              ) : (
+                <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
+                  {shopCandidates.map(c => {
+                    const isSel = toUserId === c.userId;
+                    const roleEmoji = c.role === 'primary' ? '★' : c.role === 'manager' ? '👑' : c.role === 'designer' ? '🎨' : '·';
+                    return (
+                      <button key={c.id} type="button"
+                        onClick={() => { setToUserId(c.userId); setToUserName(c.userName); }}
+                        style={{padding:'5px 9px', background: isSel ? '#0071e3' : 'white', color: isSel ? 'white' : 'var(--ink-2)', border:'1px solid ' + (isSel ? '#0071e3' : 'var(--line)'), borderRadius:6, cursor:'pointer', fontSize:11, fontFamily:'inherit', fontWeight: isSel ? 600 : 500}}
+                        title={`${c.role}${c.notes ? ' · ' + c.notes : ''}`}>
+                        {roleEmoji} {c.userName}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+          {/* 🆕 v22-CW: watcher 多选 — 额外通知谁,会出现在他们的收件箱 */}
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>
+              👁 额外通知 <span style={{color:'var(--ink-4)', fontWeight:400}}>· 这些人在收件箱也能看到此工单(可不选)</span>
+            </label>
+            {watcherCandidates.length === 0 ? (
+              <div style={{padding:'7px 10px', background:'#fafafa', border:'1px dashed var(--line)', borderRadius:7, fontSize:11, color:'var(--ink-4)'}}>
+                对方部门未注册其他店铺负责人
+              </div>
+            ) : (
+              <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
+                {watcherCandidates.map(c => {
+                  const isSel = watchers.includes(c.userId);
+                  return (
+                    <button key={c.userId} type="button" onClick={() => toggleWatcher(c.userId)}
+                      style={{padding:'5px 9px', background: isSel ? '#7c3aed' : 'white', color: isSel ? 'white' : 'var(--ink-2)', border:'1px solid ' + (isSel ? '#7c3aed' : 'var(--line)'), borderRadius:6, cursor:'pointer', fontSize:11, fontFamily:'inherit', fontWeight: isSel ? 600 : 500}}>
+                      {isSel ? '✓' : '+'} {c.userName}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
             <div>
@@ -16981,18 +17347,29 @@ const CdmNewMessageModal = ({ user, employees, onClose, onSent, toast }) => {
 };
 
 // 详情 modal
-const CdmDetailModal = ({ msg, user, onClose, onChanged, toast }) => {
+// 🆕 v22-CW: 加 分派 / watcher 管理 / 完成时桌面通知
+const CdmDetailModal = ({ msg, user, employees = [], shopOwners = [], cdmTimeoutConfig = {}, onClose, onChanged, toast }) => {
   const [replyText, setReplyText] = useState('');
   const [replyAttachments, setReplyAttachments] = useState([]);
   const [sending, setSending] = useState(false);
   const [imgPreview, setImgPreview] = useState(null);
+  const [showAssign, setShowAssign] = useState(false);  // 🆕 v22-CW
   const fileInputRef = useRef(null);
-  const cat = findCdm(CDM_CATEGORIES, msg.category);
+  const cat = getCategoryDef(msg.category);  // 🆕 用 getCategoryDef 兼容老分类
   const pri = findCdm(CDM_PRIORITIES, msg.priority);
   const st  = findCdm(CDM_STATUSES, msg.status);
   const fromSys = findCdm(CDM_SYSTEMS, msg.from_system);
   const toSys = findCdm(CDM_SYSTEMS, msg.to_system);
-  const isReceiver = msg.to_system === 'cs';
+  const isReceiver = msg.to_system === MY_SYSTEM;
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  // 🆕 v22-CW: 主管 + 接收方可分派
+  const canAssign = isReceiver && isAdmin;
+  // 🆕 v22-CW: 当前部门员工列表(用于分派 + 加 watcher)
+  const myDeptUsers = useMemo(() => (employees || []).filter(e => !e.hideFromList), [employees]);
+  // 🆕 超时判定
+  const overdue = isOverdue(msg, cdmTimeoutConfig);
+  const dueAt = getDueAt(msg, cdmTimeoutConfig);
+  const dueDays = Math.round((dueAt - Date.now()) / 86400000);
 
   // 打开时标记已读
   useEffect(() => {
@@ -17039,7 +17416,7 @@ const CdmDetailModal = ({ msg, user, onClose, onChanged, toast }) => {
       const newThread = [...(latest?.thread || []), {
         user_id: user.id,
         user_name: userName,
-        system: 'cs',
+        system: MY_SYSTEM,
         content: replyText.trim(),
         attachments: replyAttachments,
         ts: Date.now(),
@@ -17066,11 +17443,75 @@ const CdmDetailModal = ({ msg, user, onClose, onChanged, toast }) => {
       updates.completed_at_ms = Date.now();
       updates.completed_by_id = user.id;
       updates.completed_by_name = userName;
+    } else {
+      // 撤销完成 — 清空完成字段
+      updates.completed_at_ms = null;
+      updates.completed_by_id = null;
+      updates.completed_by_name = null;
     }
     try {
       const { error } = await client.from('cross_dept_messages').update(updates).eq('id', msg.id);
       if (error) throw error;
       toast(`✓ 状态已更新为 ${findCdm(CDM_STATUSES, newStatus).label}`);
+      // 🆕 v22-CW: 完成时 → 桌面通知(给当前操作者本人,确认完成动作)
+      if (newStatus === 'done') {
+        try {
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            new Notification(`✅ 工单已完成: ${msg.title}`, {
+              body: `由 ${userName} 完成`,
+              tag: 'cdm-done-' + msg.id,
+            });
+          }
+        } catch {}
+      }
+      onChanged && onChanged();
+    } catch (e) { alert('更新失败: ' + (e.message || e)); }
+  };
+
+  // 🆕 v22-CW: 主管分派工单给手下
+  const assignTo = async (userId, userName) => {
+    const client = getCdmClient();
+    if (!client) { alert('消息总线未连接'); return; }
+    try {
+      const myName = user.name + (user.alias ? ' ' + user.alias : '');
+      await client.from('cross_dept_messages').update({
+        assigned_to_id: userId,
+        assigned_to_name: userName,
+        assigned_by_id: user.id,
+        assigned_by_name: myName,
+        assigned_at_ms: Date.now(),
+        status: msg.status === 'pending' ? 'in_progress' : msg.status,
+        updated_at: new Date().toISOString(),
+      }).eq('id', msg.id);
+      // 加 thread 留痕
+      const { data: latest } = await client.from('cross_dept_messages').select('thread').eq('id', msg.id).maybeSingle();
+      const newThread = [...(latest?.thread || []), {
+        user_id: user.id, user_name: myName, system: MY_SYSTEM,
+        content: `📌 分派给「${userName}」处理`,
+        ts: Date.now(),
+      }];
+      await client.from('cross_dept_messages').update({ thread: newThread }).eq('id', msg.id);
+      toast(`✓ 已分派给 ${userName}`);
+      setShowAssign(false);
+      onChanged && onChanged();
+    } catch (e) { alert('分派失败: ' + (e.message || e)); }
+  };
+
+  // 🆕 v22-CW: 切换 watcher (加/移除关注人)
+  const toggleWatcher = async (uid, uname) => {
+    const client = getCdmClient();
+    if (!client) { alert('消息总线未连接'); return; }
+    try {
+      // 先拉最新避免并发覆盖
+      const { data: latest } = await client.from('cross_dept_messages').select('watchers').eq('id', msg.id).maybeSingle();
+      const current = (latest?.watchers || []);
+      const isWatching = current.includes(uid);
+      const next = isWatching ? current.filter(x => x !== uid) : [...current, uid];
+      await client.from('cross_dept_messages').update({
+        watchers: next.length ? next : null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', msg.id);
+      toast(isWatching ? `✓ 已移除 ${uname || ''} 关注` : `✓ 已添加 ${uname || ''} 为关注人`);
       onChanged && onChanged();
     } catch (e) { alert('更新失败: ' + (e.message || e)); }
   };
@@ -17099,6 +17540,33 @@ const CdmDetailModal = ({ msg, user, onClose, onChanged, toast }) => {
             <span><strong style={{color:'var(--ink)'}}>{toSys.label}</strong>{msg.to_user_name ? ' · ' + msg.to_user_name : ' (整个部门)'}</span>
             <span style={{marginLeft:'auto', color:'var(--ink-4)'}}>{formatTs(msg.created_at_ms)}</span>
           </div>
+          {/* 🆕 v22-CV/CW: 头部信息块 — 关联网站 / 已分派给 / 超时状态 */}
+          {(msg.related_shop || msg.assigned_to_name || overdue || (msg.status !== 'done' && msg.status !== 'cancelled')) && (
+            <div style={{display:'flex', flexWrap:'wrap', gap:8, marginBottom:10, alignItems:'center'}}>
+              {msg.related_shop && (
+                <div style={{padding:'4px 10px', background:'#d1fae5', color:'#065f46', borderRadius:7, fontSize:11, fontWeight:600}}>
+                  🌐 关联网站: <strong>{msg.related_shop}</strong>
+                </div>
+              )}
+              {msg.assigned_to_name && (
+                <div style={{padding:'4px 10px', background:'#dbeafe', color:'#1e40af', borderRadius:7, fontSize:11, fontWeight:600}}>
+                  📌 已分派给 <strong>{msg.assigned_to_name}</strong>
+                  {msg.assigned_by_name && <span style={{fontWeight:400}}> · 由 {msg.assigned_by_name}</span>}
+                  {msg.assigned_at_ms && <span style={{fontWeight:400}}> · {formatTs(msg.assigned_at_ms)}</span>}
+                </div>
+              )}
+              {overdue && (
+                <div style={{padding:'4px 10px', background:'#fee2e2', color:'#b91c1c', borderRadius:7, fontSize:11, fontWeight:700, animation:'pulse 2s ease-in-out infinite'}}>
+                  ⏰ 已逾期 {Math.abs(dueDays)} 天
+                </div>
+              )}
+              {!overdue && msg.status !== 'done' && msg.status !== 'cancelled' && (
+                <div style={{padding:'4px 10px', background:'#f5f5f7', color:'var(--ink-3)', borderRadius:7, fontSize:11}}>
+                  ⏳ {dueDays <= 0 ? '今日截止' : `还剩 ${dueDays} 天`}
+                </div>
+              )}
+            </div>
+          )}
           {msg.related_ref && (
             <div style={{fontSize:12, marginBottom:8, padding:'4px 10px', background:'#f5f5f7', borderRadius:6, display:'inline-block'}}>
               🔗 {findCdm(CDM_RELATED_TYPES, msg.related_type)?.label || '关联'}: <strong>{msg.related_ref}</strong>
@@ -17144,6 +17612,94 @@ const CdmDetailModal = ({ msg, user, onClose, onChanged, toast }) => {
                   完成于 {formatTs(msg.completed_at_ms)} by {msg.completed_by_name}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 🆕 v22-CW: 工单分派 (仅主管 + 接收方可见) */}
+          {canAssign && msg.status !== 'done' && msg.status !== 'cancelled' && (
+            <div style={{padding:'10px 12px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, marginBottom:12}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                <div style={{fontSize:12, fontWeight:600, color:'#1e40af'}}>
+                  📌 工单分派
+                  {msg.assigned_to_name && <span style={{fontWeight:400, marginLeft:6, color:'#1e3a8a'}}>· 当前: <strong>{msg.assigned_to_name}</strong></span>}
+                </div>
+                <button onClick={() => setShowAssign(v => !v)}
+                  style={{padding:'4px 10px', background:'white', border:'1px solid #93c5fd', color:'#1e40af', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                  {showAssign ? '收起' : (msg.assigned_to_id ? '✏️ 重新分派' : '📌 分派给手下处理')}
+                </button>
+              </div>
+              {showAssign && (
+                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(100px, 1fr))', gap:5, marginTop:8}}>
+                  {myDeptUsers.length === 0 ? (
+                    <div style={{fontSize:11, color:'var(--ink-4)'}}>暂无员工列表</div>
+                  ) : myDeptUsers.map(u => {
+                    const uname = u.name + (u.alias ? ' ' + u.alias : '');
+                    const isCurrent = msg.assigned_to_id === u.id;
+                    return (
+                      <button key={u.id} onClick={() => assignTo(u.id, uname)} disabled={isCurrent}
+                        style={{padding:'5px 8px', background: isCurrent ? '#93c5fd' : 'white', border:'1px solid ' + (isCurrent ? '#93c5fd' : '#bfdbfe'), color: isCurrent ? 'white' : '#1e40af', borderRadius:5, cursor: isCurrent ? 'not-allowed' : 'pointer', fontSize:11, fontWeight: isCurrent ? 600 : 500, fontFamily:'inherit', opacity: isCurrent ? 0.7 : 1}}>
+                        {isCurrent && '✓ '}👤 {uname}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 🆕 v22-CW: 关注人 (watchers) — 主管可编辑,其他人只读 */}
+          {(canAssign || (msg.watchers && msg.watchers.length > 0)) && (
+            <div style={{padding:'10px 12px', background:'#faf5ff', border:'1px solid #e9d5ff', borderRadius:8, marginBottom:12}}>
+              <div style={{fontSize:12, fontWeight:600, color:'#6b21a8', marginBottom:6}}>
+                👁 关注人 ({(msg.watchers || []).length}) <span style={{fontWeight:400, color:'#7c3aed'}}>· 在他们收件箱也能看到</span>
+              </div>
+              {(msg.watchers || []).length > 0 && (
+                <div style={{display:'flex', gap:5, flexWrap:'wrap', marginBottom: canAssign ? 8 : 0}}>
+                  {(msg.watchers || []).map(wid => {
+                    // 查名字 — 先 shopOwners,再 employees
+                    const name = (shopOwners.find(s => s.userId === wid)?.userName)
+                              || (myDeptUsers.find(u => u.id === wid)?.name)
+                              || wid;
+                    return (
+                      <span key={wid}
+                        style={{display:'inline-flex', alignItems:'center', gap:4, padding:'3px 9px', background:'white', color:'#6b21a8', border:'1px solid #d8b4fe', borderRadius:14, fontSize:11, fontWeight:500}}>
+                        👁 {name}
+                        {canAssign && (
+                          <button onClick={() => toggleWatcher(wid, name)}
+                            style={{background:'transparent', border:'none', cursor:'pointer', color:'#a78bfa', padding:0, marginLeft:2, fontSize:13, lineHeight:1}}
+                            title="移除关注">×</button>
+                        )}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              {canAssign && (() => {
+                const candidates = myDeptUsers.filter(u =>
+                  !(msg.watchers || []).includes(u.id) &&
+                  u.id !== msg.assigned_to_id &&
+                  u.id !== msg.to_user_id
+                );
+                if (candidates.length === 0) return (
+                  <div style={{fontSize:10, color:'var(--ink-4)'}}>本部门员工都已是关注人 / 接收人 / 分派对象</div>
+                );
+                return (
+                  <div>
+                    <div style={{fontSize:10, color:'var(--ink-3)', marginBottom:4}}>+ 添加本部门关注人:</div>
+                    <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
+                      {candidates.map(u => {
+                        const uname = u.name + (u.alias ? ' ' + u.alias : '');
+                        return (
+                          <button key={u.id} onClick={() => toggleWatcher(u.id, uname)}
+                            style={{padding:'3px 9px', background:'white', color:'#7c3aed', border:'1px solid #e9d5ff', borderRadius:14, cursor:'pointer', fontSize:11, fontFamily:'inherit', fontWeight:500}}>
+                            + {uname}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -17226,6 +17782,433 @@ const CdmDetailModal = ({ msg, user, onClose, onChanged, toast }) => {
           <img src={imgPreview} alt="预览" style={{maxWidth:'90%', maxHeight:'90%', borderRadius:8, boxShadow:'0 20px 60px rgba(0,0,0,.5)'}} />
         </div>
       )}
+    </div>,
+    document.body
+  );
+};
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 v22-CW Round 3b: 店铺负责人管理 (主管/admin)
+// ════════════════════════════════════════════════════════════════════
+const CDM_OWNER_ROLES = [
+  { id:'primary',  label:'★ 主负责',     color:'#0071e3' },
+  { id:'backup',   label:'· 备用',       color:'#86868b' },
+  { id:'manager',  label:'👑 主管',      color:'#7c3aed' },
+  { id:'designer', label:'🎨 设计师',    color:'#ec4899' },
+];
+
+const ShopOwnersManager = ({ user, employees, shopOwners = [], onClose, toast }) => {
+  const [editing, setEditing] = useState(null);  // { shopName, userId, userName, role, notes, id? }
+  const [showNew, setShowNew] = useState(false);
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+
+  // 按店铺分组
+  const grouped = useMemo(() => {
+    const m = new Map();
+    (shopOwners || []).forEach(o => {
+      if (!m.has(o.shopName)) m.set(o.shopName, []);
+      m.get(o.shopName).push(o);
+    });
+    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [shopOwners]);
+
+  // 客服部 owner 数量 (页面顶部统计)
+  const csOwnerCount = (shopOwners || []).filter(s => s.system === MY_SYSTEM).length;
+
+  // 可选员工 (排除已 hide 的)
+  const availableEmployees = useMemo(() => (employees || []).filter(e => !e.hideFromList), [employees]);
+
+  const saveOwner = async (record) => {
+    const client = getCdmClient();
+    if (!client) { alert('消息总线未连接'); return; }
+    try {
+      const row = {
+        id: record.id || (crypto.randomUUID ? crypto.randomUUID() : ('so_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8))),
+        shop_name: record.shopName.trim(),
+        system: MY_SYSTEM,  // 强制本部门 — 不让客服改其他部门的数据
+        user_id: record.userId,
+        user_name: record.userName,
+        role: record.role || 'primary',
+        notes: (record.notes || '').trim() || null,
+        created_at_ms: record.createdAtMs || Date.now(),
+        updated_at: new Date().toISOString(),
+      };
+      const { error } = await client.from('shop_owners').upsert(row);
+      if (error) throw error;
+      toast(record.id ? '✓ 已更新' : '✓ 已添加');
+      setEditing(null);
+      setShowNew(false);
+    } catch (e) { alert('保存失败: ' + (e.message || e)); }
+  };
+
+  const deleteOwner = async (owner) => {
+    if (owner.system !== MY_SYSTEM) { alert('只能删除本部门(客服)的记录'); return; }
+    if (!confirm(`删除「${owner.shopName} - ${owner.userName}」?`)) return;
+    const client = getCdmClient();
+    if (!client) { alert('消息总线未连接'); return; }
+    try {
+      const { error } = await client.from('shop_owners').delete().eq('id', owner.id);
+      if (error) throw error;
+      toast('✓ 已删除');
+    } catch (e) { alert('删除失败: ' + (e.message || e)); }
+  };
+
+  const systemLabel = (sys) => findCdm(CDM_SYSTEMS, sys).short;
+  const systemBg = (sys) => sys === 'cs' ? '#dbeafe' : sys === 'design' ? '#fce7f3' : '#fef3c7';
+  const systemColor = (sys) => sys === 'cs' ? '#1e40af' : sys === 'design' ? '#9d174d' : '#92400e';
+  const roleDef = (r) => CDM_OWNER_ROLES.find(x => x.id === r) || CDM_OWNER_ROLES[1];
+
+  return ReactDOM.createPortal(
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:100000, display:'flex', alignItems:'flex-start', justifyContent:'center', overflow:'auto', padding:'30px 20px'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, width:'100%', maxWidth:820, boxShadow:'0 20px 60px rgba(0,0,0,.25)', display:'flex', flexDirection:'column', maxHeight:'90vh'}}>
+        {/* 头部 */}
+        <div style={{padding:'14px 20px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0}}>
+          <div>
+            <div className="font-display" style={{fontSize:16, fontWeight:600}}>🌐 店铺负责人管理</div>
+            <div style={{fontSize:11, color:'var(--ink-3)', marginTop:2}}>
+              三方共享数据 · 客服部当前 {csOwnerCount} 个 · 只能编辑本部门
+            </div>
+          </div>
+          <div style={{display:'flex', gap:6}}>
+            {isAdmin && (
+              <button onClick={() => setShowNew(true)}
+                style={{padding:'6px 14px', background:'#0071e3', color:'white', border:'none', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}>
+                + 新增映射
+              </button>
+            )}
+            <button onClick={onClose} style={{padding:'4px 12px', background:'white', border:'1px solid var(--line)', borderRadius:6, cursor:'pointer', fontSize:13}}>×</button>
+          </div>
+        </div>
+
+        {/* 列表 */}
+        <div style={{padding:'14px 20px', overflowY:'auto', flex:1}}>
+          {grouped.length === 0 ? (
+            <div style={{padding:'30px 14px', textAlign:'center', color:'var(--ink-4)', fontSize:13}}>
+              暂无店铺映射 · 点右上"+ 新增映射"添加第一个
+            </div>
+          ) : grouped.map(([shopName, owners]) => (
+            <div key={shopName} style={{marginBottom:12, border:'1px solid var(--line)', borderRadius:10, background:'#fafaf7', overflow:'hidden'}}>
+              <div style={{padding:'8px 12px', background:'white', borderBottom:'1px solid var(--line)', fontSize:13, fontWeight:600, color:'var(--ink)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <span>🌐 {shopName}</span>
+                <span style={{fontSize:10, color:'var(--ink-3)', fontWeight:400}}>{owners.length} 个负责人</span>
+              </div>
+              <div style={{padding:'8px 10px', display:'flex', flexDirection:'column', gap:5}}>
+                {owners.map(o => {
+                  const canEdit = o.system === MY_SYSTEM && isAdmin;
+                  const role = roleDef(o.role);
+                  return (
+                    <div key={o.id} style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px', background:'white', border:'1px solid var(--line)', borderRadius:7, flexWrap:'wrap'}}>
+                      <span style={{padding:'2px 7px', background: systemBg(o.system), color: systemColor(o.system), borderRadius:8, fontSize:10, fontWeight:700}}>{systemLabel(o.system)}</span>
+                      <span style={{padding:'2px 7px', background:'white', color: role.color, border: '1px solid ' + role.color + '40', borderRadius:8, fontSize:10, fontWeight:600}}>{role.label}</span>
+                      <span style={{fontSize:13, fontWeight:500, color:'var(--ink)'}}>{o.userName}</span>
+                      {o.notes && <span style={{fontSize:10, color:'var(--ink-3)', fontStyle:'italic'}}>· {o.notes}</span>}
+                      <div style={{marginLeft:'auto', display:'flex', gap:4}}>
+                        {canEdit ? (
+                          <>
+                            <button onClick={() => setEditing(o)}
+                              style={{padding:'3px 8px', background:'white', border:'1px solid var(--line)', borderRadius:5, cursor:'pointer', fontSize:11, fontFamily:'inherit'}}>编辑</button>
+                            <button onClick={() => deleteOwner(o)}
+                              style={{padding:'3px 8px', background:'white', border:'1px solid #fca5a5', color:'#dc2626', borderRadius:5, cursor:'pointer', fontSize:11, fontFamily:'inherit'}}>删除</button>
+                          </>
+                        ) : (
+                          <span style={{fontSize:10, color:'var(--ink-4)'}}>其他部门 · 只读</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 底部说明 */}
+        <div style={{padding:'8px 20px', borderTop:'1px solid var(--line)', background:'#fafafa', flexShrink:0, fontSize:10, color:'var(--ink-4)'}}>
+          💡 数据三方实时同步 · 添加后美工/跟单立即看到 · role: ★主负责 / ·备用 / 👑主管 / 🎨设计师
+        </div>
+      </div>
+
+      {/* 新增 / 编辑 子 modal */}
+      {(showNew || editing) && (
+        <ShopOwnerEditor
+          record={editing || { shopName:'', userId:'', userName:'', role:'primary', notes:'' }}
+          employees={availableEmployees}
+          existingShopNames={Array.from(new Set((shopOwners || []).map(s => s.shopName))).sort()}
+          onSave={saveOwner}
+          onClose={() => { setEditing(null); setShowNew(false); }}
+        />
+      )}
+    </div>,
+    document.body
+  );
+};
+
+// 子表单
+const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onClose }) => {
+  const isEdit = !!record.id;
+  const [shopName, setShopName] = useState(record.shopName || '');
+  const [shopNameMode, setShopNameMode] = useState(isEdit ? 'existing' : (existingShopNames.length > 0 ? 'existing' : 'new'));
+  const [userId, setUserId] = useState(record.userId || '');
+  const [role, setRole] = useState(record.role || 'primary');
+  const [notes, setNotes] = useState(record.notes || '');
+  const [saving, setSaving] = useState(false);
+
+  const selectedEmp = employees.find(e => e.id === userId);
+
+  const submit = async () => {
+    if (!shopName.trim()) { alert('请输入店铺名'); return; }
+    if (!userId || !selectedEmp) { alert('请选员工'); return; }
+    setSaving(true);
+    await onSave({
+      ...record,
+      shopName: shopName.trim(),
+      userId,
+      userName: selectedEmp.name + (selectedEmp.alias ? ' ' + selectedEmp.alias : ''),
+      role,
+      notes,
+    });
+    setSaving(false);
+  };
+
+  return ReactDOM.createPortal(
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:100001, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:12, width:'100%', maxWidth:480, boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
+        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div className="font-display" style={{fontSize:14, fontWeight:600}}>{isEdit ? '✏️ 编辑店铺负责人' : '+ 新增店铺负责人'}</div>
+          <button onClick={onClose} style={{background:'transparent', border:'none', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+        <div style={{padding:'16px 18px', display:'flex', flexDirection:'column', gap:11}}>
+          {/* 店铺名 */}
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>店铺名 *</label>
+            {!isEdit && existingShopNames.length > 0 && (
+              <div style={{display:'flex', gap:6, marginBottom:5, fontSize:11}}>
+                <label style={{display:'flex', alignItems:'center', gap:4, cursor:'pointer'}}>
+                  <input type="radio" checked={shopNameMode === 'existing'} onChange={() => setShopNameMode('existing')} />
+                  已有店铺
+                </label>
+                <label style={{display:'flex', alignItems:'center', gap:4, cursor:'pointer'}}>
+                  <input type="radio" checked={shopNameMode === 'new'} onChange={() => { setShopNameMode('new'); setShopName(''); }} />
+                  新店铺
+                </label>
+              </div>
+            )}
+            {shopNameMode === 'existing' && !isEdit && existingShopNames.length > 0 ? (
+              <select value={shopName} onChange={e => setShopName(e.target.value)}
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white', fontFamily:'inherit'}}>
+                <option value="">— 选店铺 —</option>
+                {existingShopNames.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            ) : (
+              <input value={shopName} onChange={e => setShopName(e.target.value)} disabled={isEdit} placeholder="如 VK / RD / MJ / DK"
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit', background: isEdit ? '#fafafa' : 'white'}} />
+            )}
+          </div>
+          {/* 员工 */}
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>员工 *</label>
+            <select value={userId} onChange={e => setUserId(e.target.value)}
+              style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white', fontFamily:'inherit'}}>
+              <option value="">— 选员工 —</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.name}{e.alias ? ' ' + e.alias : ''} {e.role === 'admin' ? '· 主管' : e.role === 'super_admin' ? '· 总管' : e.role === 'finance' ? '· 财务' : ''}</option>)}
+            </select>
+          </div>
+          {/* 角色 */}
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>角色</label>
+            <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
+              {CDM_OWNER_ROLES.map(r => {
+                const sel = role === r.id;
+                return (
+                  <button key={r.id} type="button" onClick={() => setRole(r.id)}
+                    style={{padding:'5px 11px', background: sel ? r.color : 'white', color: sel ? 'white' : r.color, border:'1px solid ' + r.color, borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {/* 备注 */}
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>备注 (选填)</label>
+            <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="如 周末 / 临时 / 主管代班..."
+              style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit'}} />
+          </div>
+        </div>
+        <div style={{padding:'10px 18px', borderTop:'1px solid var(--line)', display:'flex', justifyContent:'flex-end', gap:6}}>
+          <button onClick={onClose} disabled={saving} className="btn-sec" style={{padding:'7px 14px', fontSize:12}}>取消</button>
+          <button onClick={submit} disabled={saving}
+            style={{padding:'7px 16px', background:'#0071e3', color:'white', border:'none', borderRadius:7, cursor:saving?'wait':'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}>
+            {saving ? '保存中...' : '✓ 保存'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 v22-CW Round 3b: 超时阈值设置 (主管/admin)
+// 配置 cdm_timeout_config[MY_SYSTEM][category][priority] 自定义天数
+// 只能改本部门 — 不覆盖其他部门 (读最新 + merge + upsert)
+// ════════════════════════════════════════════════════════════════════
+const TimeoutSettingsModal = ({ user, cdmTimeoutConfig = {}, onClose, toast }) => {
+  // 当前 cs 部门的配置(只编辑这部分)
+  const [config, setConfig] = useState(() => ({ ...(cdmTimeoutConfig[MY_SYSTEM] || {}) }));
+  const [activeCat, setActiveCat] = useState(CDM_CATEGORIES[0].id);
+  const [saving, setSaving] = useState(false);
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  if (!isAdmin) return null;
+
+  const catDef = CDM_CATEGORIES.find(c => c.id === activeCat) || CDM_CATEGORIES[0];
+  const setVal = (cat, pri, val) => {
+    setConfig(prev => {
+      const next = { ...prev };
+      const catCfg = { ...(next[cat] || {}) };
+      const n = parseInt(val, 10);
+      if (isNaN(n) || n <= 0) {
+        delete catCfg[pri];  // 删除 = 恢复默认
+      } else if (n > 365) {
+        return prev;  // 超出范围拒绝
+      } else {
+        catCfg[pri] = n;
+      }
+      if (Object.keys(catCfg).length === 0) {
+        delete next[cat];
+      } else {
+        next[cat] = catCfg;
+      }
+      return next;
+    });
+  };
+  const resetCategory = () => {
+    setConfig(prev => {
+      const next = { ...prev };
+      delete next[activeCat];
+      return next;
+    });
+    toast('✓ 此分类已恢复默认');
+  };
+  const resetAll = () => {
+    if (!confirm('确定要把客服部所有分类的超时阈值都恢复默认?')) return;
+    setConfig({});
+    toast('✓ 全部已恢复默认');
+  };
+  const save = async () => {
+    const client = getCdmClient();
+    if (!client) { alert('消息总线未连接'); return; }
+    setSaving(true);
+    try {
+      // 先读最新 — 避免覆盖其他部门(美工/跟单)的配置
+      const { data } = await client.from('app_config').select('value').eq('key', 'cdm_timeout_config').maybeSingle();
+      const latest = data?.value || {};
+      const merged = { ...latest, [MY_SYSTEM]: config };
+      const { error } = await client.from('app_config').upsert({ key: 'cdm_timeout_config', value: merged });
+      if (error) throw error;
+      toast('✓ 已保存 · 全系统生效');
+      onClose();
+    } catch (e) { alert('保存失败: ' + (e.message || e)); }
+    setSaving(false);
+  };
+
+  const customCount = Object.keys(config).length;
+
+  return ReactDOM.createPortal(
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:100000, display:'flex', alignItems:'flex-start', justifyContent:'center', overflow:'auto', padding:'30px 20px'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, width:'100%', maxWidth:760, boxShadow:'0 20px 60px rgba(0,0,0,.25)', display:'flex', flexDirection:'column', maxHeight:'90vh'}}>
+        {/* 头部 */}
+        <div style={{padding:'14px 20px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0}}>
+          <div>
+            <div className="font-display" style={{fontSize:16, fontWeight:600}}>⏰ 超时阈值设置</div>
+            <div style={{fontSize:11, color:'var(--ink-3)', marginTop:2}}>
+              客服部 · 自定义 {customCount} 个分类 · 其他部门配置不变
+            </div>
+          </div>
+          <div style={{display:'flex', gap:6}}>
+            <button onClick={resetAll}
+              style={{padding:'6px 12px', background:'white', border:'1px solid var(--line)', borderRadius:7, cursor:'pointer', fontSize:11, fontFamily:'inherit'}}>
+              ↻ 全部恢复默认
+            </button>
+            <button onClick={onClose} style={{padding:'4px 12px', background:'white', border:'1px solid var(--line)', borderRadius:6, cursor:'pointer', fontSize:13}}>×</button>
+          </div>
+        </div>
+
+        {/* 主体 — 左侧分类 tab, 右侧配置 */}
+        <div style={{display:'flex', flex:1, minHeight:0, overflow:'hidden'}}>
+          <div style={{width:180, borderRight:'1px solid var(--line)', overflowY:'auto', background:'#fafafa', flexShrink:0}}>
+            {CDM_CATEGORIES.map(c => {
+              const sel = activeCat === c.id;
+              const hasCustom = !!config[c.id];
+              return (
+                <button key={c.id} onClick={() => setActiveCat(c.id)}
+                  style={{
+                    width:'100%', padding:'9px 12px', textAlign:'left', display:'flex', alignItems:'center', gap:6,
+                    background: sel ? 'white' : 'transparent',
+                    border:'none', borderLeft: '3px solid ' + (sel ? '#0071e3' : 'transparent'),
+                    cursor:'pointer', fontFamily:'inherit', fontSize:12,
+                    color: sel ? 'var(--ink)' : 'var(--ink-2)',
+                    fontWeight: sel ? 600 : 500,
+                  }}>
+                  <span style={{flex:1}}>{c.label}</span>
+                  {hasCustom && <span style={{fontSize:9, color:'#dc2626', fontWeight:700}}>●</span>}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{flex:1, padding:'18px 22px', overflowY:'auto'}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6, flexWrap:'wrap', gap:8}}>
+              <div>
+                <div style={{fontSize:14, fontWeight:600, color: catDef.color}}>{catDef.label}</div>
+                <div style={{fontSize:11, color:'var(--ink-3)', marginTop:2}}>{catDef.desc}</div>
+              </div>
+              {config[activeCat] && (
+                <button onClick={resetCategory}
+                  style={{padding:'4px 10px', background:'white', border:'1px solid var(--line)', borderRadius:6, cursor:'pointer', fontSize:11, color:'var(--ink-3)', fontFamily:'inherit'}}>
+                  ↻ 恢复此分类默认
+                </button>
+              )}
+            </div>
+
+            <div style={{display:'flex', flexDirection:'column', gap:8, marginTop:14}}>
+              {CDM_PRIORITIES.map(p => {
+                const customVal = config[activeCat]?.[p.id];
+                const defaultVal = catDef.defaultTimeout?.[p.id] ?? 7;
+                const isCustom = typeof customVal === 'number' && customVal > 0;
+                const displayVal = isCustom ? customVal : '';
+                return (
+                  <div key={p.id} style={{display:'flex', alignItems:'center', gap:10, padding:'9px 12px', background: isCustom ? '#fef2f2' : '#fafaf7', border:'1px solid ' + (isCustom ? '#fca5a5' : 'var(--line)'), borderRadius:9}}>
+                    <span style={{padding:'2px 8px', background: p.bg, color: p.color, borderRadius:9, fontSize:11, fontWeight:600, minWidth:60, textAlign:'center'}}>
+                      {p.label}
+                    </span>
+                    <input type="number" min={1} max={365} value={displayVal} placeholder={`默认 ${defaultVal}`}
+                      onChange={e => setVal(activeCat, p.id, e.target.value)}
+                      style={{width:80, padding:'5px 8px', border:'1px solid ' + (isCustom ? '#fca5a5' : 'var(--line)'), borderRadius:6, fontSize:13, fontFamily:'inherit', textAlign:'center'}} />
+                    <span style={{fontSize:12, color:'var(--ink-3)'}}>天</span>
+                    <span style={{marginLeft:'auto', fontSize:11, color: isCustom ? '#b91c1c' : 'var(--ink-4)', fontWeight: isCustom ? 600 : 400}}>
+                      {isCustom ? '(已自定义)' : `(默认 ${defaultVal} 天)`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{marginTop:18, padding:'10px 12px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, fontSize:11, color:'#1e40af', lineHeight:1.6}}>
+              💡 留空 = 恢复默认 · 改完后所有 11 个分类 × 4 个优先级共 44 个组合都按这里的设置算超时<br/>
+              💡 改的是<strong>客服部接到的工单</strong>的超时(`to_system=cs`)· 不影响其他部门
+            </div>
+          </div>
+        </div>
+
+        {/* 底部 */}
+        <div style={{padding:'12px 20px', borderTop:'1px solid var(--line)', display:'flex', justifyContent:'flex-end', gap:8, flexShrink:0}}>
+          <button onClick={onClose} disabled={saving} className="btn-sec" style={{padding:'7px 16px', fontSize:13}}>取消</button>
+          <button onClick={save} disabled={saving}
+            style={{padding:'7px 18px', background:'#0071e3', color:'white', border:'none', borderRadius:7, cursor:saving?'wait':'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit'}}>
+            {saving ? '保存中...' : '✓ 保存 (全系统生效)'}
+          </button>
+        </div>
+      </div>
     </div>,
     document.body
   );
@@ -17466,6 +18449,8 @@ const App = () => {
     }
     // 🆕 fix11-hotfix2: ai_reviews 已废弃 → 重定向到 reviews (产品评价内部包含了 AI 工具)
     if (initialTab === 'ai_reviews') initialTab = 'reviews';
+    // 🆕 fix11-hotfix4: report 已废弃 → 重定向到 cross_dept (跨部门协作取代了汇报工单)
+    if (initialTab === 'report') initialTab = 'cross_dept';
     if (initialTab) return initialTab;
     // 财务人员默认进入财务 tab（user 可能为 null - 未登录状态）
     if (user && user.role === 'finance') return 'finance';
@@ -17628,6 +18613,9 @@ const App = () => {
   const [cdmMessages, setCdmMessages] = useState([]);
   const [cdmLoading, setCdmLoading] = useState(false);
   const cdmLoadingRef = useRef(false);
+  // 🆕 v22-CV/CW: 店铺-负责人映射 + 超时阈值配置 (三方共享)
+  const [shopOwners, setShopOwners] = useState([]);
+  const [cdmTimeoutConfig, setCdmTimeoutConfig] = useState({});
 
   const loadCdmMessages = async () => {
     if (cdmLoadingRef.current) return;  // 防止 realtime 风暴重复请求
@@ -17651,7 +18639,70 @@ const App = () => {
     setCdmLoading(false);
   };
 
-  useEffect(() => { if (user) loadCdmMessages(); }, [user?.id]);
+  // 🆕 v22-CV/CW: 加载 shop_owners 和 cdm_timeout_config
+  const loadShopOwners = async () => {
+    const client = getCdmClient();
+    if (!client) return;
+    try {
+      const { data, error } = await client
+        .from('shop_owners')
+        .select('*')
+        .order('shop_name');
+      if (error) throw error;
+      setShopOwners((data || []).map(r => ({
+        id: r.id,
+        shopName: r.shop_name,
+        system: r.system,
+        userId: r.user_id,
+        userName: r.user_name,
+        role: r.role || 'primary',
+        notes: r.notes || null,
+        createdAtMs: r.created_at_ms,
+      })));
+    } catch (e) { console.warn('[CDM] 加载 shop_owners 失败', e); }
+  };
+  const loadCdmTimeoutConfig = async () => {
+    const client = getCdmClient();
+    if (!client) return;
+    try {
+      const { data, error } = await client
+        .from('app_config')
+        .select('value')
+        .eq('key', 'cdm_timeout_config')
+        .maybeSingle();
+      if (error) throw error;
+      setCdmTimeoutConfig(data?.value || {});
+    } catch (e) { console.warn('[CDM] 加载 cdm_timeout_config 失败', e); }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    loadCdmMessages();
+    loadShopOwners();
+    loadCdmTimeoutConfig();
+  }, [user?.id]);
+
+  // 🆕 v22-CV/CW: shop_owners + app_config Realtime 订阅
+  useEffect(() => {
+    if (!user) return;
+    const client = getCdmClient();
+    if (!client) return;
+    let channel;
+    try {
+      channel = client
+        .channel('cdm_v22cw_cs_' + user.id)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'shop_owners' }, () => {
+          loadShopOwners();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_config' }, (payload) => {
+          if (payload?.new?.key === 'cdm_timeout_config') {
+            setCdmTimeoutConfig(payload.new.value || {});
+          }
+        })
+        .subscribe();
+    } catch (e) { console.warn('[CDM v22-CW] Realtime 订阅失败', e); }
+    return () => { try { if (channel) client.removeChannel(channel); } catch {} };
+  }, [user?.id]);
 
   // Realtime 订阅 — 新消息 / 回复 / 状态变化时自动重新拉取 + 桌面通知
   useEffect(() => {
@@ -17755,7 +18806,7 @@ const App = () => {
       // 协作
       { key:'cross_dept', label:'📨 跨部门协作', icon:'📨', badge: cdmUnreadCount, badgeColor: cdmUrgentUnread > 0 ? '#dc2626' : '#0071e3', group:'collab' },
       { key:'briefings',  label:'📢 会议纪要',   icon:'📢', group:'collab' },
-      { key:'report',     label:'💬 汇报工单',   icon:'💬', badge: stats?.ticketInbox, group:'collab' },
+      // 🆕 fix11-hotfix4: 汇报工单已被跨部门协作取代,从导航中移除 (代码保留以防需要回滚)
       // 管理
       ...(isAdmin ? [
         { key:'admin_overview',   label:'📊 主管汇总', icon:'📊', group:'admin' },
@@ -18200,7 +19251,8 @@ const App = () => {
           <BriefingsModule user={user} employees={employees} toast={toast} cloudOn={cloudOn} />
         )}
         {activeTab === 'cross_dept' && (
-          <CrossDeptModule user={user} employees={employees} messages={cdmMessages} loading={cdmLoading} onReload={loadCdmMessages} toast={toast} />
+          <CrossDeptModule user={user} employees={employees} messages={cdmMessages} loading={cdmLoading} onReload={loadCdmMessages} toast={toast}
+            shopOwners={shopOwners} cdmTimeoutConfig={cdmTimeoutConfig} />
         )}
         {activeTab === 'events' && (
           <EventsModule user={user} employees={employees} records={records} toast={toast} cloudOn={cloudOn} />
@@ -18275,7 +19327,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix11-hotfix2';
+const APP_VERSION = '2026.05.25-fix12-r3b';
 console.log(
   '%c📦 统一工作台 v' + APP_VERSION + ' 已加载\n' +
   '%c如看到旧 bug,请强刷 Ctrl+Shift+R 清除缓存\n' +
