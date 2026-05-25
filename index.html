@@ -448,7 +448,14 @@ const { useState, useMemo, useEffect, useRef, useCallback } = React;
 // ============================================================
 // 工具
 // ============================================================
-const todayISO = () => new Date().toISOString().slice(0,10);
+// 🆕 本地时间的"今天"日期(避免 toISOString 的 UTC 时区偏移)
+const todayISO = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 const nowISO = () => new Date().toISOString();
 const fmt = n => isFinite(n) ? Math.round(n).toLocaleString() : '-';
 const fmt2 = n => isFinite(n) ? n.toFixed(2) : '-';
@@ -457,10 +464,17 @@ const daysBetween = (a, b) => {
   const da = new Date(a), db = new Date(b);
   return Math.round((db - da) / 86400000);
 };
+// 🆕 用本地时间计算避免时区偏差(toISOString 会用 UTC,跨时区会差 1 天)
 const addDays = (iso, days) => {
-  const d = new Date(iso);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0,10);
+  // iso 格式: "2026-05-25"
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);  // 本地时间 0 点
+  dt.setDate(dt.getDate() + days);
+  // 返回本地日期(不用 toISOString,避免再次转 UTC)
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
 };
 const minutesBetween = (start, end) => {
   if (!start || !end) return 0;
@@ -1793,16 +1807,9 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
     if (filterDifficulty !== 'all') list = list.filter(r => r.difficulty === filterDifficulty);
     if (isAdmin && showAll && filterOwner !== 'all') list = list.filter(r => r.ownerId === filterOwner);
     
-    // 🆕 时间范围筛选(仅在全部模式生效)
-    if (viewMode === 'all' && timeFilter !== 'all') {
-      const today = todayISO();
-      let cutoffStart = null, cutoffEnd = today;
-      if (timeFilter === '3d')   cutoffStart = addDays(today, -2);
-      else if (timeFilter === '7d')   cutoffStart = addDays(today, -6);
-      else if (timeFilter === '14d')  cutoffStart = addDays(today, -13);
-      else if (timeFilter === '30d')  cutoffStart = addDays(today, -29);
-      else if (timeFilter === 'custom') { cutoffStart = customRangeStart; cutoffEnd = customRangeEnd; }
-      if (cutoffStart) list = list.filter(r => r.date >= cutoffStart && r.date <= cutoffEnd);
+    // 🆕 时间范围筛选(仅在全部模式生效) - 改用统一函数
+    if (viewMode === 'all') {
+      list = filterByTimeRange(list, timeFilter, customRangeStart, customRangeEnd, 'date');
     }
     
     // 🆕 只看未解决
@@ -9694,29 +9701,89 @@ const TimeRangeFilter = ({ value, onChange, customStart, customEnd, onCustomChan
   );
 };
 
-// 给定时间范围 key + custom 区间,过滤 list(列表中的记录必须有 date 字段或自定义 dateField)
+// 🛡 全局时间筛选 - 强健版,支持多种日期字段 + 跨时区安全
+// 用法: filterByTimeRange(records, '7d', null, null, 'created_at')
+//       filterByTimeRange(records, 'custom', '2026-05-01', '2026-05-25', 'date')
 const filterByTimeRange = (list, timeFilter, customStart, customEnd, dateField) => {
   if (!list || list.length === 0) return list;
   if (timeFilter === 'all') return list;
   const today = todayISO();
   let cutoffStart = null, cutoffEnd = today;
-  if (timeFilter === '3d')   cutoffStart = addDays(today, -2);
+  if (timeFilter === '3d')   cutoffStart = addDays(today, -2);   // 包含今天共 3 天(含今天)
   else if (timeFilter === '7d')   cutoffStart = addDays(today, -6);
   else if (timeFilter === '14d')  cutoffStart = addDays(today, -13);
   else if (timeFilter === '30d')  cutoffStart = addDays(today, -29);
   else if (timeFilter === 'custom') { 
-    cutoffStart = customStart; cutoffEnd = customEnd; 
-    if (!cutoffStart || !cutoffEnd) return list;  // 自定义时未填日期则不过滤
+    cutoffStart = customStart; 
+    cutoffEnd = customEnd || today;
+    if (!cutoffStart) return list;  // 自定义但未填起始日期,不过滤
   }
   if (!cutoffStart) return list;
-  const field = dateField || 'created_at';
+  
+  // 字段优先级:传入的 dateField > created_at > createdAt > date > created
+  const tryFields = [dateField, 'created_at', 'createdAt', 'date', 'created'].filter(Boolean);
+  
   return list.filter(r => {
-    const raw = r[field];
-    if (!raw) return true;  // 🆕 无日期的记录保留(避免误删旧数据)
-    const d = (typeof raw === 'string' && raw.length > 10) ? raw.slice(0, 10) : raw;
-    return d >= cutoffStart && d <= cutoffEnd;
+    // 找到第一个有值的日期字段
+    let raw = null;
+    for (const f of tryFields) {
+      if (r[f]) { raw = r[f]; break; }
+    }
+    if (!raw) return true;  // 无任何日期字段 → 保留(避免误删)
+    
+    // 统一规范化为 "YYYY-MM-DD" 格式
+    let dateStr;
+    if (typeof raw === 'string') {
+      dateStr = raw.length >= 10 ? raw.slice(0, 10) : raw;
+    } else if (raw instanceof Date) {
+      dateStr = raw.toISOString().slice(0, 10);
+    } else if (typeof raw === 'number') {
+      // 时间戳
+      const d = new Date(raw);
+      dateStr = d.toISOString().slice(0, 10);
+    } else {
+      return true;  // 未知格式 → 保留
+    }
+    
+    return dateStr >= cutoffStart && dateStr <= cutoffEnd;
   });
 };
+
+// 🔍 全局调试工具(在浏览器控制台输入 window.__debugTimeFilter(records,'7d','date'))
+if (typeof window !== 'undefined') {
+  window.__debugTimeFilter = (list, timeFilter, dateField) => {
+    const today = todayISO();
+    let cutoffStart = null;
+    if (timeFilter === '3d') cutoffStart = addDays(today, -2);
+    else if (timeFilter === '7d') cutoffStart = addDays(today, -6);
+    else if (timeFilter === '14d') cutoffStart = addDays(today, -13);
+    else if (timeFilter === '30d') cutoffStart = addDays(today, -29);
+    
+    console.log(`🔍 时间筛选诊断:
+  今天: ${today}
+  筛选: ${timeFilter} (起始 ${cutoffStart} → ${today})
+  字段: ${dateField || '默认顺序'}
+  输入总数: ${list?.length || 0}`);
+    
+    if (list && list.length > 0) {
+      const sample = list.slice(0, 5).map(r => ({
+        id: r.id, 
+        date_value: r[dateField] || r.created_at || r.createdAt || r.date || '(无)',
+        匹配: (() => {
+          const raw = r[dateField] || r.created_at || r.createdAt || r.date;
+          if (!raw) return '⚠ 无日期,保留';
+          const d = String(raw).slice(0, 10);
+          if (!cutoffStart) return '✓';
+          return d >= cutoffStart && d <= today ? '✓ 在范围内' : '✗ 超出范围';
+        })(),
+      }));
+      console.table(sample);
+    }
+    const filtered = filterByTimeRange(list, timeFilter, null, null, dateField);
+    console.log(`  筛选后: ${filtered.length} 条`);
+    return filtered;
+  };
+}
 
 
 // ============================================================
