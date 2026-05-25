@@ -14949,25 +14949,23 @@ const KbModule = ({ user, toast }) => {
     
     const handler = (e) => {
       if (e.data?.type === 'iframe-resize' && e.data?.source === 'kb') {
-        setIframeHeight(Math.max(600, e.data.height + 20) + 'px');
-        // 🆕 收到 iframe 的高度信号 = 成功加载
+        // 🆕 fix8: 不再撑大 iframe 到内容高度!
+        // 原因:iframe 内容高度=4500px+,会让 position:fixed 的 modal 铆在 iframe 顶部,用户向下滚动后看不到
+        // 之前用户曾要求"删除上下滑动模块"(撑大 iframe 来消除内部滚动条),但那破坏了 modal 弹窗
+        // 经重新评估,正确做法是:保留 iframe 自己的滚动条 (viewport-bound),让 position:fixed 在 iframe 内正常工作
+        // 副作用:iframe 内会有滚动条 (这是必要的代价,确保 modal 弹窗可见)
+        // setIframeHeight(Math.max(600, e.data.height + 20) + 'px');  ← 已禁用 (撑大会破坏 modal)
         setLoadStatus('loaded');
       }
       if (e.data?.type === 'iframe-modal-open' && e.data?.source === 'kb') {
-        // 🆕 fix6: 锁定父窗口滚动 + 立即发送可视区位置
+        // fix6 残留:即便 iframe 现在 viewport-bound 不再需要 absolute 定位 backdrop,但发位置信息无害
         document.body.style.overflow = 'hidden';
         sendKbPosition();
-        // 旧逻辑保留(scrollIntoView 作为兜底,但 nearest 避免破坏当前位置)
-        if (iframeRef.current) {
-          iframeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
       }
       if (e.data?.type === 'iframe-modal-close' && e.data?.source === 'kb') {
-        // 🆕 fix6: 解锁父窗口滚动
         document.body.style.overflow = '';
       }
       if (e.data?.type === 'kb-request-position' && e.data?.source === 'kb') {
-        // 🆕 fix6: iframe 主动请求,立即回传
         sendKbPosition();
       }
     };
@@ -15099,7 +15097,6 @@ const KbModule = ({ user, toast }) => {
         onError={handleIframeError}
         style={{width:'100%', height:iframeHeight, border:'none', background:'#fff', display:'block', transition:'height .15s', minHeight:600}}
         title="知识库"
-        scrolling="no"
       />
       {showNewEntry && (
         <KBNewEntryModal user={user} toast={toast}
@@ -16346,7 +16343,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix7';
+const APP_VERSION = '2026.05.25-fix8';
 console.log(
   '%c📦 统一工作台 v' + APP_VERSION + ' 已加载\n' +
   '%c如看到旧 bug,请强刷 Ctrl+Shift+R 清除缓存\n' +

@@ -13468,6 +13468,14 @@ let KB_FIX6_lastScrollY = 0;
 let KB_FIX6_lastViewportHeight = window.innerHeight;
 
 function applyEmbeddedBackdropPosition(elementOrScrollY, scrollYOrViewport, viewportHeight) {
+  // 🆕 fix8: 检测 iframe 是否 viewport-bound (有自己的滚动条)
+  // - viewport-bound (推荐):document.body.scrollHeight > window.innerHeight → iframe 内容能滚动 → position:fixed 在 iframe 内正常工作 → 不需要任何 override
+  // - content-bound (旧设计):document.body.scrollHeight ≈ window.innerHeight → iframe 被父撑大 → position:fixed 失效 → 需要 absolute 兜底
+  const isViewportBound = document.body && (document.body.scrollHeight > window.innerHeight + 50);
+  if (isViewportBound) {
+    // viewport-bound 模式下,position:fixed 已经正常工作,我们不应该再覆盖
+    return;
+  }
   // 兼容两种调用方式:
   //   applyEmbeddedBackdropPosition(scrollY, viewportHeight)  → 应用到 modal-backdrop
   //   applyEmbeddedBackdropPosition(element, scrollY, viewportHeight)  → 应用到指定 element
@@ -15473,7 +15481,7 @@ bootApp();
 
 // 📦 版本日志(2026-05-25 修复 renderUI null 错误)
 console.log(
-  '%c📚 知识库 kb.html v2026.05.25-fix6 已加载 (修复 iframe 嵌入时 modal 弹窗空白问题)',
+  '%c📚 知识库 kb.html v2026.05.25-fix8 已加载 (恢复 iframe 内滚动条,position:fixed 原生生效)',
   'color:#7c3aed; font-weight:bold; font-size:13px; background:#f3e8ff; padding:3px 7px; border-radius:4px'
 );
 
