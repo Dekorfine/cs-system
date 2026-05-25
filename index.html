@@ -921,6 +921,29 @@ const getCdmClient = () => {
 };
 
 // ════════════════════════════════════════════════════════════════════
+// 🆕 v22-CY: 公司预设网站列表 (13 个 + 其他)
+// 三方系统共用 — 避免手输导致 "Vakkerlight" / "vakkerlight" / "vakker light" 拼写不一致
+// label 是写入数据库的标准名称
+// ════════════════════════════════════════════════════════════════════
+const SHOPS_PRESET = [
+  { id:'vakkerlight',  label:'Vakkerlight',      category:'独立站' },
+  { id:'docos',        label:'Docos.us',         category:'独立站' },
+  { id:'mooijane',     label:'Mooijane',         category:'独立站' },
+  { id:'mooiehome',    label:'Mooiehome',        category:'独立站' },
+  { id:'radilum',      label:'Radilum',          category:'独立站' },
+  { id:'mooielight',   label:'Mooielight',       category:'独立站' },
+  { id:'dekorfine',    label:'Dekorfine',        category:'独立站' },
+  { id:'pinlighting',  label:'Pinlighting',      category:'独立站' },
+  { id:'lumioshine',   label:'Lumioshine',       category:'独立站' },
+  { id:'rayonshine',   label:'Rayonshine',       category:'独立站' },
+  { id:'alibaba',      label:'阿里巴巴国际站',     category:'平台' },
+  { id:'radilum-inc',  label:'Radilum INC',      category:'实体公司' },
+  { id:'other',        label:'其他(手填备注)',    category:'其他' },
+];
+// 给主管/admin 用的可选网站(去掉"其他"那行 - "其他"是 sentinel 值)
+const SHOPS_SELECTABLE = SHOPS_PRESET.filter(s => s.id !== 'other');
+
+// ════════════════════════════════════════════════════════════════════
 // 🆕 v22-CV/CW: 11 类分类 + 默认超时阈值
 // 三方系统 (cs/design/po) 共享同一份分类定义,改一处必须同时改三处
 // ════════════════════════════════════════════════════════════════════
@@ -17057,6 +17080,7 @@ const CdmNewMessageModal = ({ user, employees, shopOwners = [], onClose, onSent,
   const [toUserId, setToUserId] = useState('');  // 🆕 v22-CW
   const [toUserName, setToUserName] = useState('');
   const [relatedShop, setRelatedShop] = useState('');  // 🆕 v22-CW
+  const [customShop, setCustomShop] = useState('');  // 🆕 v22-CY: 选"其他"时手填
   const [watchers, setWatchers] = useState([]);  // 🆕 v22-CW
   const [category, setCategory] = useState('general');
   const [priority, setPriority] = useState('normal');
@@ -17068,14 +17092,13 @@ const CdmNewMessageModal = ({ user, employees, shopOwners = [], onClose, onSent,
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef(null);
 
-  // 🆕 v22-CW: 可选网站列表(去重)
-  const availableShops = useMemo(() => {
-    return Array.from(new Set((shopOwners || []).map(s => s.shopName))).sort();
-  }, [shopOwners]);
+  // 🆕 v22-CY: 可选网站列表直接用预设(不再从 shopOwners 提取 — 避免拼写不一致)
+  const availableShops = SHOPS_SELECTABLE;
 
   // 🆕 v22-CW: 选了网站 + 目标部门 → 自动建议负责人(primary > manager > 第一个)
+  // 🆕 v22-CY: "__other__" 不触发自动建议
   useEffect(() => {
-    if (!relatedShop || !toSystem) return;
+    if (!relatedShop || relatedShop === '__other__' || !toSystem) return;
     const candidates = (shopOwners || []).filter(s => s.shopName === relatedShop && s.system === toSystem);
     const primary = candidates.find(c => c.role === 'primary')
                  || candidates.find(c => c.role === 'manager')
@@ -17088,7 +17111,7 @@ const CdmNewMessageModal = ({ user, employees, shopOwners = [], onClose, onSent,
 
   // 🆕 v22-CW: 网站候选负责人列表 (供 UI 显示给用户选)
   const shopCandidates = useMemo(() => {
-    if (!relatedShop || !toSystem) return [];
+    if (!relatedShop || relatedShop === '__other__' || !toSystem) return [];
     return (shopOwners || []).filter(s => s.shopName === relatedShop && s.system === toSystem);
   }, [relatedShop, toSystem, shopOwners]);
 
@@ -17146,6 +17169,11 @@ const CdmNewMessageModal = ({ user, employees, shopOwners = [], onClose, onSent,
     if (!title.trim()) { alert('请填写标题'); return; }
     const client = getCdmClient();
     if (!client) { alert('消息总线未连接,无法发送'); return; }
+    // 🆕 v22-CY: 解析 "__other__" → customShop
+    let finalShop = relatedShop || null;
+    if (finalShop === '__other__') {
+      finalShop = customShop.trim() || null;
+    }
     setSending(true);
     const userName = user.name + (user.alias ? ' ' + user.alias : '');
     const msg = {
@@ -17155,7 +17183,7 @@ const CdmNewMessageModal = ({ user, employees, shopOwners = [], onClose, onSent,
       to_system: toSystem,
       to_user_id: toUserId || null,         // 🆕 v22-CW
       to_user_name: toUserName.trim() || null,
-      related_shop: relatedShop || null,    // 🆕 v22-CW
+      related_shop: finalShop,              // 🆕 v22-CW/CY
       watchers: watchers.length ? watchers : null,  // 🆕 v22-CW
       category, priority,
       title: title.trim(),
@@ -17201,28 +17229,58 @@ const CdmNewMessageModal = ({ user, employees, shopOwners = [], onClose, onSent,
                 style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit'}} />
             </div>
           </div>
-          {/* 🆕 v22-CW: 关联网站 + 自动建议负责人 */}
+          {/* 🆕 v22-CW + v22-CY: 关联网站(预设下拉) + 自动建议负责人 */}
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
             <div>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>
                 🌐 关联网站 <span style={{color:'var(--ink-4)', fontWeight:400}}>· 选后自动派负责人</span>
               </label>
-              <select value={relatedShop} onChange={e => { setRelatedShop(e.target.value); setToUserId(''); setToUserName(''); }}
+              <select value={relatedShop} onChange={e => {
+                setRelatedShop(e.target.value);
+                setToUserId('');
+                setToUserName('');
+                if (e.target.value !== '__other__') setCustomShop('');
+              }}
                 style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white', fontFamily:'inherit'}}>
-                <option value="">— 不关联 —</option>
-                {availableShops.map(shop => <option key={shop} value={shop}>{shop}</option>)}
+                <option value="">— 不关联(通用工单)—</option>
+                <optgroup label="📦 独立站">
+                  {SHOPS_SELECTABLE.filter(s => s.category === '独立站').map(s => (
+                    <option key={s.id} value={s.label}>{s.label}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="🛒 平台">
+                  {SHOPS_SELECTABLE.filter(s => s.category === '平台').map(s => (
+                    <option key={s.id} value={s.label}>{s.label}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="🏢 实体公司">
+                  {SHOPS_SELECTABLE.filter(s => s.category === '实体公司').map(s => (
+                    <option key={s.id} value={s.label}>{s.label}</option>
+                  ))}
+                </optgroup>
+                <option value="__other__">📝 其他 (手填备注)</option>
               </select>
-              {availableShops.length === 0 && (
-                <div style={{marginTop:4, fontSize:10, color:'var(--ink-4)'}}>暂无店铺数据 · 主管可在"🌐 店铺负责人"维护</div>
+              {relatedShop === '__other__' && (
+                <input type="text" value={customShop} onChange={e => setCustomShop(e.target.value)}
+                  placeholder="输入网站名 · 仅作备注(不会自动派单)"
+                  style={{marginTop:5, width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:12, fontFamily:'inherit'}} />
               )}
             </div>
             <div>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>
                 建议负责人 <span style={{color:'var(--ink-4)', fontWeight:400}}>· 点选切换</span>
               </label>
-              {shopCandidates.length === 0 ? (
+              {!relatedShop ? (
                 <div style={{padding:'7px 10px', background:'#fafafa', border:'1px dashed var(--line)', borderRadius:7, fontSize:11, color:'var(--ink-4)'}}>
-                  {relatedShop ? '该网站尚未注册负责人' : '选网站后显示'}
+                  选网站后自动建议
+                </div>
+              ) : relatedShop === '__other__' ? (
+                <div style={{padding:'7px 10px', background:'#fef3c7', border:'1px solid #fde047', borderRadius:7, fontSize:11, color:'#854d0e'}}>
+                  📝 其他网站 · 不自动派单 · 请手动指定接收人
+                </div>
+              ) : shopCandidates.length === 0 ? (
+                <div style={{padding:'7px 10px', background:'#fafafa', border:'1px dashed var(--line)', borderRadius:7, fontSize:11, color:'var(--ink-4)'}}>
+                  对方部门尚未注册该网站负责人
                 </div>
               ) : (
                 <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
@@ -17944,10 +18002,14 @@ const ShopOwnersManager = ({ user, employees, shopOwners = [], onClose, toast })
 };
 
 // 子表单
+// 🆕 v22-CY: 网站名改用 SHOPS_PRESET 预设下拉(防止拼写不一致)
 const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onClose }) => {
   const isEdit = !!record.id;
-  const [shopName, setShopName] = useState(record.shopName || '');
-  const [shopNameMode, setShopNameMode] = useState(isEdit ? 'existing' : (existingShopNames.length > 0 ? 'existing' : 'new'));
+  // 判断初始 shopName 是否在预设里
+  const initIsPreset = !isEdit ? false : SHOPS_SELECTABLE.some(s => s.label === record.shopName);
+  const initShopVal = isEdit ? (initIsPreset ? record.shopName : '__other__') : '';
+  const [shopName, setShopName] = useState(initShopVal);
+  const [customShopName, setCustomShopName] = useState(isEdit && !initIsPreset ? (record.shopName || '') : '');
   const [userId, setUserId] = useState(record.userId || '');
   const [role, setRole] = useState(record.role || 'primary');
   const [notes, setNotes] = useState(record.notes || '');
@@ -17956,12 +18018,18 @@ const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onClose
   const selectedEmp = employees.find(e => e.id === userId);
 
   const submit = async () => {
-    if (!shopName.trim()) { alert('请输入店铺名'); return; }
+    let finalShopName = shopName;
+    if (shopName === '__other__') {
+      finalShopName = customShopName.trim();
+      if (!finalShopName) { alert('请填写"其他"网站的名称'); return; }
+    } else if (!finalShopName) {
+      alert('请选择网站'); return;
+    }
     if (!userId || !selectedEmp) { alert('请选员工'); return; }
     setSaving(true);
     await onSave({
       ...record,
-      shopName: shopName.trim(),
+      shopName: finalShopName,
       userId,
       userName: selectedEmp.name + (selectedEmp.alias ? ' ' + selectedEmp.alias : ''),
       role,
@@ -17978,31 +18046,35 @@ const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onClose
           <button onClick={onClose} style={{background:'transparent', border:'none', cursor:'pointer', fontSize:18}}>×</button>
         </div>
         <div style={{padding:'16px 18px', display:'flex', flexDirection:'column', gap:11}}>
-          {/* 店铺名 */}
+          {/* 🆕 v22-CY: 网站名预设下拉 */}
           <div>
-            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>店铺名 *</label>
-            {!isEdit && existingShopNames.length > 0 && (
-              <div style={{display:'flex', gap:6, marginBottom:5, fontSize:11}}>
-                <label style={{display:'flex', alignItems:'center', gap:4, cursor:'pointer'}}>
-                  <input type="radio" checked={shopNameMode === 'existing'} onChange={() => setShopNameMode('existing')} />
-                  已有店铺
-                </label>
-                <label style={{display:'flex', alignItems:'center', gap:4, cursor:'pointer'}}>
-                  <input type="radio" checked={shopNameMode === 'new'} onChange={() => { setShopNameMode('new'); setShopName(''); }} />
-                  新店铺
-                </label>
-              </div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>网站 *</label>
+            <select value={shopName} onChange={e => setShopName(e.target.value)}
+              style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white', fontFamily:'inherit'}}>
+              <option value="">— 选择网站 —</option>
+              <optgroup label="📦 独立站">
+                {SHOPS_SELECTABLE.filter(s => s.category === '独立站').map(s => (
+                  <option key={s.id} value={s.label}>{s.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="🛒 平台">
+                {SHOPS_SELECTABLE.filter(s => s.category === '平台').map(s => (
+                  <option key={s.id} value={s.label}>{s.label}</option>
+                ))}
+              </optgroup>
+              <optgroup label="🏢 实体公司">
+                {SHOPS_SELECTABLE.filter(s => s.category === '实体公司').map(s => (
+                  <option key={s.id} value={s.label}>{s.label}</option>
+                ))}
+              </optgroup>
+              <option value="__other__">📝 其他 (手填备注)</option>
+            </select>
+            {shopName === '__other__' && (
+              <input type="text" value={customShopName} onChange={e => setCustomShopName(e.target.value)}
+                placeholder="输入网站名"
+                style={{marginTop:6, width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit'}} />
             )}
-            {shopNameMode === 'existing' && !isEdit && existingShopNames.length > 0 ? (
-              <select value={shopName} onChange={e => setShopName(e.target.value)}
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white', fontFamily:'inherit'}}>
-                <option value="">— 选店铺 —</option>
-                {existingShopNames.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            ) : (
-              <input value={shopName} onChange={e => setShopName(e.target.value)} disabled={isEdit} placeholder="如 VK / RD / MJ / DK"
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit', background: isEdit ? '#fafafa' : 'white'}} />
-            )}
+            <div style={{marginTop:4, fontSize:10, color:'var(--ink-4)'}}>💡 用预设可避免拼写不一致导致自动派单失效</div>
           </div>
           {/* 员工 */}
           <div>
@@ -19327,7 +19399,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix12-r3b';
+const APP_VERSION = '2026.05.25-fix12-r4-cy';
 console.log(
   '%c📦 统一工作台 v' + APP_VERSION + ' 已加载\n' +
   '%c如看到旧 bug,请强刷 Ctrl+Shift+R 清除缓存\n' +
