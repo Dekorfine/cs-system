@@ -13175,41 +13175,53 @@ function updateFavBadge() {
 function renderUI() {
   const tx = t();
   document.documentElement.lang = state.lang === 'cn' ? 'zh-CN' : 'en';
-  $('#search-input').placeholder = tx.searchPlaceholder;
-  $('#cat-title').textContent = tx.catTitle;
-  $('#tag-title').textContent = tx.tagTitle;
-  $('#clear-filters').textContent = tx.clearFilters;
-  $('#hero-title').textContent = tx.heroTitle;
-  $('#hero-sub').textContent = tx.heroSub;
-  $('#smart-paste').placeholder = tx.smartPlaceholder;
-  $('#match-label').textContent = tx.matchLabel;
-  $('#match-clear-btn').textContent = tx.clearMatch;
-  $('#scenarios-title').textContent = tx.scenariosTitle;
-  $('#scenarios-hint').textContent = tx.scenariosHint;
-  $('#help-title').textContent = tx.helpTitle;
-  $('#help-sub').textContent = tx.helpSub;
-  $('#help-search').textContent = tx.helpSearch;
-  $('#help-fav').textContent = tx.helpFav;
-  $('#help-recent').textContent = tx.helpRecent;
-  $('#help-stats').textContent = state.lang === 'cn' ? '使用统计' : 'Usage Stats';
-  $('#help-theme').textContent = tx.helpTheme;
-  $('#help-close').textContent = tx.helpClose;
-  $('#help-copy').textContent = tx.helpCopy;
-  $('#help-help').textContent = tx.helpHelp;
-  $('#quickfill-title').textContent = tx.quickfillTitle;
-  $('#quickfill-hint').textContent = tx.quickfillHint;
+  // 🛡 全部用 setText 防御 - 避免某个 id 不存在时整个 renderUI 中断
+  const setText = (sel, text) => {
+    const el = $(sel);
+    if (el) el.textContent = text;
+  };
+  const setPlaceholder = (sel, text) => {
+    const el = $(sel);
+    if (el) el.placeholder = text;
+  };
+  
+  setPlaceholder('#search-input', tx.searchPlaceholder);
+  setText('#cat-title', tx.catTitle);
+  setText('#tag-title', tx.tagTitle);
+  setText('#clear-filters', tx.clearFilters);
+  setText('#hero-title', tx.heroTitle);
+  setText('#hero-sub', tx.heroSub);
+  setPlaceholder('#smart-paste', tx.smartPlaceholder);
+  setText('#match-label', tx.matchLabel);
+  setText('#match-clear-btn', tx.clearMatch);
+  setText('#scenarios-title', tx.scenariosTitle);
+  setText('#scenarios-hint', tx.scenariosHint);
+  setText('#help-title', tx.helpTitle);
+  setText('#help-sub', tx.helpSub);
+  setText('#help-search', tx.helpSearch);
+  setText('#help-fav', tx.helpFav);
+  setText('#help-recent', tx.helpRecent);
+  setText('#help-stats', state.lang === 'cn' ? '使用统计' : 'Usage Stats');
+  setText('#help-theme', tx.helpTheme);
+  setText('#help-close', tx.helpClose);
+  setText('#help-copy', tx.helpCopy);
+  setText('#help-help', tx.helpHelp);
+  setText('#quickfill-title', tx.quickfillTitle);
+  setText('#quickfill-hint', tx.quickfillHint);
   // AI rewrite labels
-  $('#ai-label').textContent = state.lang === 'cn' ? 'AI 改写' : 'AI Rewrite';
-  $('#ai-gpt-match').textContent = state.lang === 'cn' ? '用 GPT 按语气改写' : 'Match tone (GPT)';
-  $('#ai-gemini-match').textContent = state.lang === 'cn' ? '用 Gemini 按语气改写' : 'Match tone (Gemini)';
-  $('#ai-shorter').textContent = state.lang === 'cn' ? '改简短 (GPT)' : 'Shorten (GPT)';
-  $('#ai-friendly').textContent = state.lang === 'cn' ? '更友善 (Gemini)' : 'Friendlier (Gemini)';
-  // Sort select options
+  setText('#ai-label', state.lang === 'cn' ? 'AI 改写' : 'AI Rewrite');
+  setText('#ai-gpt-match', state.lang === 'cn' ? '用 GPT 按语气改写' : 'Match tone (GPT)');
+  setText('#ai-gemini-match', state.lang === 'cn' ? '用 Gemini 按语气改写' : 'Match tone (Gemini)');
+  setText('#ai-shorter', state.lang === 'cn' ? '改简短 (GPT)' : 'Shorten (GPT)');
+  setText('#ai-friendly', state.lang === 'cn' ? '更友善 (Gemini)' : 'Friendlier (Gemini)');
+  // Sort select options - 🛡 加 null check
   const sortSelect = $('#sort-select');
-  sortSelect.options[0].textContent = tx.sortDefault;
-  sortSelect.options[1].textContent = tx.sortRecent;
-  sortSelect.options[2].textContent = tx.sortFav;
-  sortSelect.options[3].textContent = tx.sortId;
+  if (sortSelect && sortSelect.options) {
+    if (sortSelect.options[0]) sortSelect.options[0].textContent = tx.sortDefault;
+    if (sortSelect.options[1]) sortSelect.options[1].textContent = tx.sortRecent;
+    if (sortSelect.options[2]) sortSelect.options[2].textContent = tx.sortFav;
+    if (sortSelect.options[3]) sortSelect.options[3].textContent = tx.sortId;
+  }
   // Lang pill
   $$('.lang-pill button').forEach(b => b.classList.toggle('active', b.dataset.lang === state.lang));
 }
@@ -13417,9 +13429,15 @@ function openModal(id) {
   // Reset scroll
   $('#modal').scrollTop = 0;
   document.body.style.overflow = 'hidden';
-  // 🆕 通知父窗口滚到 iframe 顶部，避免 modal fixed 定位时跑到视口外
+  // 🆕 fix6: iframe 嵌入时,modal-backdrop 的 position:fixed 会被钉在 iframe 顶部
+  // (iframe 被父窗口撑大到内容高度 → 没有内部滚动条 → "fixed" 失效)
+  // 解决方案: 通知父窗口,父窗口回传当前可视区位置,我们用 absolute 定位 backdrop 到可视区
   if (window.parent && window.parent !== window) {
-    try { window.parent.postMessage({ type: 'iframe-modal-open', source: 'kb' }, '*'); } catch(e){}
+    try {
+      window.parent.postMessage({ type: 'iframe-modal-open', source: 'kb' }, '*');
+      // 主动请求父窗口的可视区信息(用于 modal-backdrop 定位)
+      window.parent.postMessage({ type: 'kb-request-position', source: 'kb' }, '*');
+    } catch(e){}
   }
 }
 
@@ -13432,6 +13450,124 @@ function closeModal() {
   $('#quickfill-panel').classList.remove('show');
   document.body.style.overflow = '';
   state.currentModal = null;
+  // 🆕 fix6: 清除 iframe 嵌入模式下的 inline 定位样式,并通知父窗口解锁滚动
+  clearEmbeddedBackdropPosition();
+  if (window.parent && window.parent !== window) {
+    try { window.parent.postMessage({ type: 'iframe-modal-close', source: 'kb' }, '*'); } catch(e){}
+  }
+}
+
+// 🆕 fix6: iframe 嵌入模式下的 modal 定位
+// 问题: 父窗口把 iframe 撑大到内容高度(无内部滚动条) → iframe 内的 position:fixed 失效
+//       (CSS 上"fixed"会铆在 iframe 整个文档顶部,而不是用户当前可视区)
+// 修复: 用 absolute + 动态设置 top/height 来匹配父窗口当前可视区
+// 涉及的 modal: #modal-backdrop / #stats-modal / #settings-modal / #lightbox
+const KB_FIX6_MODAL_IDS = ['modal-backdrop', 'stats-modal', 'settings-modal', 'lightbox'];
+const KB_FIX6_EMBEDDED = !!(window.parent && window.parent !== window);
+let KB_FIX6_lastScrollY = 0;
+let KB_FIX6_lastViewportHeight = window.innerHeight;
+
+function applyEmbeddedBackdropPosition(elementOrScrollY, scrollYOrViewport, viewportHeight) {
+  // 兼容两种调用方式:
+  //   applyEmbeddedBackdropPosition(scrollY, viewportHeight)  → 应用到 modal-backdrop
+  //   applyEmbeddedBackdropPosition(element, scrollY, viewportHeight)  → 应用到指定 element
+  let element, scrollY, vH;
+  if (typeof elementOrScrollY === 'number' || elementOrScrollY == null) {
+    // 旧签名: (scrollY, viewportHeight)
+    element = document.getElementById('modal-backdrop');
+    scrollY = elementOrScrollY || 0;
+    vH = scrollYOrViewport || window.innerHeight;
+  } else {
+    // 新签名: (element, scrollY, viewportHeight)
+    element = elementOrScrollY;
+    scrollY = scrollYOrViewport || 0;
+    vH = viewportHeight || window.innerHeight;
+  }
+  if (!element) return;
+  if (!KB_FIX6_EMBEDDED) return;
+  element.style.position = 'absolute';
+  element.style.top = Math.max(0, scrollY) + 'px';
+  element.style.left = '0';
+  element.style.right = '0';
+  element.style.bottom = 'auto';
+  element.style.width = '100%';
+  element.style.height = vH + 'px';
+  element.style.minHeight = vH + 'px';
+}
+
+function clearEmbeddedBackdropPosition(element) {
+  // 默认清除 #modal-backdrop (兼容旧调用)
+  const target = element || document.getElementById('modal-backdrop');
+  if (!target) return;
+  target.style.position = '';
+  target.style.top = '';
+  target.style.left = '';
+  target.style.right = '';
+  target.style.bottom = '';
+  target.style.width = '';
+  target.style.height = '';
+  target.style.minHeight = '';
+}
+
+// 🆕 fix6: 监听父窗口回传的可视区位置,应用到所有当前显示的 modal
+if (KB_FIX6_EMBEDDED) {
+  window.addEventListener('message', (e) => {
+    if (e.data?.type === 'kb-position-info') {
+      KB_FIX6_lastScrollY = e.data.scrollY || 0;
+      KB_FIX6_lastViewportHeight = e.data.viewportHeight || window.innerHeight;
+      // 应用到所有当前 show 的 modal
+      KB_FIX6_MODAL_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.classList.contains('show')) {
+          applyEmbeddedBackdropPosition(el, KB_FIX6_lastScrollY, KB_FIX6_lastViewportHeight);
+        }
+      });
+    }
+  });
+
+  // 用 MutationObserver 监听每个 modal 的 .show class 变化
+  // 这样 stats / settings / lightbox 这些直接 classList.add('show') 的也能自动定位
+  function setupKbFix6Observers() {
+    KB_FIX6_MODAL_IDS.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      // 初始如果已经 show 了,立即应用
+      if (el.classList.contains('show')) {
+        applyEmbeddedBackdropPosition(el, KB_FIX6_lastScrollY, KB_FIX6_lastViewportHeight);
+      }
+      const observer = new MutationObserver(() => {
+        if (el.classList.contains('show')) {
+          // Modal 打开 — 先用缓存的位置应用(避免闪烁),再向父窗口请求最新位置
+          applyEmbeddedBackdropPosition(el, KB_FIX6_lastScrollY, KB_FIX6_lastViewportHeight);
+          try {
+            window.parent.postMessage({ type: 'kb-request-position', source: 'kb' }, '*');
+            // 也通知父窗口"有 modal 打开"(让它锁滚动)
+            window.parent.postMessage({ type: 'iframe-modal-open', source: 'kb' }, '*');
+          } catch(err) {}
+        } else {
+          // Modal 关闭 — 清除 inline 样式
+          clearEmbeddedBackdropPosition(el);
+          // 如果所有 modal 都关闭了,通知父窗口解锁滚动
+          const anyOpen = KB_FIX6_MODAL_IDS.some(mid => {
+            const m = document.getElementById(mid);
+            return m && m.classList.contains('show');
+          });
+          if (!anyOpen) {
+            try {
+              window.parent.postMessage({ type: 'iframe-modal-close', source: 'kb' }, '*');
+            } catch(err) {}
+          }
+        }
+      });
+      observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+  }
+  // 等 DOM 准备好
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupKbFix6Observers);
+  } else {
+    setupKbFix6Observers();
+  }
 }
 
 function applyModalLangMode() {
@@ -15334,6 +15470,12 @@ async function autoSyncEdits() {
 }
 
 bootApp();
+
+// 📦 版本日志(2026-05-25 修复 renderUI null 错误)
+console.log(
+  '%c📚 知识库 kb.html v2026.05.25-fix6 已加载 (修复 iframe 嵌入时 modal 弹窗空白问题)',
+  'color:#7c3aed; font-weight:bold; font-size:13px; background:#f3e8ff; padding:3px 7px; border-radius:4px'
+);
 
 // ── iframe 嵌入时向父窗口汇报高度 ──
 if (window.parent && window.parent !== window) {
