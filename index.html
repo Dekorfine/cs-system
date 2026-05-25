@@ -728,6 +728,22 @@ const INITIAL_EMPLOYEES = [
   { id:'u_jiang', name:'江春芸', alias:'', sites:'财务·运费对账', role:'finance', password:'finance123', title:'财务·运费对账' },
   // 🔗 协调员 — 对接工厂/客服/跟单/供应商，所有功能全开放
   { id:'u_liuqiang', name:'刘强', alias:'', sites:'对接工厂·客服', role:'admin', password:'admin123', title:'对接工厂·客服' },
+  
+  // 🆕 北简客服团队 (13 人) — 默认 staff,所有基础权限默认打开,主管可后期调整
+  { id:'u_bj_vinnie',     name:'孙倩',     alias:'Vinnie',  sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_lily',       name:'林燕清',   alias:'Lily',    sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_diana',      name:'吴晓琳',   alias:'Diana',   sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_jenny',      name:'区嘉怡',   alias:'Jenny',   sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_sine',       name:'刘惜真',   alias:'Sine',    sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_lianzi',     name:'罗桓连',   alias:'Lianzi',  sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_echo',       name:'侯成',     alias:'Echo',    sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_joyce',      name:'李淑婷',   alias:'Joyce',   sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_madison',    name:'冯家颖',   alias:'Madison', sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_vera',       name:'陈慧容',   alias:'Vera',    sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_selina',     name:'陈美娟',   alias:'Selina',  sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_jane',       name:'陈洁嫦',   alias:'Jane',    sites:'北简', role:'staff', password:'123456', team:'北简' },
+  { id:'u_bj_chenliqiong',name:'陈丽琼',   alias:'BJ_PD',   sites:'北简·产品', role:'staff', password:'123456', team:'北简', title:'北简 BJ_PD · 产品' },
+  
   // 🔒 老板 1（不在登录列表显示，需要从右下角"🔐 管理员"入口登录）
   { id:'u_martin', name:'Martin', alias:'', sites:'CEO', role:'super_admin', password:'qq923923', title:'CEO · 创始人', hideFromList:true },
   // 🔒 老板 2（不在登录列表显示，需要从右下角"🔐 管理员"入口登录 · 与 Martin 同权）
@@ -4019,20 +4035,27 @@ const GREETINGS_LIB = {
   // 晚上 18-22 点
   evening: [
     '{name}，辛苦了，今天的你很努力 ❤️',
-    '嗨 {name}，到点了，回家吧，今天到此为止',
-    '{name}，今天的工作交给明天的你处理，OK',
-    '累了就早点休息 {name}，没什么是睡一觉解决不了的',
+    '嗨 {name}，到点了，回家吧,今天到此为止',
+    '{name}，今天的工作交给明天的你处理,OK',
+    '累了就早点休息 {name},没什么是睡一觉解决不了的',
     '{name}，今天你帮了很多人，谢谢你',
-    '辛苦啦 {name}，今晚记得吃顿好的 🍲',
-    '{name}，今天又是好好打工的一天，你真棒',
+    '辛苦啦 {name},今晚记得吃顿好的 🍲',
+    '{name}，今天又是好好打工的一天,你真棒',
+    '{name} 辛苦了 ❤️ 今天的难都已经过去了',
+    '辛苦了 {name},今天每一封邮件你都认真回了',
+    '{name},一天的疲惫,值得一顿好饭来犒劳',
+    '辛苦 {name},今天处理了那么多事情,真的很厉害',
+    '{name} 别忙太晚,今天的成果已经够漂亮了',
   ],
   // 深夜 22-5 点
   late: [
-    '{name}，这么晚还在，注意身体哦 🌙',
-    '{name}，再不睡就要变身了，赶紧休息',
-    '嘿 {name}，明天再说吧，今晚先好好睡',
-    '{name}，世界很大，但你需要先睡个好觉',
-    '夜深了 {name}，工作可以慢慢做，身体只有一个',
+    '{name},这么晚还在,注意身体哦 🌙',
+    '{name},再不睡就要变身了,赶紧休息',
+    '嘿 {name},明天再说吧,今晚先好好睡',
+    '{name},世界很大,但你需要先睡个好觉',
+    '夜深了 {name},工作可以慢慢做,身体只有一个',
+    '{name} 辛苦了,这么晚还在岗,记得早点收工',
+    '{name},再坚强的人也需要休息,今天到这里吧',
   ],
   // 周一专属
   monday: [
@@ -4081,7 +4104,29 @@ const DailyGreeting = ({ user }) => {
   
   if (hidden) return null;
   
-  const name = user.alias || user.name;
+  // 🆕 亲切称呼算法:
+  //   1. 有英文别名(alias) → 用 alias(例如 Jane / Nicole / Aletta)
+  //   2. 无 alias → 中文姓名去掉姓,只用名(例如 "罗燕秋" → "燕秋","谭燕灵" → "燕灵")
+  //   3. 单字名 / 复姓不好判断时直接用全名
+  const getFriendlyName = (u) => {
+    if (u.alias && u.alias.trim()) return u.alias.trim();
+    const fullName = (u.name || '').trim();
+    if (!fullName) return '同事';
+    // 复姓列表(常见的)
+    const compoundSurnames = ['欧阳','司马','上官','令狐','诸葛','慕容','尉迟','长孙','宇文','皇甫','东方','西门','南宫','夏侯','公孙','轩辕','赫连'];
+    for (const cs of compoundSurnames) {
+      if (fullName.startsWith(cs) && fullName.length > cs.length) {
+        return fullName.slice(cs.length);
+      }
+    }
+    // 单姓:去掉第一个字(仅当姓名 >= 2 字)
+    if (fullName.length >= 2) {
+      return fullName.slice(1);
+    }
+    return fullName;
+  };
+  
+  const name = getFriendlyName(user);
   const dayOfWeek = now.getDay();  // 0 = 周日
   
   // 选 bucket - 根据当前时段 + 星期挑选语料
@@ -14539,7 +14584,7 @@ const CloudSettingsCard = ({ cfg, setCfg, toast, onApply }) => {
 // ============================================================
 const App = () => {
   // 员工 (localStorage + 云同步备份) - 加版本号机制，代码里改了 INITIAL_EMPLOYEES 后能自动覆盖
-  const EMPLOYEES_VERSION = 7;  // 加罗燕秋老板账号
+  const EMPLOYEES_VERSION = 8;  // 🆕 加入 13 个北简客服
   const [employees, setEmployees] = useState(() => {
     const storedVer = STORE.get('employees_version', 0);
     const stored = STORE.get('employees', []);
