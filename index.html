@@ -613,15 +613,34 @@ const CLOUD = {
     } catch(e) { console.error('CLOUD.list', table, e); return null; }
   },
   _lastError: null,  // 🆕 保留最后一次操作的错误,供调用方读取
-  async upsert(table, row) {
+  // 🆕 fix8: 每个表跟踪 schema 缓存里缺失的字段,避免反复重试
+  _missingColumns: {},  // { table: Set<column> }
+  async upsert(table, row, _retryCount = 0) {
     if (!this.client) { 
       this._lastError = { message: '云同步未配置或离线模式', table }; 
       return null; 
     }
+    // 先剥离已知该表缺失的字段
+    const known = this._missingColumns[table];
+    let cleanRow = row;
+    if (known && known.size > 0) {
+      cleanRow = { ...row };
+      known.forEach(col => { delete cleanRow[col]; });
+    }
     try {
-      const { data, error } = await this.client.from(table).upsert(row).select();
+      const { data, error } = await this.client.from(table).upsert(cleanRow).select();
       if (error) {
-        // 🆕 详细错误信息保留
+        // 🆕 fix8: 检测 "Could not find the 'X' column of 'TABLE' in the schema cache" (PGRST204)
+        // 自动剥离该字段重试 (最多 5 次,避免死循环)
+        const colMatch = (error.message || '').match(/Could not find the '([^']+)' column/i);
+        if (colMatch && _retryCount < 5) {
+          const missing = colMatch[1];
+          if (!this._missingColumns[table]) this._missingColumns[table] = new Set();
+          this._missingColumns[table].add(missing);
+          console.warn(`[fix8 schema-retry] 表 "${table}" 缺少列 "${missing}",自动剥离重试 (第 ${_retryCount + 1}/5 次)`);
+          return this.upsert(table, row, _retryCount + 1);
+        }
+        // 详细错误信息保留
         this._lastError = {
           message: error.message || '未知错误',
           code: error.code,
@@ -634,6 +653,11 @@ const CLOUD = {
         throw error;
       }
       this._lastError = null;
+      // 🆕 fix8: 成功了但用了剥离 → 在 toast 提示一下,方便主管看到要补 schema
+      if (cleanRow !== row) {
+        const stripped = [...(this._missingColumns[table] || [])].join(', ');
+        console.warn(`[fix8 schema-retry] 已保存到 "${table}",但剥离了云端不识别的字段: ${stripped}。建议主管在 Supabase SQL Editor 补建相应列。`);
+      }
       return data;
     } catch(e) {
       if (!this._lastError) {
@@ -1304,6 +1328,8 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
     { key:'kb', label:'📚 知识库', desc:'280+ 回复模板 · AI 优化' },
     { key:'quote', label:'📝 报价单', desc:'生成 / 跟进报价单' },
     { key:'finance', label:'🧮 财务计算器', desc:'订单财务核算' },
+    // 🆕 fix8: 嵌入美工系统的 AI 评价生成工具(批量生成 / Judge.me CSV 导出)
+    { key:'ai_reviews', label:'🤖 AI 评价生成', desc:'调用美工系统的 AI 工具 · 批量生成评价 · 导出 Judge.me CSV' },
     ...(isFinanceVisible ? [{ key:'freight', label:'🚚 运费支付', desc:'运费对账' }] : []),
   ];
   
@@ -2304,6 +2330,15 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
   const [refunds, setRefunds] = useState([]);
   const [eventEditor, setEventEditor] = useState(null);  // { kind, record, existingEvent? }
   const [smartEditor, setSmartEditor] = useState(null);  // 🆕 { kind:'chargeback'|'custom'|'photo', record }
+  // 🆕 fix9b: 6 大事件按钮(售后/补件/退款/拒付/定制/实拍)默认折叠,避免每条记录都一大坨按钮
+  // 大部分跟进只是回复客户邮件,不需要这些事件;有需要再展开
+  // 已被打标(category=拒付/定制咨询/实拍)的记录默认展开,方便快速进入
+  const [expandedEventActions, setExpandedEventActions] = useState(() => new Set());
+  const toggleEventActions = (id) => setExpandedEventActions(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   
   // 启动时加载这些数据
   useEffect(() => {
@@ -2317,9 +2352,10 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
           CLOUD.list('refunds', { order:{col:'created_at', asc:false}, limit:500 }),
         ]);
         if (sup) setSuppliers(sup);
-        if (af)  setAftersales(af);
-        if (rf)  setRefills(rf);
-        if (rfd) setRefunds(rfd);
+        // 🆕 fix9b: 过滤掉软删除的记录(列表不再回弹已删除的) — aftersales/refills/refunds
+        if (af)  setAftersales(af.filter(x => !x.deleted));
+        if (rf)  setRefills(rf.filter(x => !x.deleted));
+        if (rfd) setRefunds(rfd.filter(x => !x.deleted));
       } catch(e) { console.error('加载事件数据失败:', e); }
     })();
   }, [cloudOn]);
@@ -3312,50 +3348,77 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                     )}
                   </div>
                   
-                  {/* Footer: 第二行 - 6 个事件按钮平铺 */}
-                  {editable && (
-                    <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6, marginTop:6}}>
-                      <button onClick={() => setEventEditor({ kind:'aftersale', record:r })} title="加售后事件"
-                        style={{padding:'8px 0', background:'#fff7ed', color:'#ea580c', border:'1px solid #fdba74', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2}}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; e.currentTarget.style.color = 'white'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.color = '#ea580c'; }}>
-                        <span style={{fontSize:16}}>🔧</span>
-                        <span>售后</span>
-                      </button>
-                      <button onClick={() => setEventEditor({ kind:'refill', record:r })} title="加补件事件"
-                        style={{padding:'8px 0', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2}}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#0369a1'; e.currentTarget.style.color = 'white'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; }}>
-                        <span style={{fontSize:16}}>📦</span>
-                        <span>补件</span>
-                      </button>
-                      <button onClick={() => setEventEditor({ kind:'refund', record:r })} title="加退款事件"
-                        style={{padding:'8px 0', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2}}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}>
-                        <span style={{fontSize:16}}>💰</span>
-                        <span>退款</span>
-                      </button>
-                      <button onClick={() => setSmartEditor({ kind:'chargeback', record:r })} title="加拒付记录"
-                        style={{padding:'8px 0', background: r.category === '拒付' ? '#dc2626' : '#fef2f2', color: r.category === '拒付' ? 'white' : '#dc2626', border:'1px solid ' + (r.category === '拒付' ? '#7f1d1d' : '#fca5a5'), borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2, position:'relative'}}>
-                        <span style={{fontSize:16}}>🚨</span>
-                        <span>拒付</span>
-                        {r.category === '拒付' && <span style={{position:'absolute', top:-6, right:-6, padding:'1px 5px', background:'#fbbf24', color:'#78350f', borderRadius:8, fontSize:9, fontWeight:700}}>✓</span>}
-                      </button>
-                      <button onClick={() => setSmartEditor({ kind:'custom', record:r })} title="加定制咨询"
-                        style={{padding:'8px 0', background: r.category === '定制咨询' ? '#7c3aed' : '#f5f3ff', color: r.category === '定制咨询' ? 'white' : '#7c3aed', border:'1px solid ' + (r.category === '定制咨询' ? '#5b21b6' : '#c4b5fd'), borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2, position:'relative'}}>
-                        <span style={{fontSize:16}}>🎨</span>
-                        <span>定制</span>
-                        {r.category === '定制咨询' && <span style={{position:'absolute', top:-6, right:-6, padding:'1px 5px', background:'#fbbf24', color:'#78350f', borderRadius:8, fontSize:9, fontWeight:700}}>✓</span>}
-                      </button>
-                      <button onClick={() => setSmartEditor({ kind:'photo', record:r })} title="加实拍核实"
-                        style={{padding:'8px 0', background: r.category === '实拍' ? '#be185d' : '#fdf2f8', color: r.category === '实拍' ? 'white' : '#be185d', border:'1px solid ' + (r.category === '实拍' ? '#831843' : '#fbcfe8'), borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2, position:'relative'}}>
-                        <span style={{fontSize:16}}>📸</span>
-                        <span>实拍</span>
-                        {r.category === '实拍' && <span style={{position:'absolute', top:-6, right:-6, padding:'1px 5px', background:'#fbbf24', color:'#78350f', borderRadius:8, fontSize:9, fontWeight:700}}>✓</span>}
-                      </button>
-                    </div>
-                  )}
+                  {/* Footer: 第二行 - 6 个事件按钮 (默认折叠 — 大部分跟进不涉及事件,有打标 category 的自动展开) */}
+                  {editable && (() => {
+                    const hasHighlight = r.category === '拒付' || r.category === '定制咨询' || r.category === '实拍';
+                    const userExpanded = expandedEventActions.has(r.id);
+                    const isOpen = userExpanded || hasHighlight;
+                    if (!isOpen) {
+                      return (
+                        <button onClick={() => toggleEventActions(r.id)} title="展开事件按钮(售后/补件/退款/拒付/定制/实拍)"
+                          style={{marginTop:6, width:'100%', padding:'6px 10px', background:'#fafaf7', color:'var(--ink-3)', border:'1px dashed var(--line)', borderRadius:8, cursor:'pointer', fontSize:11, fontWeight:500, fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:6, transition:'all .15s'}}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderStyle = 'solid'; e.currentTarget.style.color = 'var(--ink-2)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#fafaf7'; e.currentTarget.style.borderStyle = 'dashed'; e.currentTarget.style.color = 'var(--ink-3)'; }}>
+                          <span style={{opacity:.7}}>📌 添加事件</span>
+                          <span style={{opacity:.5, fontSize:9}}>售后 · 补件 · 退款 · 拒付 · 定制 · 实拍</span>
+                          <span style={{opacity:.7}}>▼</span>
+                        </button>
+                      );
+                    }
+                    return (
+                      <>
+                        {userExpanded && !hasHighlight && (
+                          <div style={{display:'flex', justifyContent:'flex-end', marginTop:6}}>
+                            <button onClick={() => toggleEventActions(r.id)}
+                              style={{padding:'2px 8px', background:'transparent', color:'var(--ink-4)', border:'none', cursor:'pointer', fontSize:10, fontFamily:'inherit'}}>
+                              ▲ 收起
+                            </button>
+                          </div>
+                        )}
+                        <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6, marginTop:hasHighlight ? 6 : 2}}>
+                          <button onClick={() => setEventEditor({ kind:'aftersale', record:r })} title="加售后事件"
+                            style={{padding:'8px 0', background:'#fff7ed', color:'#ea580c', border:'1px solid #fdba74', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2}}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; e.currentTarget.style.color = 'white'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.color = '#ea580c'; }}>
+                            <span style={{fontSize:16}}>🔧</span>
+                            <span>售后</span>
+                          </button>
+                          <button onClick={() => setEventEditor({ kind:'refill', record:r })} title="加补件事件"
+                            style={{padding:'8px 0', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2}}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#0369a1'; e.currentTarget.style.color = 'white'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#e0f2fe'; e.currentTarget.style.color = '#0369a1'; }}>
+                            <span style={{fontSize:16}}>📦</span>
+                            <span>补件</span>
+                          </button>
+                          <button onClick={() => setEventEditor({ kind:'refund', record:r })} title="加退款事件"
+                            style={{padding:'8px 0', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2}}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}>
+                            <span style={{fontSize:16}}>💰</span>
+                            <span>退款</span>
+                          </button>
+                          <button onClick={() => setSmartEditor({ kind:'chargeback', record:r })} title="加拒付记录"
+                            style={{padding:'8px 0', background: r.category === '拒付' ? '#dc2626' : '#fef2f2', color: r.category === '拒付' ? 'white' : '#dc2626', border:'1px solid ' + (r.category === '拒付' ? '#7f1d1d' : '#fca5a5'), borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2, position:'relative'}}>
+                            <span style={{fontSize:16}}>🚨</span>
+                            <span>拒付</span>
+                            {r.category === '拒付' && <span style={{position:'absolute', top:-6, right:-6, padding:'1px 5px', background:'#fbbf24', color:'#78350f', borderRadius:8, fontSize:9, fontWeight:700}}>✓</span>}
+                          </button>
+                          <button onClick={() => setSmartEditor({ kind:'custom', record:r })} title="加定制咨询"
+                            style={{padding:'8px 0', background: r.category === '定制咨询' ? '#7c3aed' : '#f5f3ff', color: r.category === '定制咨询' ? 'white' : '#7c3aed', border:'1px solid ' + (r.category === '定制咨询' ? '#5b21b6' : '#c4b5fd'), borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2, position:'relative'}}>
+                            <span style={{fontSize:16}}>🎨</span>
+                            <span>定制</span>
+                            {r.category === '定制咨询' && <span style={{position:'absolute', top:-6, right:-6, padding:'1px 5px', background:'#fbbf24', color:'#78350f', borderRadius:8, fontSize:9, fontWeight:700}}>✓</span>}
+                          </button>
+                          <button onClick={() => setSmartEditor({ kind:'photo', record:r })} title="加实拍核实"
+                            style={{padding:'8px 0', background: r.category === '实拍' ? '#be185d' : '#fdf2f8', color: r.category === '实拍' ? 'white' : '#be185d', border:'1px solid ' + (r.category === '实拍' ? '#831843' : '#fbcfe8'), borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700, fontFamily:'inherit', whiteSpace:'nowrap', transition:'all .15s', display:'flex', flexDirection:'column', alignItems:'center', gap:2, position:'relative'}}>
+                            <span style={{fontSize:16}}>📸</span>
+                            <span>实拍</span>
+                            {r.category === '实拍' && <span style={{position:'absolute', top:-6, right:-6, padding:'1px 5px', background:'#fbbf24', color:'#78350f', borderRadius:8, fontSize:9, fontWeight:700}}>✓</span>}
+                          </button>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -6000,6 +6063,14 @@ const requestDelete = async ({ user, tableName, moduleLabel, record, recordSumma
     try {
       const res = await CLOUD.upsert(tableName, { ...record, deleted: true, updated_at: new Date().toISOString() });
       if (res) {
+        // 🆕 fix9b: 验证 deleted=true 真的写入了 — 如果 CLOUD.upsert 的 schema-retry 把 deleted 字段剥离了(因为表没这一列),
+        // upsert 会"成功"但记录其实没标记删除 → 刷新后又会回来。这种情况下提示用户跑 SQL 而不是冒充已删除。
+        const savedRow = Array.isArray(res) ? res[0] : res;
+        const actuallyDeleted = savedRow && savedRow.deleted === true;
+        if (!actuallyDeleted) {
+          alert(`⚠ 删除可能未生效\n\n数据库的 ${tableName} 表可能还没有 deleted 列(响应里 deleted=${savedRow?.deleted}).\n\n请主管在 Supabase SQL Editor 执行最新的 16_fix7_photo_replies.sql 然后强刷页面。\n\n刷新后这条记录还会出现,直到列建好.`);
+          return false;
+        }
         // 记录审计
         try {
           await CLOUD.client.from('delete_requests').insert({
@@ -6023,6 +6094,11 @@ const requestDelete = async ({ user, tableName, moduleLabel, record, recordSumma
         toast('✓ 已删除');
         if (onSuccess) onSuccess();
         return true;
+      } else {
+        // 🆕 fix8: 之前这里默默 return false,用户看不到错误
+        // 实际可能是:1) 数据库无 deleted 列(aftersales/refills/refunds 旧 schema) 2) RLS 拒绝 3) 列名拼写错
+        alertSaveError('删除');
+        return false;
       }
     } catch(e) { alert('删除失败: ' + e.message); }
     return false;
@@ -6791,6 +6867,123 @@ const ChargebackOwnersSettings = ({ employees, user, toast }) => {
 };
 
 
+// 🆕 fix9: 退款处理人配置 — 谁能审核/完成/上传退款截图
+// 默认 Miya (主管) / Nicole (总管) / Yulia (周末顶班)
+// 主管在 设置 → 退款处理人 改名单;名单里的人才能点退款表里的"审核 / 完成"按钮
+const RefundProcessorsSettings = ({ employees, user, toast }) => {
+  const [selectedIds, setSelectedIds] = useState(['u_miya', 'u_nicole', 'u_yulia']);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const visibleEmployees = (employees || []).filter(em => !em.hideFromList);
+
+  useEffect(() => {
+    (async () => {
+      if (!CLOUD.client) { setLoading(false); return; }
+      try {
+        const { data } = await CLOUD.client.from('system_settings').select('*').eq('key', 'refund_processors').single();
+        const ids = data?.value?.user_ids;
+        if (Array.isArray(ids) && ids.length > 0) setSelectedIds(ids);
+      } catch (e) { /* 用默认 */ }
+      setLoading(false);
+    })();
+  }, []);
+
+  const toggle = (id) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSave = async () => {
+    if (selectedIds.length === 0) { alert('至少选 1 个退款处理人'); return; }
+    setSaving(true);
+    const userName = user.name + (user.alias ? ' ' + user.alias : '');
+    const ok = await (window.__setRefundProcessors?.(selectedIds, userName));
+    if (ok !== false) toast('✓ 已保存退款处理人配置');
+    setSaving(false);
+  };
+
+  if (loading) return <div className="paper rounded-2xl p-10" style={{textAlign:'center'}}>⏳ 加载中...</div>;
+
+  const getLabel = (em) => {
+    let suffix = '';
+    if (em.role === 'super_admin') suffix = ' (老板)';
+    else if (em.role === 'admin') suffix = ' (主管)';
+    else if (em.role === 'finance') suffix = ' (财务)';
+    return `${em.name}${em.alias ? ' ' + em.alias : ''}${suffix}${em.sites ? ' · ' + em.sites : ''}`;
+  };
+
+  // 分组排序: 已选的放前面,主管/老板/财务居中,其他靠后
+  const sortedEmployees = [...visibleEmployees].sort((a, b) => {
+    const aSel = selectedIds.includes(a.id) ? 0 : 1;
+    const bSel = selectedIds.includes(b.id) ? 0 : 1;
+    if (aSel !== bSel) return aSel - bSel;
+    const roleOrder = { super_admin: 0, admin: 1, finance: 2, staff: 3 };
+    return (roleOrder[a.role] ?? 9) - (roleOrder[b.role] ?? 9);
+  });
+
+  return (
+    <div className="paper rounded-2xl p-6">
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:6}}>
+        <span style={{fontSize:24}}>💰</span>
+        <div>
+          <div className="font-display" style={{fontSize:17, fontWeight:600}}>退款处理人员配置</div>
+          <div style={{fontSize:12, color:'var(--ink-3)', marginTop:2}}>谁能审核退款 / 标记完成 / 上传打款截图</div>
+        </div>
+      </div>
+      <div style={{padding:'10px 12px', background:'#fef3c7', border:'1px solid #fcd34d', borderRadius:8, fontSize:12, color:'#78350f', marginTop:12, marginBottom:14, lineHeight:1.6}}>
+        💡 <strong>业务规则</strong>:所有客服都可以查看退款 + 录入待处理退款。<br/>
+        但只有名单上的人可以点 <strong>「审核」 / 「✓ 完成」</strong> 按钮(执行实际退款 + 上传 Shopify/Stripe 截图)。<br/>
+        老板 (super_admin) 永远在权限内,无论是否在名单上。<br/>
+        <strong>默认配置</strong>:Miya 邱琴方 + Nicole 李彬桦 + Yulia 陶艳巧(周末顶班)。
+      </div>
+
+      <div style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:8}}>
+        当前选中 <strong style={{color:'#dc2626'}}>{selectedIds.length}</strong> 人:
+      </div>
+      <div style={{display:'flex', flexWrap:'wrap', gap:6, marginBottom:14, padding:10, background:'#fafaf7', borderRadius:8, minHeight:40}}>
+        {selectedIds.length === 0 ? (
+          <span style={{fontSize:12, color:'var(--ink-4)'}}>未选中任何人 — 请至少勾选一位</span>
+        ) : selectedIds.map(id => {
+          const em = visibleEmployees.find(e => e.id === id);
+          return (
+            <div key={id} style={{padding:'4px 10px', background:'#dc2626', color:'white', borderRadius:14, fontSize:12, display:'flex', alignItems:'center', gap:6}}>
+              {em ? getLabel(em) : `${id} (账号不存在)`}
+              <button onClick={() => toggle(id)} style={{background:'transparent', border:'none', color:'white', cursor:'pointer', fontSize:14, padding:0, lineHeight:1}}>×</button>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>
+        全部员工 (点击勾选/取消):
+      </div>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(260px, 1fr))', gap:6}}>
+        {sortedEmployees.map(em => {
+          const checked = selectedIds.includes(em.id);
+          return (
+            <label key={em.id} style={{
+              display:'flex', alignItems:'center', gap:8, padding:'8px 10px',
+              border:`1px solid ${checked ? '#dc2626' : 'var(--line)'}`,
+              background: checked ? '#fef2f2' : 'white',
+              borderRadius:7, cursor:'pointer', fontSize:13,
+            }}>
+              <input type="checkbox" checked={checked} onChange={() => toggle(em.id)} style={{margin:0}} />
+              <span style={{flex:1, color:checked ? '#7f1d1d' : 'var(--ink)', fontWeight:checked ? 600 : 400}}>
+                {getLabel(em)}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+
+      <button onClick={handleSave} disabled={saving || selectedIds.length === 0}
+        style={{padding:'10px 24px', background:'#dc2626', color:'white', border:'none', borderRadius:10, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:14, marginTop:18, opacity: (saving || selectedIds.length === 0) ? 0.5 : 1}}>
+        {saving ? '保存中...' : '✓ 保存配置'}
+      </button>
+    </div>
+  );
+};
+
+
 const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudCfg, onCloudApply }) => {
   const [editingId, setEditingId] = useState(null);
   const [newEmp, setNewEmp] = useState({ name:'', alias:'', sites:'', password:'123456', role:'staff' });
@@ -6953,6 +7146,7 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
           <button className={`tab-btn ${section==='cloud'?'active':''}`} onClick={() => setSection('cloud')}>☁ 云同步设置</button>
           <button className={`tab-btn ${section==='gemini'?'active':''}`} onClick={() => setSection('gemini')}>✨ Gemini AI</button>
           <button className={`tab-btn ${section==='chargeback_owners'?'active':''}`} onClick={() => setSection('chargeback_owners')}>🚨 拒付专人</button>
+          <button className={`tab-btn ${section==='refund_processors'?'active':''}`} onClick={() => setSection('refund_processors')}>💰 退款处理人</button>
           <button className={`tab-btn ${section==='alert_thresholds'?'active':''}`} onClick={() => setSection('alert_thresholds')}>⏰ 预警阈值</button>
           <button className={`tab-btn ${section==='employees'?'active':''}`} onClick={() => setSection('employees')}>👥 员工管理 ({employees.length})</button>
           <button className={`tab-btn ${section==='suppliers'?'active':''}`} onClick={() => setSection('suppliers')}>🏭 供应商管理</button>
@@ -6965,6 +7159,10 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
       
       {section === 'chargeback_owners' && (
         <ChargebackOwnersSettings employees={employees} user={user} toast={toast} />
+      )}
+      
+      {section === 'refund_processors' && (
+        <RefundProcessorsSettings employees={employees} user={user} toast={toast} />
       )}
       
       {section === 'alert_thresholds' && (
@@ -8550,6 +8748,18 @@ const BriefingsModule = ({ user, employees, toast, cloudOn }) => {
     if (res) { toast(b.published ? '✓ 已撤回（员工看不到了）' : '✓ 已发布（所有员工首页可见）'); loadAll(); }
   };
   
+  // 🆕 fix9b: 主管快捷标记会议纪要为"已处理"
+  const toggleHandled = async (b) => {
+    const now = new Date().toISOString();
+    const userName = user.name + (user.alias ? ' ' + user.alias : '');
+    const updates = b.handled_at
+      ? { ...b, handled_at: null, handled_by: null, handled_by_name: null }
+      : { ...b, handled_at: now, handled_by: user.id, handled_by_name: userName };
+    const res = await CLOUD.upsert('weekly_briefings', updates);
+    if (res) { toast(b.handled_at ? '↩ 已撤销「已处理」' : '✓ 已标记处理完毕'); loadAll(); }
+    else alertSaveError('标记会议纪要');
+  };
+  
   if (loading) return <div style={{padding:40, textAlign:'center'}}>⏳ 加载中...</div>;
   
   return (
@@ -8584,7 +8794,8 @@ const BriefingsModule = ({ user, employees, toast, cloudOn }) => {
               onEdit={() => setEditing(b)}
               onDelete={() => handleDelete(b.id)}
               onTogglePin={() => togglePinned(b)}
-              onTogglePub={() => togglePublished(b)} />
+              onTogglePub={() => togglePublished(b)}
+              onToggleHandled={() => toggleHandled(b)} />
           ))}
         </div>
       )}
@@ -8600,7 +8811,7 @@ const BriefingsModule = ({ user, employees, toast, cloudOn }) => {
 };
 
 // 会议纪要列表项
-const BriefingItem = ({ briefing, user, isAdmin, onEdit, onDelete, onTogglePin, onTogglePub }) => {
+const BriefingItem = ({ briefing, user, isAdmin, onEdit, onDelete, onTogglePin, onTogglePub, onToggleHandled }) => {
   const [expanded, setExpanded] = useState(false);
   const [itemPreview, setItemPreview] = useState(null);
   const highlights = briefing.highlights || [];
@@ -8608,34 +8819,42 @@ const BriefingItem = ({ briefing, user, isAdmin, onEdit, onDelete, onTogglePin, 
   const attachments = briefing.attachments || [];
   const myPlans = workPlans.filter(p => p.assignee_id === user.id);
   const isRead = briefing.read_by && briefing.read_by[user.id];
+  const isHandled = !!briefing.handled_at;  // 🆕 fix9b
   
   return (
     <div className="paper rounded-2xl fade-in" style={{
       overflow:'hidden',
-      border: '1.5px solid ' + (briefing.pinned ? '#fbbf24' : briefing.published ? '#7dd3fc' : '#e5e5e5'),
-      background: briefing.pinned ? '#fffbeb' : briefing.published ? 'white' : '#fafafa',
-      opacity: briefing.published ? 1 : 0.7,
+      border: '1.5px solid ' + (isHandled ? '#86efac' : briefing.pinned ? '#fbbf24' : briefing.published ? '#7dd3fc' : '#e5e5e5'),
+      background: isHandled ? '#f0fdf4' : briefing.pinned ? '#fffbeb' : briefing.published ? 'white' : '#fafafa',
+      opacity: briefing.published ? (isHandled ? 0.85 : 1) : 0.7,
     }}>
       <div style={{padding:'12px 16px', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', gap:10}}
         onClick={() => setExpanded(v => !v)}>
         <div style={{flex:1, minWidth:0}}>
           <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+            {isHandled && <span style={{fontSize:12, padding:'2px 8px', background:'#16a34a', color:'white', borderRadius:10, fontWeight:600}}>✓ 已处理</span>}
             {briefing.pinned && <span style={{fontSize:14}}>📌</span>}
             <span style={{fontSize:13, fontWeight:600, color: briefing.pinned ? '#854d0e' : 'var(--ink)'}}>{briefing.week_label}</span>
             {!briefing.published && <span style={{padding:'1px 6px', background:'#e5e5e5', color:'#666', borderRadius:6, fontSize:10, fontWeight:600}}>草稿</span>}
             {briefing.published && !isRead && <span style={{padding:'1px 6px', background:'#dc2626', color:'white', borderRadius:6, fontSize:10, fontWeight:600}}>未读</span>}
             {myPlans.length > 0 && <span style={{padding:'1px 6px', background:'#fef2f2', color:'#dc2626', borderRadius:6, fontSize:10, fontWeight:600}}>我 {myPlans.length} 项</span>}
           </div>
-          <div style={{fontSize:14, fontWeight:600, color:'var(--ink)', marginTop:3}}>{briefing.title}</div>
+          <div style={{fontSize:14, fontWeight:600, color:'var(--ink)', marginTop:3, textDecoration: isHandled ? 'line-through' : 'none', opacity: isHandled ? 0.7 : 1}}>{briefing.title}</div>
           <div style={{fontSize:11, color:'var(--ink-3)', marginTop:3}}>
             {briefing.created_by_name} · {(briefing.published_at || briefing.created_at || '').slice(0,10)}
             {' · '}{highlights.length} 要点 · {workPlans.length} 任务 · {attachments.length} 附件
             {briefing.read_by && Object.keys(briefing.read_by).length > 0 && <> · 已读 {Object.keys(briefing.read_by).length} 人</>}
+            {isHandled && <> · <span style={{color:'#16a34a', fontWeight:600}}>{briefing.handled_by_name} 已处理于 {briefing.handled_at.slice(0,10)}</span></>}
           </div>
         </div>
         <div style={{display:'flex', gap:4, alignItems:'center', flexShrink:0}} onClick={e => e.stopPropagation()}>
           {isAdmin && (
             <>
+              {/* 🆕 fix9b: 快捷标记已处理 — 跟 onTogglePub 一样的 admin-only 工具栏 */}
+              <button onClick={onToggleHandled} title={isHandled ? '撤销已处理' : '标记已处理(主管确认这次会议要点都跟进了)'}
+                style={{padding:'4px 10px', background: isHandled ? '#dcfce7' : '#16a34a', color: isHandled ? '#15803d' : 'white', border:'1px solid ' + (isHandled ? '#86efac' : '#16a34a'), borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                {isHandled ? '↩ 撤销' : '✓ 已处理'}
+              </button>
               <button onClick={onTogglePub} title={briefing.published ? '撤回发布' : '发布给员工'}
                 style={{padding:'4px 10px', background: briefing.published ? '#dcfce7' : '#0369a1', color: briefing.published ? '#15803d' : 'white', border:'1px solid ' + (briefing.published ? '#86efac' : '#0369a1'), borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
                 {briefing.published ? '✓ 已发布' : '📢 发布'}
@@ -10104,6 +10323,16 @@ const WorkSnapshotPanel = ({ user, employees, records, onJumpTo }) => {
       r.created_at && r.created_at.slice(0,10) < addDays(today, -thresholds.refund)
     );
     
+    // 🆕 fix9: 退款处理人专属视图 — 显示所有(不限于"我创建的")待审/待完成的退款
+    // 让 Miya / Nicole / Yulia 能在第一眼看到今天有多少要处理
+    const isRefundProcessor = typeof window !== 'undefined' && window.__canProcessRefund?.(user);
+    const refundPendingForProcessor = isRefundProcessor 
+      ? data.refunds.filter(r => r.status === 'pending')   // 全员的待审
+      : [];
+    const refundApprovedForProcessor = isRefundProcessor
+      ? data.refunds.filter(r => r.status === 'approved')  // 全员的待完成(已批准但还没标记完成)
+      : [];
+    
     // 售后 - 未完成超 N 天
     const aftersaleStuck = data.aftersales.filter(a =>
       isMine(a) &&
@@ -10118,12 +10347,14 @@ const WorkSnapshotPanel = ({ user, employees, records, onJumpTo }) => {
       r.created_at && r.created_at.slice(0,10) < addDays(today, -thresholds.refill)
     );
     
-    return { csOverdue, csDueToday, cbUrgent, offlineStuck, customStuck, photoStuck, refundStuck, aftersaleStuck, refillStuck };
+    return { csOverdue, csDueToday, cbUrgent, offlineStuck, customStuck, photoStuck, refundStuck, aftersaleStuck, refillStuck,
+      refundPendingForProcessor, refundApprovedForProcessor, isRefundProcessor };
   }, [data, records, thresholds, user, isAdminRole]);
   
   const totalAlerts = stats.csOverdue.length + stats.csDueToday.length + 
     stats.cbUrgent.length + stats.offlineStuck.length + stats.customStuck.length + 
-    stats.photoStuck.length + stats.refundStuck.length + stats.aftersaleStuck.length + stats.refillStuck.length;
+    stats.photoStuck.length + stats.refundStuck.length + stats.aftersaleStuck.length + stats.refillStuck.length +
+    stats.refundPendingForProcessor.length + stats.refundApprovedForProcessor.length;
   
   if (loading) return null;
   if (totalAlerts === 0) return null;  // 没有未完成 → 不显示
@@ -10173,6 +10404,17 @@ const WorkSnapshotPanel = ({ user, employees, records, onJumpTo }) => {
       </div>
       
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:8}}>
+        {/* 🆕 fix9: 退款处理人专属卡片(Miya/Nicole/Yulia)— 显示全员的待退款,排在最前面 */}
+        {stats.isRefundProcessor && stats.refundPendingForProcessor.length > 0 && (
+          <AlertCell icon="💰" label="今天要审核的退款" count={stats.refundPendingForProcessor.length} color="#dc2626" urgent
+            threshold="全员申请 · 你需处理"
+            onClick={() => onJumpTo && onJumpTo('events')} />
+        )}
+        {stats.isRefundProcessor && stats.refundApprovedForProcessor.length > 0 && (
+          <AlertCell icon="✅" label="今天要打款的退款" count={stats.refundApprovedForProcessor.length} color="#16a34a" urgent
+            threshold="已审核 · 待你打款上传截图"
+            onClick={() => onJumpTo && onJumpTo('events')} />
+        )}
         <AlertCell icon="⏰" label="跟进逾期/今日到期" count={stats.csOverdue.length + stats.csDueToday.length} color="#dc2626"
           threshold={`超 ${thresholds.cs_followup} 天 / 今日`} urgent
           onClick={() => onJumpTo && onJumpTo('cs')} />
@@ -10188,7 +10430,7 @@ const WorkSnapshotPanel = ({ user, employees, records, onJumpTo }) => {
         <AlertCell icon="📸" label="实拍待回复" count={stats.photoStuck.length} color="#be185d"
           threshold={thresholds.photo_verif}
           onClick={() => onJumpTo && onJumpTo('custom_photo')} />
-        <AlertCell icon="💰" label="退款待审" count={stats.refundStuck.length} color="#d97706"
+        <AlertCell icon="💰" label="我的退款待审" count={stats.refundStuck.length} color="#d97706"
           threshold={thresholds.refund}
           onClick={() => onJumpTo && onJumpTo('events')} />
         <AlertCell icon="🔧" label="售后挂起" count={stats.aftersaleStuck.length} color="#ea580c"
@@ -10320,6 +10562,23 @@ const ChargebacksModule = ({ user, employees, toast }) => {
             records={list} dateField="created_at" />
         </div>
       </div>
+      
+      {/* 🆕 fix9b: 拒付金额汇总(时间筛选 + 按网站分布) */}
+      <AmountSummaryWidget
+        title="拒付金额汇总"
+        icon="🚨"
+        color="#dc2626"
+        items={list}
+        statusLabels={{
+          pending:        { label:'待证据', color:'#ca8a04', bg:'#fef9c3' },
+          submitted:      { label:'已提交', color:'#0369a1', bg:'#e0f2fe' },
+          under_review:   { label:'审核中', color:'#7c3aed', bg:'#f5f3ff' },
+          won:            { label:'胜诉',   color:'#16a34a', bg:'#dcfce7' },
+          lost:           { label:'败诉',   color:'#dc2626', bg:'#fee2e2' },
+          closed:         { label:'已关闭', color:'#6b7280', bg:'#f3f4f6' },
+        }}
+        getSite={c => c.site || c.website || null}
+      />
       
       {loading ? (
         <div className="paper rounded-2xl p-10" style={{textAlign:'center'}}>⏳ 加载中...</div>
@@ -13266,11 +13525,15 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
         CLOUD.list('refunds', { order:{col:'created_at', asc:false}, limit:2000 }),
       ]);
       setSuppliers(sup || []);
-      setAftersales(af || []);
-      setRefills(rf || []);
-      setRefunds(rfd || []);
+      // 🆕 fix9b: 必须过滤软删除的(老板删除后刷新会回弹的根因 — 之前 loadAll 没过滤)
+      const afLive = (af || []).filter(x => !x.deleted);
+      const rfLive = (rf || []).filter(x => !x.deleted);
+      const rfdLive = (rfd || []).filter(x => !x.deleted);
+      setAftersales(afLive);
+      setRefills(rfLive);
+      setRefunds(rfdLive);
       // 🆕 写 cache 给顶部徽章用
-      STORE.set('events_cache', { aftersales: af || [], refunds: rfd || [], refills: rf || [] });
+      STORE.set('events_cache', { aftersales: afLive, refunds: rfdLive, refills: rfLive });
     } catch(e) { toast('❌ 加载失败: ' + e.message); }
     setLoading(false);
   };
@@ -13538,22 +13801,57 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
       
       {/* 内容区 */}
       {subTab === 'aftersales' && (
-        <AftersalesTable items={filteredAftersales} employees={employees} suppliers={suppliers} user={user} isAdmin={isAdmin}
-          onEdit={(e) => setEditEvent({ kind:'aftersale', event:e })}
-          onDelete={(id) => deleteEvent('aftersale', id)}
-          onUpdateStatus={updateAftersaleStatus} />
+        <>
+          <CompletionStatsBanner
+            items={aftersales}
+            title="售后完成统计"
+            icon="🔧"
+            color="#ea580c"
+            completedStatuses={['returned', 'customer_refund', 'closed']}
+          />
+          <AftersalesTable items={filteredAftersales} employees={employees} suppliers={suppliers} user={user} isAdmin={isAdmin}
+            onEdit={(e) => setEditEvent({ kind:'aftersale', event:e })}
+            onDelete={(id) => deleteEvent('aftersale', id)}
+            onUpdateStatus={updateAftersaleStatus} />
+        </>
       )}
       {subTab === 'refills' && (
-        <RefillsTable items={filteredRefills} employees={employees} suppliers={suppliers} user={user} isAdmin={isAdmin}
-          onEdit={(e) => setEditEvent({ kind:'refill', event:e })}
-          onDelete={(id) => deleteEvent('refill', id)}
-          onUpdateStatus={updateRefillStatus} />
+        <>
+          <CompletionStatsBanner
+            items={refills}
+            title="补件完成统计"
+            icon="📦"
+            color="#0369a1"
+            completedStatuses={['delivered']}
+          />
+          <RefillsTable items={filteredRefills} employees={employees} suppliers={suppliers} user={user} isAdmin={isAdmin}
+            onEdit={(e) => setEditEvent({ kind:'refill', event:e })}
+            onDelete={(id) => deleteEvent('refill', id)}
+            onUpdateStatus={updateRefillStatus} />
+        </>
       )}
       {subTab === 'refunds' && (
-        <RefundsTable items={filteredRefunds} employees={employees} suppliers={suppliers} user={user} isFinance={isFinance}
-          onEdit={(e) => setEditEvent({ kind:'refund', event:e })}
-          onDelete={(id) => deleteEvent('refund', id)}
-          onReview={(refund) => setRefundReview(refund)} />
+        <>
+          {/* 🆕 fix9b: 退款金额汇总(时间筛选 + 按网站分布) */}
+          <AmountSummaryWidget
+            title="退款金额汇总"
+            icon="💰"
+            color="#dc2626"
+            items={refunds}
+            statusLabels={{
+              pending:   { label:'待审核',  color:'#ca8a04', bg:'#fef9c3' },
+              approved:  { label:'已审核·待退', color:'#0369a1', bg:'#e0f2fe' },
+              completed: { label:'已完成',  color:'#16a34a', bg:'#dcfce7' },
+              rejected:  { label:'已拒绝',  color:'#6b7280', bg:'#f3f4f6' },
+            }}
+            getSite={r => r.site || r.website || null}
+          />
+          <RefundsTable items={filteredRefunds} employees={employees} suppliers={suppliers} user={user} isFinance={isFinance}
+            canRefundReview={isFinance || (typeof window !== 'undefined' && window.__canProcessRefund?.(user))}
+            onEdit={(e) => setEditEvent({ kind:'refund', event:e })}
+            onDelete={(id) => deleteEvent('refund', id)}
+            onReview={(refund) => setRefundReview(refund)} />
+        </>
       )}
       {subTab === 'summary' && (
         <SummaryPanel stats={monthlyStats} filterMonth={filterMonth} setFilterMonth={setFilterMonth} 
@@ -13665,6 +13963,12 @@ const AftersalesTable = ({ items, employees, suppliers, user, isAdmin, onEdit, o
                     </td>
                     <td>
                       <div style={{display:'flex', gap:2}}>
+                        {/* 🆕 fix9b: 快捷标记已完成 — 一键设为 closed(售后) */}
+                        {e.status !== 'closed' && e.status !== 'customer_refund' && (
+                          <button onClick={() => {
+                            if (confirm(`将「${e.order_ref}」标记为已完成?`)) onUpdateStatus(e.id, 'closed');
+                          }} className="btn-ghost" style={{padding:'3px 6px', fontSize:11, color:'#16a34a'}} title="标记已完成">✓</button>
+                        )}
                         <button onClick={() => onEdit(e)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11}} title="编辑">✏️</button>
                         {(isAdmin || e.created_by === user.id) && (
                           <button onClick={() => onDelete(e.id)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11, color:'var(--bad)'}} title="删除">🗑</button>
@@ -13747,6 +14051,12 @@ const RefillsTable = ({ items, employees, suppliers, user, isAdmin, onEdit, onDe
                     </td>
                     <td>
                       <div style={{display:'flex', gap:2}}>
+                        {/* 🆕 fix9b: 快捷标记已签收 — 一键设为 delivered(补件完成) */}
+                        {e.status !== 'delivered' && e.status !== 'cancelled' && (
+                          <button onClick={() => {
+                            if (confirm(`将「${e.order_ref}」标记为已签收?`)) onUpdateStatus(e.id, 'delivered');
+                          }} className="btn-ghost" style={{padding:'3px 6px', fontSize:11, color:'#16a34a'}} title="标记已签收(完成)">✓</button>
+                        )}
                         <button onClick={() => onEdit(e)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11}}>✏️</button>
                         {(isAdmin || e.created_by === user.id) && (
                           <button onClick={() => onDelete(e.id)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11, color:'var(--bad)'}}>🗑</button>
@@ -13770,7 +14080,7 @@ const RefillsTable = ({ items, employees, suppliers, user, isAdmin, onEdit, onDe
 // ============================================================
 // 退款管理表格 + 两步审核
 // ============================================================
-const RefundsTable = ({ items, employees, suppliers, user, isFinance, onEdit, onDelete, onReview }) => {
+const RefundsTable = ({ items, employees, suppliers, user, isFinance, canRefundReview, onEdit, onDelete, onReview }) => {
   const [openImageId, setOpenImageId] = useState(null);
   // 顶部汇总
   const summary = useMemo(() => {
@@ -13864,10 +14174,10 @@ const RefundsTable = ({ items, employees, suppliers, user, isFinance, onEdit, on
                     </td>
                     <td>
                       <div style={{display:'flex', gap:2, flexWrap:'wrap'}}>
-                        {isFinance && r.status === 'pending' && (
+                        {(canRefundReview ?? isFinance) && r.status === 'pending' && (
                           <button onClick={() => onReview(r)} className="btn-pri" style={{padding:'3px 8px', fontSize:11}} title="审核">审核</button>
                         )}
-                        {isFinance && r.status === 'approved' && (
+                        {(canRefundReview ?? isFinance) && r.status === 'approved' && (
                           <button onClick={() => onReview(r)} className="btn-pri" style={{padding:'3px 8px', fontSize:11, background:'#16a34a'}} title="标记已完成">✓ 完成</button>
                         )}
                         <button onClick={() => onEdit(r)} className="btn-ghost" style={{padding:'3px 6px', fontSize:11}}>✏️</button>
@@ -14021,6 +14331,248 @@ const ImageGalleryModal = ({ event, onClose }) => {
         <div style={{textAlign:'center', color:'rgba(255,255,255,.8)', fontSize:12}}>
           {activeIdx + 1} / {imgs.length} · {current.label || ''}
         </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 🆕 fix9b: 金额汇总组件 (退款 / 拒付)
+// 时间筛选: 3/7/14/30/90 天 + 季度 + 年 + 自定义
+// 显示: 总金额, 件数, 按网站分布, 按状态分布
+// ============================================================
+const AmountSummaryWidget = ({ title, icon, color, items, statusLabels, statusKey = 'status', amountKey = 'amount', getSite }) => {
+  const [range, setRange] = useState('7');  // 字符串: '3'/'7'/'14'/'30'/'90'/'quarter'/'year'/'all'
+  
+  // 计算时间筛选范围
+  const cutoffDate = useMemo(() => {
+    const now = new Date();
+    if (range === 'all') return null;
+    if (range === 'year') {
+      return new Date(now.getFullYear(), 0, 1);  // 本年 1 月 1 日
+    }
+    if (range === 'quarter') {
+      const q = Math.floor(now.getMonth() / 3);
+      return new Date(now.getFullYear(), q * 3, 1);  // 本季度起始
+    }
+    const days = parseInt(range, 10);
+    const d = new Date(now);
+    d.setDate(d.getDate() - days);
+    return d;
+  }, [range]);
+  
+  const filtered = useMemo(() => {
+    if (!cutoffDate) return items || [];
+    return (items || []).filter(it => {
+      if (!it.created_at) return false;
+      return new Date(it.created_at) >= cutoffDate;
+    });
+  }, [items, cutoffDate]);
+  
+  // 按货币累加(主要 USD,可能有 CNY/EUR 等)
+  const totalsByCurrency = useMemo(() => {
+    const m = {};
+    filtered.forEach(it => {
+      const cur = (it.currency || 'USD').toUpperCase();
+      const amt = parseFloat(it[amountKey] || 0) || 0;
+      if (!m[cur]) m[cur] = 0;
+      m[cur] += amt;
+    });
+    return m;
+  }, [filtered, amountKey]);
+  
+  // 按网站分布
+  const byWebsite = useMemo(() => {
+    const m = {};
+    filtered.forEach(it => {
+      const site = (getSite ? getSite(it) : it.site) || '(未填)';
+      const amt = parseFloat(it[amountKey] || 0) || 0;
+      const cur = (it.currency || 'USD').toUpperCase();
+      if (!m[site]) m[site] = { count: 0, totals: {} };
+      m[site].count++;
+      if (!m[site].totals[cur]) m[site].totals[cur] = 0;
+      m[site].totals[cur] += amt;
+    });
+    return Object.entries(m)
+      .map(([site, v]) => ({ site, ...v }))
+      .sort((a, b) => b.count - a.count);
+  }, [filtered, amountKey, getSite]);
+  
+  // 按状态分布
+  const byStatus = useMemo(() => {
+    const m = {};
+    filtered.forEach(it => {
+      const s = it[statusKey] || '(未填)';
+      if (!m[s]) m[s] = 0;
+      m[s]++;
+    });
+    return Object.entries(m).map(([k, v]) => ({ status: k, count: v }));
+  }, [filtered, statusKey]);
+  
+  const formatAmount = (cur, amt) => {
+    const sym = cur === 'USD' ? '$' : cur === 'EUR' ? '€' : cur === 'CNY' ? '¥' : cur === 'GBP' ? '£' : '';
+    return `${sym}${amt.toFixed(2)}${sym ? '' : ' ' + cur}`;
+  };
+  
+  const rangeButtons = [
+    { key:'3',       label:'3 天' },
+    { key:'7',       label:'7 天' },
+    { key:'14',      label:'14 天' },
+    { key:'30',      label:'30 天' },
+    { key:'90',      label:'90 天' },
+    { key:'quarter', label:'本季度' },
+    { key:'year',    label:'本年度' },
+    { key:'all',     label:'全部' },
+  ];
+  
+  // 计算 cutoff 描述文字
+  const rangeDesc = (() => {
+    if (range === 'all') return '全部历史';
+    if (range === 'year') return `${new Date().getFullYear()} 年至今`;
+    if (range === 'quarter') {
+      const q = Math.floor(new Date().getMonth() / 3) + 1;
+      return `${new Date().getFullYear()} 年 Q${q} 至今`;
+    }
+    return `最近 ${range} 天`;
+  })();
+  
+  return (
+    <div className="paper rounded-2xl p-4 fade-in" style={{borderLeft: `4px solid ${color}`, marginBottom:12}}>
+      {/* 顶部 - 标题 + 时间筛选 */}
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10, marginBottom:12}}>
+        <div>
+          <div className="font-display" style={{fontSize:15, fontWeight:600, color, display:'flex', alignItems:'center', gap:6}}>
+            <span style={{fontSize:18}}>{icon}</span>{title}
+          </div>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginTop:2}}>{rangeDesc} · 共 {filtered.length} 笔</div>
+        </div>
+        <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
+          {rangeButtons.map(b => (
+            <button key={b.key} onClick={() => setRange(b.key)}
+              style={{
+                padding:'4px 10px', fontSize:11, fontFamily:'inherit', cursor:'pointer',
+                borderRadius:6, border:'1px solid ' + (range === b.key ? color : 'var(--line)'),
+                background: range === b.key ? color : 'white',
+                color: range === b.key ? 'white' : 'var(--ink-2)',
+                fontWeight: range === b.key ? 600 : 500,
+              }}>
+              {b.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      
+      {filtered.length === 0 ? (
+        <div style={{padding:'18px 10px', textAlign:'center', color:'var(--ink-4)', fontSize:13, background:'#fafaf7', borderRadius:8}}>
+          {rangeDesc}内没有数据
+        </div>
+      ) : (
+        <>
+          {/* 大金额展示 - 按货币 */}
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:8, marginBottom:12}}>
+            {Object.entries(totalsByCurrency).map(([cur, amt]) => (
+              <div key={cur} style={{padding:'12px 14px', background:`${color}10`, border:`1px solid ${color}40`, borderRadius:10}}>
+                <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500}}>{cur} 累计</div>
+                <div style={{fontSize:22, fontWeight:700, color, marginTop:2, letterSpacing:.2}}>
+                  {formatAmount(cur, amt)}
+                </div>
+                <div style={{fontSize:10, color:'var(--ink-4)', marginTop:1}}>
+                  {filtered.filter(f => (f.currency || 'USD').toUpperCase() === cur).length} 笔
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {/* 网站分布 */}
+          {byWebsite.length > 0 && (
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, marginBottom:6}}>📍 按网站分布</div>
+              <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+                {byWebsite.map(w => (
+                  <div key={w.site} style={{padding:'5px 10px', background:'white', border:'1px solid var(--line)', borderRadius:14, fontSize:11, display:'flex', alignItems:'center', gap:6}}>
+                    <span style={{fontWeight:700, color:'var(--ink)'}}>{w.site}</span>
+                    <span style={{padding:'1px 5px', background:`${color}20`, color, borderRadius:8, fontWeight:600}}>{w.count}</span>
+                    <span style={{color:'var(--ink-3)', fontSize:10}}>
+                      {Object.entries(w.totals).map(([c, a]) => formatAmount(c, a)).join(' · ')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* 状态分布 */}
+          {byStatus.length > 0 && statusLabels && (
+            <div>
+              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, marginBottom:6}}>🏷 按状态分布</div>
+              <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+                {byStatus.map(s => {
+                  const lab = statusLabels[s.status] || { label: s.status, color:'#6b7280', bg:'#f3f4f6' };
+                  return (
+                    <div key={s.status} style={{padding:'5px 10px', background: lab.bg || '#f3f4f6', border:'1px solid var(--line)', borderRadius:14, fontSize:11, display:'flex', alignItems:'center', gap:6}}>
+                      <span style={{color: lab.color, fontWeight:600}}>{lab.label}</span>
+                      <span style={{padding:'1px 5px', background:'white', color: lab.color, borderRadius:8, fontWeight:600}}>{s.count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// 🆕 fix9b: 完成率统计 banner (售后 / 补件)
+// 展示最近 3/7/14/30/60 天的总数 + 已完成 + 完成率
+// ============================================================
+const CompletionStatsBanner = ({ items, title, icon, color, completedStatuses, onQuickComplete }) => {
+  const ranges = [3, 7, 14, 30, 60];
+  
+  const calcStats = (days) => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const inRange = (items || []).filter(it => it.created_at && new Date(it.created_at) >= cutoff);
+    const completed = inRange.filter(it => completedStatuses.includes(it.status));
+    return { total: inRange.length, completed: completed.length, pending: inRange.length - completed.length };
+  };
+  
+  return (
+    <div className="paper rounded-2xl fade-in" style={{padding:12, borderLeft:`4px solid ${color}`, marginBottom:10}}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8, marginBottom:8}}>
+        <div className="font-display" style={{fontSize:13, fontWeight:600, color, display:'flex', alignItems:'center', gap:6}}>
+          <span style={{fontSize:16}}>{icon}</span>{title}
+        </div>
+        <div style={{fontSize:10, color:'var(--ink-4)'}}>已完成状态: {completedStatuses.join(' / ')}</div>
+      </div>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:6}}>
+        {ranges.map(d => {
+          const s = calcStats(d);
+          const pct = s.total === 0 ? 0 : Math.round(s.completed / s.total * 100);
+          return (
+            <div key={d} style={{padding:'8px 6px', background:'white', border:'1px solid var(--line)', borderRadius:8, textAlign:'center'}}>
+              <div style={{fontSize:10, color:'var(--ink-3)', fontWeight:500}}>最近 {d} 天</div>
+              <div style={{fontSize:20, fontWeight:700, color, marginTop:3, lineHeight:1}}>{s.total}</div>
+              <div style={{display:'flex', justifyContent:'center', gap:4, marginTop:4, fontSize:10}}>
+                <span style={{color:'#16a34a'}}>✓{s.completed}</span>
+                {s.pending > 0 && <span style={{color:'#ca8a04'}}>⏳{s.pending}</span>}
+              </div>
+              <div style={{
+                marginTop:4, height:3, background:'#f3f4f6', borderRadius:2, overflow:'hidden',
+              }}>
+                <div style={{
+                  height:'100%',
+                  width: `${pct}%`,
+                  background: pct >= 80 ? '#16a34a' : pct >= 50 ? '#ca8a04' : '#dc2626',
+                  transition:'width .25s',
+                }} />
+              </div>
+              <div style={{fontSize:9, color:'var(--ink-4)', marginTop:2}}>{pct}% 完成</div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -15750,15 +16302,15 @@ const App = () => {
       const match = (error.message || '').match(/Could not find the '([^']+)' column/i);
       if (match) {
         const missingField = match[1];
-        // 仅在已知风险字段列表里时才剥离（避免误删核心字段）
-        if (RISKY_FIELDS.some(f => f.toLowerCase() === missingField.toLowerCase()) || missingField.toLowerCase().includes('escal') || missingField.toLowerCase().includes('transfer')) {
-          // 找出 records 里所有的驼峰变体并加入 skip
-          const variants = [missingField, missingField.toLowerCase(), missingField.replace(/_([a-z])/g, (_, c) => c.toUpperCase())];
-          variants.forEach(v => skipFieldsRef.current.add(v));
-          console.warn(`[云端 schema 缺失] 已自动剥离字段 "${missingField}" 重试上传`);
-          attempt++;
-          continue;
-        }
+        // 🆕 fix8: 剥离任意 schema 缓存里找不到的列(不再限定白名单)
+        // 之前只剥离 escal/transfer 系列字段,但实际还会出现 'website' / 其他新字段
+        // 不剥离就整批同步失败 → 数据全堆在本地 → 客服不敢刷新
+        // 用户:"云端写入失败：Could not find the 'website' column..."
+        const variants = [missingField, missingField.toLowerCase(), missingField.replace(/_([a-z])/g, (_, c) => c.toUpperCase())];
+        variants.forEach(v => skipFieldsRef.current.add(v));
+        console.warn(`[fix8 schema-retry] workspace_records 缺少列 "${missingField}",已自动剥离重试 (第 ${attempt + 1}/${maxRetries} 次)。建议主管在 Supabase 补建该列。`);
+        attempt++;
+        continue;
       }
       // 不是 schema 错误，直接抛
       throw error;
@@ -15812,11 +16364,11 @@ const App = () => {
   const [visitedTabs, setVisitedTabs] = useState(() => {
     const s = new Set();
     // 如果初始 tab 是 iframe 类，也算访问过
-    if (['finance','quote','kb'].includes(activeTab)) s.add(activeTab);
+    if (['finance','quote','kb','ai_reviews'].includes(activeTab)) s.add(activeTab);
     return s;
   });
   useEffect(() => {
-    if (['finance','quote','kb'].includes(activeTab) && !visitedTabs.has(activeTab)) {
+    if (['finance','quote','kb','ai_reviews'].includes(activeTab) && !visitedTabs.has(activeTab)) {
       setVisitedTabs(prev => new Set([...prev, activeTab]));
     }
   }, [activeTab]);
@@ -15879,6 +16431,64 @@ const App = () => {
     };
     return () => { delete window.__requestSupervisorAssistance; };
   }, [user, employees, cloudOn, toast]);
+
+  // 🆕 fix9: 退款处理人员配置 (Miya / Nicole / Yulia 三人默认 — 主管可在设置改)
+  // 业务场景: 所有客服可记录退款,但"批准/完成/上传截图"由名单中的人执行
+  // 默认值:从 INITIAL_EMPLOYEES 推断 (u_miya/u_nicole/u_yulia),云端有配置时优先用云端
+  const [refundProcessors, setRefundProcessors] = useState(() => 
+    STORE.get('refund_processors_cache', ['u_miya', 'u_nicole', 'u_yulia'])
+  );
+  useEffect(() => {
+    if (!cloudOn || !CLOUD.client) return;
+    (async () => {
+      try {
+        const { data } = await CLOUD.client.from('system_settings').select('*').eq('key', 'refund_processors').single();
+        const ids = data?.value?.user_ids;
+        if (Array.isArray(ids) && ids.length > 0) {
+          setRefundProcessors(ids);
+          STORE.set('refund_processors_cache', ids);
+        }
+      } catch (e) { /* 表里没这条 → 用默认 */ }
+    })();
+  }, [cloudOn]);
+
+  // 🆕 提供全局可调用的权限检查 (避免 prop drilling)
+  useEffect(() => {
+    window.__canProcessRefund = (u) => {
+      const target = u || user;
+      if (!target) return false;
+      if (target.role === 'super_admin') return true;  // 老板永远可处理
+      return refundProcessors.includes(target.id);
+    };
+    window.__refundProcessors = refundProcessors;
+    window.__setRefundProcessors = async (newIds, currentUserName) => {
+      if (!cloudOn || !CLOUD.client) { alert('云端未连接,无法保存'); return false; }
+      try {
+        const userNames = newIds.map(id => {
+          const e = (employees || []).find(em => em.id === id);
+          return e ? e.name + (e.alias ? ' ' + e.alias : '') : id;
+        });
+        const { error } = await CLOUD.client.from('system_settings').upsert({
+          key: 'refund_processors',
+          value: { user_ids: newIds, user_names: userNames },
+          updated_at: new Date().toISOString(),
+          updated_by_name: currentUserName || (user?.name || 'unknown'),
+        });
+        if (error) throw error;
+        setRefundProcessors(newIds);
+        STORE.set('refund_processors_cache', newIds);
+        return true;
+      } catch (e) {
+        alert('保存退款处理人配置失败: ' + (e.message || e));
+        return false;
+      }
+    };
+    return () => {
+      delete window.__canProcessRefund;
+      delete window.__refundProcessors;
+      delete window.__setRefundProcessors;
+    };
+  }, [refundProcessors, user, employees, cloudOn]);
 
   // 通知权限
   const [notifPerm, setNotifPerm] = useState(() => {
@@ -16308,6 +16918,17 @@ const App = () => {
             <KbModule user={user} toast={toast} cloudOn={cloudOn} />
           </div>
         )}
+        {/* 🆕 fix8: AI 评价生成 — iframe 嵌入美工系统 worktrack-kpi 的 embed=cs-reviews 精简模式 */}
+        {visitedTabs.has('ai_reviews') && user && (
+          <div style={{display: activeTab === 'ai_reviews' ? 'block' : 'none', height:'calc(100vh - 110px)'}}>
+            <iframe
+              src={`https://dekorfine.github.io/worktrack-kpi/?embed=cs-reviews&cs_user_id=${encodeURIComponent(user.id || 'cs_unknown')}&cs_user_name=${encodeURIComponent(user.name || 'unknown')}&cs_user_alias=${encodeURIComponent(user.alias || '')}`}
+              style={{width:'100%', height:'100%', border:'none', borderRadius:'12px', background:'#fff'}}
+              title="AI 评价生成工具"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-popups-to-escape-sandbox"
+            />
+          </div>
+        )}
         {activeTab === 'freight' && (
           <FreightModule user={user} toast={toast} cloudOn={cloudOn} />
         )}
@@ -16343,7 +16964,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix8';
+const APP_VERSION = '2026.05.25-fix9b';
 console.log(
   '%c📦 统一工作台 v' + APP_VERSION + ' 已加载\n' +
   '%c如看到旧 bug,请强刷 Ctrl+Shift+R 清除缓存\n' +
