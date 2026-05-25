@@ -607,13 +607,36 @@ const CLOUD = {
       return data || [];
     } catch(e) { console.error('CLOUD.list', table, e); return null; }
   },
+  _lastError: null,  // 🆕 保留最后一次操作的错误,供调用方读取
   async upsert(table, row) {
-    if (!this.client) return null;
+    if (!this.client) { 
+      this._lastError = { message: '云同步未配置或离线模式', table }; 
+      return null; 
+    }
     try {
       const { data, error } = await this.client.from(table).upsert(row).select();
-      if (error) throw error;
+      if (error) {
+        // 🆕 详细错误信息保留
+        this._lastError = {
+          message: error.message || '未知错误',
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          table,
+          row_keys: Object.keys(row || {}).join(', '),
+        };
+        console.error('❌ CLOUD.upsert 失败:', { table, error, row });
+        throw error;
+      }
+      this._lastError = null;
       return data;
-    } catch(e) { console.error('CLOUD.upsert', table, e); return null; }
+    } catch(e) {
+      if (!this._lastError) {
+        this._lastError = { message: e.message || String(e), table };
+      }
+      console.error('CLOUD.upsert', table, e); 
+      return null;
+    }
   },
   async del(table, id) {
     if (!this.client) return false;
@@ -670,6 +693,41 @@ const CLOUD = {
       return null;
     }
   },
+};
+
+// 🆕 全局保存失败提示 - 所有 editor 共用
+// 用法: const res = await CLOUD.upsert(...); if (!res) { alertSaveError('保存'); return; }
+const alertSaveError = (action = '保存') => {
+  const err = CLOUD._lastError;
+  if (!err) {
+    alert(`❌ ${action}失败:未知错误\n\n建议:\n1. 检查网络连接\n2. F12 打开控制台查看详细信息\n3. 强刷页面后重试`);
+    return;
+  }
+  
+  // 根据错误码给出针对性建议
+  const code = err.code || '';
+  let hint = '';
+  
+  if (code === 'PGRST204' || (err.message || '').includes('not find') || (err.message || '').includes('does not exist')) {
+    hint = `\n\n🔧 可能原因:数据库表/字段不存在\n建议:让主管在 Supabase SQL Editor 跑相应的 SQL 文件:\n  - 拒付/线下单/定制/实拍 → 13_chargebacks_offline_custom_photos.sql + 15_fix_chargeback_storage.sql\n  - 售后/补件/退款 → 05_aftersales_refills_refunds.sql\n  - 产品评价 → 12_product_reviews.sql\n  - 删除审批 → 14_delete_requests.sql`;
+  } else if ((err.message || '').toLowerCase().includes('row-level security') || code === '42501') {
+    hint = `\n\n🔧 可能原因:数据库 RLS 策略阻止写入\n建议:让主管跑 15_fix_chargeback_storage.sql 修复策略`;
+  } else if ((err.message || '').toLowerCase().includes('network') || (err.message || '').includes('fetch')) {
+    hint = `\n\n🔧 可能原因:网络问题\n建议:检查网络连接后重试`;
+  } else if ((err.message || '').toLowerCase().includes('duplicate') || code === '23505') {
+    hint = `\n\n🔧 可能原因:重复键(订单号已存在等)\n建议:换一个唯一编号`;
+  } else if ((err.message || '').toLowerCase().includes('null value') || code === '23502') {
+    hint = `\n\n🔧 可能原因:必填字段为空\n建议:检查所有 * 标记的字段是否填写`;
+  }
+  
+  alert(`❌ ${action}失败\n\n` +
+    `表: ${err.table || '?'}\n` +
+    `错误: ${err.message || '未知'}\n` +
+    (err.code ? `代码: ${err.code}\n` : '') +
+    (err.details ? `详情: ${err.details}\n` : '') +
+    (err.hint ? `提示: ${err.hint}\n` : '') +
+    hint +
+    `\n\nF12 控制台已记录完整错误日志`);
 };
 
 // 🔗 协调员配置 - 接收所有事件的"对接人"
@@ -10358,297 +10416,307 @@ const ChargebackEditor = ({ cb, user, employees, onClose, onSaved, toast }) => {
     return d.toISOString().slice(0,10);
   })();
   
+  // ✂ 简化版字段:只保留主管要求的最核心字段
   const [orderNo, setOrderNo] = useState(cb?.order_no || '');
   const [customerEmail, setCustomerEmail] = useState(cb?.customer_email || '');
-  const [customerName, setCustomerName] = useState(cb?.customer_name || '');
-  const [site, setSite] = useState(cb?.site || '');
   const [platform, setPlatform] = useState(cb?.platform || 'Stripe');
   const [amount, setAmount] = useState(cb?.amount || '');
   const [currency, setCurrency] = useState(cb?.currency || 'USD');
-  const [reason, setReason] = useState(cb?.reason || 'product');
-  const [reasonDetail, setReasonDetail] = useState(cb?.reason_detail || '');
   const [openedAt, setOpenedAt] = useState(cb?.opened_at || today);
   const [deadline, setDeadline] = useState(cb?.deadline || defaultDeadline);
-  const [assignedTo, setAssignedTo] = useState(cb?.assigned_to || []);
+  const [reason, setReason] = useState(cb?.reason || 'product');  // 🆕 加回拒付原因
   const [notes, setNotes] = useState(cb?.notes || '');
-  const [resolution, setResolution] = useState(cb?.resolution || '');
   const [evidence, setEvidence] = useState(cb?.evidence_files || []);
+  const [status, setStatus] = useState(cb?.status || 'pending');
   const [saving, setSaving] = useState(false);
-  const [autoAssignInfo, setAutoAssignInfo] = useState('');  // 显示自动指派依据
+  const [autoAssignInfo, setAutoAssignInfo] = useState('');
+  const [assignedTo, setAssignedTo] = useState(cb?.assigned_to || []);
+  
+  // 🔍 从订单编号智能推断网站(例如 VKA-0756 → VK, RD0031 → RD, DF-1234 → DF)
+  const inferSiteFromOrderNo = (orderNoStr) => {
+    if (!orderNoStr) return '';
+    const upper = orderNoStr.trim().toUpperCase();
+    // 已知前缀映射
+    const prefixMap = {
+      'VKA': 'VK', 'VK': 'VK',
+      'RD': 'RD',
+      'DF': 'DF',
+      'MJ': 'MJ',
+      'DC': 'DC',
+      'LS': 'LS',
+      'MO': 'MO',
+      'RS': 'RS',
+      'PL': 'PL',
+      'J': 'J',
+      '海服': '海服',
+    };
+    // 尝试匹配前缀(从长到短)
+    const sortedKeys = Object.keys(prefixMap).sort((a,b) => b.length - a.length);
+    for (const key of sortedKeys) {
+      if (upper.startsWith(key.toUpperCase())) return prefixMap[key];
+    }
+    return '';
+  };
   
   // 🆕 智能自动指派 - 周六/周日分别值班 + 工作日按网站
-  const autoAssignByConfig = (siteValue, employeesList, config) => {
+  const autoAssignByConfig = (siteValue, config) => {
     if (!config) return { ids: [], info: '' };
     const now = new Date();
-    const day = now.getDay();  // 0 = Sunday, 6 = Saturday
+    const day = now.getDay();
     
-    // 🌙 周日值班
     if (day === 0) {
-      const sundayUid = config.sunday_owner || config.weekend_owner;  // 兼容旧字段
-      if (sundayUid) {
-        return { ids: [sundayUid], info: '🌙 周日值班(覆盖所有网站)' };
-      }
+      const sundayUid = config.sunday_owner || config.weekend_owner;
+      if (sundayUid) return { ids: [sundayUid], info: '🌙 周日值班' };
     }
-    // 🌅 周六值班
     if (day === 6) {
       const saturdayUid = config.saturday_owner || config.weekend_owner;
-      if (saturdayUid) {
-        return { ids: [saturdayUid], info: '🌅 周六值班(覆盖所有网站)' };
-      }
+      if (saturdayUid) return { ids: [saturdayUid], info: '🌅 周六值班' };
     }
-    // 工作日:按网站
     if (siteValue && config.site_owners && config.site_owners[siteValue]) {
       return { ids: [config.site_owners[siteValue]], info: `🌐 ${siteValue} 网站专人` };
     }
-    // 默认负责人
     if (config.default_owner) {
       return { ids: [config.default_owner], info: '⚙ 默认负责人' };
     }
-    // 旧版兼容
     if ((config.user_ids || []).length > 0) {
       return { ids: config.user_ids, info: '已配置专人' };
     }
     return { ids: [], info: '' };
   };
   
-  // 加载默认拒付专人配置 - 新建时自动指派
+  // 新建时,根据订单编号 + 时间自动指派
   useEffect(() => {
     if (isEdit) return;
+    if (!orderNo) { setAutoAssignInfo(''); return; }
     (async () => {
       try {
+        const inferredSite = inferSiteFromOrderNo(orderNo);
         const { data } = await CLOUD.client.from('system_settings').select('*').eq('key', 'chargeback_owners').single();
         const config = data?.value || {};
-        const { ids, info } = autoAssignByConfig(site, employees, config);
+        const { ids, info } = autoAssignByConfig(inferredSite, config);
         if (ids.length > 0) {
           setAssignedTo(ids);
           const names = ids.map(uid => {
             const e = employees.find(x => x.id === uid);
             return e ? e.name + (e.alias ? ' ' + e.alias : '') : uid;
           }).join(' + ');
-          setAutoAssignInfo(`${info} → ${names}`);
+          setAutoAssignInfo(`${info} → ${names}${inferredSite ? ` (推断网站: ${inferredSite})` : ''}`);
+        } else {
+          setAssignedTo([]);
+          setAutoAssignInfo('⚠ 未配置拒付负责人,主管请在 ⚙ 设置 中配置');
         }
-      } catch {}
+      } catch(e) {
+        setAutoAssignInfo('');
+      }
     })();
-  }, [isEdit]);
+  }, [orderNo, isEdit]);
   
-  // 切换网站时,重新智能指派(仅新建时)
-  useEffect(() => {
-    if (isEdit) return;
-    if (!site) return;
-    (async () => {
-      try {
-        const { data } = await CLOUD.client.from('system_settings').select('*').eq('key', 'chargeback_owners').single();
-        const config = data?.value || {};
-        const { ids, info } = autoAssignByConfig(site, employees, config);
-        if (ids.length > 0) {
-          setAssignedTo(ids);
-          const names = ids.map(uid => {
-            const e = employees.find(x => x.id === uid);
-            return e ? e.name + (e.alias ? ' ' + e.alias : '') : uid;
-          }).join(' + ');
-          setAutoAssignInfo(`${info} → ${names}`);
-        }
-      } catch {}
-    })();
-  }, [site, isEdit]);
-  
-  const toggleAssigned = (uid) => {
-    setAssignedTo(prev => prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid]);
-  };
+  const daysLeft = deadline ? daysUntil(deadline) : null;
   
   const handleSave = async () => {
+    // 校验
     if (!orderNo.trim()) { alert('请填写订单编号'); return; }
-    if (!deadline) { alert('请填写截止日期'); return; }
+    if (!customerEmail.trim()) { alert('请填写客户邮箱'); return; }
+    if (!amount || parseFloat(amount) <= 0) { alert('请填写金额'); return; }
+    if (!openedAt) { alert('请填写拒付日期'); return; }
+    if (!deadline) { alert('请填写截止处理日期'); return; }
+    
     setSaving(true);
     const userName = user.name + (user.alias ? ' ' + user.alias : '');
     const now = new Date().toISOString();
+    const inferredSite = inferSiteFromOrderNo(orderNo);
+    
+    // 获取自动指派的人员名称
     const assignedNames = assignedTo.map(uid => {
       const e = employees.find(x => x.id === uid);
       return e ? e.name + (e.alias ? ' ' + e.alias : '') : uid;
     });
     
+    // 构建 payload - 简化版
     const payload = {
+      // 保留原记录的所有字段(编辑时)
       ...(cb || {}),
+      // 主要字段
       order_no: orderNo.trim(),
-      customer_email: customerEmail.trim() || null,
-      customer_name: customerName.trim() || null,
-      site: site || null,
-      platform: platform || null,
-      amount: parseFloat(amount) || null,
+      customer_email: customerEmail.trim(),
+      platform: platform || 'Stripe',
+      amount: parseFloat(amount),
       currency: currency || 'USD',
-      reason,
-      reason_detail: reasonDetail.trim() || null,
+      reason: reason || null,  // 🆕 拒付原因
       opened_at: openedAt,
       deadline,
+      notes: notes.trim() || null,
+      evidence_files: evidence || [],
+      // 隐藏字段:从订单编号自动推断网站,自动指派负责人
+      site: inferredSite || null,
       assigned_to: assignedTo,
       assigned_to_names: assignedNames,
-      notes: notes.trim() || null,
-      resolution: resolution.trim() || null,
-      evidence_files: evidence,
+      // 状态
+      status: isEdit ? status : 'pending',
+      // 元数据
       updated_at: now,
-      ...(!isEdit ? { created_by: user.id, created_by_name: userName, status:'pending' } : {}),
+      ...(!isEdit ? { created_by: user.id, created_by_name: userName } : {}),
     };
     
-    const res = await CLOUD.upsert('chargebacks', payload);
-    if (res) { toast(isEdit ? '✓ 已更新' : '✓ 已创建拒付'); onSaved(); }
-    else { alert('保存失败'); }
+    try {
+      const res = await CLOUD.upsert('chargebacks', payload);
+      if (res) {
+        toast(isEdit ? '✓ 已更新拒付' : '✓ 已创建拒付');
+        onSaved();
+      } else {
+        alertSaveError(isEdit ? '更新拒付' : '创建拒付');
+      }
+    } catch(e) {
+      console.error('保存拒付失败:', e);
+      alertSaveError(isEdit ? '更新拒付' : '创建拒付');
+    }
     setSaving(false);
   };
   
-  const daysLeft = deadline ? daysUntil(deadline) : null;
-  
-  return (
+  return ReactDOM.createPortal(
     <div onClick={onClose}
-      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:99999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 16px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()}
-        style={{background:'white', borderRadius:14, maxWidth:720, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
-        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+        style={{background:'white', borderRadius:14, maxWidth:560, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflow:'hidden', boxShadow:'0 25px 70px rgba(0,0,0,.3)'}}>
+        
+        {/* Header */}
+        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600, color:'#dc2626'}}>
             🚨 {isEdit ? '编辑' : '新增'}拒付
           </div>
           <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
         </div>
         
-        <div style={{padding:18, overflow:'auto', flex:1}}>
+        {/* Body */}
+        <div style={{padding:18, overflowY:'auto', overflowX:'hidden', flex:1, minHeight:0}}>
+          
+          {/* 自动指派提示 */}
           {!isEdit && autoAssignInfo && (
-            <div style={{padding:'8px 12px', background:'#e0f2fe', border:'1px solid #7dd3fc', borderRadius:6, fontSize:12, color:'#075985', marginBottom:14}}>
-              💡 <strong>自动指派</strong> {autoAssignInfo}。可在下方修改。
+            <div style={{padding:'10px 12px', background:'#e0f2fe', border:'1px solid #7dd3fc', borderRadius:8, fontSize:12, color:'#075985', marginBottom:14, lineHeight:1.5}}>
+              💡 <strong>自动指派负责人</strong>:{autoAssignInfo}
             </div>
           )}
           
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12}}>
-            <div>
-              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>订单编号 *</label>
-              <input value={orderNo} onChange={e => setOrderNo(e.target.value)} autoFocus
-                placeholder="如:VKA-0756"
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
-            </div>
-            <div>
-              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>网站</label>
-              <select value={site} onChange={e => setSite(e.target.value)}
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
-                <option value="">(选填)</option>
-                {SITES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+          {/* 订单编号 */}
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>
+              订单编号 * <span style={{color:'var(--ink-4)', fontWeight:400}}>(系统会从前缀自动识别网站)</span>
+            </label>
+            <input value={orderNo} onChange={e => setOrderNo(e.target.value)} autoFocus
+              placeholder="如:VKA-0756 / RD0091 / DF-1234"
+              style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'monospace'}} />
           </div>
           
-          <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:10, marginBottom:12}}>
-            <div>
-              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>客户邮箱</label>
-              <input type="email" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)}
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
-            </div>
-            <div>
-              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>客户姓名</label>
-              <input value={customerName} onChange={e => setCustomerName(e.target.value)}
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
-            </div>
+          {/* 客户邮箱 */}
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>客户邮箱 *</label>
+            <input type="email" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)}
+              placeholder="customer@example.com"
+              style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:7, fontSize:13}} />
           </div>
           
-          <div style={{display:'grid', gridTemplateColumns:'1.5fr 1fr 0.7fr', gap:10, marginBottom:12}}>
+          {/* 拒付方式 + 金额 */}
+          <div style={{display:'grid', gridTemplateColumns:'1.2fr 1fr 80px', gap:8, marginBottom:12}}>
             <div>
-              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>拒付平台</label>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>拒付方式 *</label>
               <select value={platform} onChange={e => setPlatform(e.target.value)}
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
+                style={{width:'100%', padding:'8px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white'}}>
                 {CHARGEBACK_PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
             </div>
             <div>
-              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>金额</label>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>金额 *</label>
               <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)}
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
+                placeholder="0.00"
+                style={{width:'100%', padding:'8px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'monospace'}} />
             </div>
             <div>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>币种</label>
               <select value={currency} onChange={e => setCurrency(e.target.value)}
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
+                style={{width:'100%', padding:'8px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white'}}>
                 {['USD','EUR','GBP','CAD','AUD','HKD'].map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
           
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:12}}>
+          {/* 日期: 拒付 + 截止 */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:12}}>
             <div>
-              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>拒付原因</label>
-              <select value={reason} onChange={e => setReason(e.target.value)}
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
-                {CHARGEBACK_REASONS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>拒付开始日期 *</label>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>拒付日期 *</label>
               <input type="date" value={openedAt} onChange={e => setOpenedAt(e.target.value)}
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:7, fontSize:13}} />
             </div>
             <div>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>
-                证据截止日期 *
-                {daysLeft != null && (
-                  <span style={{marginLeft:5, color: daysLeft < 0 ? '#dc2626' : daysLeft <= 3 ? '#9a3412' : daysLeft <= 7 ? '#854d0e' : '#15803d', fontWeight:700}}>
-                    ({daysLeft < 0 ? `已逾期 ${Math.abs(daysLeft)}天` : `还有 ${daysLeft}天`})
+                截止处理日期 *
+                {daysLeft !== null && (
+                  <span style={{marginLeft:5, color: daysLeft < 0 ? '#dc2626' : daysLeft <= 3 ? '#9a3412' : daysLeft <= 7 ? '#854d0e' : '#15803d', fontWeight:700, fontSize:11}}>
+                    ({daysLeft < 0 ? `已逾期 ${Math.abs(daysLeft)}天` : `剩 ${daysLeft}天`})
                   </span>
                 )}
               </label>
               <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)}
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:7, fontSize:13}} />
             </div>
           </div>
           
-          <div style={{marginBottom:12}}>
-            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>原因说明（详细）</label>
-            <textarea value={reasonDetail} onChange={e => setReasonDetail(e.target.value)}
-              placeholder="例如:客户称未收到货,但 DHL 显示已签收..."
-              style={{width:'100%', minHeight:60, padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
-          </div>
-          
+          {/* 拒付原因 - 简洁下拉 */}
           <div style={{marginBottom:12}}>
             <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>
-              负责人 (可多选 · 默认为系统配置的拒付专人)
+              拒付原因 <span style={{color:'var(--ink-4)', fontWeight:400}}>(客户为何申请拒付)</span>
             </label>
-            <div style={{display:'flex', flexWrap:'wrap', gap:5, padding:8, border:'1px solid var(--line)', borderRadius:6, background:'#fafafa', maxHeight:120, overflowY:'auto'}}>
-              {employees.filter(em => !em.hideFromList || em.id === user.id).map(em => (
-                <label key={em.id} style={{display:'flex', alignItems:'center', gap:4, padding:'3px 8px', background:'white', border:'1px solid var(--line)', borderRadius:14, fontSize:11, cursor:'pointer'}}>
-                  <input type="checkbox" checked={assignedTo.includes(em.id)} onChange={() => toggleAssigned(em.id)} />
-                  {em.name}{em.alias ? ' ' + em.alias : ''}
-                </label>
-              ))}
-            </div>
+            <select value={reason} onChange={e => setReason(e.target.value)}
+              style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white'}}>
+              {CHARGEBACK_REASONS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+            </select>
           </div>
           
-          <div style={{marginBottom:12}}>
-            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>处理记录 / 备注</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)}
-              placeholder="例如:&#10;5/24 已通过 Stripe 后台提交证据&#10;5/25 客户已回复同意撤回"
-              style={{width:'100%', minHeight:70, padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
-          </div>
-          
-          {isEdit && cb.status !== 'pending' && (
+          {/* 状态 (编辑时) */}
+          {isEdit && (
             <div style={{marginBottom:12}}>
-              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>最终结果说明</label>
-              <textarea value={resolution} onChange={e => setResolution(e.target.value)}
-                style={{width:'100%', minHeight:50, padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>状态</label>
+              <select value={status} onChange={e => setStatus(e.target.value)}
+                style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white'}}>
+                {CHARGEBACK_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
             </div>
           )}
           
+          {/* 备注 / 处理记录 - 改为必填详细说明 */}
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>
+              详细说明 / 处理记录 <span style={{color:'var(--ink-4)', fontWeight:400}}>(原因细节 + 处理进展)</span>
+            </label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="例如:&#10;客户称未收到货,但 DHL 显示已签收&#10;5/24 已通过 Stripe 后台提交证据&#10;5/25 客户已回复同意撤回"
+              style={{width:'100%', minHeight:90, padding:'8px 12px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
+          </div>
+          
+          {/* 证据材料 */}
           <div style={{marginBottom:8}}>
-            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>📎 证据材料（订单截图 / 物流证明 / 邮件 / 发票...）</label>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>
+              📎 证据材料 <span style={{color:'var(--ink-4)', fontWeight:400}}>(订单截图 / 物流证明 / 邮件 / 发票...)</span>
+            </label>
             <MultiFileUploader files={evidence} setFiles={setEvidence} bucket="business-files" maxSize={50} />
+            <div style={{fontSize:10, color:'var(--ink-4)', marginTop:4, lineHeight:1.4}}>
+              💡 提示:如上传失败,可能是云存储 bucket 未创建。请联系主管在 Supabase 跑 SQL 文件 <strong>13_chargebacks_offline_custom_photos.sql</strong>。
+            </div>
           </div>
         </div>
         
-        <div style={{padding:'12px 18px', borderTop:'1px solid var(--line)', display:'flex', justifyContent:'flex-end', gap:6}}>
-          <button onClick={onClose} className="btn-sec" style={{padding:'7px 14px'}}>取消</button>
+        {/* Footer */}
+        <div style={{padding:'12px 18px', borderTop:'1px solid var(--line)', display:'flex', justifyContent:'flex-end', gap:6, flexShrink:0, background:'#fafafa'}}>
+          <button onClick={onClose} className="btn-sec" style={{padding:'8px 16px'}}>取消</button>
           <button onClick={handleSave} disabled={saving}
-            style={{padding:'7px 18px', background:'#dc2626', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13, opacity: saving ? 0.5 : 1}}>
-            {saving ? '保存中...' : (isEdit ? '保存修改' : '🚨 创建拒付')}
+            style={{padding:'8px 20px', background:'#dc2626', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13, opacity: saving ? 0.5 : 1}}>
+            {saving ? '保存中...' : (isEdit ? '✓ 保存修改' : '🚨 创建拒付')}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
-
 
 // ============================================================
 // 💳 线下单模块
@@ -11026,7 +11094,7 @@ const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast })
     };
     const res = await CLOUD.upsert('offline_orders', payload);
     if (res) { toast(isEdit ? '✓ 已更新' : '✓ 已创建线下单'); onSaved(); }
-    else alert('保存失败,可能订单编号重复');
+    else { alertSaveError('保存线下单'); }
     setSaving(false);
   };
 
@@ -11661,7 +11729,7 @@ const CustomInquiryEditor = ({ item, user, onClose, onSaved, toast }) => {
     };
     const res = await CLOUD.upsert('custom_inquiries', payload);
     if (res) { toast(isEdit ? '✓ 已更新' : '✓ 已创建'); onSaved(); }
-    else alert('保存失败');
+    else alertSaveError('保存定制咨询');
     setSaving(false);
   };
 
@@ -11914,7 +11982,7 @@ const PhotoVerificationEditor = ({ item, user, onClose, onSaved, toast }) => {
     };
     const res = await CLOUD.upsert('photo_verifications', payload);
     if (res) { toast(isEdit ? '✓ 已更新' : '✓ 已创建'); onSaved(); }
-    else alert('保存失败');
+    else alertSaveError('保存实拍核实');
     setSaving(false);
   };
 
@@ -12414,7 +12482,7 @@ const ReviewEditor = ({ review, user, employees, onClose, onSaved, toast }) => {
       };
       const res = await CLOUD.upsert('product_reviews', payload);
       if (res) { toast('✓ 已更新'); onSaved(); }
-      else { alert('保存失败'); }
+      else { alertSaveError('保存产品评价'); }
     } else {
       // 新建（可批量）
       const count = Math.max(1, Math.min(20, parseInt(batchCount) || 1));
@@ -12582,7 +12650,7 @@ const ReviewCompleteModal = ({ review, user, onClose, onSaved, toast }) => {
     };
     const res = await CLOUD.upsert('product_reviews', payload);
     if (res) { toast('✅ 任务已完成！'); onSaved(); }
-    else { alert('保存失败'); }
+    else { alertSaveError('完成产品评价'); }
     setSaving(false);
   };
   
@@ -12950,6 +13018,7 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
     if (!item) return;
     const updated = { ...item, status, ...extraFields, updated_at: new Date().toISOString() };
     const res = await CLOUD.upsert('aftersales', updated);
+      if (!res) { alertSaveError('保存售后'); setSaving(false); return; }
     if (res) {
       setAftersales(prev => prev.map(a => a.id === id ? (res[0] || updated) : a));
       toast('✓ 状态已更新');
@@ -12963,6 +13032,7 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
     const updated = { ...item, status, updated_at: new Date().toISOString() };
     if (status === 'shipped' && !item.actual_ship_date) updated.actual_ship_date = new Date().toISOString().slice(0,10);
     const res = await CLOUD.upsert('refills', updated);
+      if (!res) { alertSaveError('保存补件'); setSaving(false); return; }
     if (res) {
       setRefills(prev => prev.map(r => r.id === id ? (res[0] || updated) : r));
       toast('✓ 状态已更新');
@@ -12981,6 +13051,7 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
       payload = { ...refund, status:'completed', processed_by:user.id, processed_by_name:user.name + (user.alias ? ' ' + user.alias : ''), processed_at:now, processing_notes:notes, external_refund_id:extraFields.external_refund_id || null, updated_at:now };
     }
     const res = await CLOUD.upsert('refunds', payload);
+      if (!res) { alertSaveError('保存退款'); setSaving(false); return; }
     if (res) {
       setRefunds(prev => prev.map(r => r.id === refund.id ? (res[0] || payload) : r));
       toast(`✓ ${action === 'approve' ? '已批准' : action === 'reject' ? '已拒绝' : '已完成'}退款`);
@@ -14470,19 +14541,40 @@ const TicketDetailModal = ({ ticket, user, employees, onClose, onUpdateStatus, o
 // 知识库模块 - 跳转到独立 kb.html (Supabase + Gemini + 智能搜索 + 编辑同步)
 // ============================================================
 const KbModule = ({ user, toast }) => {
+  // 🆕 用 query string 而不是 hash,更稳定;同时加 timestamp 防缓存
   const userParam = encodeURIComponent((user.name || '') + (user.alias ? ' ' + user.alias : ''));
-  const sameDirUrl = `kb.html#user=${userParam}`;
+  const userAlias = encodeURIComponent(user.alias || user.name || '');
+  // 同时支持 hash 和 query 两种,确保 kb.html 能识别
+  const sameDirUrl = `kb.html?user=${userParam}&alias=${userAlias}#user=${userParam}`;
+  
   const iframeRef = React.useRef(null);
   const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
   const [iframeHeight, setIframeHeight] = useState('calc(100vh - 100px)');
-  const [showNewEntry, setShowNewEntry] = useState(false);  // 🆕 新建 KB modal
+  const [showNewEntry, setShowNewEntry] = useState(false);
+  
+  // 🆕 加载诊断状态
+  const [loadStatus, setLoadStatus] = useState('loading');  // loading / loaded / error / timeout
+  const [errorMsg, setErrorMsg] = useState('');
+  const [iframeLoadedAt, setIframeLoadedAt] = useState(null);
+  
+  // 🆕 检测 iframe 是否加载完成(5 秒内还在 loading → 视为加载失败)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loadStatus === 'loading') {
+        setLoadStatus('timeout');
+        setErrorMsg('iframe 5 秒内未发送数据信号 - 可能 kb.html 没有部署成功');
+      }
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [loadStatus, iframeLoadedAt]);
 
   useEffect(() => {
     const handler = (e) => {
       if (e.data?.type === 'iframe-resize' && e.data?.source === 'kb') {
         setIframeHeight(Math.max(600, e.data.height + 20) + 'px');
+        // 🆕 收到 iframe 的高度信号 = 成功加载
+        setLoadStatus('loaded');
       }
-      // 🆕 KB 内打开 modal 时，把 iframe 滚到 viewport 顶部，确保 modal 可见
       if (e.data?.type === 'iframe-modal-open' && e.data?.source === 'kb') {
         if (iframeRef.current) {
           iframeRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -14494,8 +14586,44 @@ const KbModule = ({ user, toast }) => {
   }, []);
   
   const refreshIframe = () => {
+    setLoadStatus('loading');
+    setErrorMsg('');
+    setIframeLoadedAt(Date.now());
     if (iframeRef.current) {
-      iframeRef.current.src = iframeRef.current.src;  // 强刷
+      // 加时间戳防缓存
+      const url = sameDirUrl + '&_t=' + Date.now();
+      iframeRef.current.src = url;
+    }
+  };
+  
+  const handleIframeLoad = () => {
+    // iframe 的 onload 触发 - 至少 HTML 加载了。设个短超时等 iframe 内 JS 发 postMessage
+    setTimeout(() => {
+      if (loadStatus === 'loading') {
+        // 没收到 postMessage,但 iframe 加载了 → 可能是密码门 / 数据没渲染
+        setLoadStatus('loaded_no_data');
+      }
+    }, 2000);
+  };
+  
+  const handleIframeError = () => {
+    setLoadStatus('error');
+    setErrorMsg('iframe 加载失败 - kb.html 可能不存在或路径错误');
+  };
+  
+  // 🆕 诊断工具:测试 kb.html 是否可访问
+  const diagnoseKb = async () => {
+    setErrorMsg('正在诊断 kb.html 状态...');
+    try {
+      const testUrl = 'kb.html?_diagnose=1&_t=' + Date.now();
+      const resp = await fetch(testUrl, { method:'HEAD', cache:'no-store' });
+      if (resp.ok) {
+        setErrorMsg(`✓ kb.html 文件可访问(HTTP ${resp.status})。问题可能是 iframe 内 JS 错误或密码门拦截。\n\n建议:\n1. 点击「↗ 新窗口打开」直接在新页面访问\n2. 如果新页面也看不到数据,F12 查看 kb.html 的控制台错误`);
+      } else {
+        setErrorMsg(`❌ kb.html HTTP ${resp.status} - 文件可能未部署到服务器!\n\n请确保 kb.html 已上传到 GitHub Pages 同目录(${window.location.pathname.replace(/[^/]+$/, '')}kb.html)`);
+      }
+    } catch(e) {
+      setErrorMsg(`❌ 无法访问 kb.html: ${e.message}\n\n这意味着 kb.html 不在当前页面同目录。请将 kb.html 上传到与本工作台相同的 GitHub Pages 目录。`);
     }
   };
 
@@ -14506,6 +14634,12 @@ const KbModule = ({ user, toast }) => {
           <strong style={{color:'var(--ink)'}}>📚 知识库</strong>
           <span style={{marginLeft:8}}>· 280+ Q&A · 智能搜索 · Gemini AI · 团队协同</span>
           {isAdmin && <span style={{marginLeft:8, color:'var(--accent)', fontWeight:600}}>· 👑 主管模式</span>}
+          {/* 🆕 状态指示 */}
+          {loadStatus === 'loading' && <span style={{marginLeft:8, color:'#0369a1'}}>· ⏳ 加载中...</span>}
+          {loadStatus === 'loaded' && <span style={{marginLeft:8, color:'#15803d'}}>· ✓ 已加载</span>}
+          {(loadStatus === 'error' || loadStatus === 'timeout' || loadStatus === 'loaded_no_data') && (
+            <span style={{marginLeft:8, color:'#dc2626', fontWeight:600}}>· ⚠ 加载异常</span>
+          )}
         </div>
         <div style={{display:'flex', gap:6}}>
           {isAdmin && (
@@ -14516,13 +14650,55 @@ const KbModule = ({ user, toast }) => {
             </button>
           )}
           <button className="btn-sec" onClick={refreshIframe} title="刷新">🔄</button>
+          <button className="btn-sec" onClick={diagnoseKb} title="诊断 kb.html 状态">🩺 诊断</button>
           <a href={sameDirUrl} target="_blank" rel="noopener" className="btn-sec" style={{textDecoration:'none'}}>↗ 新窗口打开</a>
         </div>
       </div>
+      
+      {/* 🆕 错误信息显示 */}
+      {(loadStatus === 'error' || loadStatus === 'timeout' || loadStatus === 'loaded_no_data' || errorMsg) && (
+        <div style={{padding:'14px 24px', background:'#fef3c7', borderBottom:'1px solid #fbbf24', fontSize:13}}>
+          <div style={{display:'flex', alignItems:'flex-start', gap:10}}>
+            <span style={{fontSize:20}}>⚠</span>
+            <div style={{flex:1, color:'#78350f', whiteSpace:'pre-wrap', lineHeight:1.6}}>
+              <strong>知识库加载状态:{loadStatus}</strong>
+              {errorMsg && <div style={{marginTop:4}}>{errorMsg}</div>}
+              {loadStatus === 'loaded_no_data' && !errorMsg && (
+                <div style={{marginTop:6}}>
+                  iframe HTML 加载了但内容未渲染。可能原因:<br/>
+                  1. kb.html 内部 JS 报错(请按下方按钮诊断)<br/>
+                  2. 密码门拦截(点「↗ 新窗口打开」直接访问可验证)<br/>
+                  3. iframe 高度计算错误
+                </div>
+              )}
+              <div style={{marginTop:8, display:'flex', gap:6, flexWrap:'wrap'}}>
+                <button onClick={diagnoseKb}
+                  style={{padding:'4px 10px', background:'white', color:'#78350f', border:'1px solid #fbbf24', borderRadius:5, fontSize:11, cursor:'pointer', fontFamily:'inherit', fontWeight:600}}>
+                  🩺 检测 kb.html 文件
+                </button>
+                <a href={sameDirUrl} target="_blank" rel="noopener"
+                  style={{padding:'4px 10px', background:'white', color:'#78350f', border:'1px solid #fbbf24', borderRadius:5, fontSize:11, cursor:'pointer', fontFamily:'inherit', fontWeight:600, textDecoration:'none'}}>
+                  ↗ 在新窗口直接访问
+                </a>
+                <button onClick={refreshIframe}
+                  style={{padding:'4px 10px', background:'white', color:'#78350f', border:'1px solid #fbbf24', borderRadius:5, fontSize:11, cursor:'pointer', fontFamily:'inherit', fontWeight:600}}>
+                  🔄 重新加载
+                </button>
+              </div>
+              <div style={{marginTop:6, fontSize:11, color:'#92400e'}}>
+                当前 iframe URL: <code style={{background:'white', padding:'1px 5px', borderRadius:3}}>{sameDirUrl}</code>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <iframe
         ref={iframeRef}
         src={sameDirUrl}
-        style={{width:'100%', height:iframeHeight, border:'none', background:'#fff', display:'block', transition:'height .15s'}}
+        onLoad={handleIframeLoad}
+        onError={handleIframeError}
+        style={{width:'100%', height:iframeHeight, border:'none', background:'#fff', display:'block', transition:'height .15s', minHeight:600}}
         title="知识库"
         scrolling="no"
       />
