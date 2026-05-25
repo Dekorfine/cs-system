@@ -9464,17 +9464,98 @@ const getChargebackUrgency = (cb) => {
   return { level:'normal', days, label:`${days} 天后截止`, color:'#15803d', bg:'#dcfce7' };
 };
 
-// 自动生成订单编号(从 site_order_sequences 表)
-const generateOrderNo = async (site) => {
+// 🆕 智能生成订单编号 - 扫描所有历史订单的实际最大编号 +1
+// 优先级:
+//   1. 扫描 offline_orders 中 site=X 的所有订单,找到最大编号
+//   2. 扫描旧的 records / aftersales 等表中的 order_no 字段,提取符合该网站前缀的
+//   3. 使用 site_order_sequences 中的 current_no(兜底)
+//   4. 全没有就从 1 开始
+const generateOrderNo = async (site, options = {}) => {
+  const { previewOnly } = options;  // previewOnly 为 true 时只预览不更新 sequence
   try {
+    // 1. 加载序列配置(获取 prefix/separator/padding)
     const { data: seq } = await CLOUD.client.from('site_order_sequences').select('*').eq('site', site).single();
-    if (!seq) throw new Error('未配置 ' + site + ' 的编号规则');
-    const newNo = (seq.current_no || 0) + 1;
-    const padded = String(newNo).padStart(seq.padding || 4, '0');
-    const orderNo = (seq.prefix || site) + (seq.separator || '-') + padded;
-    // 更新序列
-    await CLOUD.client.from('site_order_sequences').update({ current_no: newNo, updated_at: new Date().toISOString() }).eq('site', site);
-    return orderNo;
+    if (!seq) throw new Error('未配置 ' + site + ' 的编号规则,请联系主管在数据库 site_order_sequences 表中添加');
+    
+    const prefix = seq.prefix || site;
+    const separator = seq.separator || '-';
+    const padding = seq.padding || 4;
+    
+    // 2. 扫描历史最大编号(从多个表收集)
+    let maxNo = seq.current_no || 0;
+    
+    // 2a. 扫描 offline_orders
+    try {
+      const { data: offlineOrders } = await CLOUD.client.from('offline_orders').select('order_no').eq('site', site);
+      if (offlineOrders && offlineOrders.length > 0) {
+        offlineOrders.forEach(o => {
+          if (!o.order_no) return;
+          // 解析订单编号:RD0091 / VKA-0756 / DC0023 等
+          // 匹配前缀 + (可选分隔符) + 数字
+          const m = o.order_no.match(new RegExp('^' + prefix + (separator || '') + '?(\\d+)$'));
+          if (m) {
+            const n = parseInt(m[1], 10);
+            if (!isNaN(n) && n > maxNo) maxNo = n;
+          }
+        });
+      }
+    } catch(e) {
+      console.warn('扫描 offline_orders 失败:', e);
+    }
+    
+    // 2b. 扫描 workspace_records (客服跟进中可能存了订单号在 orderRef 字段)
+    try {
+      const { data: csRecords } = await CLOUD.client.from('workspace_records')
+        .select('orderRef').not('orderRef', 'is', null).limit(2000);
+      if (csRecords) {
+        csRecords.forEach(r => {
+          if (!r.orderRef) return;
+          // orderRef 可能含多个,用空格/逗号分隔
+          const tokens = r.orderRef.split(/[\s,;、；，]+/);
+          tokens.forEach(t => {
+            const m = t.match(new RegExp('^' + prefix + (separator || '') + '?(\\d+)$'));
+            if (m) {
+              const n = parseInt(m[1], 10);
+              if (!isNaN(n) && n > maxNo) maxNo = n;
+            }
+          });
+        });
+      }
+    } catch(e) {
+      console.warn('扫描 workspace_records 失败:', e);
+    }
+    
+    // 2c. 扫描其他表 (aftersales/refills/refunds/chargebacks)
+    for (const tbl of ['aftersales', 'refills', 'refunds', 'chargebacks']) {
+      try {
+        const { data: rows } = await CLOUD.client.from(tbl).select('order_no, order_ref');
+        if (rows) {
+          rows.forEach(r => {
+            const candidate = r.order_no || r.order_ref;
+            if (!candidate) return;
+            const m = candidate.match(new RegExp('^' + prefix + (separator || '') + '?(\\d+)$'));
+            if (m) {
+              const n = parseInt(m[1], 10);
+              if (!isNaN(n) && n > maxNo) maxNo = n;
+            }
+          });
+        }
+      } catch {}
+    }
+    
+    // 3. 生成新编号
+    const newNo = maxNo + 1;
+    const padded = String(newNo).padStart(padding, '0');
+    const orderNo = prefix + separator + padded;
+    
+    // 4. 更新 sequence(预览模式不更新)
+    if (!previewOnly) {
+      await CLOUD.client.from('site_order_sequences').update({
+        current_no: newNo, updated_at: new Date().toISOString()
+      }).eq('site', site);
+    }
+    
+    return { orderNo, maxNo, newNo, scanned: true };
   } catch(e) {
     console.error('订单编号生成失败:', e);
     throw e;
@@ -10799,26 +10880,41 @@ const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast })
   const [notes, setNotes] = useState(order?.notes || '');
   const [status, setStatus] = useState(order?.status || 'draft');
   const [saving, setSaving] = useState(false);
+  const [previewNextNo, setPreviewNextNo] = useState(null);  // 🆕 预览下一个编号(扫描历史得出)
+  const [autoFilledNo, setAutoFilledNo] = useState('');  // 🆕 已自动填充的编号(用于检测用户是否手改)
   const [showQuoteSearch, setShowQuoteSearch] = useState(false);
 
+  // 🆕 切换网站时,扫描历史 + 显示下一个编号建议
   const handleSiteChange = async (newSite) => {
     setSite(newSite);
-    if (!newSite || orderNo.trim() || isEdit) return;
+    if (!newSite || isEdit) return;
     setGenerating(true);
     try {
-      const newOrderNo = await generateOrderNo(newSite);
-      setOrderNo(newOrderNo);
-      toast('✓ 已自动生成订单编号:' + newOrderNo);
-    } catch(e) { toast('⚠ 生成失败,请手动输入:' + e.message); }
+      // 预览模式(不更新 sequence)
+      const result = await generateOrderNo(newSite, { previewOnly: true });
+      setPreviewNextNo(result);
+      // 只有 orderNo 为空 或 用户没手动改过时,才自动填充
+      const userHasNotEdited = !orderNo.trim() || orderNo === autoFilledNo;
+      if (userHasNotEdited) {
+        setOrderNo(result.orderNo);
+        setAutoFilledNo(result.orderNo);
+        toast(`✓ 已扫描历史订单 · 下一个编号: ${result.orderNo} (历史最大 ${result.maxNo})`);
+      }
+    } catch(e) { 
+      toast('⚠ 扫描历史失败,请手动输入: ' + e.message); 
+    }
     setGenerating(false);
   };
+  
   const handleManualGenerate = async () => {
     if (!site) { alert('请先选择网站'); return; }
     setGenerating(true);
     try {
-      const newOrderNo = await generateOrderNo(site);
-      setOrderNo(newOrderNo);
-      toast('✓ 已生成:' + newOrderNo);
+      const result = await generateOrderNo(site, { previewOnly: true });
+      setPreviewNextNo(result);
+      setOrderNo(result.orderNo);
+      setAutoFilledNo(result.orderNo);
+      toast(`✓ 已生成 ${result.orderNo}(历史最大 ${result.maxNo})`);
     } catch(e) { toast('⚠ ' + e.message); }
     setGenerating(false);
   };
@@ -10844,9 +10940,44 @@ const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast })
   const handleSave = async () => {
     if (!orderNo.trim()) { alert('请填写订单编号或选择网站自动生成'); return; }
     if (!site) { alert('请选择网站'); return; }
+    
+    // 🆕 重复检测(新建时)
+    if (!isEdit) {
+      try {
+        const { data: existing } = await CLOUD.client.from('offline_orders').select('id, order_no').eq('order_no', orderNo.trim()).limit(1);
+        if (existing && existing.length > 0) {
+          if (!confirm(`⚠ 警告:订单编号 "${orderNo}" 已存在!\n\n继续保存将创建重复编号(可能导致管理混乱)。\n\n建议:点击"🔄 重新扫描+1"获取唯一编号。\n\n仍要继续保存吗?`)) {
+            return;
+          }
+        }
+      } catch {}
+    }
+    
     setSaving(true);
     const userName = user.name + (user.alias ? ' ' + user.alias : '');
     const now = new Date().toISOString();
+    
+    // 🆕 新建保存成功后:把 sequence 更新到比当前编号大的位置
+    if (!isEdit) {
+      try {
+        // 从编号里提取数字
+        const seqConfig = await CLOUD.client.from('site_order_sequences').select('*').eq('site', site).single();
+        if (seqConfig.data) {
+          const prefix = seqConfig.data.prefix || site;
+          const separator = seqConfig.data.separator || '-';
+          const m = orderNo.trim().match(new RegExp('^' + prefix + (separator || '') + '?(\\d+)$'));
+          if (m) {
+            const n = parseInt(m[1], 10);
+            if (n > (seqConfig.data.current_no || 0)) {
+              await CLOUD.client.from('site_order_sequences').update({
+                current_no: n, updated_at: now,
+              }).eq('site', site);
+            }
+          }
+        }
+      } catch(e) { console.warn('更新 sequence 失败(不影响订单保存):', e); }
+    }
+    
     const dispatchText = generateDispatchText({
       order_no: orderNo, ship_to_name: shipToName, ship_to_address: shipToAddress,
       ship_to_city: shipToCity, ship_to_state: shipToState, ship_to_country: shipToCountry,
@@ -10902,16 +11033,36 @@ const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast })
               </div>
               <div>
                 <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>
-                  订单编号 * {!isEdit && <span style={{marginLeft:6, color:'#15803d', fontWeight:400}}>(选网站后自动生成)</span>}
+                  订单编号 * 
+                  {!isEdit && (
+                    <span style={{marginLeft:6, color:'#15803d', fontWeight:400}}>
+                      (可自动生成 / 也可手动输入)
+                    </span>
+                  )}
                 </label>
                 <div style={{display:'flex', gap:4}}>
-                  <input value={orderNo} onChange={e => setOrderNo(e.target.value)} placeholder={site ? '自动生成' : '选网站后自动生成'}
+                  <input value={orderNo} onChange={e => setOrderNo(e.target.value)} 
+                    placeholder={site ? `例如: ${site}0001` : '选网站后将扫描历史并自动建议'}
                     style={{flex:1, padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace', fontWeight:600}} />
                   {!isEdit && <button onClick={handleManualGenerate} disabled={!site || generating}
+                    type="button"
                     style={{padding:'7px 10px', background:'#fef3c7', color:'#854d0e', border:'1px solid #fbbf24', borderRadius:6, cursor:'pointer', fontSize:11, fontFamily:'inherit', whiteSpace:'nowrap'}}>
-                    {generating ? '...' : '🔄 重新生成'}
+                    {generating ? '扫描中...' : '🔄 重新扫描+1'}
                   </button>}
                 </div>
+                {/* 🆕 显示扫描结果 */}
+                {!isEdit && previewNextNo && (
+                  <div style={{marginTop:5, padding:'5px 9px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:5, fontSize:10, color:'#14532d', lineHeight:1.4}}>
+                    📊 已扫描全部历史订单(线下单/客服/售后/补件/退款/拒付):
+                    历史最大 <strong style={{fontFamily:'monospace'}}>{previewNextNo.maxNo > 0 ? previewNextNo.maxNo : '无'}</strong>
+                    → 建议下一个 <strong style={{fontFamily:'monospace', color:'#15803d'}}>{previewNextNo.orderNo}</strong>
+                  </div>
+                )}
+                {!isEdit && orderNo && orderNo !== autoFilledNo && (
+                  <div style={{marginTop:4, fontSize:10, color:'#854d0e'}}>
+                    ✏ 你已手动修改订单编号(保存时将使用此编号)
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>状态</label>
@@ -11036,60 +11187,237 @@ const QuoteSearchModal = ({ onClose, onSelect, toast }) => {
   const [query, setQuery] = useState('');
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showOnlyRecent, setShowOnlyRecent] = useState(false);  // 🆕 只显示最近 30 天
+  
   useEffect(() => {
     (async () => {
       try {
-        const data = await CLOUD.list('workspace_quotes', { order:{col:'updated_at', asc:false}, limit:300 });
+        const data = await CLOUD.list('workspace_quotes', { order:{col:'updated_at', asc:false}, limit:1000 });
         setList((data || []).filter(q => !q.trashed));
       } catch(e) { toast('加载报价单失败'); }
       setLoading(false);
     })();
   }, []);
+  
+  // 🆕 智能模糊匹配 - 分词搜索 + 多字段权重 + 评分排序
   const filtered = useMemo(() => {
-    if (!query.trim()) return list.slice(0, 50);
-    const q = query.trim().toLowerCase();
-    return list.filter(r =>
-      (r.pi_no || '').toLowerCase().includes(q) ||
-      (r.buyer_name || '').toLowerCase().includes(q) ||
-      ((r.data || {}).buyer_email || '').toLowerCase().includes(q) ||
-      (r.username || '').toLowerCase().includes(q)
-    ).slice(0, 100);
-  }, [query, list]);
-
-  return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:10001, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
-      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:600, width:'100%', display:'flex', flexDirection:'column', maxHeight:'80vh'}}>
-        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)'}}>
-          <div className="font-display" style={{fontSize:16, fontWeight:600, marginBottom:6}}>🔍 关联报价单</div>
-          <input value={query} onChange={e => setQuery(e.target.value)} autoFocus placeholder="输入报价单编号 / 客户名 / 邮箱..."
-            style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13}} />
+    let l = list;
+    
+    // 时间过滤
+    if (showOnlyRecent) {
+      const cutoff = addDays(todayISO(), -30);
+      l = l.filter(q => {
+        const t = (q.updated_at || q.created_at || '').slice(0, 10);
+        return !t || t >= cutoff;
+      });
+    }
+    
+    if (!query.trim()) {
+      return l.slice(0, 100);
+    }
+    
+    // 提取搜索关键词(支持多关键词,空格/逗号分隔)
+    const keywords = query.trim().toLowerCase()
+      .split(/[\s,，;；]+/)
+      .filter(k => k.length > 0);
+    
+    if (keywords.length === 0) return l.slice(0, 100);
+    
+    // 评分函数
+    const scoreQuote = (q) => {
+      const d = q.data || {};
+      // 所有可搜索的字段
+      const fields = {
+        pi_no:        (q.pi_no || '').toLowerCase(),
+        order_no:     (q.order_no || '').toLowerCase(),
+        buyer_name:   (q.buyer_name || d.buyer_info || '').toLowerCase(),
+        buyer_email:  (d.buyer_email || '').toLowerCase(),
+        buyer_phone:  (d.buyer_phone || '').toLowerCase(),
+        ship_country: (d.shipping_country || '').toLowerCase(),
+        ship_address: (d.shipping_info || '').toLowerCase(),
+        username:     (q.username || '').toLowerCase(),
+        status:       (q.status || '').toLowerCase(),
+        notes:        (q.notes || d.notes || '').toLowerCase(),
+        amount:       String(q.amount || ''),
+        // 产品列表
+        products:     ((d.products || d.items || []).map(p => 
+          [p.sku, p.product_name, p.name, p.description].filter(Boolean).join(' ')
+        ).join(' ')).toLowerCase(),
+      };
+      
+      let totalScore = 0;
+      let matchedAllKeywords = true;
+      
+      for (const kw of keywords) {
+        let kwScore = 0;
+        // PI 编号精确匹配 - 最高权重
+        if (fields.pi_no === kw) kwScore += 1000;
+        else if (fields.pi_no.includes(kw)) kwScore += 100;
+        // 邮箱精确 - 高权重
+        if (fields.buyer_email === kw) kwScore += 500;
+        else if (fields.buyer_email.includes(kw)) kwScore += 80;
+        // 订单号匹配
+        if (fields.order_no.includes(kw)) kwScore += 70;
+        // 客户名/手机
+        if (fields.buyer_name.includes(kw)) kwScore += 60;
+        if (fields.buyer_phone.includes(kw)) kwScore += 60;
+        // 地址 / 产品
+        if (fields.ship_country.includes(kw)) kwScore += 30;
+        if (fields.ship_address.includes(kw)) kwScore += 25;
+        if (fields.products.includes(kw)) kwScore += 25;
+        // 录入人 / 状态
+        if (fields.username.includes(kw)) kwScore += 15;
+        if (fields.status.includes(kw)) kwScore += 10;
+        // 金额
+        if (fields.amount.includes(kw)) kwScore += 20;
+        // 备注
+        if (fields.notes.includes(kw)) kwScore += 10;
+        
+        if (kwScore === 0) matchedAllKeywords = false;
+        totalScore += kwScore;
+      }
+      
+      // 必须所有关键词都至少匹配一个字段
+      return matchedAllKeywords ? totalScore : 0;
+    };
+    
+    return l
+      .map(q => ({ q, score: scoreQuote(q) }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 100)
+      .map(x => x.q);
+  }, [query, list, showOnlyRecent]);
+  
+  // 🆕 高亮匹配关键词
+  const highlight = (text, keywords) => {
+    if (!text || !keywords || keywords.length === 0) return text;
+    const safeText = String(text);
+    let result = safeText;
+    for (const kw of keywords) {
+      if (!kw) continue;
+      const regex = new RegExp(`(${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+      result = result.replace(regex, '<mark style="background:#fef08a;color:#854d0e;padding:0 2px;border-radius:2px">$1</mark>');
+    }
+    return result;
+  };
+  
+  const keywords = query.trim().toLowerCase().split(/[\s,，;；]+/).filter(k => k);
+  
+  return ReactDOM.createPortal(
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:99999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 16px', overflowY:'auto', overflowX:'hidden'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:720, width:'100%', display:'flex', flexDirection:'column', maxHeight:'90vh', overflow:'hidden', boxShadow:'0 25px 70px rgba(0,0,0,.3)'}}>
+        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', flexShrink:0}}>
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
+            <div className="font-display" style={{fontSize:16, fontWeight:600}}>🔍 智能搜索报价单</div>
+            <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          </div>
+          <input value={query} onChange={e => setQuery(e.target.value)} autoFocus 
+            placeholder="🧠 智能搜索:支持 PI 号 / 客户邮箱 / 客户姓名 / 电话 / 国家 / 地址 / 产品 SKU / 录入人 / 金额..."
+            style={{width:'100%', padding:'10px 14px', border:'1px solid var(--line)', borderRadius:8, fontSize:13}} />
+          <div style={{marginTop:8, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', fontSize:11, color:'var(--ink-3)'}}>
+            <span>💡 提示:</span>
+            <span>多个关键词用空格分隔(全部匹配才显示)</span>
+            <span>·</span>
+            <span>例:<code style={{padding:'1px 5px', background:'#f1f5f9', borderRadius:3}}>VKA Aletta US</code></span>
+            <div style={{flex:1}}></div>
+            <button onClick={() => setShowOnlyRecent(v => !v)}
+              style={{
+                padding:'3px 8px', borderRadius:10, fontSize:10, cursor:'pointer', fontFamily:'inherit',
+                border:'1px solid ' + (showOnlyRecent ? 'var(--accent)' : 'var(--line)'),
+                background: showOnlyRecent ? 'var(--accent)' : 'white',
+                color: showOnlyRecent ? 'white' : 'var(--ink-2)',
+                fontWeight: showOnlyRecent ? 600 : 400,
+              }}>
+              {showOnlyRecent ? '✓' : '☐'} 仅最近 30 天
+            </button>
+          </div>
+          {query.trim() && (
+            <div style={{marginTop:6, fontSize:11, color:'#0369a1'}}>
+              🔍 匹配 {filtered.length} 条 · 按相关度排序
+            </div>
+          )}
         </div>
-        <div style={{padding:10, overflowY:'auto', overflowX:'hidden', flex:1}}>
+        <div style={{padding:10, overflowY:'auto', overflowX:'hidden', flex:1, minHeight:0}}>
           {loading ? <div style={{textAlign:'center', padding:30, color:'var(--ink-3)'}}>⏳ 加载中...</div>
-           : filtered.length === 0 ? <div style={{textAlign:'center', padding:30, color:'var(--ink-3)', fontSize:13}}>没有匹配的报价单</div>
-           : filtered.map(q => {
+           : filtered.length === 0 ? (
+             <div style={{textAlign:'center', padding:40, color:'var(--ink-3)', fontSize:13}}>
+               {query.trim() ? (
+                 <>
+                   <div style={{fontSize:30, marginBottom:8}}>🔍</div>
+                   没有匹配的报价单<br/>
+                   <span style={{fontSize:11, marginTop:6, display:'block'}}>试试只输入一部分关键词,或者用空格分隔多个</span>
+                 </>
+               ) : '暂无报价单'}
+             </div>
+           ) : filtered.map(q => {
             const d = q.data || {};
+            const fields = {
+              pi_no:    q.pi_no || '(无 PI)',
+              buyer:    q.buyer_name || (d.buyer_info || '').split('\n')[0] || '(未填客户)',
+              email:    d.buyer_email,
+              phone:    d.buyer_phone,
+              country:  d.shipping_country,
+              amount:   q.amount,
+            };
             return (
-              <div key={q.id} onClick={() => onSelect(q)}
-                style={{padding:10, marginBottom:5, border:'1px solid var(--line)', borderRadius:8, cursor:'pointer', background:'white'}}
-                onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
-                onMouseLeave={e => e.currentTarget.style.background = 'white'}>
-                <div style={{display:'flex', justifyContent:'space-between', gap:6}}>
-                  <strong style={{fontSize:13}}>{q.pi_no || '(无 PI)'}</strong>
-                  <span style={{color:'#15803d', fontSize:13, fontWeight:600}}>${(q.amount || 0).toFixed(2)}</span>
-                </div>
-                <div style={{fontSize:11, color:'var(--ink-3)', marginTop:3}}>
-                  👤 {q.buyer_name || '?'}{d.buyer_email && <span> · ✉ {d.buyer_email}</span>}
-                  <span> · {q.status} · 录入 {q.username}</span>
+              <div key={q.id} onClick={() => { onSelect(q); onClose(); }}
+                style={{padding:'10px 12px', marginBottom:6, border:'1px solid var(--line)', borderRadius:8, cursor:'pointer', background:'white', transition:'all .12s'}}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f0f9ff'; e.currentTarget.style.borderColor = '#7dd3fc'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = 'var(--line)'; }}>
+                <div style={{display:'flex', justifyContent:'space-between', gap:6, alignItems:'flex-start'}}>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:13, fontWeight:700, color:'var(--ink)'}}
+                      dangerouslySetInnerHTML={{__html: highlight(fields.pi_no, keywords)}} />
+                    <div style={{fontSize:11, color:'var(--ink-2)', marginTop:3}}>
+                      <span style={{color:'var(--ink-3)'}}>👤</span>{' '}
+                      <span dangerouslySetInnerHTML={{__html: highlight(fields.buyer, keywords)}} />
+                      {fields.email && (
+                        <>
+                          <span style={{color:'var(--ink-4)'}}> · </span>
+                          <span style={{color:'#0369a1'}} dangerouslySetInnerHTML={{__html: '✉ ' + highlight(fields.email, keywords)}} />
+                        </>
+                      )}
+                      {fields.phone && (
+                        <>
+                          <span style={{color:'var(--ink-4)'}}> · </span>
+                          <span dangerouslySetInnerHTML={{__html: '📞 ' + highlight(fields.phone, keywords)}} />
+                        </>
+                      )}
+                    </div>
+                    <div style={{fontSize:10, color:'var(--ink-3)', marginTop:3, display:'flex', gap:8, flexWrap:'wrap'}}>
+                      {fields.country && <span dangerouslySetInnerHTML={{__html: '🌍 ' + highlight(fields.country, keywords)}} />}
+                      {q.status && <span>📋 {q.status}</span>}
+                      {q.username && <span dangerouslySetInnerHTML={{__html: '✏ ' + highlight(q.username, keywords)}} />}
+                      {q.updated_at && <span>📅 {q.updated_at.slice(0, 10)}</span>}
+                    </div>
+                    {/* 产品预览 */}
+                    {(d.products || d.items || []).length > 0 && (
+                      <div style={{marginTop:4, fontSize:10, color:'var(--ink-3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                        📦 <span dangerouslySetInnerHTML={{__html: highlight(
+                          (d.products || d.items || []).slice(0,3).map(p => p.sku || p.product_name || p.name).filter(Boolean).join(', ') + 
+                          ((d.products || d.items || []).length > 3 ? '...' : ''),
+                          keywords
+                        )}} />
+                      </div>
+                    )}
+                  </div>
+                  <div style={{textAlign:'right', flexShrink:0}}>
+                    <div style={{color:'#15803d', fontSize:14, fontWeight:700}}>${(fields.amount || 0).toFixed(2)}</div>
+                  </div>
                 </div>
               </div>);
           })}
         </div>
-        <div style={{padding:'10px 18px', borderTop:'1px solid var(--line)', textAlign:'right'}}>
+        <div style={{padding:'10px 18px', borderTop:'1px solid var(--line)', flexShrink:0, background:'#fafafa', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div style={{fontSize:10, color:'var(--ink-3)'}}>
+            📚 共加载 {list.length} 条报价单 · 显示前 {filtered.length} 条
+          </div>
           <button onClick={onClose} className="btn-sec" style={{padding:'6px 14px'}}>取消</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
