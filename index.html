@@ -1328,10 +1328,10 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
 
           {switchModalOpen && employees && (() => {
             const isAdminViewer = user.role === 'admin' || user.role === 'super_admin';
-            return (
+            return ReactDOM.createPortal(
             <div onClick={() => setSwitchModalOpen(false)}
               style={{
-                position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999,
+                position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:99999,
                 display:'flex', alignItems:'flex-start', justifyContent:'center',
                 padding:'4vh 16px',
                 overflowY:'auto', overflowX:'hidden',
@@ -1396,7 +1396,8 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
                   </div>
                 </div>
               </div>
-            </div>
+            </div>,
+            document.body
             );
           })()}
 
