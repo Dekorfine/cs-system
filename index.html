@@ -2919,73 +2919,85 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
       {/* 🆕 时间筛选(仅全部模式显示) */}
       {viewMode === 'all' && (() => {
         const today = todayISO();
+        // 源数据(在 time filter 前)
+        const sourceForTime = (() => {
+          let l = sourceRecords;
+          if (search.trim()) {
+            const q = search.trim().toLowerCase();
+            l = l.filter(r => (r.customer||'').toLowerCase().includes(q) || (r.orderRef||'').toLowerCase().includes(q) || (r.note||'').toLowerCase().includes(q));
+          }
+          if (filterStatus !== 'all') l = l.filter(r => r.status === filterStatus);
+          if (filterSite !== 'all') l = l.filter(r => r.site === filterSite);
+          if (filterCategory !== 'all') l = l.filter(r => r.category === filterCategory);
+          if (filterDifficulty !== 'all') l = l.filter(r => r.difficulty === filterDifficulty);
+          if (isAdmin && showAll && filterOwner !== 'all') l = l.filter(r => r.ownerId === filterOwner);
+          return l;
+        })();
         // 计算超期未解决数(>7天)
         const overdueUnresolved = visibleRecords.filter(r => {
           if (r.status === 'resolved' || r.status === 'transferred') return false;
           if (!r.date) return false;
           return r.date < addDays(today, -7);
         });
+        
+        // 应用了时间筛选后的条数变化
+        const beforeFilter = sourceForTime.length;
+        const afterFilter = tableRecords.length;
+        const isFiltered = timeFilter !== 'all' || showUnresolvedOnly;
+        
         return (
-          <div className="paper rounded-2xl p-3 fade-in" style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>
-            <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>📅 时间范围：</span>
-            {[
-              { key:'all',  label:'全部'      },
-              { key:'3d',   label:'最近 3 天' },
-              { key:'7d',   label:'最近 7 天' },
-              { key:'14d',  label:'最近 14 天' },
-              { key:'30d',  label:'最近 30 天' },
-              { key:'custom', label:'📆 自定义' },
-            ].map(t => (
-              <button key={t.key} onClick={() => setTimeFilter(t.key)}
+          <div className="paper rounded-2xl p-3 fade-in" style={{display:'flex', flexDirection:'column', gap:8}}>
+            <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>
+              <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
+                customStart={customRangeStart} customEnd={customRangeEnd}
+                onCustomChange={({start, end}) => { setCustomRangeStart(start); setCustomRangeEnd(end); }}
+                records={sourceForTime} dateField="date"
+                label="📅 时间范围:" />
+              
+              <div style={{flex:1}}></div>
+              
+              {/* 只看未解决开关 */}
+              <button onClick={() => setShowUnresolvedOnly(v => !v)}
                 style={{
                   padding:'4px 11px', borderRadius:14, fontSize:11, cursor:'pointer', fontFamily:'inherit',
-                  border:'1px solid ' + (timeFilter === t.key ? 'var(--accent)' : 'var(--line)'),
-                  background: timeFilter === t.key ? 'var(--accent)' : 'white',
-                  color: timeFilter === t.key ? 'white' : 'var(--ink-2)',
-                  fontWeight: timeFilter === t.key ? 600 : 400,
+                  border:'1px solid ' + (showUnresolvedOnly ? '#dc2626' : 'var(--line)'),
+                  background: showUnresolvedOnly ? '#fee2e2' : 'white',
+                  color: showUnresolvedOnly ? '#991b1b' : 'var(--ink-2)',
+                  fontWeight: showUnresolvedOnly ? 600 : 400,
+                  display:'inline-flex', alignItems:'center', gap:5,
                   whiteSpace:'nowrap',
                 }}>
-                {t.label}
+                {showUnresolvedOnly ? '✓' : '☐'} 只看未解决
               </button>
-            ))}
-            {timeFilter === 'custom' && (
-              <div style={{display:'flex', gap:6, alignItems:'center'}}>
-                <input type="date" value={customRangeStart} onChange={e => setCustomRangeStart(e.target.value)}
-                  style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6, fontFamily:'inherit'}} />
-                <span style={{color:'var(--ink-4)', fontSize:11}}>→</span>
-                <input type="date" value={customRangeEnd} onChange={e => setCustomRangeEnd(e.target.value)}
-                  style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6, fontFamily:'inherit'}} />
+              
+              {/* 超期警告徽章 */}
+              {overdueUnresolved.length > 0 && (
+                <button onClick={() => { setTimeFilter('all'); setShowUnresolvedOnly(true); }}
+                  style={{
+                    padding:'4px 11px', background:'#fef3c7', color:'#92400e', border:'1px solid #fbbf24',
+                    borderRadius:14, fontSize:11, fontWeight:600, fontFamily:'inherit', cursor:'pointer',
+                    display:'inline-flex', alignItems:'center', gap:4, whiteSpace:'nowrap',
+                  }}
+                  title="点击筛选超过 7 天未解决的记录">
+                  ⚠ 超 7 天未解决: {overdueUnresolved.length} 条
+                </button>
+              )}
+            </div>
+            
+            {/* 🆕 筛选反馈条 */}
+            {isFiltered && (
+              <div style={{padding:'6px 12px', background:'#e0f2fe', borderRadius:8, fontSize:11, color:'#075985', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+                <span>🔍 当前筛选:</span>
+                <strong style={{color:'#0c4a6e'}}>{afterFilter} 条</strong>
+                <span style={{color:'#64748b'}}>/ 原 {beforeFilter} 条</span>
+                {beforeFilter > 0 && (
+                  <span style={{color:'#64748b'}}>· {Math.round(afterFilter / beforeFilter * 100)}%</span>
+                )}
+                <button onClick={() => { setTimeFilter('all'); setShowUnresolvedOnly(false); }}
+                  style={{marginLeft:'auto', padding:'2px 8px', background:'white', border:'1px solid #7dd3fc', borderRadius:6, fontSize:10, color:'#0369a1', cursor:'pointer', fontFamily:'inherit'}}>
+                  ✕ 清除筛选
+                </button>
               </div>
-            )}
-            
-            {/* 分隔符 */}
-            <div style={{flex:1}}></div>
-            
-            {/* 只看未解决开关 */}
-            <button onClick={() => setShowUnresolvedOnly(v => !v)}
-              style={{
-                padding:'4px 11px', borderRadius:14, fontSize:11, cursor:'pointer', fontFamily:'inherit',
-                border:'1px solid ' + (showUnresolvedOnly ? '#dc2626' : 'var(--line)'),
-                background: showUnresolvedOnly ? '#fee2e2' : 'white',
-                color: showUnresolvedOnly ? '#991b1b' : 'var(--ink-2)',
-                fontWeight: showUnresolvedOnly ? 600 : 400,
-                display:'inline-flex', alignItems:'center', gap:5,
-                whiteSpace:'nowrap',
-              }}>
-              {showUnresolvedOnly ? '✓' : '☐'} 只看未解决
-            </button>
-            
-            {/* 超期警告徽章 */}
-            {overdueUnresolved.length > 0 && (
-              <button onClick={() => { setTimeFilter('all'); setShowUnresolvedOnly(true); }}
-                style={{
-                  padding:'4px 11px', background:'#fef3c7', color:'#92400e', border:'1px solid #fbbf24',
-                  borderRadius:14, fontSize:11, fontWeight:600, fontFamily:'inherit', cursor:'pointer',
-                  display:'inline-flex', alignItems:'center', gap:4, whiteSpace:'nowrap',
-                }}
-                title="点击筛选超过 7 天未解决的记录">
-                ⚠ 超 7 天未解决: {overdueUnresolved.length} 条
-              </button>
             )}
           </div>
         );
@@ -9573,8 +9585,19 @@ const ChargebackReminderBanner = ({ user, employees, onJumpTo }) => {
 // ============================================================
 // ============================================================
 // 🆕 TimeRangeFilter - 通用时间范围筛选组件
+// 升级:支持传入 records 自动统计每个范围的条数 + 显示筛选反馈
 // ============================================================
-const TimeRangeFilter = ({ value, onChange, customStart, customEnd, onCustomChange, extraButtons, label }) => {
+const TimeRangeFilter = ({ value, onChange, customStart, customEnd, onCustomChange, label, records, dateField }) => {
+  // 🆕 计算每个时间范围匹配的条数
+  const counts = useMemo(() => {
+    if (!records || !Array.isArray(records)) return null;
+    const c = { all: records.length };
+    ['3d', '7d', '14d', '30d'].forEach(k => {
+      c[k] = filterByTimeRange(records, k, null, null, dateField).length;
+    });
+    return c;
+  }, [records, dateField]);
+  
   return (
     <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
       <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>
@@ -9587,19 +9610,32 @@ const TimeRangeFilter = ({ value, onChange, customStart, customEnd, onCustomChan
         { key:'14d',  label:'最近 14 天' },
         { key:'30d',  label:'最近 30 天' },
         { key:'custom', label:'📆 自定义' },
-      ].map(t => (
-        <button key={t.key} onClick={() => onChange(t.key)}
-          style={{
-            padding:'4px 11px', borderRadius:14, fontSize:11, cursor:'pointer', fontFamily:'inherit',
-            border:'1px solid ' + (value === t.key ? 'var(--accent)' : 'var(--line)'),
-            background: value === t.key ? 'var(--accent)' : 'white',
-            color: value === t.key ? 'white' : 'var(--ink-2)',
-            fontWeight: value === t.key ? 600 : 400,
-            whiteSpace:'nowrap',
-          }}>
-          {t.label}
-        </button>
-      ))}
+      ].map(t => {
+        const cnt = counts ? counts[t.key] : null;
+        const isActive = value === t.key;
+        return (
+          <button key={t.key} onClick={() => onChange(t.key)}
+            style={{
+              padding:'4px 11px', borderRadius:14, fontSize:11, cursor:'pointer', fontFamily:'inherit',
+              border:'1px solid ' + (isActive ? 'var(--accent)' : 'var(--line)'),
+              background: isActive ? 'var(--accent)' : 'white',
+              color: isActive ? 'white' : 'var(--ink-2)',
+              fontWeight: isActive ? 600 : 400,
+              whiteSpace:'nowrap',
+              display:'inline-flex', alignItems:'center', gap:4,
+            }}>
+            {t.label}
+            {cnt !== null && cnt !== undefined && t.key !== 'custom' && (
+              <span style={{
+                padding:'1px 6px', borderRadius:8, fontSize:10, fontWeight:700,
+                background: isActive ? 'rgba(255,255,255,.25)' : (cnt > 0 ? '#fef3c7' : '#f5f5f7'),
+                color: isActive ? 'white' : (cnt > 0 ? '#854d0e' : 'var(--ink-4)'),
+                minWidth:18, textAlign:'center',
+              }}>{cnt}</span>
+            )}
+          </button>
+        );
+      })}
       {value === 'custom' && onCustomChange && (
         <div style={{display:'flex', gap:6, alignItems:'center'}}>
           <input type="date" value={customStart || ''} onChange={e => onCustomChange({ start: e.target.value, end: customEnd })}
@@ -9609,7 +9645,6 @@ const TimeRangeFilter = ({ value, onChange, customStart, customEnd, onCustomChan
             style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6, fontFamily:'inherit'}} />
         </div>
       )}
-      {extraButtons}
     </div>
   );
 };
@@ -9624,12 +9659,15 @@ const filterByTimeRange = (list, timeFilter, customStart, customEnd, dateField) 
   else if (timeFilter === '7d')   cutoffStart = addDays(today, -6);
   else if (timeFilter === '14d')  cutoffStart = addDays(today, -13);
   else if (timeFilter === '30d')  cutoffStart = addDays(today, -29);
-  else if (timeFilter === 'custom') { cutoffStart = customStart; cutoffEnd = customEnd; }
+  else if (timeFilter === 'custom') { 
+    cutoffStart = customStart; cutoffEnd = customEnd; 
+    if (!cutoffStart || !cutoffEnd) return list;  // 自定义时未填日期则不过滤
+  }
   if (!cutoffStart) return list;
   const field = dateField || 'created_at';
   return list.filter(r => {
     const raw = r[field];
-    if (!raw) return false;
+    if (!raw) return true;  // 🆕 无日期的记录保留(避免误删旧数据)
     const d = (typeof raw === 'string' && raw.length > 10) ? raw.slice(0, 10) : raw;
     return d >= cutoffStart && d <= cutoffEnd;
   });
@@ -9952,7 +9990,8 @@ const ChargebacksModule = ({ user, employees, toast }) => {
         <div style={{marginTop:10, paddingTop:10, borderTop:'1px dashed var(--line)'}}>
           <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
             customStart={timeCustom.start} customEnd={timeCustom.end}
-            onCustomChange={setTimeCustom} label="📅 创建时间:" />
+            onCustomChange={setTimeCustom} label="📅 创建时间:"
+            records={list} dateField="created_at" />
         </div>
       </div>
       
@@ -10500,7 +10539,8 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
         <div style={{marginTop:10, paddingTop:10, borderTop:'1px dashed var(--line)'}}>
           <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
             customStart={timeCustom.start} customEnd={timeCustom.end}
-            onCustomChange={setTimeCustom} label="📅 创建时间:" />
+            onCustomChange={setTimeCustom} label="📅 创建时间:"
+            records={list} dateField="created_at" />
         </div>
       </div>
       {loading ? <div className="paper rounded-2xl p-10" style={{textAlign:'center'}}>⏳ 加载中...</div>
@@ -11032,7 +11072,8 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
         <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed var(--line)'}}>
           <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
             customStart={timeCustom.start} customEnd={timeCustom.end}
-            onCustomChange={setTimeCustom} label="📅 创建时间:" />
+            onCustomChange={setTimeCustom} label="📅 创建时间:"
+            records={list} dateField="created_at" />
         </div>
       </div>
       {loading ? <div className="paper rounded-2xl p-8" style={{textAlign:'center'}}>⏳</div>
@@ -11304,7 +11345,8 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
         <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed var(--line)'}}>
           <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
             customStart={timeCustom.start} customEnd={timeCustom.end}
-            onCustomChange={setTimeCustom} label="📅 创建时间:" />
+            onCustomChange={setTimeCustom} label="📅 创建时间:"
+            records={list} dateField="created_at" />
         </div>
       </div>
       {loading ? <div className="paper rounded-2xl p-8" style={{textAlign:'center'}}>⏳</div>
