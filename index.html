@@ -4612,7 +4612,9 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
         onSaved && onSaved(res[0] || payload);
         onClose();
       } else {
-        alert('保存失败，请检查网络');
+        // 🆕 fix7: 用 alertSaveError 显示详细诊断信息(表名/错误码/原因),而不是"请检查网络"
+        const label = kind === 'aftersale' ? '保存售后' : kind === 'refill' ? '保存补件' : '保存退款';
+        alertSaveError(label);
       }
     } catch(e) { alert('保存失败: ' + e.message); }
     setSaving(false);
@@ -4625,13 +4627,13 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
     refund:    { icon:'💰', title:'退款事件', color:'#dc2626' },
   }[kind];
   
-  return (
+  return ReactDOM.createPortal(
     <div onClick={onClose}
-      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'5vh 20px', overflowY:'auto', overflowX:'hidden'}}>
+      style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:100000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'5vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()}
         style={{background:'white', borderRadius:14, maxWidth:680, width:'100%', display:'flex', flexDirection:'column', maxHeight:'90vh'}}>
         {/* Header */}
-        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0}}>
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0, gap:8}}>
           <div>
             <div className="font-display" style={{fontSize:17, fontWeight:600, color: titleInfo.color, display:'flex', alignItems:'center', gap:8}}>
               <span style={{fontSize:22}}>{titleInfo.icon}</span>
@@ -4643,7 +4645,19 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
               </div>
             )}
           </div>
-          <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          <div style={{display:'flex', gap:6, alignItems:'center'}}>
+            {/* 🆕 fix7: 申请主管协助 */}
+            {user && user.role !== 'super_admin' && (
+              <button onClick={() => window.__requestSupervisorAssistance?.({
+                entityType: titleInfo.title, entityId: existingEvent?.id, entityTitle: existingEvent?.order_ref || orderRef || '(新事件)'
+              })}
+                style={{padding:'5px 11px', background:'#fef3c7', color:'#92400e', border:'1px solid #fcd34d', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}
+                title="把这条事件交给主管/老板处理">
+                {user.role === 'admin' ? '👑 申请老板' : '🚨 申请主管'}
+              </button>
+            )}
+            <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          </div>
         </div>
         
         {/* Body - 可滚动 */}
@@ -4912,7 +4926,8 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -5144,25 +5159,40 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
   const [escalateModal, setEscalateModal] = useState(false);
   const [escalateReason, setEscalateReason] = useState('');
   const [escalateUrgency, setEscalateUrgency] = useState('high');
+  // 🆕 fix7: 升级层级 — 'admin'(给主管) / 'boss'(给老板)
+  const [escalateLevel, setEscalateLevel] = useState('admin');
   
   const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
+  const isSuperAdmin = user && user.role === 'super_admin';
+  // 🆕 fix7: 当前用户能升级到的层级 — staff/finance → 主管;admin → 老板;super_admin → 不能升级(已在顶)
+  // 已升级到主管的也允许 admin 再升级到老板
+  const canEscalateToAdmin = !isAdmin;  // staff / finance
+  const canEscalateToBoss = user && user.role === 'admin';  // admin 可升老板
+  const canEscalate = canEscalateToAdmin || canEscalateToBoss;
   
   // 一键升级 → 自动建工单到 workspace_tickets
   const submitEscalate = async () => {
     if (!escalateReason.trim()) { alert('请填写需要主管协助的原因'); return; }
-    const admins = (employees || []).filter(e => e.role === 'admin' || e.role === 'super_admin');
-    if (admins.length === 0) { alert('没有找到主管账号'); return; }
-    const targetAdmin = admins[0];  // 默认升级给第一个主管/总管
+    const targetRole = escalateLevel === 'boss' ? 'super_admin' : 'admin';
+    const candidates = (employees || []).filter(e => e.role === targetRole && !e.hideFromList);
+    // 兜底: 找不到 visible 的就找任意
+    const allCandidates = candidates.length > 0 ? candidates : (employees || []).filter(e => e.role === targetRole);
+    if (allCandidates.length === 0) { 
+      alert(`没有找到${escalateLevel === 'boss' ? '老板(super_admin)' : '主管(admin)'}账号`); 
+      return; 
+    }
+    const targetUser = allCandidates[0];
+    const levelLabel = escalateLevel === 'boss' ? '老板' : '主管';
     const ticket = {
       id: uid(),
-      title: `🚨 棘手邮件升级 · ${record.customer || record.orderRef || '(无标题)'}`,
-      content: `客户：${record.customer || '-'}\n订单：${record.orderRef || '-'}\n网站：${record.site || '-'}\n咨询事项：${record.category || '-'}\n\n【客服需要协助的原因】\n${escalateReason}\n\n【已跟进备注】\n${record.note || '(无)'}\n\n点跟进记录 ID：${record.id}`,
+      title: `🚨 ${escalateLevel === 'boss' ? '主管' : '客服'}升级到${levelLabel} · ${record.customer || record.orderRef || '(无标题)'}`,
+      content: `客户：${record.customer || '-'}\n订单：${record.orderRef || '-'}\n网站：${record.site || '-'}\n咨询事项：${record.category || '-'}\n升级层级：${levelLabel}\n\n【需要${levelLabel}协助的原因】\n${escalateReason}\n\n【已跟进备注】\n${record.note || '(无)'}\n\n${record.escalateReason ? `【之前的升级历史】\n${record.escalateReason}\n\n` : ''}点跟进记录 ID：${record.id}`,
       priority: escalateUrgency,
       department: 'service',
       from_id: user.id,
       from_name: user.name + (user.alias ? ' ' + user.alias : ''),
-      target_id: targetAdmin.id,
-      target_name: targetAdmin.name + (targetAdmin.alias ? ' ' + targetAdmin.alias : ''),
+      target_id: targetUser.id,
+      target_name: targetUser.name + (targetUser.alias ? ' ' + targetUser.alias : ''),
       status: 'pending',
       record_ref: record.id,
       created_at: nowISO(),
@@ -5177,12 +5207,19 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
         STORE.set('tickets_local', [ticket, ...local]);
       }
       // 同时把记录状态改为 escalated（透过 status 字段不能用，加 escalated 字段）
-      onUpdate({ escalated: true, escalatedAt: nowISO(), escalateReason: escalateReason });
-      toast(`✓ 已升级给主管 ${targetAdmin.name}，请等待处理`);
+      // 保留之前的升级历史
+      const prevHistory = record.escalateReason ? `${record.escalateReason}\n\n---\n` : '';
+      onUpdate({ 
+        escalated: true, 
+        escalatedAt: nowISO(), 
+        escalateReason: `${prevHistory}[升级到${levelLabel} · ${escalateUrgency}] ${escalateReason}`,
+        escalateLevel: escalateLevel,  // 'admin' or 'boss'
+      });
+      toast(`✓ 已升级给${levelLabel} ${targetUser.name}，请等待处理`);
       setEscalateModal(false);
       setEscalateReason('');
     } catch (e) {
-      alert('❌ 升级失败：' + e.message);
+      alert(`❌ 升级失败：${e.message}`);
     }
   };
   const [newFollowText, setNewFollowText] = useState('');
@@ -5269,14 +5306,24 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
               {record.customer || '未填客户'} · {record.category || '未选事项'} · {record.date}
             </div>
           </div>
-          <div style={{display:'flex', gap:8, alignItems:'center'}}>
-            {!readonly && !isAdmin && !record.escalated && (
-              <button onClick={() => setEscalateModal(true)}
+          <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+            {/* 🆕 fix7: 升级按钮根据角色显示 — staff/finance 升级主管,admin 升级老板,super_admin 不显示 */}
+            {!readonly && canEscalateToAdmin && (
+              <button onClick={() => { setEscalateLevel('admin'); setEscalateModal(true); }}
                 title="把这封棘手邮件交给主管处理"
                 style={{padding:'6px 14px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit'}}
                 onMouseEnter={e => { e.currentTarget.style.background = '#dc2626'; e.currentTarget.style.color = 'white'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#dc2626'; }}>
-                🚨 升级主管
+                🚨 {record.escalated ? '再次升级主管' : '升级主管'}
+              </button>
+            )}
+            {!readonly && canEscalateToBoss && (
+              <button onClick={() => { setEscalateLevel('boss'); setEscalateModal(true); }}
+                title="主管也搞不定?交给老板"
+                style={{padding:'6px 14px', background:'#fef3c7', color:'#92400e', border:'1px solid #fcd34d', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit'}}
+                onMouseEnter={e => { e.currentTarget.style.background = '#92400e'; e.currentTarget.style.color = 'white'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#fef3c7'; e.currentTarget.style.color = '#92400e'; }}>
+                👑 {record.escalateLevel === 'boss' ? '再次升级老板' : '升级老板'}
               </button>
             )}
             <button className="btn-ghost" onClick={onClose}>
@@ -5431,10 +5478,10 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
             <div onClick={e => e.stopPropagation()}
               style={{background:'white', borderRadius:12, padding:20, maxWidth:480, width:'90%', boxShadow:'0 12px 32px rgba(0,0,0,.2)'}}>
               <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
-                <span style={{fontSize:24}}>🚨</span>
+                <span style={{fontSize:24}}>{escalateLevel === 'boss' ? '👑' : '🚨'}</span>
                 <div>
-                  <div style={{fontWeight:600, fontSize:16}}>升级给主管</div>
-                  <div style={{fontSize:11, color:'var(--ink-3)'}}>把这封棘手邮件交给主管协助处理</div>
+                  <div style={{fontWeight:600, fontSize:16}}>升级给{escalateLevel === 'boss' ? '老板' : '主管'}</div>
+                  <div style={{fontSize:11, color:'var(--ink-3)'}}>{escalateLevel === 'boss' ? '主管也无法解决,把问题交给老板' : '把这封棘手邮件交给主管协助处理'}</div>
                 </div>
               </div>
               <div style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>紧急程度</div>
@@ -5458,19 +5505,21 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
                 ))}
               </div>
               <div style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>
-                需要主管协助的原因 <span style={{color:'#dc2626'}}>*</span>
+                需要{escalateLevel === 'boss' ? '老板' : '主管'}协助的原因 <span style={{color:'#dc2626'}}>*</span>
               </div>
               <textarea value={escalateReason} onChange={e => setEscalateReason(e.target.value)}
-                placeholder="比如：客户要求 100% 全款退款但订单已发出，超出我授权范围；或客户态度激烈要求投诉到老板..."
+                placeholder={escalateLevel === 'boss' 
+                  ? '比如:客户坚持要求公司层面赔偿、媒体投诉风险、需要法律咨询、需要老板审批超额方案...'
+                  : '比如：客户要求 100% 全款退款但订单已发出，超出我授权范围；或客户态度激烈要求投诉到老板...'}
                 style={{width:'100%', minHeight:80, padding:8, border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit', resize:'vertical', boxSizing:'border-box'}} />
               <div style={{fontSize:10, color:'var(--ink-4)', marginTop:6, marginBottom:12}}>
-                💡 主管会在「汇报工单」tab 看到这条升级单，附带这条跟进的完整上下文
+                💡 {escalateLevel === 'boss' ? '老板' : '主管'}会在「汇报工单」tab 看到这条升级单，附带这条跟进的完整上下文
               </div>
               <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
                 <button onClick={() => setEscalateModal(false)} className="btn-sec" style={{padding:'8px 16px'}}>取消</button>
                 <button onClick={submitEscalate} disabled={!escalateReason.trim()}
-                  style={{padding:'8px 20px', background:'#dc2626', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13, opacity: escalateReason.trim() ? 1 : 0.5}}>
-                  🚨 确认升级
+                  style={{padding:'8px 20px', background: escalateLevel === 'boss' ? '#d97706' : '#dc2626', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13, opacity: escalateReason.trim() ? 1 : 0.5}}>
+                  {escalateLevel === 'boss' ? '👑 确认升级老板' : '🚨 确认升级'}
                 </button>
               </div>
             </div>
@@ -10563,7 +10612,10 @@ const ChargebackEditor = ({ cb, user, employees, onClose, onSaved, toast }) => {
       status: isEdit ? status : 'pending',
       // 元数据
       updated_at: now,
-      ...(!isEdit ? { created_by: user.id, created_by_name: userName } : {}),
+      // 🆕 fix7: created_by 必须非空 — 旧数据可能 created_by 为 null,导致编辑时被 spread 进 payload 触发数据库 not-null 约束
+      // 策略:优先用原记录的 created_by(保留审计追踪),为空则用当前用户兜底
+      created_by: cb?.created_by || user.id,
+      created_by_name: cb?.created_by_name || userName,
     };
     
     try {
@@ -10588,11 +10640,23 @@ const ChargebackEditor = ({ cb, user, employees, onClose, onSaved, toast }) => {
         style={{background:'white', borderRadius:14, maxWidth:560, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflow:'hidden', boxShadow:'0 25px 70px rgba(0,0,0,.3)'}}>
         
         {/* Header */}
-        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0}}>
+        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0, gap:8}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600, color:'#dc2626'}}>
             🚨 {isEdit ? '编辑' : '新增'}拒付
           </div>
-          <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          <div style={{display:'flex', gap:6, alignItems:'center'}}>
+            {/* 🆕 fix7: 申请主管协助 — 任何角色都可一键升级 */}
+            {user && user.role !== 'super_admin' && (
+              <button onClick={() => window.__requestSupervisorAssistance?.({
+                entityType: '拒付', entityId: cb?.id, entityTitle: cb?.order_no || orderNo || '(新拒付)'
+              })}
+                style={{padding:'5px 11px', background:'#fef3c7', color:'#92400e', border:'1px solid #fcd34d', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}
+                title="把这条拒付交给主管/老板处理">
+                {user.role === 'admin' ? '👑 申请老板' : '🚨 申请主管'}
+              </button>
+            )}
+            <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          </div>
         </div>
         
         {/* Body */}
@@ -11098,7 +11162,9 @@ const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast })
       products, quote_no: quoteNo.trim() || null,
       attachments, notes: notes.trim() || null,
       status, follow_dispatch_text: dispatchText, updated_at: now,
-      ...(!isEdit ? { created_by: user.id, created_by_name: userName } : {}),
+      // 🆕 fix7: created_by 必须非空(旧记录可能为 null)
+      created_by: order?.created_by || user.id,
+      created_by_name: order?.created_by_name || userName,
     };
     const res = await CLOUD.upsert('offline_orders', payload);
     if (res) { toast(isEdit ? '✓ 已更新' : '✓ 已创建线下单'); onSaved(); }
@@ -11109,9 +11175,20 @@ const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast })
   return (
     <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:880, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
-        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', gap:8}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600}}>💳 {isEdit ? '编辑' : '新建'}线下单</div>
-          <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          <div style={{display:'flex', gap:6, alignItems:'center'}}>
+            {user && user.role !== 'super_admin' && (
+              <button onClick={() => window.__requestSupervisorAssistance?.({
+                entityType: '线下单', entityId: order?.id, entityTitle: order?.order_no || orderNo || '(新单)'
+              })}
+                style={{padding:'5px 11px', background:'#fef3c7', color:'#92400e', border:'1px solid #fcd34d', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}
+                title="把这条线下单交给主管/老板处理">
+                {user.role === 'admin' ? '👑 申请老板' : '🚨 申请主管'}
+              </button>
+            )}
+            <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          </div>
         </div>
         <div style={{padding:18, overflow:'auto', flex:1}}>
           <div style={{padding:12, background:'#f0f9ff', borderRadius:8, marginBottom:14}}>
@@ -11733,7 +11810,10 @@ const CustomInquiryEditor = ({ item, user, onClose, onSaved, toast }) => {
       quote_no: quoteNo.trim() || null, order_no: orderNo.trim() || null,
       reference_images: refImages, design_files: designFiles, final_photos: finalPhotos,
       notes: notes.trim() || null, updated_at: now,
-      ...(!isEdit ? { created_by: user.id, created_by_name: userName, inquiry_at: now } : {}),
+      // 🆕 fix7: created_by 必须非空(旧记录可能为 null,触发 not-null 约束)
+      created_by: item?.created_by || user.id,
+      created_by_name: item?.created_by_name || userName,
+      inquiry_at: item?.inquiry_at || now,
     };
     const res = await CLOUD.upsert('custom_inquiries', payload);
     if (res) { toast(isEdit ? '✓ 已更新' : '✓ 已创建'); onSaved(); }
@@ -11744,9 +11824,20 @@ const CustomInquiryEditor = ({ item, user, onClose, onSaved, toast }) => {
   return (
     <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:760, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
-        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between'}}>
+        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', gap:8}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600}}>🎨 {isEdit ? '编辑' : '新增'}定制咨询</div>
-          <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          <div style={{display:'flex', gap:6, alignItems:'center'}}>
+            {user && user.role !== 'super_admin' && (
+              <button onClick={() => window.__requestSupervisorAssistance?.({
+                entityType: '定制咨询', entityId: item?.id, entityTitle: customerName || customerEmail || '(新咨询)'
+              })}
+                style={{padding:'5px 11px', background:'#fef3c7', color:'#92400e', border:'1px solid #fcd34d', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}
+                title="把这条定制咨询交给主管/老板处理">
+                {user.role === 'admin' ? '👑 申请老板' : '🚨 申请主管'}
+              </button>
+            )}
+            <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          </div>
         </div>
         <div style={{padding:18, overflow:'auto', flex:1}}>
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 0.7fr', gap:10, marginBottom:12}}>
@@ -11957,36 +12048,76 @@ const PhotoVerificationCard = ({ item, user, onEdit, onDelete, onReload, toast }
 
 const PhotoVerificationEditor = ({ item, user, onClose, onSaved, toast }) => {
   const isEdit = !!item;
-  const [sku, setSku] = useState(item?.sku || '');
+  const userName = user.name + (user.alias ? ' ' + user.alias : '');
+  // 🆕 fix7: 表单字段重新设计
+  // - 订单编号 (新字段 order_ref) — 主要字段,替代 SKU 作为主要标识
+  // - 产品名 / 核实类型 / 差异类型(颜色等) / 差异说明 — 保留
+  // - 录入人自动 = 当前客服(不需要手填)
+  // - 客户回复改为留言板形式,支持图片粘贴/拖拽
+  // - SKU / 供应商 / 影响订单 — 降级为可选高级字段
+  const [orderRef, setOrderRef] = useState(item?.order_ref || (item?.affected_orders?.[0]) || '');
   const [productName, setProductName] = useState(item?.product_name || '');
-  const [supplierName, setSupplierName] = useState(item?.supplier_name || '');
   const [type, setType] = useState(item?.type || 'mismatch');
   const [differenceType, setDifferenceType] = useState(item?.difference_type || '颜色');
   const [differenceDetail, setDifferenceDetail] = useState(item?.difference_detail || '');
-  const [affectedOrders, setAffectedOrders] = useState((item?.affected_orders || []).join(', '));
   const [salesPhotos, setSalesPhotos] = useState(item?.sales_photos || []);
   const [actualPhotos, setActualPhotos] = useState(item?.actual_photos || []);
-  const [reportedByName, setReportedByName] = useState(item?.reported_by_name || (user.name + (user.alias ? ' ' + user.alias : '')));
-  const [customerResponse, setCustomerResponse] = useState(item?.customer_response || '');
+  // 客户回复留言板 — 数组结构,每条 {id, author_id, author_name, content, images:[{path,url}], created_at}
+  // 旧记录里只有 customer_response (text) — 自动转成一条 legacy 留言
+  const [replies, setReplies] = useState(() => {
+    if (Array.isArray(item?.customer_replies)) return item.customer_replies;
+    if (item?.customer_response && item.customer_response.trim()) {
+      return [{
+        id: 'legacy_' + (item.id || Date.now()),
+        author_id: item.created_by || null,
+        author_name: item.created_by_name || '(旧数据)',
+        content: item.customer_response,
+        images: [],
+        created_at: item.updated_at || item.created_at || new Date().toISOString(),
+      }];
+    }
+    return [];
+  });
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [sku, setSku] = useState(item?.sku || '');
+  const [supplierName, setSupplierName] = useState(item?.supplier_name || '');
+  const [affectedOrders, setAffectedOrders] = useState((item?.affected_orders || []).join(', '));
   const [resolution, setResolution] = useState(item?.resolution || '');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!productName.trim() && !sku.trim()) { alert('请填写 SKU 或产品名'); return; }
+    if (!orderRef.trim()) { alert('请填写订单编号'); return; }
+    if (!productName.trim()) { alert('请填写产品名'); return; }
+    if (!differenceDetail.trim()) { alert('请填写差异说明'); return; }
     setSaving(true);
-    const userName = user.name + (user.alias ? ' ' + user.alias : '');
     const now = new Date().toISOString();
+    // 同步把 orderRef 也存进 affected_orders 兼容老查询
+    const mergedOrders = [orderRef.trim(), ...(affectedOrders.split(',').map(s => s.trim()).filter(Boolean))]
+      .filter((v, i, a) => v && a.indexOf(v) === i);
+    // 最新一条留言写入 customer_response 兼容旧字段
+    const latestReply = replies.length > 0 ? replies[replies.length - 1] : null;
     const payload = {
       ...(item || {}),
-      sku: sku.trim() || null, product_name: productName.trim() || null,
-      supplier_name: supplierName.trim() || null, type,
-      difference_type: differenceType, difference_detail: differenceDetail.trim() || null,
-      affected_orders: affectedOrders.split(',').map(s => s.trim()).filter(Boolean),
-      sales_photos: salesPhotos, actual_photos: actualPhotos,
-      reported_by_name: reportedByName.trim() || null,
-      customer_response: customerResponse.trim() || null,
-      resolution: resolution.trim() || null, updated_at: now,
-      ...(!isEdit ? { created_by: user.id, created_by_name: userName, status:'pending' } : {}),
+      order_ref: orderRef.trim(),
+      sku: sku.trim() || null,
+      product_name: productName.trim() || null,
+      supplier_name: supplierName.trim() || null,
+      type,
+      difference_type: differenceType,
+      difference_detail: differenceDetail.trim(),
+      affected_orders: mergedOrders,
+      sales_photos: salesPhotos,
+      actual_photos: actualPhotos,
+      // 自动录入人 = 当前客服(item 原录入人保留,没的话用当前)
+      reported_by_name: item?.reported_by_name || userName,
+      reported_by_id: item?.reported_by_id || user.id,
+      customer_replies: replies,
+      customer_response: latestReply ? latestReply.content : (item?.customer_response || null),
+      resolution: resolution.trim() || null,
+      updated_at: now,
+      created_by: item?.created_by || user.id,
+      created_by_name: item?.created_by_name || userName,
+      status: item?.status || 'pending',
     };
     const res = await CLOUD.upsert('photo_verifications', payload);
     if (res) { toast(isEdit ? '✓ 已更新' : '✓ 已创建'); onSaved(); }
@@ -11997,42 +12128,69 @@ const PhotoVerificationEditor = ({ item, user, onClose, onSaved, toast }) => {
   return (
     <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'4vh 20px', overflowY:'auto', overflowX:'hidden'}}>
       <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:720, width:'100%', display:'flex', flexDirection:'column', maxHeight:'92vh', overflowY:'auto', overflowX:'hidden'}}>
-        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between'}}>
+        <div style={{padding:'14px 18px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', gap:8}}>
           <div className="font-display" style={{fontSize:16, fontWeight:600}}>📸 {isEdit ? '编辑' : '新增'}实拍核实</div>
-          <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          <div style={{display:'flex', gap:6, alignItems:'center'}}>
+            {user && user.role !== 'super_admin' && (
+              <button onClick={() => window.__requestSupervisorAssistance?.({
+                entityType: '实拍核实', entityId: item?.id, entityTitle: orderRef || productName || '(新核实)'
+              })}
+                style={{padding:'5px 11px', background:'#fef3c7', color:'#92400e', border:'1px solid #fcd34d', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}
+                title="把这条实拍核实交给主管/老板处理">
+                {user.role === 'admin' ? '👑 申请老板' : '🚨 申请主管'}
+              </button>
+            )}
+            <button className="btn-sec" onClick={onClose} style={{padding:'4px 12px'}}>×</button>
+          </div>
         </div>
         <div style={{padding:18, overflow:'auto', flex:1}}>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 2fr 1fr', gap:10, marginBottom:12}}>
-            <input value={sku} onChange={e => setSku(e.target.value)} placeholder="SKU"
-              style={{padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
-            <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="产品名" autoFocus
-              style={{padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
-            <input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="供应商"
-              style={{padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+          {/* 自动录入人 — 只显示,不可改 */}
+          <div style={{padding:'8px 12px', background:'#f0f9ff', border:'1px solid #bfdbfe', borderRadius:8, marginBottom:12, fontSize:12, color:'#1e40af'}}>
+            👤 <strong>录入人</strong>:{item?.reported_by_name || userName} <span style={{color:'#64748b', fontSize:11}}>(自动填写,无需修改)</span>
           </div>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:12}}>
-            <select value={type} onChange={e => setType(e.target.value)}
-              style={{padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
-              <option value="mismatch">差异核实</option><option value="normal">发货前实拍</option>
-            </select>
-            <select value={differenceType} onChange={e => setDifferenceType(e.target.value)}
-              style={{padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
-              {PHOTO_DIFFERENCE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <input value={reportedByName} onChange={e => setReportedByName(e.target.value)} placeholder="录入人"
-              style={{padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+
+          {/* 订单编号 + 产品名 */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1.5fr', gap:10, marginBottom:12}}>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>订单编号 *</label>
+              <input value={orderRef} onChange={e => setOrderRef(e.target.value)} placeholder="V99299" autoFocus
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
+            </div>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>产品名 *</label>
+              <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="如:水晶吊灯-米色-60cm"
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+            </div>
           </div>
+
+          {/* 类型 + 核实差异(颜色等) */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12}}>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>类型</label>
+              <select value={type} onChange={e => setType(e.target.value)}
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
+                <option value="mismatch">差异核实</option>
+                <option value="normal">发货前实拍</option>
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>核实差异(颜色/尺寸/材质等)</label>
+              <select value={differenceType} onChange={e => setDifferenceType(e.target.value)}
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
+                {PHOTO_DIFFERENCE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* 差异说明 */}
           <div style={{marginBottom:12}}>
             <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>差异说明 *</label>
             <textarea value={differenceDetail} onChange={e => setDifferenceDetail(e.target.value)}
-              placeholder="例如:销售图为暖白光,实物是冷白光"
+              placeholder="例如:销售图为暖白光 3000K,实物是冷白光 6500K;或销售图金色边框,实物是银色"
               style={{width:'100%', minHeight:60, padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
           </div>
-          <div style={{marginBottom:12}}>
-            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>影响订单(订单号,逗号分隔)</label>
-            <input value={affectedOrders} onChange={e => setAffectedOrders(e.target.value)} placeholder="VKA-0756, RD0031"
-              style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
-          </div>
+
+          {/* 销售图 + 实拍图 */}
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>🎨 销售展示图</label>
@@ -12043,24 +12201,211 @@ const PhotoVerificationEditor = ({ item, user, onClose, onSaved, toast }) => {
               <MultiFileUploader files={actualPhotos} setFiles={setActualPhotos} bucket="business-files" maxSize={20} />
             </div>
           </div>
-          {isEdit && <>
-            <div style={{marginBottom:12}}>
-              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>📩 客户回复</label>
-              <textarea value={customerResponse} onChange={e => setCustomerResponse(e.target.value)}
-                style={{width:'100%', minHeight:50, padding:'8px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
-            </div>
-            <div style={{marginBottom:8}}>
+
+          {/* 客户回复留言板 */}
+          <CustomerRepliesBoard replies={replies} setReplies={setReplies} user={user} />
+
+          {/* 处理结果 — 编辑模式 */}
+          {isEdit && (
+            <div style={{marginTop:12, marginBottom:8}}>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>✅ 处理结果</label>
               <input value={resolution} onChange={e => setResolution(e.target.value)} placeholder="如:接受发货 / 退款 / 换款 / 退货"
                 style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
             </div>
-          </>}
+          )}
+
+          {/* 高级字段 — 可折叠 */}
+          <div style={{marginTop:14, padding:10, background:'#fafaf7', borderRadius:8, border:'1px dashed var(--line)'}}>
+            <button onClick={() => setShowAdvanced(s => !s)}
+              style={{background:'transparent', border:'none', cursor:'pointer', fontSize:12, color:'var(--ink-3)', fontFamily:'inherit', padding:0}}>
+              {showAdvanced ? '▼' : '▶'} 高级字段 (SKU / 供应商 / 其他影响订单)
+            </button>
+            {showAdvanced && (
+              <div style={{marginTop:10, display:'grid', gridTemplateColumns:'1fr 1.2fr', gap:10}}>
+                <input value={sku} onChange={e => setSku(e.target.value)} placeholder="SKU (可选)"
+                  style={{padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
+                <input value={supplierName} onChange={e => setSupplierName(e.target.value)} placeholder="供应商 (可选)"
+                  style={{padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                <input value={affectedOrders} onChange={e => setAffectedOrders(e.target.value)} placeholder="其他影响订单(逗号分隔)"
+                  style={{gridColumn:'1 / -1', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
+              </div>
+            )}
+          </div>
         </div>
         <div style={{padding:'12px 18px', borderTop:'1px solid var(--line)', display:'flex', justifyContent:'flex-end', gap:6}}>
           <button onClick={onClose} className="btn-sec" style={{padding:'7px 14px'}}>取消</button>
           <button onClick={handleSave} disabled={saving}
             style={{padding:'7px 18px', background:'var(--accent)', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:13, opacity: saving ? 0.5 : 1}}>
             {saving ? '保存中...' : '保存'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 🆕 fix7: 客户回复留言板组件 — 支持文本 + 图片(粘贴/拖拽/选文件)+ 时间线展示
+const CustomerRepliesBoard = ({ replies, setReplies, user }) => {
+  const userName = user.name + (user.alias ? ' ' + user.alias : '');
+  const [newContent, setNewContent] = useState('');
+  const [newImages, setNewImages] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+  const dropRef = useRef(null);
+
+  const uploadOneFile = async (file) => {
+    if (!file) return null;
+    if (file.size > 10 * 1024 * 1024) { alert('图片超过 10MB,请压缩'); return null; }
+    setUploading(true);
+    try {
+      const res = await CLOUD.uploadImage('business-files', file, 'photoverif/reply/');
+      if (!res) throw new Error('上传失败');
+      return res;
+    } catch (e) {
+      alert('上传失败: ' + e.message);
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const addFiles = async (files) => {
+    const list = Array.from(files || []).filter(f => f.type.startsWith('image/'));
+    if (list.length === 0) return;
+    const uploaded = [];
+    for (const f of list) {
+      const r = await uploadOneFile(f);
+      if (r) uploaded.push(r);
+    }
+    if (uploaded.length > 0) setNewImages(prev => [...prev, ...uploaded]);
+  };
+
+  // 粘贴图片到留言区
+  const onPaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files = [];
+    for (const it of items) {
+      if (it.type && it.type.indexOf('image') === 0) {
+        const f = it.getAsFile();
+        if (f) files.push(f);
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      await addFiles(files);
+    }
+  };
+  const onDrop = async (e) => {
+    e.preventDefault();
+    dropRef.current?.classList.remove('drag-over');
+    if (e.dataTransfer.files?.length) await addFiles(e.dataTransfer.files);
+  };
+
+  const send = () => {
+    if (!newContent.trim() && newImages.length === 0) {
+      alert('请输入留言内容或粘贴图片');
+      return;
+    }
+    const reply = {
+      id: 'r_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      author_id: user.id,
+      author_name: userName,
+      content: newContent.trim(),
+      images: newImages,
+      created_at: new Date().toISOString(),
+    };
+    setReplies(prev => [...(prev || []), reply]);
+    setNewContent('');
+    setNewImages([]);
+  };
+
+  const removeReply = (id) => {
+    if (!confirm('确认删除这条留言?')) return;
+    setReplies(prev => (prev || []).filter(r => r.id !== id));
+  };
+
+  const removeNewImage = (idx) => {
+    setNewImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div style={{marginTop:14, padding:12, background:'#fafaf7', border:'1px solid var(--line)', borderRadius:10}}>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
+        <div style={{fontSize:13, fontWeight:600, color:'var(--ink)'}}>
+          📩 客户回复 / 跟进留言板 ({replies?.length || 0})
+        </div>
+        <div style={{fontSize:10, color:'var(--ink-4)'}}>所有客服都能看到完整记录</div>
+      </div>
+
+      {/* 已有留言列表 */}
+      {replies && replies.length > 0 ? (
+        <div style={{display:'flex', flexDirection:'column', gap:8, marginBottom:12, maxHeight:300, overflowY:'auto'}}>
+          {replies.map((r, idx) => (
+            <div key={r.id} style={{padding:'8px 10px', background:'white', border:'1px solid var(--line)', borderRadius:8, fontSize:12}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4}}>
+                <div style={{fontSize:11, fontWeight:600, color:'var(--ink-2)'}}>
+                  💬 {r.author_name || '(未知)'} <span style={{color:'var(--ink-4)', fontWeight:400, marginLeft:6}}>{(r.created_at || '').slice(0, 16).replace('T', ' ')}</span>
+                </div>
+                {r.author_id === user.id && (
+                  <button onClick={() => removeReply(r.id)}
+                    style={{background:'transparent', border:'none', color:'#dc2626', cursor:'pointer', fontSize:11, fontFamily:'inherit'}}>删除</button>
+                )}
+              </div>
+              {r.content && <div style={{whiteSpace:'pre-wrap', color:'var(--ink)', lineHeight:1.5, marginBottom: r.images?.length ? 6 : 0}}>{r.content}</div>}
+              {r.images?.length > 0 && (
+                <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
+                  {r.images.map((img, i) => (
+                    <a key={i} href={img.url} target="_blank" rel="noopener"
+                      style={{display:'block', width:80, height:80, borderRadius:6, overflow:'hidden', border:'1px solid var(--line)'}}>
+                      <img src={img.url} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{fontSize:12, color:'var(--ink-4)', textAlign:'center', padding:'12px 0', marginBottom:8}}>
+          暂无留言 — 收到客户回复后在下方添加,所有客服都能看到
+        </div>
+      )}
+
+      {/* 新建留言区 */}
+      <div ref={dropRef}
+        onPaste={onPaste}
+        onDragOver={e => { e.preventDefault(); dropRef.current?.classList.add('drag-over'); }}
+        onDragLeave={() => dropRef.current?.classList.remove('drag-over')}
+        onDrop={onDrop}
+        style={{padding:8, background:'white', border:'1px dashed var(--line)', borderRadius:8}}>
+        <textarea value={newContent} onChange={e => setNewContent(e.target.value)}
+          placeholder="新留言... (可 Ctrl+V 粘贴图片 / 拖入图片)"
+          style={{width:'100%', minHeight:60, padding:8, border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical', boxSizing:'border-box'}} />
+        {newImages.length > 0 && (
+          <div style={{display:'flex', flexWrap:'wrap', gap:6, marginTop:6}}>
+            {newImages.map((img, idx) => (
+              <div key={idx} style={{position:'relative', width:60, height:60, borderRadius:6, overflow:'hidden', border:'1px solid var(--line)'}}>
+                <img src={img.url} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} />
+                <button onClick={() => removeNewImage(idx)}
+                  style={{position:'absolute', top:1, right:1, background:'rgba(0,0,0,0.6)', color:'white', border:'none', borderRadius:'50%', width:18, height:18, cursor:'pointer', fontSize:11, lineHeight:1}}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:8, gap:8, flexWrap:'wrap'}}>
+          <div style={{display:'flex', gap:6, alignItems:'center'}}>
+            <button onClick={() => fileInputRef.current?.click()} disabled={uploading}
+              style={{padding:'5px 10px', background:'white', border:'1px solid var(--line)', borderRadius:6, cursor:'pointer', fontSize:11, fontFamily:'inherit', color:'var(--ink-2)'}}>
+              📎 选图片
+            </button>
+            <input ref={fileInputRef} type="file" multiple accept="image/*" style={{display:'none'}}
+              onChange={e => { addFiles(e.target.files); e.target.value = ''; }} />
+            {uploading && <span style={{fontSize:11, color:'var(--ink-3)'}}>上传中...</span>}
+          </div>
+          <button onClick={send} disabled={uploading || (!newContent.trim() && newImages.length === 0)}
+            style={{padding:'6px 16px', background:'var(--accent)', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', opacity:(uploading || (!newContent.trim() && newImages.length === 0)) ? 0.5 : 1}}>
+            ✓ 添加留言
           </button>
         </div>
       </div>
@@ -14577,6 +14922,31 @@ const KbModule = ({ user, toast }) => {
   }, [loadStatus, iframeLoadedAt]);
 
   useEffect(() => {
+    // 🆕 fix6: 把当前可视区位置传给 iframe (用于 modal-backdrop 定位)
+    const sendKbPosition = () => {
+      if (!iframeRef.current || !iframeRef.current.contentWindow) return;
+      const rect = iframeRef.current.getBoundingClientRect();
+      // 用户视口顶部相对 iframe 顶部的偏移 (用户向下滚动了多少 iframe 内容)
+      const scrollY = Math.max(0, -rect.top);
+      try {
+        iframeRef.current.contentWindow.postMessage({
+          type: 'kb-position-info',
+          scrollY,
+          viewportHeight: window.innerHeight
+        }, '*');
+      } catch(e) { /* ignore */ }
+    };
+    
+    // 用 rAF 节流滚动事件
+    let scrollRafId = null;
+    const onScroll = () => {
+      if (scrollRafId) return;
+      scrollRafId = requestAnimationFrame(() => {
+        sendKbPosition();
+        scrollRafId = null;
+      });
+    };
+    
     const handler = (e) => {
       if (e.data?.type === 'iframe-resize' && e.data?.source === 'kb') {
         setIframeHeight(Math.max(600, e.data.height + 20) + 'px');
@@ -14584,13 +14954,34 @@ const KbModule = ({ user, toast }) => {
         setLoadStatus('loaded');
       }
       if (e.data?.type === 'iframe-modal-open' && e.data?.source === 'kb') {
+        // 🆕 fix6: 锁定父窗口滚动 + 立即发送可视区位置
+        document.body.style.overflow = 'hidden';
+        sendKbPosition();
+        // 旧逻辑保留(scrollIntoView 作为兜底,但 nearest 避免破坏当前位置)
         if (iframeRef.current) {
-          iframeRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          iframeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
+      }
+      if (e.data?.type === 'iframe-modal-close' && e.data?.source === 'kb') {
+        // 🆕 fix6: 解锁父窗口滚动
+        document.body.style.overflow = '';
+      }
+      if (e.data?.type === 'kb-request-position' && e.data?.source === 'kb') {
+        // 🆕 fix6: iframe 主动请求,立即回传
+        sendKbPosition();
       }
     };
     window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', sendKbPosition);
+    return () => {
+      window.removeEventListener('message', handler);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', sendKbPosition);
+      if (scrollRafId) cancelAnimationFrame(scrollRafId);
+      // 安全起见,如果模块卸载时还锁着滚动,解锁
+      if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
+    };
   }, []);
   
   const refreshIframe = () => {
@@ -15265,8 +15656,56 @@ const App = () => {
     (async () => {
       const cloud = await CLOUD.list('workspace_records', { order:{col:'updated_at', asc:false}, limit:1000 });
       if (cloud !== null) {
-        // 合并策略：云端为准
-        setRecords(cloud);
+        // 🆕 fix7: 不能简单云端覆盖! 用户可能有未同步的本地记录(网络断 / 跨日 / 上次同步失败)
+        // 旧版策略导致数据丢失: 用户工作一天,本地有 N 条,刷新后被云端覆盖 → 全没了
+        // 新策略: 智能合并
+        //   1. 本地有但云端无 → 保留本地(待同步)
+        //   2. 本地比云端新 → 保留本地(待同步)
+        //   3. 其他 → 用云端
+        // 然后立即触发重新同步,把保留的本地记录补传到云端
+        const localRecords = recordsRef.current || STORE.get('cs_records', []);
+        const cloudById = new Map((cloud || []).map(r => [r.id, r]));
+        const localOnly = [];
+        const localNewer = [];
+        
+        (localRecords || []).forEach(local => {
+          if (!local || !local.id) return;
+          // 跳过完全空白且非删除的"未填"行
+          if (!isRecordMeaningful(local) && !local.deleted) return;
+          const remote = cloudById.get(local.id);
+          if (!remote) {
+            // 本地独有 — 从未同步过
+            localOnly.push(local);
+          } else {
+            // 两边都有 — 比较时间戳
+            const localTs = new Date(local.updatedAt || local.updated_at || local.createdAt || 0).getTime();
+            const remoteTs = new Date(remote.updated_at || remote.updatedAt || remote.created_at || 0).getTime();
+            if (localTs > remoteTs + 1000) {  // 1秒容差避免时钟漂移
+              localNewer.push(local);
+            }
+          }
+        });
+        
+        if (localOnly.length > 0 || localNewer.length > 0) {
+          // 合并: 本地未同步的优先保留,其他用云端
+          const keepLocalIds = new Set([...localOnly, ...localNewer].map(r => r.id));
+          const merged = [
+            ...localOnly,
+            ...localNewer,
+            ...(cloud || []).filter(c => !keepLocalIds.has(c.id))
+          ];
+          setRecords(merged);
+          const count = localOnly.length + localNewer.length;
+          console.warn(`[fix7 数据保护] 检测到 ${count} 条本地未同步记录 — 本地独有: ${localOnly.length},本地更新: ${localNewer.length}。已恢复并将自动重新上传。`);
+          // toast 在 useToast 还没初始化时不能用,延后
+          setTimeout(() => {
+            try { toast && toast(`⚠ 恢复 ${count} 条本地未同步记录,正在重新上传...`); } catch(e){}
+          }, 200);
+          // setRecords 会触发 debounced upload effect,自动重新同步
+        } else {
+          // 没有未同步的,正常用云端
+          setRecords(cloud);
+        }
       }
     })();
   }, [cloudOn, user, cloudVersion]);
@@ -15387,6 +15826,62 @@ const App = () => {
 
   // Toast
   const [toast, toastNode] = useToast();
+
+  // 🆕 fix7: 全局申请主管协助 helper — 任何编辑器都可调用 window.__requestSupervisorAssistance(...)
+  // 避免给每个 editor 都加 employees / cloudOn / toast props
+  useEffect(() => {
+    window.__requestSupervisorAssistance = async ({ entityType, entityId, entityTitle, level } = {}) => {
+      if (!user) { alert('请先登录'); return; }
+      // 默认根据角色判断升级目标:staff/finance → admin,admin → super_admin,super_admin 已在顶
+      const autoLevel = level || (user.role === 'admin' ? 'boss' : 'admin');
+      if (user.role === 'super_admin') {
+        alert('你已是最高级别(老板),无需升级');
+        return;
+      }
+      const reason = prompt(
+        `💼 申请${autoLevel === 'boss' ? '老板' : '主管'}协助\n\n请填写需要处理的原因 (将创建工单):`,
+        ''
+      );
+      if (reason === null) return; // 取消
+      if (!reason.trim()) { alert('请填写原因'); return; }
+      const targetRole = autoLevel === 'boss' ? 'super_admin' : 'admin';
+      const candidates = (employees || []).filter(e => e.role === targetRole && !e.hideFromList);
+      const allCandidates = candidates.length > 0 ? candidates : (employees || []).filter(e => e.role === targetRole);
+      if (allCandidates.length === 0) { alert(`没有找到${autoLevel === 'boss' ? '老板' : '主管'}账号`); return; }
+      const target = allCandidates[0];
+      const targetLabel = autoLevel === 'boss' ? '老板' : '主管';
+      const ticket = {
+        id: uid(),
+        title: `🚨 ${entityType || '工单'}申请${targetLabel}协助 · ${entityTitle || '(无标题)'}`,
+        content: `类型: ${entityType || '?'}\nID: ${entityId || '?'}\n来源: ${user.name}${user.alias ? ' ' + user.alias : ''}\n升级到: ${targetLabel}\n\n【原因】\n${reason.trim()}`,
+        priority: 'high',
+        department: 'service',
+        from_id: user.id,
+        from_name: user.name + (user.alias ? ' ' + user.alias : ''),
+        target_id: target.id,
+        target_name: target.name + (target.alias ? ' ' + target.alias : ''),
+        status: 'pending',
+        entity_type: entityType || null,
+        entity_id: entityId || null,
+        record_ref: entityId || null,
+        created_at: nowISO(),
+        updated_at: nowISO(),
+      };
+      try {
+        if (cloudOn && CLOUD.client) {
+          const { error } = await CLOUD.client.from('workspace_tickets').upsert(ticket);
+          if (error) throw error;
+        } else {
+          STORE.set('tickets_local', [ticket, ...STORE.get('tickets_local', [])]);
+        }
+        toast(`✓ 已申请${targetLabel} ${target.name} 协助`);
+      } catch (e) {
+        alert(`❌ 申请失败: ${e.message}\n\n建议:工单可能未在云端创建,但本地已记录`);
+        STORE.set('tickets_local', [ticket, ...STORE.get('tickets_local', [])]);
+      }
+    };
+    return () => { delete window.__requestSupervisorAssistance; };
+  }, [user, employees, cloudOn, toast]);
 
   // 通知权限
   const [notifPerm, setNotifPerm] = useState(() => {
@@ -15851,7 +16346,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix5';
+const APP_VERSION = '2026.05.25-fix7';
 console.log(
   '%c📦 统一工作台 v' + APP_VERSION + ' 已加载\n' +
   '%c如看到旧 bug,请强刷 Ctrl+Shift+R 清除缓存\n' +
