@@ -17697,18 +17697,19 @@ const App = () => {
   const [customizeOpen, setCustomizeOpen] = useState(false);
 
   // 计算完整 tabs 列表 — 单一数据源,TopNav 和 Sidebar 都从这里拿
+  // 🆕 fix11-hotfix1: stats 在函数体后面才定义 → 用 ?. 防御性访问,首渲染时 stats 是 undefined 不崩
   const allTabs = useMemo(() => {
     if (!user) return [];
     const isAdmin = user.role === 'admin' || user.role === 'super_admin';
     const isFinanceVisible = user.role === 'finance' || isAdmin;
     const tabs = [
       // 主功能
-      { key:'cs',             label:'📞 客服跟进',   icon:'📞', badge: stats.overdue,           group:'main' },
-      { key:'chargebacks',    label:'🚨 拒付',       icon:'🚨', badge: stats.urgentChargebacks, badgeColor:'#dc2626', group:'main' },
+      { key:'cs',             label:'📞 客服跟进',   icon:'📞', badge: stats?.overdue,           group:'main' },
+      { key:'chargebacks',    label:'🚨 拒付',       icon:'🚨', badge: stats?.urgentChargebacks, badgeColor:'#dc2626', group:'main' },
       { key:'offline_orders', label:'💳 线下单',     icon:'💳',                                 group:'main' },
       { key:'custom_photo',   label:'🎨 定制&实拍',  icon:'🎨',                                 group:'main' },
-      { key:'events',         label:'📋 工作主线',   icon:'📋', badge: stats.pendingEvents,    group:'main' },
-      { key:'reviews',        label:'⭐ 产品评价',   icon:'⭐', badge: stats.pendingReviews,   group:'main' },
+      { key:'events',         label:'📋 工作主线',   icon:'📋', badge: stats?.pendingEvents,    group:'main' },
+      { key:'reviews',        label:'⭐ 产品评价',   icon:'⭐', badge: stats?.pendingReviews,   group:'main' },
       // 资源工具
       { key:'suppliers',  label:'🏭 供应商',         icon:'🏭', group:'resources' },
       { key:'kb',         label:'📚 知识库',         icon:'📚', group:'resources' },
@@ -17719,17 +17720,17 @@ const App = () => {
       // 协作
       { key:'cross_dept', label:'📨 跨部门协作', icon:'📨', badge: cdmUnreadCount, badgeColor: cdmUrgentUnread > 0 ? '#dc2626' : '#0071e3', group:'collab' },
       { key:'briefings',  label:'📢 会议纪要',   icon:'📢', group:'collab' },
-      { key:'report',     label:'💬 汇报工单',   icon:'💬', badge: stats.ticketInbox, group:'collab' },
+      { key:'report',     label:'💬 汇报工单',   icon:'💬', badge: stats?.ticketInbox, group:'collab' },
       // 管理
       ...(isAdmin ? [
         { key:'admin_overview',   label:'📊 主管汇总', icon:'📊', group:'admin' },
         { key:'dashboard',        label:'📈 数据看板', icon:'📈', group:'admin' },
-        { key:'delete_approvals', label:'🛡 删除审批', icon:'🛡', badge: stats.pendingDeleteReqs, badgeColor:'#dc2626', group:'admin' },
-        { key:'trash',            label:'🗑 回收站',   icon:'🗑', badge: stats.trashCount, badgeColor:'#86868b', group:'admin' },
+        { key:'delete_approvals', label:'🛡 删除审批', icon:'🛡', badge: stats?.pendingDeleteReqs, badgeColor:'#dc2626', group:'admin' },
+        { key:'trash',            label:'🗑 回收站',   icon:'🗑', badge: stats?.trashCount, badgeColor:'#86868b', group:'admin' },
         { key:'admin',            label:'⚙ 设置',     icon:'⚙', group:'admin' },
       ] : [
         { key:'dashboard', label:'📈 数据看板', icon:'📈', group:'admin' },
-        { key:'trash',     label:'🗑 回收站',   icon:'🗑', badge: stats.trashCount, badgeColor:'#86868b', group:'admin' },
+        { key:'trash',     label:'🗑 回收站',   icon:'🗑', badge: stats?.trashCount, badgeColor:'#86868b', group:'admin' },
       ]),
     ];
     return tabs;
@@ -18246,7 +18247,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix11';
+const APP_VERSION = '2026.05.25-fix11-hotfix1';
 console.log(
   '%c📦 统一工作台 v' + APP_VERSION + ' 已加载\n' +
   '%c如看到旧 bug,请强刷 Ctrl+Shift+R 清除缓存\n' +
