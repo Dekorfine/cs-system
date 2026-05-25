@@ -1359,57 +1359,12 @@ const LoginScreen = ({ employees, onLogin }) => {
 // ============================================================
 // 顶部导航
 // ============================================================
-const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn, employees, switchAccount, onOpenSearch, cdmUnreadCount = 0, cdmUrgentUnread = 0 }) => {
+const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, requestNotifPerm, cloudOn, employees, switchAccount, onOpenSearch, cdmUnreadCount = 0, cdmUrgentUnread = 0, topTabs = [], sidebarHiddenCount = 0, onOpenCustomize }) => {
   const [switchModalOpen, setSwitchModalOpen] = useState(false);
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);  // 🆕 "更多"菜单
   const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
   const isFinanceVisible = (user.role === 'finance' || user.role === 'admin' || user.role === 'super_admin');
   
-  // 🆕 重新分组:一级 tab(常用) + 「更多 ▾」下拉(资源/管理)
-  // ──────────────────────────────────
-  // 一级 tab - 客服日常最常用 6 个
-  const primaryTabs = [
-    { key:'cs', label:'📞 客服跟进', badge: stats.overdue },
-    { key:'chargebacks', label:'🚨 拒付', badge: stats.urgentChargebacks, badgeColor:'#dc2626' },
-    { key:'offline_orders', label:'💳 线下单' },
-    { key:'custom_photo', label:'🎨 定制&实拍' },
-    { key:'events', label:'📋 工作主线', badge: stats.pendingEvents },
-    { key:'reviews', label:'⭐ 产品评价', badge: stats.pendingReviews },
-  ];
-  
-  // 「📚 资源工具」分组
-  const resourceTabs = [
-    { key:'suppliers', label:'🏭 供应商', desc:'693 家供应商管理' },
-    { key:'kb', label:'📚 知识库', desc:'280+ 回复模板 · AI 优化' },
-    { key:'quote', label:'📝 报价单', desc:'生成 / 跟进报价单' },
-    { key:'finance', label:'🧮 财务计算器', desc:'订单财务核算' },
-    // 🆕 fix8: 嵌入美工系统的 AI 评价生成工具(批量生成 / Judge.me CSV 导出)
-    { key:'ai_reviews', label:'🤖 AI 评价生成', desc:'调用美工系统的 AI 工具 · 批量生成评价 · 导出 Judge.me CSV' },
-    ...(isFinanceVisible ? [{ key:'freight', label:'🚚 运费支付', desc:'运费对账' }] : []),
-  ];
-  
-  // 「💬 协作」分组
-  const collabTabs = [
-    { key:'cross_dept', label:'📨 跨部门协作', badge: cdmUnreadCount, badgeColor: cdmUrgentUnread > 0 ? '#dc2626' : '#0071e3', desc:'美工/客服/跟单 三部门消息总线 · 实时推送' },
-    { key:'briefings', label:'📢 会议纪要', desc:'主管发布会议要点' },
-    { key:'report', label:'💬 汇报工单', badge: stats.ticketInbox, desc:'员工汇报问题' },
-  ];
-  
-  // 「📊 数据 & 管理」分组(主管/老板)
-  const adminTabs = isAdmin ? [
-    { key:'admin_overview', label:'📊 主管汇总', desc:'所有模块总览' },
-    { key:'dashboard', label:'📈 数据看板', desc:'团队数据统计' },
-    { key:'delete_approvals', label:'🛡 删除审批', badge: stats.pendingDeleteReqs, badgeColor:'#dc2626', desc:'员工删除申请' },
-    { key:'trash', label:'🗑 回收站', badge: stats.trashCount, badgeColor:'#86868b', desc:'恢复删除的数据' },
-    { key:'admin', label:'⚙ 设置', desc:'员工 / 拒付专人 / Gemini' },
-  ] : [
-    { key:'dashboard', label:'📈 数据看板' },
-    { key:'trash', label:'🗑 回收站', badge: stats.trashCount, badgeColor:'#86868b' },
-  ];
-  
-  // 兼容旧代码:合并为 tabs(全部)
-  const tabs = [...primaryTabs, ...resourceTabs, ...collabTabs, ...adminTabs];
-  
+  // 🆕 fix10: tabs 不再在 TopNav 内部计算了 — 由 App 传入 topTabs(已根据用户布局偏好筛选)
 
   const bellTotal = (stats.overdue || 0) + (stats.dueToday || 0);
   const bellLabel = notifPerm === 'granted'
@@ -1590,15 +1545,21 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
         </div>
       </div>
 
-      {/* Row 2: Tabs - 分组式导航(6 个主 tab + 3 个分组下拉) */}
+      {/* Row 2: Tabs — 🆕 fix10: 只渲染用户钉在顶部的 tabs(其他在左侧栏)
+           🆕 fix11: 用 <a href="#tab=..."> 让浏览器支持右键"在新标签页打开"/中键点击/Ctrl+点击 */}
       <div className="max-w-7xl mx-auto px-6" style={{borderTop:'1px solid var(--line)', overflowX:'hidden'}}>
         <div className="tabs-row" style={{display:'flex', alignItems:'center', gap:0, flexWrap:'nowrap', overflowX:'auto'}}>
-          {/* 一级 tab */}
-          {primaryTabs.map(t => (
-            <button key={t.key}
+          {topTabs.map(t => (
+            <a key={t.key}
+              href={`#tab=${t.key}`}
               className={`nav-tab ${activeTab === t.key ? 'active' : ''}`}
-              onClick={() => setActiveTab(t.key)}
-              style={{whiteSpace:'nowrap', flexShrink:0}}>
+              onClick={(e) => {
+                // Ctrl/Cmd/Shift/中键 → 浏览器默认行为(新窗口/新标签)
+                if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+                e.preventDefault();
+                setActiveTab(t.key);
+              }}
+              style={{whiteSpace:'nowrap', flexShrink:0, textDecoration:'none'}}>
               {t.label}
               {t.badge > 0 && (
                 <span style={{
@@ -1608,143 +1569,39 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
                   fontSize:10, fontWeight:600, marginLeft:4
                 }}>{t.badge}</span>
               )}
-            </button>
+            </a>
           ))}
           
-          {/* 资源工具下拉 */}
-          <NavGroupDropdown
-            label="📚 资源"
-            items={resourceTabs}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-          />
-          
-          {/* 协作下拉 */}
-          <NavGroupDropdown
-            label="💬 协作"
-            items={collabTabs}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            extraBadge={stats.ticketInbox}
-          />
-          
-          {/* 管理下拉 */}
-          <NavGroupDropdown
-            label={isAdmin ? "⚙ 管理" : "📊 数据"}
-            items={adminTabs}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            extraBadge={isAdmin ? (stats.pendingDeleteReqs || 0) + (stats.trashCount || 0) : 0}
-            badgeColor="#dc2626"
-            isRight
-          />
+          {/* 自定义布局按钮 / 左侧栏功能数提示 */}
+          <button onClick={onOpenCustomize}
+            title="自定义导航布局 — 调整哪些 tab 显示在顶部"
+            style={{
+              marginLeft:'auto', padding:'5px 12px',
+              background:'transparent', color:'var(--ink-3)',
+              border:'1px dashed var(--line)', borderRadius:6,
+              cursor:'pointer', fontSize:11.5, fontFamily:'inherit',
+              display:'inline-flex', alignItems:'center', gap:5,
+              whiteSpace:'nowrap', flexShrink:0,
+              transition:'all .15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderStyle = 'solid'; e.currentTarget.style.color = 'var(--ink-2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderStyle = 'dashed'; e.currentTarget.style.color = 'var(--ink-3)'; }}>
+            <span>⚙</span>
+            <span>布局</span>
+            {sidebarHiddenCount > 0 && (
+              <span style={{padding:'1px 6px', background:'var(--bg)', color:'var(--ink-3)', borderRadius:8, fontSize:9, fontWeight:600}}>
+                +{sidebarHiddenCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-// 🆕 导航分组下拉(用 Portal 渲染避免被遮挡)
-const NavGroupDropdown = ({ label, items, activeTab, setActiveTab, extraBadge, badgeColor, isRight }) => {
-  const [open, setOpen] = useState(false);
-  const btnRef = React.useRef(null);
-  const menuRef = React.useRef(null);
-  const [pos, setPos] = useState({ top:0, left:0 });
-  
-  const isActive = items.some(i => i.key === activeTab);
-  
-  useEffect(() => {
-    if (!open) return;
-    const close = (e) => {
-      if (btnRef.current?.contains(e.target)) return;
-      if (menuRef.current?.contains(e.target)) return;
-      setOpen(false);
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [open]);
-  
-  const toggle = () => {
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect();
-      setPos({
-        top: r.bottom + window.scrollY + 2,
-        left: isRight 
-          ? Math.max(8, r.right + window.scrollX - 260)
-          : Math.max(8, r.left + window.scrollX),
-      });
-    }
-    setOpen(v => !v);
-  };
-  
-  const choose = (key) => {
-    setActiveTab(key);
-    setOpen(false);
-  };
-  
-  return (
-    <>
-      <button ref={btnRef} onClick={toggle}
-        className={`nav-tab ${isActive ? 'active' : ''}`}
-        style={{display:'inline-flex', alignItems:'center', gap:3, whiteSpace:'nowrap'}}>
-        {label}
-        <span style={{fontSize:10, marginLeft:2, opacity:.7}}>▾</span>
-        {extraBadge > 0 && (
-          <span style={{
-            display:'inline-flex', alignItems:'center', justifyContent:'center',
-            minWidth:18, height:18, padding:'0 6px',
-            background: badgeColor || 'var(--bad)', color:'white', borderRadius:9,
-            fontSize:10, fontWeight:600, marginLeft:4
-          }}>{extraBadge}</span>
-        )}
-      </button>
-      {open && ReactDOM.createPortal(
-        <div ref={menuRef}
-          style={{
-            position:'absolute', top: pos.top, left: pos.left, width: 260,
-            background:'white', border:'1px solid var(--line)', borderRadius:10,
-            boxShadow:'0 10px 30px rgba(0,0,0,.12)', padding:6,
-            zIndex:9998, maxWidth:'calc(100vw - 16px)',
-          }}>
-          {items.map(item => {
-            const isCurrent = activeTab === item.key;
-            return (
-              <button key={item.key} onClick={() => choose(item.key)}
-                style={{
-                  width:'100%', padding:'9px 12px',
-                  background: isCurrent ? 'var(--accent-soft)' : 'transparent',
-                  color: isCurrent ? 'var(--accent)' : 'var(--ink)',
-                  border:'none', borderRadius:7, cursor:'pointer',
-                  fontFamily:'inherit', fontSize:13, fontWeight: isCurrent ? 600 : 500,
-                  display:'flex', alignItems:'center', gap:8, textAlign:'left',
-                  transition:'all .12s', marginBottom:2,
-                }}
-                onMouseEnter={e => { if (!isCurrent) e.currentTarget.style.background = 'var(--bg-elevated)'; }}
-                onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent'; }}>
-                <div style={{flex:1, minWidth:0}}>
-                  <div style={{display:'flex', alignItems:'center', gap:6}}>
-                    {item.label}
-                    {item.badge > 0 && (
-                      <span style={{
-                        display:'inline-flex', alignItems:'center', justifyContent:'center',
-                        minWidth:18, height:18, padding:'0 6px',
-                        background: item.badgeColor || 'var(--bad)', color:'white', borderRadius:9,
-                        fontSize:10, fontWeight:600,
-                      }}>{item.badge}</span>
-                    )}
-                  </div>
-                  {item.desc && <div style={{fontSize:11, color:'var(--ink-3)', marginTop:2, fontWeight:400}}>{item.desc}</div>}
-                </div>
-                {isCurrent && <span style={{color:'var(--accent)', fontSize:11}}>✓</span>}
-              </button>
-            );
-          })}
-        </div>,
-        document.body
-      )}
-    </>
-  );
-};
+// 🆕 fix10: NavGroupDropdown 不再使用 (左侧栏取代),保留空 stub 以防引用残留
+const NavGroupDropdown = () => null;
 
 // ============================================================
 // 客服跟进表 - 主模块
@@ -12740,6 +12597,8 @@ const ReviewsModule = ({ user, employees, toast }) => {
   const [filterSite, setFilterSite] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [search, setSearch] = useState('');
+  // 🆕 fix11: 任务接单后直接在同页面打开 AI 评价生成(传产品信息给美工 iframe)
+  const [aiPanelReview, setAiPanelReview] = useState(null);
   
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   
@@ -12913,9 +12772,18 @@ const ReviewsModule = ({ user, employees, toast }) => {
               onClaim={() => handleClaim(r)}
               onUnclaim={() => handleUnclaim(r)}
               onComplete={() => setCompleting(r)}
+              onOpenAi={() => setAiPanelReview(r)}
               onReload={load} />
           ))}
         </div>
+      )}
+      
+      {/* 🆕 fix11: AI 评价生成全屏面板 — 接单后直接在同页面工作 */}
+      {aiPanelReview && (
+        <ReviewAiPanel review={aiPanelReview} user={user}
+          onClose={() => setAiPanelReview(null)}
+          onComplete={() => { setAiPanelReview(null); setCompleting(aiPanelReview); }}
+        />
       )}
       
       {editing && (
@@ -12939,7 +12807,7 @@ const ReviewsModule = ({ user, employees, toast }) => {
 };
 
 // 任务卡
-const ReviewTaskCard = ({ review, user, employees, isAdmin, onEdit, onDelete, onClaim, onUnclaim, onComplete, onReload }) => {
+const ReviewTaskCard = ({ review, user, employees, isAdmin, onEdit, onDelete, onClaim, onUnclaim, onComplete, onOpenAi, onReload }) => {
   const [expanded, setExpanded] = useState(false);
   const [previewFile, setPreviewFile] = useState(null);
   const status = REVIEW_STATUSES.find(s => s.key === review.status) || REVIEW_STATUSES[0];
@@ -12948,6 +12816,8 @@ const ReviewTaskCard = ({ review, user, employees, isAdmin, onEdit, onDelete, on
   const isCreator = review.created_by === user.id;
   const canClaim = review.status === 'pending' && (!review.assigned_to || review.assigned_to === user.id);
   const canComplete = isMine && review.status === 'in_progress';
+  // 🆕 fix11: 我接的任务 → 可直接打开 AI 工具(in_progress 或 pending 等待我接)
+  const canUseAi = (isMine && review.status === 'in_progress') || canClaim;
   const canEdit = isCreator || isAdmin;
   const canDelete = isCreator || isAdmin;
   const attachments = review.attachments || [];
@@ -13006,6 +12876,14 @@ const ReviewTaskCard = ({ review, user, employees, isAdmin, onEdit, onDelete, on
               <button onClick={onClaim}
                 style={{padding:'6px 14px', background:'var(--accent)', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}>
                 👤 接此任务
+              </button>
+            )}
+            {/* 🆕 fix11: 我的进行中任务 → 一键打开 AI 生成面板,产品信息自动传给美工 iframe */}
+            {isMine && review.status === 'in_progress' && (
+              <button onClick={onOpenAi}
+                style={{padding:'6px 14px', background:'linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%)', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit', boxShadow:'0 1px 3px rgba(124,58,237,.25)'}}
+                title="在当前页打开 AI 评价生成工具,产品信息已自动填好">
+                🤖 AI 生成评价
               </button>
             )}
             {canComplete && (
@@ -13100,6 +12978,121 @@ const ReviewTaskCard = ({ review, user, employees, isAdmin, onEdit, onDelete, on
       </div>
       {previewFile && <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />}
     </div>
+  );
+};
+
+// ============================================================
+// 🆕 fix11: 评价任务 + AI 生成 全屏面板 (合二为一)
+// 接单后直接在同页面打开,产品信息通过 URL 参数传给美工 iframe
+// 美工系统 v22-CQ+ 会读这些参数自动填表
+// ============================================================
+const ReviewAiPanel = ({ review, user, onClose, onComplete }) => {
+  // 构造 iframe URL — 在原有 cs_user_* 基础上加产品信息
+  const iframeSrc = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('embed', 'cs-reviews');
+    params.set('cs_user_id', user.id || 'cs_unknown');
+    params.set('cs_user_name', (user.name || '客服') + (user.alias ? ' ' + user.alias : ''));
+    params.set('cs_user_alias', user.alias || '');
+    // 🆕 任务上下文 — 美工那边收到这些参数会自动填到产品 URL / 标题 / 数量等
+    if (review.id)            params.set('cs_task_id', review.id);
+    if (review.product_url)   params.set('cs_product_url', review.product_url);
+    if (review.product_name)  params.set('cs_product_name', review.product_name);
+    if (review.site)          params.set('cs_site', review.site);
+    if (review.platform)      params.set('cs_platform', review.platform);
+    if (review.priority)      params.set('cs_priority', review.priority);
+    if (review.target_count)  params.set('cs_target_count', String(review.target_count));
+    return `https://dekorfine.github.io/worktrack-kpi/?${params.toString()}`;
+  }, [review.id, review.product_url, review.product_name, review.site, review.platform, review.priority, review.target_count, user.id, user.name, user.alias]);
+
+  // Esc 关闭
+  useEffect(() => {
+    const onEsc = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [onClose]);
+
+  // 复制按钮 helper
+  const copy = async (text, label) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // 视觉反馈靠系统 toast,这里不依赖父组件
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: `✓ 已复制 ${label || ''}` }));
+    } catch {}
+  };
+
+  return ReactDOM.createPortal(
+    <div style={{
+      position: 'fixed', inset: 0, background: '#fafaf7', zIndex: 99998,
+      display: 'flex', flexDirection: 'column',
+    }}>
+      {/* 头部 - 任务信息 + 关闭 */}
+      <div style={{
+        padding: '10px 16px', background: 'white',
+        borderBottom: '1px solid var(--line)',
+        display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+        boxShadow: '0 1px 3px rgba(0,0,0,.04)',
+      }}>
+        <div style={{display: 'flex', flexDirection: 'column', flex: 1, minWidth: 200}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3}}>
+            <span style={{padding: '2px 8px', background: '#f3e8ff', color: '#7c3aed', borderRadius: 10, fontSize: 10, fontWeight: 700}}>🤖 AI 评价生成</span>
+            <span style={{padding: '2px 8px', background: '#dbeafe', color: '#1e40af', borderRadius: 10, fontSize: 10, fontWeight: 600}}>👤 我接的任务</span>
+            {review.site && <span style={{padding: '2px 8px', background: '#f5f5f7', color: 'var(--ink-3)', borderRadius: 10, fontSize: 10, fontWeight: 600}}>{review.site}</span>}
+            {review.priority === 'high' && <span style={{padding: '2px 8px', background: '#fee2e2', color: '#dc2626', borderRadius: 10, fontSize: 10, fontWeight: 600}}>🔥 高优先</span>}
+          </div>
+          <div style={{fontSize: 14, fontWeight: 600, color: 'var(--ink)', lineHeight: 1.3, marginBottom: 2}}>
+            {review.product_name || '(未命名产品)'}
+          </div>
+          {review.product_url && (
+            <div style={{fontSize: 10, color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 6}}>
+              <a href={review.product_url} target="_blank" rel="noopener noreferrer"
+                style={{color: '#0369a1', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 460}}>
+                🔗 {review.product_url}
+              </a>
+              <button onClick={() => copy(review.product_url, '链接')} title="复制链接"
+                style={{padding: '1px 6px', background: '#f5f5f7', border: '1px solid var(--line)', borderRadius: 4, cursor: 'pointer', fontSize: 10, fontFamily: 'inherit', color: 'var(--ink-3)'}}>
+                复制
+              </button>
+            </div>
+          )}
+          {review.notes && (
+            <div style={{fontSize: 11, color: '#854d0e', marginTop: 4, padding: '4px 8px', background: '#fefce8', borderRadius: 4, border: '1px solid #fde047', maxWidth: 720}}>
+              💬 任务备注: {review.notes}
+            </div>
+          )}
+        </div>
+        <div style={{display: 'flex', gap: 6, flexShrink: 0}}>
+          {review.target_count && (
+            <div style={{padding: '6px 10px', background: '#f5f5f7', borderRadius: 6, fontSize: 12, color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 4}}>
+              <span style={{fontSize: 11, color: 'var(--ink-3)'}}>目标:</span>
+              <strong style={{color: 'var(--ink)'}}>{review.target_count} 条</strong>
+            </div>
+          )}
+          <button onClick={onComplete}
+            style={{padding: '7px 14px', background: '#16a34a', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit'}}
+            title="生成完成后标记任务完成">
+            ✅ 已完成评价
+          </button>
+          <button onClick={onClose}
+            style={{padding: '7px 14px', background: 'white', color: 'var(--ink-2)', border: '1px solid var(--line)', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit'}}
+            title="关闭,返回任务列表(Esc)">
+            ← 返回任务列表
+          </button>
+        </div>
+      </div>
+
+      {/* iframe */}
+      <div style={{flex: 1, padding: '8px', background: '#fafaf7'}}>
+        <iframe
+          src={iframeSrc}
+          style={{width: '100%', height: '100%', border: 'none', borderRadius: 10, background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,.06)', display: 'block'}}
+          title="AI 评价生成工具"
+          allow="clipboard-read; clipboard-write"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads allow-modals allow-popups-to-escape-sandbox"
+        />
+      </div>
+    </div>,
+    document.body
   );
 };
 
@@ -16173,6 +16166,280 @@ const CloudSettingsCard = ({ cfg, setCfg, toast, onApply }) => {
 };
 
 // ============================================================
+// 🆕 fix10: 左侧导航栏 (IDE 风格)
+// 显示 layoutPrefs.topKeys 之外的所有 tabs,按 group 分区
+// 可折叠到 icon-only 模式(52px 宽)
+// ============================================================
+const NavSidebar = ({ tabs, activeTab, setActiveTab, collapsed, onToggleCollapse, onOpenCustomize }) => {
+  // 按分组拆开
+  const grouped = useMemo(() => {
+    const m = { main: [], resources: [], collab: [], admin: [] };
+    tabs.forEach(t => { if (m[t.group]) m[t.group].push(t); });
+    return m;
+  }, [tabs]);
+  
+  const groupTitles = {
+    main:      '📌 主功能',
+    resources: '📚 资源工具',
+    collab:    '💬 协作',
+    admin:     '⚙ 管理',
+  };
+  
+  const width = collapsed ? 56 : 200;
+  
+  return (
+    <aside style={{
+      width,
+      flexShrink: 0,
+      borderRight: '1px solid var(--line)',
+      background: 'rgba(251,251,253,.7)',
+      backdropFilter: 'saturate(180%) blur(10px)',
+      WebkitBackdropFilter: 'saturate(180%) blur(10px)',
+      transition: 'width .2s ease',
+      display: 'flex', flexDirection: 'column',
+      alignSelf: 'flex-start',
+      position: 'sticky', top: 56,
+      maxHeight: 'calc(100vh - 56px)',
+      overflowY: 'auto', overflowX: 'hidden',
+    }}>
+      {/* Collapse toggle */}
+      <div style={{padding: '6px 8px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-end'}}>
+        <button onClick={onToggleCollapse} title={collapsed ? '展开侧边栏' : '折叠侧边栏'}
+          style={{padding: '4px 8px', background: 'transparent', border: '1px solid var(--line)', borderRadius: 5, cursor: 'pointer', fontSize: 11, color: 'var(--ink-3)', fontFamily: 'inherit'}}>
+          {collapsed ? '▶' : '◀ 折叠'}
+        </button>
+      </div>
+      
+      {/* Groups */}
+      <div style={{flex: 1, padding: '8px 6px'}}>
+        {['main', 'resources', 'collab', 'admin'].map(g => {
+          const items = grouped[g];
+          if (!items || items.length === 0) return null;
+          return (
+            <div key={g} style={{marginBottom: 12}}>
+              {!collapsed && (
+                <div style={{
+                  fontSize: 10, fontWeight: 700, color: 'var(--ink-4)',
+                  padding: '4px 8px', marginBottom: 2,
+                  letterSpacing: '.5px',
+                }}>{groupTitles[g]}</div>
+              )}
+              {collapsed && g !== 'main' && (
+                <div style={{borderTop: '1px solid var(--line)', margin: '4px 8px'}} />
+              )}
+              {items.map(t => {
+                const isActive = activeTab === t.key;
+                return (
+                  <a key={t.key}
+                    href={`#tab=${t.key}`}
+                    onClick={(e) => {
+                      // 🆕 fix11: 让 ctrl/cmd/shift/中键走浏览器默认 → 右键也能"新标签打开"
+                      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+                      e.preventDefault();
+                      setActiveTab(t.key);
+                    }}
+                    title={collapsed ? t.label.replace(/^.\s*/, '') : undefined}
+                    style={{
+                      width: '100%',
+                      padding: collapsed ? '8px 0' : '7px 10px',
+                      marginBottom: 2,
+                      display: 'flex', alignItems: 'center',
+                      gap: collapsed ? 0 : 8,
+                      justifyContent: collapsed ? 'center' : 'flex-start',
+                      background: isActive ? 'var(--accent-soft)' : 'transparent',
+                      color: isActive ? 'var(--accent)' : 'var(--ink-2)',
+                      border: 'none', borderRadius: 6, cursor: 'pointer',
+                      fontFamily: 'inherit', fontSize: 12.5,
+                      fontWeight: isActive ? 600 : 500,
+                      position: 'relative',
+                      textAlign: 'left',
+                      textDecoration: 'none',
+                      transition: 'background .12s, color .12s',
+                      boxSizing: 'border-box',
+                    }}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--bg-elevated)'; }}
+                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
+                    <span style={{fontSize: 16, flexShrink: 0, lineHeight: 1}}>{t.icon}</span>
+                    {!collapsed && (
+                      <span style={{flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
+                        {t.label.replace(/^.\s*/, '').trim()}
+                      </span>
+                    )}
+                    {t.badge > 0 && (
+                      <span style={{
+                        position: collapsed ? 'absolute' : 'static',
+                        top: collapsed ? 3 : undefined,
+                        right: collapsed ? 3 : undefined,
+                        minWidth: 16, height: 16, padding: '0 4px',
+                        background: t.badgeColor || 'var(--bad)', color: 'white',
+                        borderRadius: 8, fontSize: 9, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        lineHeight: 1, flexShrink: 0,
+                      }}>{t.badge}</span>
+                    )}
+                  </a>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Footer: customize button */}
+      <div style={{padding: '8px 6px', borderTop: '1px solid var(--line)', flexShrink: 0}}>
+        <button onClick={onOpenCustomize}
+          title={collapsed ? '自定义导航布局' : undefined}
+          style={{
+            width: '100%',
+            padding: collapsed ? '8px 0' : '8px 10px',
+            display: 'flex', alignItems: 'center',
+            gap: collapsed ? 0 : 8,
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            background: 'transparent', color: 'var(--ink-3)',
+            border: '1px dashed var(--line)', borderRadius: 6,
+            cursor: 'pointer', fontFamily: 'inherit', fontSize: 12,
+            fontWeight: 500,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderStyle = 'solid'; e.currentTarget.style.color = 'var(--ink-2)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderStyle = 'dashed'; e.currentTarget.style.color = 'var(--ink-3)'; }}>
+          <span style={{fontSize: 14, flexShrink: 0}}>⚙</span>
+          {!collapsed && <span>自定义布局</span>}
+        </button>
+      </div>
+    </aside>
+  );
+};
+
+// ============================================================
+// 🆕 fix10: 自定义布局弹窗 — 选哪些 tab 钉到顶部 + 拖动排序
+// ============================================================
+const LayoutCustomizeModal = ({ allTabs, layoutPrefs, defaultTopKeys, onSave, onClose }) => {
+  const [topKeys, setTopKeys] = useState(layoutPrefs.topKeys || defaultTopKeys);
+  
+  const toggleTop = (key) => {
+    setTopKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
+  };
+  const moveUp = (key) => {
+    setTopKeys(prev => {
+      const idx = prev.indexOf(key);
+      if (idx <= 0) return prev;
+      const next = [...prev];
+      [next[idx-1], next[idx]] = [next[idx], next[idx-1]];
+      return next;
+    });
+  };
+  const moveDown = (key) => {
+    setTopKeys(prev => {
+      const idx = prev.indexOf(key);
+      if (idx === -1 || idx >= prev.length - 1) return prev;
+      const next = [...prev];
+      [next[idx+1], next[idx]] = [next[idx], next[idx+1]];
+      return next;
+    });
+  };
+  const reset = () => setTopKeys(defaultTopKeys);
+  const save = () => { onSave(topKeys); onClose(); };
+  
+  // 当前选中的(按顺序) + 未选中的(按分组)
+  const topItems = topKeys.map(k => allTabs.find(t => t.key === k)).filter(Boolean);
+  const otherItems = allTabs.filter(t => !topKeys.includes(t.key));
+  
+  const groupTitles = {
+    main:      '主功能',
+    resources: '资源工具',
+    collab:    '协作',
+    admin:     '管理',
+  };
+  
+  return ReactDOM.createPortal(
+    <div onClick={onClose} style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 100000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '5vh 20px', overflow: 'auto'}}>
+      <div onClick={e => e.stopPropagation()} style={{background: 'white', borderRadius: 14, width: '100%', maxWidth: 660, boxShadow: '0 20px 60px rgba(0,0,0,.25)', display: 'flex', flexDirection: 'column', maxHeight: '90vh'}}>
+        {/* Header */}
+        <div style={{padding: '16px 22px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0}}>
+          <div>
+            <div className="font-display" style={{fontSize: 16, fontWeight: 600}}>⚙ 自定义导航布局</div>
+            <div style={{fontSize: 11, color: 'var(--ink-3)', marginTop: 2}}>每个员工独立配置 · 自动保存</div>
+          </div>
+          <button onClick={onClose} style={{background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 18, color: 'var(--ink-3)', padding: 0, width: 28, height: 28}}>×</button>
+        </div>
+        
+        {/* Body */}
+        <div style={{padding: '18px 22px', overflowY: 'auto', flex: 1}}>
+          <div style={{padding: '10px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 12, color: '#1e40af', marginBottom: 14, lineHeight: 1.6}}>
+            💡 选中的功能"钉"在<strong>顶部导航栏</strong>(日常切换最快) — 未选中的会出现在<strong>左侧侧边栏</strong>(按分组分类)。<br/>
+            建议顶部放 <strong>3~6 个</strong>最常用的,过多会拥挤。
+          </div>
+          
+          {/* 顶部已钉 */}
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
+            <div style={{fontSize: 12, fontWeight: 700, color: 'var(--ink-2)'}}>
+              📌 顶部导航 ({topItems.length} 个){topItems.length > 6 && <span style={{color: '#d97706', marginLeft: 6, fontSize: 10}}>· 略多,建议精简</span>}
+            </div>
+            <button onClick={reset} style={{padding: '3px 10px', background: 'transparent', border: '1px solid var(--line)', borderRadius: 5, cursor: 'pointer', fontSize: 11, color: 'var(--ink-3)', fontFamily: 'inherit'}}>↻ 恢复默认</button>
+          </div>
+          
+          {topItems.length === 0 ? (
+            <div style={{padding: 16, background: '#fafaf7', borderRadius: 8, fontSize: 12, color: 'var(--ink-4)', textAlign: 'center', marginBottom: 16}}>
+              顶部还没钉任何功能 — 从下面"全部功能"列表里点 📌 钉一个
+            </div>
+          ) : (
+            <div style={{display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16}}>
+              {topItems.map((t, i) => (
+                <div key={t.key} style={{padding: '7px 10px', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 6}}>
+                  <span style={{fontSize: 11, color: 'var(--accent)', fontWeight: 600, width: 18, textAlign: 'center'}}>{i + 1}</span>
+                  <span style={{fontSize: 15, lineHeight: 1}}>{t.icon}</span>
+                  <span style={{flex: 1, fontSize: 13, color: 'var(--accent)', fontWeight: 600}}>{t.label.replace(/^.\s*/, '').trim()}</span>
+                  <button onClick={() => moveUp(t.key)} disabled={i === 0} title="上移"
+                    style={{padding: '2px 7px', background: 'white', border: '1px solid var(--line)', borderRadius: 4, cursor: i === 0 ? 'not-allowed' : 'pointer', fontSize: 11, opacity: i === 0 ? 0.4 : 1, fontFamily: 'inherit'}}>↑</button>
+                  <button onClick={() => moveDown(t.key)} disabled={i === topItems.length - 1} title="下移"
+                    style={{padding: '2px 7px', background: 'white', border: '1px solid var(--line)', borderRadius: 4, cursor: i === topItems.length - 1 ? 'not-allowed' : 'pointer', fontSize: 11, opacity: i === topItems.length - 1 ? 0.4 : 1, fontFamily: 'inherit'}}>↓</button>
+                  <button onClick={() => toggleTop(t.key)} title="移回侧边栏"
+                    style={{padding: '2px 9px', background: 'white', border: '1px solid var(--line)', borderRadius: 4, cursor: 'pointer', fontSize: 11, color: 'var(--ink-3)', fontFamily: 'inherit'}}>↗ 移走</button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {/* 未钉 - 按分组展示 */}
+          <div style={{fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', marginBottom: 6}}>
+            📚 其他功能 (将出现在左侧栏)
+          </div>
+          {['main', 'resources', 'collab', 'admin'].map(grp => {
+            const items = otherItems.filter(t => t.group === grp);
+            if (items.length === 0) return null;
+            return (
+              <div key={grp} style={{marginBottom: 10}}>
+                <div style={{fontSize: 10, fontWeight: 700, color: 'var(--ink-4)', marginBottom: 4, paddingLeft: 2, letterSpacing: '.5px'}}>{groupTitles[grp]}</div>
+                <div style={{display: 'flex', flexDirection: 'column', gap: 3}}>
+                  {items.map(t => (
+                    <div key={t.key} style={{padding: '7px 10px', background: 'white', border: '1px solid var(--line)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 8}}>
+                      <span style={{fontSize: 15, lineHeight: 1}}>{t.icon}</span>
+                      <span style={{flex: 1, fontSize: 13, color: 'var(--ink)'}}>{t.label.replace(/^.\s*/, '').trim()}</span>
+                      <button onClick={() => toggleTop(t.key)}
+                        style={{padding: '4px 10px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit', fontWeight: 600}}>📌 钉到顶部</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* Footer */}
+        <div style={{padding: '12px 22px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, background: '#fafafa'}}>
+          <div style={{fontSize: 11, color: 'var(--ink-4)'}}>设置保存到本地浏览器 · 每个员工独立</div>
+          <div style={{display: 'flex', gap: 8}}>
+            <button onClick={onClose} style={{padding: '7px 16px', background: 'white', border: '1px solid var(--line)', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit'}}>取消</button>
+            <button onClick={save} style={{padding: '7px 18px', background: '#0071e3', color: 'white', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit'}}>✓ 保存</button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// ============================================================
 // 🤖 fix9c: AI 评价生成 — iframe 嵌入美工系统的 cs-reviews 精简模式
 // 跟客服系统完全无关联,只是把美工 worktrack-kpi 上已发布的工具嵌进来用
 // URL 必须含 ?embed=cs-reviews 让美工那边进入嵌入模式(隐藏顶部 nav 等)
@@ -17160,7 +17427,8 @@ const App = () => {
   // tab - 持久化到 localStorage，刷新后保留
   const [activeTab, setActiveTab] = useState(() => {
     // URL hash 优先 (#tab=kb)，其次 localStorage，最后按角色默认
-    const hashMatch = window.location.hash.match(/tab=([a-z]+)/);
+    // 🆕 fix11: 正则允许下划线,匹配 cross_dept / delete_approvals / ai_reviews / admin_overview / offline_orders / custom_photo 等
+    const hashMatch = window.location.hash.match(/tab=([a-z_]+)/);
     if (hashMatch) return hashMatch[1];
     const saved = localStorage.getItem('ws_active_tab');
     if (saved) return saved;
@@ -17177,6 +17445,16 @@ const App = () => {
     } else if (window.location.hash.includes('tab=')) {
       window.history.replaceState(null, '', window.location.pathname);
     }
+  }, [activeTab]);
+  
+  // 🆕 fix11: 监听 URL hash 变化 (浏览器 back/forward + 右键新窗口都会触发) → 同步 activeTab
+  useEffect(() => {
+    const onHashChange = () => {
+      const m = window.location.hash.match(/tab=([a-z_]+)/);
+      if (m && m[1] !== activeTab) setActiveTab(m[1]);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
   }, [activeTab]);
   
   // 跟踪访问过的 iframe tab —— 让 iframe 保持挂载，避免切 tab 时丢数据
@@ -17389,6 +17667,87 @@ const App = () => {
       !(m.read_by || []).includes(user.id)
     ).length;
   }, [cdmMessages, user?.id]);
+
+  // ══════════════════════════════════════════════════════════════
+  // 🆕 fix10: 导航布局自定义 — IDE 风格(顶部常用 + 左侧不常用)
+  // 每个用户独立保存,localStorage 键 nav_layout_${user.id}
+  // ══════════════════════════════════════════════════════════════
+  const DEFAULT_TOP_KEYS = ['cs', 'chargebacks', 'offline_orders', 'custom_photo', 'events', 'reviews'];
+
+  const [layoutPrefs, setLayoutPrefs] = useState({ topKeys: DEFAULT_TOP_KEYS, sidebarCollapsed: false });
+  // 登录或切换账号时重新加载该用户的布局
+  useEffect(() => {
+    if (!user) return;
+    const saved = STORE.get(`nav_layout_${user.id}`, null);
+    if (saved && Array.isArray(saved.topKeys)) {
+      setLayoutPrefs({
+        topKeys: saved.topKeys,
+        sidebarCollapsed: !!saved.sidebarCollapsed,
+      });
+    } else {
+      setLayoutPrefs({ topKeys: DEFAULT_TOP_KEYS, sidebarCollapsed: false });
+    }
+  }, [user?.id]);
+  // 保存
+  useEffect(() => {
+    if (!user) return;
+    STORE.set(`nav_layout_${user.id}`, layoutPrefs);
+  }, [layoutPrefs, user?.id]);
+
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+
+  // 计算完整 tabs 列表 — 单一数据源,TopNav 和 Sidebar 都从这里拿
+  const allTabs = useMemo(() => {
+    if (!user) return [];
+    const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+    const isFinanceVisible = user.role === 'finance' || isAdmin;
+    const tabs = [
+      // 主功能
+      { key:'cs',             label:'📞 客服跟进',   icon:'📞', badge: stats.overdue,           group:'main' },
+      { key:'chargebacks',    label:'🚨 拒付',       icon:'🚨', badge: stats.urgentChargebacks, badgeColor:'#dc2626', group:'main' },
+      { key:'offline_orders', label:'💳 线下单',     icon:'💳',                                 group:'main' },
+      { key:'custom_photo',   label:'🎨 定制&实拍',  icon:'🎨',                                 group:'main' },
+      { key:'events',         label:'📋 工作主线',   icon:'📋', badge: stats.pendingEvents,    group:'main' },
+      { key:'reviews',        label:'⭐ 产品评价',   icon:'⭐', badge: stats.pendingReviews,   group:'main' },
+      // 资源工具
+      { key:'suppliers',  label:'🏭 供应商',         icon:'🏭', group:'resources' },
+      { key:'kb',         label:'📚 知识库',         icon:'📚', group:'resources' },
+      { key:'quote',      label:'📝 报价单',         icon:'📝', group:'resources' },
+      { key:'finance',    label:'🧮 财务计算器',     icon:'🧮', group:'resources' },
+      { key:'ai_reviews', label:'🤖 AI 评价生成',    icon:'🤖', group:'resources' },
+      ...(isFinanceVisible ? [{ key:'freight', label:'🚚 运费支付', icon:'🚚', group:'resources' }] : []),
+      // 协作
+      { key:'cross_dept', label:'📨 跨部门协作', icon:'📨', badge: cdmUnreadCount, badgeColor: cdmUrgentUnread > 0 ? '#dc2626' : '#0071e3', group:'collab' },
+      { key:'briefings',  label:'📢 会议纪要',   icon:'📢', group:'collab' },
+      { key:'report',     label:'💬 汇报工单',   icon:'💬', badge: stats.ticketInbox, group:'collab' },
+      // 管理
+      ...(isAdmin ? [
+        { key:'admin_overview',   label:'📊 主管汇总', icon:'📊', group:'admin' },
+        { key:'dashboard',        label:'📈 数据看板', icon:'📈', group:'admin' },
+        { key:'delete_approvals', label:'🛡 删除审批', icon:'🛡', badge: stats.pendingDeleteReqs, badgeColor:'#dc2626', group:'admin' },
+        { key:'trash',            label:'🗑 回收站',   icon:'🗑', badge: stats.trashCount, badgeColor:'#86868b', group:'admin' },
+        { key:'admin',            label:'⚙ 设置',     icon:'⚙', group:'admin' },
+      ] : [
+        { key:'dashboard', label:'📈 数据看板', icon:'📈', group:'admin' },
+        { key:'trash',     label:'🗑 回收站',   icon:'🗑', badge: stats.trashCount, badgeColor:'#86868b', group:'admin' },
+      ]),
+    ];
+    return tabs;
+  }, [user?.id, user?.role, stats, cdmUnreadCount, cdmUrgentUnread]);
+
+  // 拆成顶部 vs 侧边栏
+  const topTabs = useMemo(() => {
+    if (!allTabs.length) return [];
+    // 按 layoutPrefs.topKeys 的顺序排列
+    return layoutPrefs.topKeys
+      .map(k => allTabs.find(t => t.key === k))
+      .filter(Boolean);
+  }, [allTabs, layoutPrefs.topKeys]);
+
+  const sidebarTabs = useMemo(() => {
+    if (!allTabs.length) return [];
+    return allTabs.filter(t => !layoutPrefs.topKeys.includes(t.key));
+  }, [allTabs, layoutPrefs.topKeys]);
 
   // 通知权限
   const [notifPerm, setNotifPerm] = useState(() => {
@@ -17684,7 +18043,7 @@ const App = () => {
   
   return (
     <div className="min-h-screen">
-      <TopNav user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} stats={stats} notifPerm={notifPerm} requestNotifPerm={requestNotifPerm} cloudOn={cloudOn} employees={employees} switchAccount={switchAccount} onOpenSearch={() => setSearchOpen(true)} cdmUnreadCount={cdmUnreadCount} cdmUrgentUnread={cdmUrgentUnread} />
+      <TopNav user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} stats={stats} notifPerm={notifPerm} requestNotifPerm={requestNotifPerm} cloudOn={cloudOn} employees={employees} switchAccount={switchAccount} onOpenSearch={() => setSearchOpen(true)} cdmUnreadCount={cdmUnreadCount} cdmUrgentUnread={cdmUrgentUnread} topTabs={topTabs} sidebarHiddenCount={sidebarTabs.length} onOpenCustomize={() => setCustomizeOpen(true)} />
       
       {/* 🆕 模拟身份横幅 - 主管/老板以其他人身份查看时的提醒 */}
       {(() => {
@@ -17764,7 +18123,18 @@ const App = () => {
           </button>
         </div>
       )}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      {/* 🆕 fix10: 主区 = 左侧栏 + 右侧内容(IDE 风格) */}
+      <div style={{display:'flex', alignItems:'flex-start', minHeight:'calc(100vh - 56px)'}}>
+        <NavSidebar
+          tabs={sidebarTabs}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          collapsed={layoutPrefs.sidebarCollapsed}
+          onToggleCollapse={() => setLayoutPrefs(p => ({ ...p, sidebarCollapsed: !p.sidebarCollapsed }))}
+          onOpenCustomize={() => setCustomizeOpen(true)}
+        />
+        <div style={{flex:1, minWidth:0}}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {user && cloudOn && activeTab !== 'chargebacks' && (
           <ChargebackReminderBanner user={user} employees={employees} onJumpTo={() => setActiveTab('chargebacks')} />
         )}
@@ -17854,17 +18224,29 @@ const App = () => {
         {activeTab === 'admin' && (user.role === 'admin' || user.role === 'super_admin') && (
           <AdminModule user={user} employees={employees} setEmployees={setEmployees} toast={toast} cloudCfg={cloudCfg} setCloudCfg={setCloudCfg} onCloudApply={() => setCloudVersion(v=>v+1)} />
         )}
-      </div>
+          </div>{/* /max-w-7xl */}
+        </div>{/* /flex-1 content wrapper */}
+      </div>{/* /flex with sidebar */}
       <footer style={{textAlign:'center', padding:'40px 20px', color:'var(--ink-4)', fontSize:12, fontWeight:400}}>
         统一工作台 · v2.1 · {cloudOn ? '☁ Supabase 云端协同' : '💾 本地模式'}
       </footer>
+      {/* 🆕 fix10: 自定义布局 modal */}
+      {customizeOpen && (
+        <LayoutCustomizeModal
+          allTabs={allTabs}
+          layoutPrefs={layoutPrefs}
+          defaultTopKeys={DEFAULT_TOP_KEYS}
+          onSave={(newTopKeys) => setLayoutPrefs(p => ({ ...p, topKeys: newTopKeys }))}
+          onClose={() => setCustomizeOpen(false)}
+        />
+      )}
       {toastNode}
     </div>
   );
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix9c-hotfix1';
+const APP_VERSION = '2026.05.25-fix11';
 console.log(
   '%c📦 统一工作台 v' + APP_VERSION + ' 已加载\n' +
   '%c如看到旧 bug,请强刷 Ctrl+Shift+R 清除缓存\n' +
