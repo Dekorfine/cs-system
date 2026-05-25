@@ -319,7 +319,7 @@ textarea { width: 100%; resize: vertical; }
 .modal-backdrop{
   position:fixed;inset:0;background:rgba(0,0,0,.4);
   display:flex;align-items:center;justify-content:center;
-  z-index:50;padding:20px;backdrop-filter:blur(8px);
+  z-index:9999;padding:20px;backdrop-filter:blur(8px);
   -webkit-backdrop-filter:blur(8px);
 }
 .modal-card{
@@ -558,6 +558,11 @@ const DEFAULT_SB_KEY = 'sb_publishable_6j-rSrv1V95FROe-iX6Yew_unE_Y6n9';
 
 const CLOUD = {
   client: null,
+  // 🛡 安全获取 from 链(若 client 为 null 返回 null,避免崩溃)
+  safeFrom(table) {
+    if (!this.client) return null;
+    return this.client.from(table);
+  },
   enabled: false,
   status: 'local',  // 'local' | 'ok' | 'err'
   lastError: '',
@@ -769,6 +774,7 @@ async function notifyCoordinator(kind, eventData, creator) {
   };
   
   try {
+    if (!CLOUD.client) return;  // 🆕 云未初始化时跳过
     await CLOUD.client.from('workspace_tickets').upsert(ticket);
   } catch(e) {
     console.warn('自动通知协调员失败:', e.message);
@@ -5249,7 +5255,7 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
 
   const [viewingImg, setViewingImg] = useState(null);
 
-  return (
+  return ReactDOM.createPortal(
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card paper p-6 w-full" style={{maxWidth:'780px'}} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
@@ -5580,7 +5586,8 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -9663,6 +9670,7 @@ const ChargebackReminderBanner = ({ user, employees, onJumpTo }) => {
   
   // 拒付专人配置 + 数据
   const load = async () => {
+    if (!CLOUD.client) return;  // 🆕 云未初始化时直接退出,避免 null 错误
     try {
       const { data: settingRow } = await CLOUD.client.from('system_settings').select('*').eq('key', 'chargeback_owners').single();
       const config = settingRow?.value || { user_ids:[], user_names:[] };
@@ -15755,7 +15763,7 @@ const App = () => {
         </div>
       )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        {user && activeTab !== 'chargebacks' && (
+        {user && cloudOn && activeTab !== 'chargebacks' && (
           <ChargebackReminderBanner user={user} employees={employees} onJumpTo={() => setActiveTab('chargebacks')} />
         )}
         {activeTab === 'cs' && (
@@ -15841,6 +15849,22 @@ const App = () => {
     </div>
   );
 };
+
+// 📦 版本日志 - 用户用来确认加载的是哪个版本
+const APP_VERSION = '2026.05.25-fix5';
+console.log(
+  '%c📦 统一工作台 v' + APP_VERSION + ' 已加载\n' +
+  '%c如看到旧 bug,请强刷 Ctrl+Shift+R 清除缓存\n' +
+  '调试工具:window.CLOUD / window.__debugTimeFilter',
+  'color:#0369a1; font-weight:bold; font-size:14px; background:#e0f2fe; padding:4px 8px; border-radius:4px',
+  'color:#64748b; font-size:11px'
+);
+
+// 暴露调试入口
+if (typeof window !== 'undefined') {
+  window.CLOUD = CLOUD;
+  window.APP_VERSION = APP_VERSION;
+}
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
