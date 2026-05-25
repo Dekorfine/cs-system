@@ -17461,6 +17461,31 @@ const CdmDetailModal = ({ msg, user, employees = [], shopOwners = [], cdmTimeout
     if (arr.length) setReplyAttachments(prev => [...prev, ...arr]);
   };
 
+  // 🆕 v22-CY+ : 回复框支持 Ctrl+V 粘贴图片(截图工作流)
+  useEffect(() => {
+    const onPaste = async (e) => {
+      const items = e.clipboardData?.items || [];
+      const files = [];
+      for (const it of items) {
+        if (it.kind === 'file') {
+          const f = it.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length) await readFiles(files);
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, []);
+
+  // 🆕 v22-CY+ : 回复框支持拖拽
+  const onReplyDrop = (e) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length) readFiles(files);
+  };
+  const onReplyDragOver = (e) => e.preventDefault();
+
   const reply = async () => {
     if (!replyText.trim() && replyAttachments.length === 0) return;
     const client = getCdmClient();
@@ -17801,10 +17826,11 @@ const CdmDetailModal = ({ msg, user, employees = [], shopOwners = [], cdmTimeout
           )}
         </div>
 
-        {/* 回复框 */}
-        <div style={{padding:'12px 20px', borderTop:'1px solid var(--line)', background:'#fafaf7'}}>
+        {/* 回复框 — 🆕 v22-CY+: 支持 Ctrl+V 粘贴截图 + 拖拽文件 */}
+        <div onDrop={onReplyDrop} onDragOver={onReplyDragOver}
+          style={{padding:'12px 20px', borderTop:'1px solid var(--line)', background:'#fafaf7'}}>
           <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
-            placeholder="回复...(Ctrl+Enter 发送)"
+            placeholder="回复...(Ctrl+Enter 发送 · 支持 Ctrl+V 粘贴截图)"
             onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') reply(); }}
             rows={2}
             style={{width:'100%', padding:'8px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit', resize:'vertical', background:'white'}} />
@@ -19399,7 +19425,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix12-r4-cy';
+const APP_VERSION = '2026.05.25-fix12-r5-paste-audit';
 console.log(
   '%c📦 统一工作台 v' + APP_VERSION + ' 已加载\n' +
   '%c如看到旧 bug,请强刷 Ctrl+Shift+R 清除缓存\n' +
