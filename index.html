@@ -1702,6 +1702,12 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   
+  // 🆕 时间范围筛选(全部模式下) - all/3d/7d/14d/30d/custom
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [customRangeStart, setCustomRangeStart] = useState('');
+  const [customRangeEnd, setCustomRangeEnd] = useState('');
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  
   // 🆕 状态下拉菜单当前打开的行 ID（null = 全部关闭）
   const [statusMenuOpen, setStatusMenuOpen] = useState(null);
   const [statusDropdownPos, setStatusDropdownPos] = useState({ top:0, left:0, width:110 });
@@ -1770,8 +1776,26 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
     if (filterCategory !== 'all') list = list.filter(r => r.category === filterCategory);
     if (filterDifficulty !== 'all') list = list.filter(r => r.difficulty === filterDifficulty);
     if (isAdmin && showAll && filterOwner !== 'all') list = list.filter(r => r.ownerId === filterOwner);
+    
+    // 🆕 时间范围筛选(仅在全部模式生效)
+    if (viewMode === 'all' && timeFilter !== 'all') {
+      const today = todayISO();
+      let cutoffStart = null, cutoffEnd = today;
+      if (timeFilter === '3d')   cutoffStart = addDays(today, -2);
+      else if (timeFilter === '7d')   cutoffStart = addDays(today, -6);
+      else if (timeFilter === '14d')  cutoffStart = addDays(today, -13);
+      else if (timeFilter === '30d')  cutoffStart = addDays(today, -29);
+      else if (timeFilter === 'custom') { cutoffStart = customRangeStart; cutoffEnd = customRangeEnd; }
+      if (cutoffStart) list = list.filter(r => r.date >= cutoffStart && r.date <= cutoffEnd);
+    }
+    
+    // 🆕 只看未解决
+    if (showUnresolvedOnly) {
+      list = list.filter(r => r.status !== 'resolved' && r.status !== 'transferred');
+    }
+    
     return list;
-  }, [sourceRecords, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, isAdmin, showAll]);
+  }, [sourceRecords, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, isAdmin, showAll, viewMode, timeFilter, customRangeStart, customRangeEnd, showUnresolvedOnly]);
   
   // 🆕 分页后的数据（在全部模式下分页,当日模式直接显示）
   const totalPages = Math.max(1, Math.ceil(tableRecords.length / pageSize));
@@ -2891,6 +2915,81 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
           </div>
         )}
       </div>
+      
+      {/* 🆕 时间筛选(仅全部模式显示) */}
+      {viewMode === 'all' && (() => {
+        const today = todayISO();
+        // 计算超期未解决数(>7天)
+        const overdueUnresolved = visibleRecords.filter(r => {
+          if (r.status === 'resolved' || r.status === 'transferred') return false;
+          if (!r.date) return false;
+          return r.date < addDays(today, -7);
+        });
+        return (
+          <div className="paper rounded-2xl p-3 fade-in" style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>
+            <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>📅 时间范围：</span>
+            {[
+              { key:'all',  label:'全部'      },
+              { key:'3d',   label:'最近 3 天' },
+              { key:'7d',   label:'最近 7 天' },
+              { key:'14d',  label:'最近 14 天' },
+              { key:'30d',  label:'最近 30 天' },
+              { key:'custom', label:'📆 自定义' },
+            ].map(t => (
+              <button key={t.key} onClick={() => setTimeFilter(t.key)}
+                style={{
+                  padding:'4px 11px', borderRadius:14, fontSize:11, cursor:'pointer', fontFamily:'inherit',
+                  border:'1px solid ' + (timeFilter === t.key ? 'var(--accent)' : 'var(--line)'),
+                  background: timeFilter === t.key ? 'var(--accent)' : 'white',
+                  color: timeFilter === t.key ? 'white' : 'var(--ink-2)',
+                  fontWeight: timeFilter === t.key ? 600 : 400,
+                  whiteSpace:'nowrap',
+                }}>
+                {t.label}
+              </button>
+            ))}
+            {timeFilter === 'custom' && (
+              <div style={{display:'flex', gap:6, alignItems:'center'}}>
+                <input type="date" value={customRangeStart} onChange={e => setCustomRangeStart(e.target.value)}
+                  style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6, fontFamily:'inherit'}} />
+                <span style={{color:'var(--ink-4)', fontSize:11}}>→</span>
+                <input type="date" value={customRangeEnd} onChange={e => setCustomRangeEnd(e.target.value)}
+                  style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6, fontFamily:'inherit'}} />
+              </div>
+            )}
+            
+            {/* 分隔符 */}
+            <div style={{flex:1}}></div>
+            
+            {/* 只看未解决开关 */}
+            <button onClick={() => setShowUnresolvedOnly(v => !v)}
+              style={{
+                padding:'4px 11px', borderRadius:14, fontSize:11, cursor:'pointer', fontFamily:'inherit',
+                border:'1px solid ' + (showUnresolvedOnly ? '#dc2626' : 'var(--line)'),
+                background: showUnresolvedOnly ? '#fee2e2' : 'white',
+                color: showUnresolvedOnly ? '#991b1b' : 'var(--ink-2)',
+                fontWeight: showUnresolvedOnly ? 600 : 400,
+                display:'inline-flex', alignItems:'center', gap:5,
+                whiteSpace:'nowrap',
+              }}>
+              {showUnresolvedOnly ? '✓' : '☐'} 只看未解决
+            </button>
+            
+            {/* 超期警告徽章 */}
+            {overdueUnresolved.length > 0 && (
+              <button onClick={() => { setTimeFilter('all'); setShowUnresolvedOnly(true); }}
+                style={{
+                  padding:'4px 11px', background:'#fef3c7', color:'#92400e', border:'1px solid #fbbf24',
+                  borderRadius:14, fontSize:11, fontWeight:600, fontFamily:'inherit', cursor:'pointer',
+                  display:'inline-flex', alignItems:'center', gap:4, whiteSpace:'nowrap',
+                }}
+                title="点击筛选超过 7 天未解决的记录">
+                ⚠ 超 7 天未解决: {overdueUnresolved.length} 条
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 顶部分页（全部模式） */}
       {viewMode === 'all' && tableRecords.length > 0 && (
@@ -6222,6 +6321,123 @@ const AdminOverviewDashboard = ({ user, employees, toast }) => {
 };
 
 
+// ============================================================
+// ⏰ 预警阈值配置 - 主管可调整每个模块的"超 N 天预警"
+// ============================================================
+const AlertThresholdsSettings = ({ user, toast }) => {
+  const [thresholds, setThresholds] = useState({
+    cs_followup: 7,     // 客服跟进超期天数
+    chargeback: 3,      // 拒付截止前预警天数
+    offline_order: 5,   // 线下单未发货天数
+    custom_inquiry: 7,  // 定制咨询无进展天数
+    photo_verif: 5,     // 实拍核实无回复天数
+    aftersale: 14,      // 售后挂起天数
+    refill: 14,         // 补件挂起天数
+    refund: 7,          // 退款待审天数
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  const load = async () => {
+    if (!CLOUD.client) { setLoading(false); return; }
+    try {
+      const { data } = await CLOUD.client.from('system_settings').select('*').eq('key', 'alert_thresholds').single();
+      if (data?.value) setThresholds(prev => ({ ...prev, ...data.value }));
+    } catch {}
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+  
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const { error } = await CLOUD.client.from('system_settings').upsert({
+        key: 'alert_thresholds',
+        value: thresholds,
+        updated_at: new Date().toISOString(),
+        updated_by_name: user.name + (user.alias ? ' ' + user.alias : ''),
+      });
+      if (error) throw error;
+      toast('✓ 已保存预警阈值');
+    } catch(e) { alert('保存失败: ' + e.message); }
+    setSaving(false);
+  };
+  
+  const handleResetDefaults = () => {
+    if (!confirm('重置为默认阈值?')) return;
+    setThresholds({
+      cs_followup: 7, chargeback: 3, offline_order: 5, custom_inquiry: 7, photo_verif: 5,
+      aftersale: 14, refill: 14, refund: 7,
+    });
+  };
+  
+  const ThresholdInput = ({ icon, title, desc, value, onChange, min, max }) => (
+    <div style={{padding:'12px 14px', background:'white', border:'1px solid var(--line)', borderRadius:10}}>
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:8}}>
+        <span style={{fontSize:22}}>{icon}</span>
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{fontWeight:600, fontSize:13}}>{title}</div>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginTop:1}}>{desc}</div>
+        </div>
+      </div>
+      <div style={{display:'flex', alignItems:'center', gap:6}}>
+        <input type="range" min={min || 1} max={max || 30} value={value} onChange={e => onChange(parseInt(e.target.value, 10))}
+          style={{flex:1, accentColor:'var(--accent)'}} />
+        <div style={{display:'flex', alignItems:'baseline', gap:2, minWidth:54, justifyContent:'flex-end'}}>
+          <input type="number" min={min || 1} max={max || 365} value={value} onChange={e => onChange(parseInt(e.target.value, 10) || 1)}
+            style={{width:50, padding:'4px 6px', fontSize:13, fontWeight:700, color:'var(--accent)', border:'1px solid var(--line)', borderRadius:5, textAlign:'center'}} />
+          <span style={{fontSize:11, color:'var(--ink-3)'}}>天</span>
+        </div>
+      </div>
+    </div>
+  );
+  
+  if (loading) return <div className="paper rounded-2xl p-10" style={{textAlign:'center'}}>⏳ 加载中...</div>;
+  
+  return (
+    <div className="paper rounded-2xl p-6">
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:6}}>
+        <span style={{fontSize:24}}>⏰</span>
+        <div style={{flex:1}}>
+          <div className="font-display" style={{fontSize:18, fontWeight:600, letterSpacing:'-.022em'}}>预警阈值配置</div>
+          <div style={{fontSize:13, color:'var(--ink-3)'}}>调整各模块"超 N 天未处理"的阈值 · 影响今日工作快照 + 桌面通知</div>
+        </div>
+        <button onClick={handleResetDefaults} className="btn-sec" style={{padding:'4px 10px', fontSize:11}}>↺ 恢复默认</button>
+      </div>
+      
+      <div className="rounded-lg p-3 mt-4" style={{background:'#e0f2fe', color:'#075985', fontSize:12, lineHeight:1.6}}>
+        💡 <strong>用法:</strong> 这些阈值决定"今日工作快照"上的卡片何时出现红色警示,也决定主管收到桌面通知的时机。<br/>
+        例如:客服跟进设为 <strong>7 天</strong> → 超过 7 天还没解决的问题会在「今日工作快照」上突出显示。
+      </div>
+      
+      <div style={{marginTop:18, display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(290px, 1fr))', gap:12}}>
+        <ThresholdInput icon="📞" title="客服跟进超期" desc="跟进创建后超 N 天未解决"
+          value={thresholds.cs_followup} onChange={v => setThresholds(p => ({...p, cs_followup: v}))} min={1} max={30} />
+        <ThresholdInput icon="🚨" title="拒付截止预警" desc="距截止日 N 天内开始预警"
+          value={thresholds.chargeback} onChange={v => setThresholds(p => ({...p, chargeback: v}))} min={1} max={14} />
+        <ThresholdInput icon="💳" title="线下单未发货" desc="付款后超 N 天未下单/发货"
+          value={thresholds.offline_order} onChange={v => setThresholds(p => ({...p, offline_order: v}))} min={1} max={30} />
+        <ThresholdInput icon="🎨" title="定制咨询无进展" desc="询单/出图/报价阶段卡 N 天"
+          value={thresholds.custom_inquiry} onChange={v => setThresholds(p => ({...p, custom_inquiry: v}))} min={1} max={30} />
+        <ThresholdInput icon="📸" title="实拍核实无回复" desc="客服联系后 N 天无客户回复"
+          value={thresholds.photo_verif} onChange={v => setThresholds(p => ({...p, photo_verif: v}))} min={1} max={30} />
+        <ThresholdInput icon="💰" title="退款待审超期" desc="提交后超 N 天财务未审核"
+          value={thresholds.refund} onChange={v => setThresholds(p => ({...p, refund: v}))} min={1} max={30} />
+        <ThresholdInput icon="🔧" title="售后挂起" desc="售后单超 N 天未完成"
+          value={thresholds.aftersale} onChange={v => setThresholds(p => ({...p, aftersale: v}))} min={1} max={60} />
+        <ThresholdInput icon="📦" title="补件挂起" desc="补件单超 N 天未完成"
+          value={thresholds.refill} onChange={v => setThresholds(p => ({...p, refill: v}))} min={1} max={60} />
+      </div>
+      
+      <button onClick={handleSave} disabled={saving}
+        style={{padding:'10px 24px', background:'var(--accent)', color:'white', border:'none', borderRadius:10, cursor:'pointer', fontFamily:'inherit', fontWeight:600, fontSize:14, marginTop:18, opacity: saving ? 0.5 : 1}}>
+        {saving ? '保存中...' : '✓ 保存配置'}
+      </button>
+    </div>
+  );
+};
+
+
 const ChargebackOwnersSettings = ({ employees, user, toast }) => {
   // 按网站映射 + 周六值班 + 周日值班
   const [siteOwners, setSiteOwners] = useState({});  // site -> uid
@@ -6559,6 +6775,7 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
           <button className={`tab-btn ${section==='cloud'?'active':''}`} onClick={() => setSection('cloud')}>☁ 云同步设置</button>
           <button className={`tab-btn ${section==='gemini'?'active':''}`} onClick={() => setSection('gemini')}>✨ Gemini AI</button>
           <button className={`tab-btn ${section==='chargeback_owners'?'active':''}`} onClick={() => setSection('chargeback_owners')}>🚨 拒付专人</button>
+          <button className={`tab-btn ${section==='alert_thresholds'?'active':''}`} onClick={() => setSection('alert_thresholds')}>⏰ 预警阈值</button>
           <button className={`tab-btn ${section==='employees'?'active':''}`} onClick={() => setSection('employees')}>👥 员工管理 ({employees.length})</button>
           <button className={`tab-btn ${section==='suppliers'?'active':''}`} onClick={() => setSection('suppliers')}>🏭 供应商管理</button>
         </div>
@@ -6570,6 +6787,10 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
       
       {section === 'chargeback_owners' && (
         <ChargebackOwnersSettings employees={employees} user={user} toast={toast} />
+      )}
+      
+      {section === 'alert_thresholds' && (
+        <AlertThresholdsSettings user={user} toast={toast} />
       )}
 
       {section === 'cloud' && (
@@ -9350,12 +9571,283 @@ const ChargebackReminderBanner = ({ user, employees, onJumpTo }) => {
 // ============================================================
 // 🚨 拒付管理模块
 // ============================================================
+// ============================================================
+// 🆕 TimeRangeFilter - 通用时间范围筛选组件
+// ============================================================
+const TimeRangeFilter = ({ value, onChange, customStart, customEnd, onCustomChange, extraButtons, label }) => {
+  return (
+    <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+      <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>
+        {label || '📅 时间范围:'}
+      </span>
+      {[
+        { key:'all',  label:'全部'      },
+        { key:'3d',   label:'最近 3 天' },
+        { key:'7d',   label:'最近 7 天' },
+        { key:'14d',  label:'最近 14 天' },
+        { key:'30d',  label:'最近 30 天' },
+        { key:'custom', label:'📆 自定义' },
+      ].map(t => (
+        <button key={t.key} onClick={() => onChange(t.key)}
+          style={{
+            padding:'4px 11px', borderRadius:14, fontSize:11, cursor:'pointer', fontFamily:'inherit',
+            border:'1px solid ' + (value === t.key ? 'var(--accent)' : 'var(--line)'),
+            background: value === t.key ? 'var(--accent)' : 'white',
+            color: value === t.key ? 'white' : 'var(--ink-2)',
+            fontWeight: value === t.key ? 600 : 400,
+            whiteSpace:'nowrap',
+          }}>
+          {t.label}
+        </button>
+      ))}
+      {value === 'custom' && onCustomChange && (
+        <div style={{display:'flex', gap:6, alignItems:'center'}}>
+          <input type="date" value={customStart || ''} onChange={e => onCustomChange({ start: e.target.value, end: customEnd })}
+            style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6, fontFamily:'inherit'}} />
+          <span style={{color:'var(--ink-4)', fontSize:11}}>→</span>
+          <input type="date" value={customEnd || ''} onChange={e => onCustomChange({ start: customStart, end: e.target.value })}
+            style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6, fontFamily:'inherit'}} />
+        </div>
+      )}
+      {extraButtons}
+    </div>
+  );
+};
+
+// 给定时间范围 key + custom 区间,过滤 list(列表中的记录必须有 date 字段或自定义 dateField)
+const filterByTimeRange = (list, timeFilter, customStart, customEnd, dateField) => {
+  if (!list || list.length === 0) return list;
+  if (timeFilter === 'all') return list;
+  const today = todayISO();
+  let cutoffStart = null, cutoffEnd = today;
+  if (timeFilter === '3d')   cutoffStart = addDays(today, -2);
+  else if (timeFilter === '7d')   cutoffStart = addDays(today, -6);
+  else if (timeFilter === '14d')  cutoffStart = addDays(today, -13);
+  else if (timeFilter === '30d')  cutoffStart = addDays(today, -29);
+  else if (timeFilter === 'custom') { cutoffStart = customStart; cutoffEnd = customEnd; }
+  if (!cutoffStart) return list;
+  const field = dateField || 'created_at';
+  return list.filter(r => {
+    const raw = r[field];
+    if (!raw) return false;
+    const d = (typeof raw === 'string' && raw.length > 10) ? raw.slice(0, 10) : raw;
+    return d >= cutoffStart && d <= cutoffEnd;
+  });
+};
+
+
+// ============================================================
+// 🆕 WorkSnapshotPanel - 今日工作快照(上班第一眼看到的醒目卡片)
+// 涉及: 客服跟进逾期 / 拒付紧急 / 线下单待发货 / 定制无进展 / 实拍无回复 / 退款待审
+// ============================================================
+const WorkSnapshotPanel = ({ user, employees, records, onJumpTo }) => {
+  const [data, setData] = useState({ chargebacks:[], offline:[], custom:[], photo:[], refunds:[], aftersales:[], refills:[] });
+  const [thresholds, setThresholds] = useState({
+    cs_followup: 7, chargeback: 3, offline_order: 5, custom_inquiry: 7, photo_verif: 5,
+    aftersale: 14, refill: 14, refund: 7,
+  });
+  const [loading, setLoading] = useState(true);
+  
+  const isAdminRole = user && (user.role === 'admin' || user.role === 'super_admin');
+  
+  const load = async () => {
+    setLoading(true);
+    try {
+      // 加载阈值配置
+      try {
+        const { data: th } = await CLOUD.client.from('system_settings').select('*').eq('key', 'alert_thresholds').single();
+        if (th?.value) setThresholds(prev => ({ ...prev, ...th.value }));
+      } catch {}
+      
+      const [cb, oo, ci, pv, rfd, af, rf] = await Promise.all([
+        CLOUD.list('chargebacks', { limit:300 }),
+        CLOUD.list('offline_orders', { limit:300 }),
+        CLOUD.list('custom_inquiries', { limit:300 }),
+        CLOUD.list('photo_verifications', { limit:300 }),
+        CLOUD.list('refunds', { limit:300 }),
+        CLOUD.list('aftersales', { limit:300 }),
+        CLOUD.list('refills', { limit:300 }),
+      ]);
+      setData({
+        chargebacks: (cb || []).filter(x => !x.deleted),
+        offline: (oo || []).filter(x => !x.deleted),
+        custom: (ci || []).filter(x => !x.deleted),
+        photo: (pv || []).filter(x => !x.deleted),
+        refunds: (rfd || []).filter(x => !x.deleted),
+        aftersales: (af || []).filter(x => !x.deleted),
+        refills: (rf || []).filter(x => !x.deleted),
+      });
+    } catch(e) { console.warn('快照加载失败', e); }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+  
+  // 计算"我"的或"全员"的未完成工作(按超期天数)
+  const stats = useMemo(() => {
+    const today = todayISO();
+    const isMine = (r, fields = ['created_by', 'ownerId', 'owner_id']) => {
+      if (isAdminRole) return true;  // 主管看全部
+      return fields.some(f => r[f] === user.id);
+    };
+    
+    // 客服跟进 - 超 N 天未解决
+    const csOverdue = (records || []).filter(r => 
+      !r.deleted && isRecordMeaningful(r) &&
+      r.status !== 'resolved' && r.status !== 'transferred' &&
+      r.date && r.date < addDays(today, -thresholds.cs_followup) &&
+      isMine(r)
+    );
+    // 今日到期跟进
+    const csDueToday = (records || []).filter(r =>
+      !r.deleted && isMine(r) &&
+      r.status !== 'resolved' && r.nextFollowUp === today
+    );
+    
+    // 拒付 - 7天内截止 或 已逾期
+    const cbUrgent = data.chargebacks.filter(c => 
+      isMine(c, ['created_by']) &&
+      !['won','lost','closed'].includes(c.status)
+    ).filter(c => {
+      const u = getChargebackUrgency(c);
+      return u && ['overdue','today','critical','urgent'].includes(u.level);
+    });
+    
+    // 线下单 - 待付款/已付款超 N 天未发货
+    const offlineStuck = data.offline.filter(o =>
+      isMine(o) &&
+      ['pending_payment','paid'].includes(o.status) &&
+      o.created_at && o.created_at.slice(0,10) < addDays(today, -thresholds.offline_order)
+    );
+    
+    // 定制咨询 - 询单/出图/报价 阶段超 N 天无进展
+    const customStuck = data.custom.filter(c =>
+      isMine(c) &&
+      ['inquiry','sketch','quoted'].includes(c.stage) &&
+      c.updated_at && c.updated_at.slice(0,10) < addDays(today, -thresholds.custom_inquiry)
+    );
+    
+    // 实拍核实 - 待联系/已发邮件 超 N 天无回复
+    const photoStuck = data.photo.filter(p =>
+      isMine(p) &&
+      ['pending_contact','emailed'].includes(p.status) &&
+      p.created_at && p.created_at.slice(0,10) < addDays(today, -thresholds.photo_verif)
+    );
+    
+    // 退款 - 待审超 N 天
+    const refundStuck = data.refunds.filter(r =>
+      isMine(r) &&
+      r.status === 'pending' &&
+      r.created_at && r.created_at.slice(0,10) < addDays(today, -thresholds.refund)
+    );
+    
+    // 售后 - 未完成超 N 天
+    const aftersaleStuck = data.aftersales.filter(a =>
+      isMine(a) &&
+      a.status !== 'completed' && a.status !== 'closed' &&
+      a.created_at && a.created_at.slice(0,10) < addDays(today, -thresholds.aftersale)
+    );
+    
+    // 补件 - 未完成超 N 天
+    const refillStuck = data.refills.filter(r =>
+      isMine(r) &&
+      r.status !== 'completed' &&
+      r.created_at && r.created_at.slice(0,10) < addDays(today, -thresholds.refill)
+    );
+    
+    return { csOverdue, csDueToday, cbUrgent, offlineStuck, customStuck, photoStuck, refundStuck, aftersaleStuck, refillStuck };
+  }, [data, records, thresholds, user, isAdminRole]);
+  
+  const totalAlerts = stats.csOverdue.length + stats.csDueToday.length + 
+    stats.cbUrgent.length + stats.offlineStuck.length + stats.customStuck.length + 
+    stats.photoStuck.length + stats.refundStuck.length + stats.aftersaleStuck.length + stats.refillStuck.length;
+  
+  if (loading) return null;
+  if (totalAlerts === 0) return null;  // 没有未完成 → 不显示
+  
+  const AlertCell = ({ icon, label, count, threshold, color, onClick, urgent }) => count === 0 ? null : (
+    <div onClick={onClick}
+      style={{
+        padding:'10px 12px', background:'white',
+        border:`2px solid ${color}`,
+        borderRadius:10, cursor:'pointer',
+        display:'flex', alignItems:'center', gap:10,
+        transition:'all .15s',
+        minWidth:0,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 4px 14px ${color}30`; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
+      <div style={{fontSize:28, lineHeight:1, flexShrink:0}}>{icon}</div>
+      <div style={{flex:1, minWidth:0}}>
+        <div style={{display:'flex', alignItems:'baseline', gap:6}}>
+          <span style={{fontSize:22, fontWeight:700, color, lineHeight:1}}>{count}</span>
+          <span style={{fontSize:11, color:'var(--ink-3)'}}>条</span>
+          {urgent && <span className="pulse-soft" style={{fontSize:9, padding:'1px 5px', background:'#dc2626', color:'white', borderRadius:6, fontWeight:700}}>急</span>}
+        </div>
+        <div style={{fontSize:11, color:'var(--ink-2)', fontWeight:500, marginTop:2}}>{label}</div>
+        {threshold && <div style={{fontSize:10, color:'var(--ink-4)', marginTop:1}}>超 {threshold} 天未处理</div>}
+      </div>
+    </div>
+  );
+  
+  return (
+    <div className="paper rounded-2xl fade-in" style={{padding:14, marginBottom:14, background:'linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%)', border:'2px solid #fbbf24'}}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, flexWrap:'wrap', gap:8}}>
+        <div>
+          <div className="font-display" style={{fontSize:16, fontWeight:700, color:'#78350f', display:'flex', alignItems:'center', gap:6}}>
+            🔥 今日工作快照 · 待解决 {totalAlerts} 条
+          </div>
+          <div style={{fontSize:11, color:'#92400e', marginTop:2}}>
+            {isAdminRole ? '👑 主管视角:全员未完成工作' : '👤 你的未完成工作'} · 点击任一卡片直接跳转
+          </div>
+        </div>
+        {isAdminRole && (
+          <button onClick={() => onJumpTo && onJumpTo('admin', { section: 'alert_thresholds' })}
+            style={{padding:'4px 10px', background:'white', color:'#78350f', border:'1px solid #fbbf24', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+            ⚙ 调整阈值
+          </button>
+        )}
+      </div>
+      
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:8}}>
+        <AlertCell icon="⏰" label="跟进逾期/今日到期" count={stats.csOverdue.length + stats.csDueToday.length} color="#dc2626"
+          threshold={`超 ${thresholds.cs_followup} 天 / 今日`} urgent
+          onClick={() => onJumpTo && onJumpTo('cs')} />
+        <AlertCell icon="🚨" label="拒付紧急" count={stats.cbUrgent.length} color="#dc2626" urgent
+          threshold="7 天内截止"
+          onClick={() => onJumpTo && onJumpTo('chargebacks')} />
+        <AlertCell icon="💳" label="线下单待发货" count={stats.offlineStuck.length} color="#0369a1"
+          threshold={thresholds.offline_order}
+          onClick={() => onJumpTo && onJumpTo('offline_orders')} />
+        <AlertCell icon="🎨" label="定制无进展" count={stats.customStuck.length} color="#7c3aed"
+          threshold={thresholds.custom_inquiry}
+          onClick={() => onJumpTo && onJumpTo('custom_photo')} />
+        <AlertCell icon="📸" label="实拍待回复" count={stats.photoStuck.length} color="#be185d"
+          threshold={thresholds.photo_verif}
+          onClick={() => onJumpTo && onJumpTo('custom_photo')} />
+        <AlertCell icon="💰" label="退款待审" count={stats.refundStuck.length} color="#d97706"
+          threshold={thresholds.refund}
+          onClick={() => onJumpTo && onJumpTo('events')} />
+        <AlertCell icon="🔧" label="售后挂起" count={stats.aftersaleStuck.length} color="#ea580c"
+          threshold={thresholds.aftersale}
+          onClick={() => onJumpTo && onJumpTo('events')} />
+        <AlertCell icon="📦" label="补件挂起" count={stats.refillStuck.length} color="#0891b2"
+          threshold={thresholds.refill}
+          onClick={() => onJumpTo && onJumpTo('events')} />
+      </div>
+    </div>
+  );
+};
+
+
 const ChargebacksModule = ({ user, employees, toast }) => {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [filterStatus, setFilterStatus] = useState('active');
   const [search, setSearch] = useState('');
+  // 🆕 时间筛选
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
   
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   
@@ -9394,8 +9886,12 @@ const ChargebacksModule = ({ user, employees, toast }) => {
         (c.notes || '').toLowerCase().includes(q)
       );
     }
+    
+    // 🆕 时间筛选
+    l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
+    
     return l;
-  }, [list, filterStatus, search, user.id]);
+  }, [list, filterStatus, search, user.id, timeFilter, timeCustom]);
   
   const stats = useMemo(() => {
     const active = list.filter(c => c.status !== 'won' && c.status !== 'lost' && c.status !== 'closed');
@@ -9451,6 +9947,13 @@ const ChargebacksModule = ({ user, employees, toast }) => {
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="🔍 搜索订单号 / 客户邮箱 / 备注..."
           style={{width:'100%', marginTop:10, padding:'6px 12px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+        
+        {/* 🆕 时间筛选 */}
+        <div style={{marginTop:10, paddingTop:10, borderTop:'1px dashed var(--line)'}}>
+          <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
+            customStart={timeCustom.start} customEnd={timeCustom.end}
+            onCustomChange={setTimeCustom} label="📅 创建时间:" />
+        </div>
       </div>
       
       {loading ? (
@@ -9907,6 +10410,9 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
   const [filterStatus, setFilterStatus] = useState('active');
   const [filterSite, setFilterSite] = useState('all');
   const [search, setSearch] = useState('');
+  // 🆕 时间筛选
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
 
   const load = async () => {
@@ -9941,8 +10447,10 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
         (o.customer_name || '').toLowerCase().includes(q) ||
         (o.ship_to_name || '').toLowerCase().includes(q));
     }
+    // 🆕 时间筛选
+    l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
     return l;
-  }, [list, filterStatus, filterSite, search, user.id]);
+  }, [list, filterStatus, filterSite, search, user.id, timeFilter, timeCustom]);
 
   const stats = useMemo(() => {
     const totalAmount = list.filter(o => ['paid','dispatched','completed'].includes(o.status))
@@ -9987,6 +10495,13 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 订单号 / 客户邮箱 / 姓名..."
           style={{width:'100%', marginTop:10, padding:'6px 12px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+        
+        {/* 🆕 时间筛选 */}
+        <div style={{marginTop:10, paddingTop:10, borderTop:'1px dashed var(--line)'}}>
+          <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
+            customStart={timeCustom.start} customEnd={timeCustom.end}
+            onCustomChange={setTimeCustom} label="📅 创建时间:" />
+        </div>
       </div>
       {loading ? <div className="paper rounded-2xl p-10" style={{textAlign:'center'}}>⏳ 加载中...</div>
        : filtered.length === 0 ? <div className="paper rounded-2xl p-12" style={{textAlign:'center', color:'var(--ink-3)'}}>📋 暂无线下单</div>
@@ -10457,6 +10972,9 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
   const [editing, setEditing] = useState(null);
   const [filterStage, setFilterStage] = useState('active');
   const [search, setSearch] = useState('');
+  // 🆕 时间筛选
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
   const load = async () => {
     setLoading(true);
     try {
@@ -10484,8 +11002,10 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
         (c.customer_email || '').toLowerCase().includes(q) ||
         (c.requirement || '').toLowerCase().includes(q));
     }
+    // 🆕 时间筛选
+    l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
     return l;
-  }, [list, filterStage, search, user.id]);
+  }, [list, filterStage, search, user.id, timeFilter, timeCustom]);
 
   return (
     <div className="space-y-3">
@@ -10508,6 +11028,12 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 客户 / 需求..."
           style={{width:'100%', marginTop:8, padding:'5px 10px', border:'1px solid var(--line)', borderRadius:5, fontSize:12}} />
+        {/* 🆕 时间筛选 */}
+        <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed var(--line)'}}>
+          <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
+            customStart={timeCustom.start} customEnd={timeCustom.end}
+            onCustomChange={setTimeCustom} label="📅 创建时间:" />
+        </div>
       </div>
       {loading ? <div className="paper rounded-2xl p-8" style={{textAlign:'center'}}>⏳</div>
        : filtered.length === 0 ? <div className="paper rounded-2xl p-10" style={{textAlign:'center', color:'var(--ink-3)'}}>暂无定制咨询</div>
@@ -10719,6 +11245,9 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
   const [editing, setEditing] = useState(null);
   const [filterStatus, setFilterStatus] = useState('active');
   const [search, setSearch] = useState('');
+  // 🆕 时间筛选
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
   const load = async () => {
     setLoading(true);
     try {
@@ -10746,8 +11275,10 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
         (p.supplier_name || '').toLowerCase().includes(q) ||
         (p.difference_detail || '').toLowerCase().includes(q));
     }
+    // 🆕 时间筛选
+    l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
     return l;
-  }, [list, filterStatus, search]);
+  }, [list, filterStatus, search, timeFilter, timeCustom]);
 
   return (
     <div className="space-y-3">
@@ -10769,6 +11300,12 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 SKU / 产品 / 供应商..."
           style={{width:'100%', marginTop:8, padding:'5px 10px', border:'1px solid var(--line)', borderRadius:5, fontSize:12}} />
+        {/* 🆕 时间筛选 */}
+        <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed var(--line)'}}>
+          <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
+            customStart={timeCustom.start} customEnd={timeCustom.end}
+            onCustomChange={setTimeCustom} label="📅 创建时间:" />
+        </div>
       </div>
       {loading ? <div className="paper rounded-2xl p-8" style={{textAlign:'center'}}>⏳</div>
        : filtered.length === 0 ? <div className="paper rounded-2xl p-10" style={{textAlign:'center', color:'var(--ink-3)'}}>暂无实拍核实</div>
@@ -14405,6 +14942,28 @@ const App = () => {
         );
         dueToday.forEach(o => notified.add('today_' + o.id));
       }
+      
+      // 🆕 主管/老板专属:超 7 天未解决的预警(每日只通知一次)
+      const isAdminRole = (user.role === 'admin' || user.role === 'super_admin');
+      if (isAdminRole) {
+        const cutoff7d = addDays(today, -7);
+        const stale = live.filter(r => 
+          r.status !== 'resolved' && 
+          r.status !== 'transferred' &&
+          r.date && r.date < cutoff7d &&
+          isRecordMeaningful(r)
+        );
+        const dailyKey = 'stale_warn_' + today;
+        if (stale.length > 0 && !notified.has(dailyKey)) {
+          const ownerCount = new Set(stale.map(r => r.ownerId)).size;
+          sendDesktopNotification(
+            `⚠️ 超 7 天未解决:${stale.length} 条`,
+            `涉及 ${ownerCount} 位员工 · 点击工作台查看`,
+            'stale_' + today
+          );
+          notified.add(dailyKey);
+        }
+      }
       saveNotified(notified);
     };
 
@@ -14524,7 +15083,17 @@ const App = () => {
           <ChargebackReminderBanner user={user} employees={employees} onJumpTo={() => setActiveTab('chargebacks')} />
         )}
         {activeTab === 'cs' && (
-          <CSModule user={user} employees={employees} records={records} setRecords={setRecords} toast={toast} cloudOn={cloudOn} />
+          <>
+            <WorkSnapshotPanel user={user} employees={employees} records={records} 
+              onJumpTo={(tab, params) => {
+                setActiveTab(tab);
+                if (params?.section) {
+                  // 让 AdminModule 接收 section 参数(需要后续支持)
+                  STORE.set('admin_section_hint', params.section);
+                }
+              }} />
+            <CSModule user={user} employees={employees} records={records} setRecords={setRecords} toast={toast} cloudOn={cloudOn} />
+          </>
         )}
         {activeTab === 'chargebacks' && (
           <ChargebacksModule user={user} employees={employees} toast={toast} />
@@ -14573,7 +15142,11 @@ const App = () => {
           <DashboardModule user={user} employees={employees} records={records} />
         )}
         {activeTab === 'admin_overview' && (user.role === 'admin' || user.role === 'super_admin') && (
-          <AdminOverviewDashboard user={user} employees={employees} toast={toast} />
+          <>
+            <WorkSnapshotPanel user={user} employees={employees} records={records}
+              onJumpTo={(tab) => setActiveTab(tab)} />
+            <AdminOverviewDashboard user={user} employees={employees} toast={toast} />
+          </>
         )}
         {activeTab === 'delete_approvals' && (user.role === 'admin' || user.role === 'super_admin') && (
           <DeleteApprovalCenter user={user} toast={toast} />
