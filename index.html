@@ -1330,46 +1330,70 @@ const TopNav = ({ user, activeTab, setActiveTab, onLogout, stats, notifPerm, req
             const isAdminViewer = user.role === 'admin' || user.role === 'super_admin';
             return (
             <div onClick={() => setSwitchModalOpen(false)}
-              style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+              style={{
+                position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:9999,
+                display:'flex', alignItems:'flex-start', justifyContent:'center',
+                padding:'4vh 16px',
+                overflowY:'auto', overflowX:'hidden',
+              }}>
               <div onClick={e => e.stopPropagation()}
-                style={{background:'white', borderRadius:'var(--radius-lg)', maxWidth:500, width:'100%', padding:20}}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="font-display" style={{fontSize:16, fontWeight:600}}>
-                    {isAdminViewer ? '👁 切换账号 / 查看员工视角' : '🔄 切换账号'}
+                style={{
+                  background:'white', borderRadius:'var(--radius-lg)',
+                  maxWidth:520, width:'100%',
+                  maxHeight:'92vh',
+                  display:'flex', flexDirection:'column',
+                  overflow:'hidden',  // 让子元素自己处理滚动
+                  boxShadow:'0 25px 70px rgba(0,0,0,.3)',
+                }}>
+                {/* Header - sticky 顶部 */}
+                <div style={{padding:'18px 22px', borderBottom:'1px solid var(--line)', flexShrink:0}}>
+                  <div style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+                    <div className="font-display" style={{fontSize:16, fontWeight:600}}>
+                      {isAdminViewer ? '👁 切换账号 / 查看员工视角' : '🔄 切换账号'}
+                    </div>
+                    <button className="btn-sec" onClick={() => setSwitchModalOpen(false)} style={{padding:'4px 12px'}}>×</button>
                   </div>
-                  <button className="btn-sec" onClick={() => setSwitchModalOpen(false)} style={{padding:'4px 12px'}}>×</button>
+                  {isAdminViewer && (
+                    <div style={{padding:'8px 12px', background:'#fef3c7', border:'1px solid #fbbf24', borderRadius:6, fontSize:11, color:'#854d0e', marginTop:10, lineHeight:1.5}}>
+                      💡 <strong>主管/老板权限</strong>:选择员工 → 无需密码直接以查看模式进入<br/>
+                      所有操作的"创建人"仍是该员工 · 顶部会有黄色横幅 · 可一键切回
+                    </div>
+                  )}
+                  <div style={{fontSize:11, color:'var(--ink-3)', marginTop:8}}>当前：<strong>{user.name}{user.alias && ' ' + user.alias}</strong> · 选择要切换到的账号：</div>
                 </div>
-                {isAdminViewer && (
-                  <div style={{padding:'8px 12px', background:'#fef3c7', border:'1px solid #fbbf24', borderRadius:6, fontSize:11, color:'#854d0e', marginBottom:10, lineHeight:1.5}}>
-                    💡 <strong>主管/老板权限</strong>:选择员工 → 无需密码直接以查看模式进入<br/>
-                    所有操作的"创建人"仍是该员工 · 顶部会有黄色横幅 · 可一键切回
+                
+                {/* Body - 可滚动区 */}
+                <div style={{padding:'14px 22px', overflowY:'auto', overflowX:'hidden', flex:1, minHeight:0}}>
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:8}}>
+                    {employees.filter(e => e.id !== user.id && !e.hideFromList).map(emp => (
+                      <button key={emp.id}
+                        onClick={() => { switchAccount && switchAccount(emp); setSwitchModalOpen(false); }}
+                        style={{
+                          padding:'10px 12px', borderRadius:'var(--radius)',
+                          border:'1px solid var(--line)', background:'white', cursor:'pointer',
+                          textAlign:'left', fontFamily:'inherit', display:'flex', flexDirection:'column', gap:2,
+                          transition:'all .12s',
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = 'var(--line)'; }}
+                      >
+                        <div style={{fontWeight:600, fontSize:13}}>
+                          {emp.name}{emp.alias ? ' ' + emp.alias : ''}
+                          {emp.role === 'super_admin' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>👑</span>}
+                          {emp.role === 'admin' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>⭐</span>}
+                          {emp.role === 'finance' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>💰</span>}
+                        </div>
+                        <div style={{fontSize:10, color:'var(--ink-3)'}}>{emp.sites || emp.title || '—'}</div>
+                      </button>
+                    ))}
                   </div>
-                )}
-                <div style={{fontSize:11, color:'var(--ink-3)', marginBottom:10}}>当前：<strong>{user.name}{user.alias && ' ' + user.alias}</strong> · 选择要切换到的账号：</div>
-                <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:8, maxHeight:380, overflowY:'auto', overflowX:'hidden'}}>
-                  {employees.filter(e => e.id !== user.id && !e.hideFromList).map(emp => (
-                    <button key={emp.id}
-                      onClick={() => { switchAccount && switchAccount(emp); setSwitchModalOpen(false); }}
-                      style={{
-                        padding:'10px 12px', borderRadius:'var(--radius)',
-                        border:'1px solid var(--line)', background:'white', cursor:'pointer',
-                        textAlign:'left', fontFamily:'inherit', display:'flex', flexDirection:'column', gap:2,
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-elevated)'; e.currentTarget.style.borderColor = 'var(--accent)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = 'var(--line)'; }}
-                    >
-                      <div style={{fontWeight:600, fontSize:13}}>
-                        {emp.name}{emp.alias ? ' ' + emp.alias : ''}
-                        {emp.role === 'super_admin' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>👑</span>}
-                        {emp.role === 'admin' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>⭐</span>}
-                        {emp.role === 'finance' && <span style={{color:'var(--accent)', marginLeft:4, fontSize:10}}>💰</span>}
-                      </div>
-                      <div style={{fontSize:10, color:'var(--ink-3)'}}>{emp.sites || emp.title || '—'}</div>
-                    </button>
-                  ))}
                 </div>
-                <div style={{fontSize:10, color:'var(--ink-4)', marginTop:10, lineHeight:1.5}}>
-                  {isAdminViewer ? '👁 主管/老板模式:无需密码,以查看模式进入' : '💡 切换账号后会要求重新输入密码确认'}
+                
+                {/* Footer */}
+                <div style={{padding:'10px 22px', borderTop:'1px solid var(--line)', flexShrink:0, background:'#fafafa'}}>
+                  <div style={{fontSize:10, color:'var(--ink-4)', lineHeight:1.5}}>
+                    {isAdminViewer ? '👁 主管/老板模式:无需密码,以查看模式进入' : '💡 切换账号后会要求重新输入密码确认'}
+                  </div>
                 </div>
               </div>
             </div>
