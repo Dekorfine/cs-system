@@ -1209,8 +1209,8 @@ fieldset legend {
             <span>装箱单显示长×宽×高 · Show Dimensions in Packing List</span>
           </label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-            <input type="checkbox" id="opt_show_deposit_in_quote" checked />
-            <span>报价单显示定金信息 · Show Deposit in Quote/PI</span>
+            <input type="checkbox" id="opt_show_deposit_in_quote" />
+            <span>报价单显示定金信息 · Show Deposit in Quote/PI <span style="color:var(--ink-4);font-size:11px;">(仅在客户支付定金时勾)</span></span>
           </label>
           <!-- 🆕 fix24-3: 客户需求备注(内部对接) -->
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
@@ -2245,7 +2245,7 @@ function syncAndCalculate() {
   // ── 💰 定金 / 余款（Deposit / Balance）计算 ──
   const depositAmountUSDRaw = parseFloat($('deposit_amount')?.value) || 0;
   const depositPctRaw       = parseFloat($('deposit_percentage')?.value) || 0;
-  const showDeposit         = $('opt_show_deposit_in_quote')?.checked !== false;  // 默认 true
+  const showDeposit         = !!$('opt_show_deposit_in_quote')?.checked;  // 🆕 fix38: 默认 false,只有勾选才显示
   
   // 🆕 fix24-3: 客户需求备注显隐 + 内容渲染
   const showCustomerNote = $('opt_show_customer_note')?.checked;
@@ -2552,7 +2552,7 @@ function collectFormData() {
     deposit_amount:     $('deposit_amount')?.value || '',
     deposit_percentage: $('deposit_percentage')?.value || '',
     opt_show_dimensions: !!$('opt_show_dimensions')?.checked,
-    opt_show_deposit_in_quote: $('opt_show_deposit_in_quote') ? $('opt_show_deposit_in_quote').checked : true,
+    opt_show_deposit_in_quote: !!$('opt_show_deposit_in_quote')?.checked,  // 🆕 fix38: 默认 false
     opt_show_customer_note: !!$('opt_show_customer_note')?.checked,  // 🆕 fix24-3
     customer_note: $('customer_note')?.value || '',                   // 🆕 fix24-3
     terms_preset:       $('terms_preset').value,
