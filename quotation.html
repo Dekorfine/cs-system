@@ -588,10 +588,22 @@ fieldset legend {
   border: 1px solid #e2e8f0; padding: 7px;
   text-align: left; font-size: 11px;
   vertical-align: top; word-wrap: break-word; overflow-wrap: break-word;
+  /* 🆕 fix24-2: 防止内容溢出到相邻单元格 */
+  overflow: hidden;
+  position: relative;
 }
 .doc-table th {
   background: #f8fafc; font-weight: 700; font-size: 10.5px;
   color: #475569; transition: background-color 0.3s;
+}
+/* 🆕 fix24-2: 强制约束产品图,避免大图溢出到其他列,文字盖在图上 */
+.doc-table img,
+.quote-item-image {
+  max-width: 56px !important;
+  max-height: 56px !important;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
 }
 .quote-item-image { max-width: 55px; max-height: 55px; object-fit: contain; }
 .total-section { margin-top: 14px; text-align: right; }
@@ -763,6 +775,8 @@ fieldset legend {
   .total-section p { font-size: 10.5px !important; margin: 1.5px 0 !important; }
   .signature-block { margin-top: 18px !important; padding-top: 10px !important; }
   .quote-item-image { max-width: 38px !important; max-height: 38px !important; }
+  /* 🆕 fix24-2: 打印时同样严格约束 (any img inside table) */
+  .doc-table img { max-width: 40px !important; max-height: 40px !important; }
   .manual-input { border-color: transparent !important; background: transparent !important; }
 }
 
@@ -1161,6 +1175,19 @@ fieldset legend {
             <input type="checkbox" id="opt_show_deposit_in_quote" checked />
             <span>报价单显示定金信息 · Show Deposit in Quote/PI</span>
           </label>
+          <!-- 🆕 fix24-3: 客户需求备注(内部对接) -->
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="opt_show_customer_note" />
+            <span style="color:#dc2626;font-weight:600;">🔴 显示客户需求备注 · Show Customer Note</span>
+          </label>
+        </div>
+        <!-- 🆕 fix24-3: 备注输入框 — 勾选上面 checkbox 才显示 -->
+        <div id="customer_note_wrap" style="display:none;margin-top:10px;padding:10px;background:#fff1f2;border:1px dashed #fca5a5;border-radius:6px;">
+          <label style="display:block;font-size:11px;font-weight:600;color:#b91c1c;margin-bottom:4px;">
+            💬 客户需求备注 / Customer Requirement Note <span style="font-weight:400;color:#86868b;">(内部对接用 · 红色加粗显示在报价单顶部)</span>
+          </label>
+          <textarea id="customer_note" rows="2" placeholder="如:客户要求黄铜色调暗一点 / 急单 6 月 10 日前发货 / 加固包装易碎件..."
+            style="width:100%;padding:7px 10px;border:1px solid #fca5a5;border-radius:5px;font-size:13px;font-family:inherit;color:#dc2626;font-weight:600;resize:vertical;"></textarea>
         </div>
       </fieldset>
     </div>
@@ -1238,6 +1265,11 @@ fieldset legend {
             <p><strong data-doc-key="date">Date:</strong> <span id="quote_date"></span></p>
             <p><strong data-doc-key="valid_until">Valid Until:</strong> <span id="quote_valid_until"></span></p>
           </div>
+        </div>
+        <!-- 🆕 fix24-3: 客户需求备注横幅 (红色加粗,内部对接用) -->
+        <div id="quote-customer-note-banner" style="display:none;margin:10px 0;padding:10px 14px;background:#fff1f2;border-left:4px solid #dc2626;border-radius:4px;">
+          <div style="font-size:10.5px;color:#991b1b;font-weight:700;margin-bottom:4px;">⚠ 客户需求备注 / Customer Requirement (Internal):</div>
+          <div id="quote-customer-note-text" style="font-size:12.5px;color:#dc2626;font-weight:700;white-space:pre-wrap;line-height:1.55;"></div>
         </div>
         <table class="doc-table">
           <thead><tr>
@@ -2069,7 +2101,7 @@ function syncAndCalculate() {
 
     poRows.push(`<tr><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
     piRows.push(`<tr><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
-    quoteRows.push(`<tr><td>${imageSrc ? `<img src="${imageSrc}" class="quote-item-image">` : ''}</td><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
+    quoteRows.push(`<tr><td>${imageSrc ? `<img src="${imageSrc}" class="quote-item-image" style="max-width:55px;max-height:55px;object-fit:contain;display:block;margin:0 auto;">` : ''}</td><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
     plRows.push(`<tr><td>${safeCarton}</td><td>${safeDesc}<br><strong>SKU: ${safeSku}</strong></td><td>${qty}</td><td class="pl-dim-col">${dimsStr}</td><td>${nw.toFixed(2)}</td><td>${gw.toFixed(2)}</td><td>${cbm.toFixed(3)}</td></tr>`);
   });
 
@@ -2117,6 +2149,22 @@ function syncAndCalculate() {
   const depositAmountUSDRaw = parseFloat($('deposit_amount')?.value) || 0;
   const depositPctRaw       = parseFloat($('deposit_percentage')?.value) || 0;
   const showDeposit         = $('opt_show_deposit_in_quote')?.checked !== false;  // 默认 true
+  
+  // 🆕 fix24-3: 客户需求备注显隐 + 内容渲染
+  const showCustomerNote = $('opt_show_customer_note')?.checked;
+  const customerNoteText = ($('customer_note')?.value || '').trim();
+  const noteWrap = $('customer_note_wrap');
+  if (noteWrap) noteWrap.style.display = showCustomerNote ? '' : 'none';
+  const noteBanner = $('quote-customer-note-banner');
+  const noteTextEl = $('quote-customer-note-text');
+  if (noteBanner && noteTextEl) {
+    if (showCustomerNote && customerNoteText) {
+      noteBanner.style.display = '';
+      noteTextEl.textContent = customerNoteText;
+    } else {
+      noteBanner.style.display = 'none';
+    }
+  }
   // 金额优先于百分比
   let depositUSD = 0, depositPctEff = 0;
   if (depositAmountUSDRaw > 0) {
@@ -2228,16 +2276,76 @@ function handlePaste(event) {
   }
   if (file) {
     event.preventDefault();
-    const reader = new FileReader();
-    reader.onload = e => {
-      area.innerHTML = `<img src="${e.target.result}">`;
-      tr.dataset.imageSrc = e.target.result;
+    // 🆕 fix24: 自动压缩到 800px JPEG 0.78,避免 Supabase 8MB 请求体上限
+    compressImageFile(file, 800, 0.78).then(dataUrl => {
+      area.innerHTML = `<img src="${dataUrl}">`;
+      tr.dataset.imageSrc = dataUrl;
       removeBtn.classList.remove('hidden');
       scheduleSync();
-    };
-    reader.readAsDataURL(file);
+    }).catch(err => {
+      console.error('图片压缩失败:', err);
+      alert('图片读取失败: ' + err.message);
+    });
   }
 }
+
+// 🆕 fix24: 图片压缩工具 — 用 Canvas 重绘为 JPEG,避免 base64 爆炸
+async function compressImageFile(file, maxDim = 800, quality = 0.78) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('读取文件失败'));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('图片解码失败'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';  // 白底,避免 JPEG 透明变黑
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// 🆕 fix24: 重新压缩已存在的大图(救存量数据 — 用户加载老报价单后可点"压缩所有图")
+async function recompressAllImages(maxDim = 800, quality = 0.78) {
+  const rows = document.querySelectorAll('#master-items tr');
+  let total = 0, processed = 0, savedBytes = 0;
+  for (const tr of rows) {
+    const src = tr.dataset.imageSrc;
+    if (!src || !src.startsWith('data:image')) continue;
+    total++;
+    if (src.length < 200000) continue;  // 已经够小(<200KB base64),不动
+    try {
+      // 把现有 data URL 转 blob → 重新压缩
+      const res = await fetch(src);
+      const blob = await res.blob();
+      const newDataUrl = await compressImageFile(blob, maxDim, quality);
+      const oldLen = src.length;
+      const newLen = newDataUrl.length;
+      if (newLen < oldLen) {
+        const area = tr.querySelector('.paste-area');
+        if (area) area.innerHTML = `<img src="${newDataUrl}">`;
+        tr.dataset.imageSrc = newDataUrl;
+        savedBytes += (oldLen - newLen);
+        processed++;
+      }
+    } catch (e) { console.warn('重压缩失败:', e); }
+  }
+  scheduleSync();
+  return { total, processed, savedKB: Math.round(savedBytes / 1024) };
+}
+window.recompressAllImages = recompressAllImages;  // 暴露给手动调用
 function updateTerms() {
   termsManuallyEdited = false;
   const preset = $('terms_preset').value;
@@ -2307,6 +2415,8 @@ function collectFormData() {
     deposit_percentage: $('deposit_percentage')?.value || '',
     opt_show_dimensions: !!$('opt_show_dimensions')?.checked,
     opt_show_deposit_in_quote: $('opt_show_deposit_in_quote') ? $('opt_show_deposit_in_quote').checked : true,
+    opt_show_customer_note: !!$('opt_show_customer_note')?.checked,  // 🆕 fix24-3
+    customer_note: $('customer_note')?.value || '',                   // 🆕 fix24-3
     terms_preset:       $('terms_preset').value,
     terms_conditions:   $('terms_conditions').value,
     pl_remarks:         ($('pl_remarks') || {}).value || '',
@@ -2326,7 +2436,7 @@ function restoreDataToForm(d) {
 
   const skip = new Set(['items','bankFields','pl_remarks','_status','_total_usd','_created_at','_updated_at','_sku_list']);
   // checkbox 字段：用 .checked 而不是 .value
-  const checkboxFields = new Set(['opt_show_dimensions','opt_show_deposit_in_quote']);
+  const checkboxFields = new Set(['opt_show_dimensions','opt_show_deposit_in_quote','opt_show_customer_note']);
   for (const k in d) {
     if (skip.has(k)) continue;
     if (k.startsWith('_')) continue;
@@ -2716,6 +2826,22 @@ function renderUserBar() {
    - 替代原 GitHub Contents API
    - 表 quotation_records: id / username / pi_no / buyer_name / status / amount / trashed / data(JSONB) / created_at / updated_at
    ============================================================ */
+// 🆕 fix24-3: 提取 Supabase 完整错误信息 (message/details/hint/code)
+function extractSbError(e) {
+  if (!e) return '未知错误';
+  const parts = [];
+  if (e.message) parts.push(e.message);
+  if (e.details) parts.push(`详情: ${e.details}`);
+  if (e.hint)    parts.push(`提示: ${e.hint}`);
+  if (e.code)    parts.push(`code=${e.code}`);
+  // Supabase 400 错误体可能在 e.error 或 e.body
+  if (e.status === 400 && parts.length === 0) parts.push('Bad Request (400) — 检查字段/RLS/payload 大小');
+  if (parts.length === 0) {
+    try { return JSON.stringify(e).slice(0, 300); } catch { return String(e).slice(0, 300); }
+  }
+  return parts.join(' · ');
+}
+
 async function sbList(opts = {}) {
   if (!sb) { setCloudStatus('Supabase SDK not loaded', 'err'); return []; }
   try {
@@ -2725,7 +2851,7 @@ async function sbList(opts = {}) {
     const { data, error } = await q;
     if (error) throw error;
     return data || [];
-  } catch(e) { setCloudStatus('Load error: ' + e.message, 'err'); return []; }
+  } catch(e) { console.error('[sbList]', e); setCloudStatus('Load error: ' + extractSbError(e), 'err'); return []; }
 }
 async function sbUpsert(row) {
   if (!sb) return null;
@@ -2733,7 +2859,7 @@ async function sbUpsert(row) {
     const { data, error } = await sb.from(SB_TABLE).upsert(row).select().single();
     if (error) throw error;
     return data;
-  } catch(e) { setCloudStatus('Save error: ' + e.message, 'err'); return null; }
+  } catch(e) { console.error('[sbUpsert] FULL ERROR:', e, '\nROW (without data):', { ...row, data: '<JSONB ' + JSON.stringify(row.data || {}).length + ' bytes>' }); setCloudStatus('Save error: ' + extractSbError(e), 'err'); return null; }
 }
 async function sbUpdate(id, patch) {
   if (!sb) return null;
@@ -2741,7 +2867,7 @@ async function sbUpdate(id, patch) {
     const { data, error } = await sb.from(SB_TABLE).update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id).select().single();
     if (error) throw error;
     return data;
-  } catch(e) { setCloudStatus('Update error: ' + e.message, 'err'); return null; }
+  } catch(e) { console.error('[sbUpdate]', e); setCloudStatus('Update error: ' + extractSbError(e), 'err'); return null; }
 }
 async function sbDelete(id) {
   if (!sb) return false;
@@ -2749,7 +2875,7 @@ async function sbDelete(id) {
     const { error } = await sb.from(SB_TABLE).delete().eq('id', id);
     if (error) throw error;
     return true;
-  } catch(e) { setCloudStatus('Delete error: ' + e.message, 'err'); return false; }
+  } catch(e) { console.error('[sbDelete]', e); setCloudStatus('Delete error: ' + extractSbError(e), 'err'); return false; }
 }
 
 // 兼容函数：旧代码调用 ghAPI，我们 stub 掉避免崩
@@ -3103,6 +3229,24 @@ async function cloudSave() {
     updated_at: new Date().toISOString(),
   };
   if (!isUpdate) row.created_at = new Date().toISOString();
+  
+  // 🆕 fix24: 保存前检查请求体大小 — 超过 5MB 自动重压缩所有图片
+  let payloadKB = Math.round(JSON.stringify(row).length / 1024);
+  console.log(`[cloudSave] 请求体大小: ${payloadKB} KB`);
+  if (payloadKB > 5120) {
+    setCloudStatus(`⚠ 请求体 ${(payloadKB/1024).toFixed(1)} MB 偏大,正在压缩图片...`, '');
+    const result = await recompressAllImages(800, 0.75);
+    console.log(`[cloudSave] 重压缩 ${result.processed}/${result.total} 张图,节省 ${result.savedKB} KB`);
+    // 重新收集数据(图片已更新)
+    const newData = collectFormData();
+    row.data = newData;
+    payloadKB = Math.round(JSON.stringify(row).length / 1024);
+    console.log(`[cloudSave] 压缩后大小: ${payloadKB} KB`);
+    if (payloadKB > 7680) {
+      setCloudStatus(`❌ 即使压缩后仍 ${(payloadKB/1024).toFixed(1)} MB,超过 Supabase 8MB 上限 · 请移除部分图片重试`, 'err');
+      return;
+    }
+  }
 
   const saved = await sbUpsert(row);
   if (saved) {
@@ -3287,8 +3431,16 @@ async function quickSave() {
   await cloudSave();
   const cs = $('cloud-status').textContent;
   if (cs.startsWith('✓')) { pill.textContent = 'Saved'; pill.className = 'status-pill ok'; }
-  else { pill.textContent = 'Failed'; pill.className = 'status-pill err'; }
-  setTimeout(() => { pill.textContent = getUsername() ? 'Cloud Ready' : 'Not set up'; pill.className = 'status-pill' + (getUsername()?' ok':''); }, 2400);
+  else {
+    pill.textContent = 'Failed'; pill.className = 'status-pill err';
+    // 🆕 fix24: pill title 显示完整错误,方便鼠标 hover 查看
+    pill.title = cs || '未知错误,请按 F12 看 Console';
+    // 🆕 fix24: 严重错误(payload too large / 413)弹窗提醒
+    if (cs.includes('payload') || cs.includes('413') || cs.includes('too large') || cs.includes('8MB')) {
+      setTimeout(() => alert('❌ 保存失败:请求体过大\n\n' + cs + '\n\n建议:\n1. 控制台执行 recompressAllImages() 压缩所有图\n2. 或移除部分高清产品图\n3. 或缩小图片再粘贴'), 100);
+    }
+  }
+  setTimeout(() => { pill.textContent = getUsername() ? 'Cloud Ready' : 'Not set up'; pill.className = 'status-pill' + (getUsername()?' ok':''); pill.title = ''; }, 4000);
 }
 
 /* ============================================================
@@ -3306,7 +3458,7 @@ function attachListeners() {
   });
   
   // 显示选项 checkbox
-  ['opt_show_dimensions','opt_show_deposit_in_quote'].forEach(id => {
+  ['opt_show_dimensions','opt_show_deposit_in_quote','opt_show_customer_note'].forEach(id => {
     const el = $(id);
     if (el) el.addEventListener('change', () => { scheduleSync(); updatePreview(); });
   });
@@ -3325,6 +3477,10 @@ function attachListeners() {
   $('language_select').addEventListener('change', e => setLanguage(e.target.value));
   $('terms_preset').addEventListener('change', updateTerms);
   $('terms_conditions').addEventListener('input', () => { termsManuallyEdited = true; scheduleSync(); });
+  
+  // 🆕 fix24-3: 客户需求备注 textarea 监听
+  const noteEl = $('customer_note');
+  if (noteEl) noteEl.addEventListener('input', scheduleSync);
 
   // PI bank fields + packing remarks
   document.querySelectorAll('#pi-section .manual-input').forEach(inp => inp.addEventListener('input', () => { scheduleSync(); }));
