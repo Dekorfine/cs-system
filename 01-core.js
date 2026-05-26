@@ -1,10 +1,10 @@
 // ════════════════════════════════════════════════════════════════════
-// 🛠 核心 — 工具函数 / 常量 / 共用 UI / 全局 helpers
-// 拆自 workspace.html (fix21 模块化结构)
-// 原始行号: 450 - 2066
+// 🛠 核心 — 工具/常量/Hooks/Contexts(SitesContext + ProductsContext)
+// 拆自 workspace.html (fix22 模块化结构)
+// 原始行号: 450 - 2078
 // ════════════════════════════════════════════════════════════════════
 
-const { useState, useMemo, useEffect, useRef, useCallback } = React;
+const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
 
 // ============================================================
 // 工具
@@ -419,6 +419,16 @@ const CATEGORIES = [
   '库存','工厂进度','质量问题','图片提供','样品','促销活动'
 ];
 const SITES = ['MJ','DC','VK','DF','LS','RS','J','PL','MO','RD','海服'];
+
+// 🆕 fix22 联动 3: 网站 Context — 让自定义网站出现在所有下拉里
+// 内置 SITES 永远在前,自定义网站按代码追加
+const SitesContext = createContext({ siteCodes: SITES, customSites: [], refresh: () => {} });
+const useSiteCodes = () => useContext(SitesContext).siteCodes;
+const useCustomSites = () => useContext(SitesContext).customSites;
+
+// 🆕 fix22 联动 1: 产品 Context — 让产品主表全局可访问,用于 SKU 联想
+const ProductsContext = createContext({ products: [], refresh: () => {} });
+const useProducts = () => useContext(ProductsContext).products;
 const STATUSES = [
   { key:'pending',     label:'待处理', cls:'status-pending' },
   { key:'following',   label:'跟进中', cls:'status-following' },
@@ -1621,3 +1631,5 @@ const EventActionDropdown = ({ record, onAftersale, onRefill, onRefund, onCharge
     </>
   );
 };
+
+

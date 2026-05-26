@@ -1,8 +1,9 @@
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付 + 💳 线下单
-// 拆自 workspace.html (fix21 模块化结构)
-// 原始行号: 11716 - 13501
+// 🚨 拒付 + 💳 线下单 (含 fix22 ProductAutocomplete)
+// 拆自 workspace.html (fix22 模块化结构)
+// 原始行号: 11745 - 13655
 // ════════════════════════════════════════════════════════════════════
+
 
 const ChargebacksModule = ({ user, employees, toast }) => {
   const [list, setList] = useState([]);
@@ -621,6 +622,7 @@ const ChargebackEditor = ({ cb, user, employees, onClose, onSaved, toast }) => {
 // 💳 线下单模块
 // ============================================================
 const OfflineOrdersModule = ({ user, employees, toast }) => {
+  const allSites = useSiteCodes();  // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -711,7 +713,7 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
           <select value={filterSite} onChange={e => setFilterSite(e.target.value)}
             style={{padding:'4px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:11, background:'white', fontFamily:'inherit'}}>
             <option value="all">全部网站</option>
-            {SITES.map(s => <option key={s} value={s}>{s}</option>)}
+            {allSites.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 订单号 / 客户邮箱 / 姓名..."
@@ -1153,7 +1155,106 @@ const ProductImageSlot = ({ value, onChange, productName }) => {
   );
 };
 
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix22 联动 1: ProductAutocomplete — SKU/产品名联想下拉
+// 输入时实时匹配 products 主表的 SKU/名称,点击 → 自动填充产品名/图/供应商/价格
+// ════════════════════════════════════════════════════════════════════
+const ProductAutocomplete = ({ value, onChange, onSelect, products, placeholder, mode = 'sku', style }) => {
+  // mode: 'sku' = 按 SKU 主要匹配 / 'name' = 按产品名主要匹配
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+  const containerRef = useRef(null);
+  
+  // 计算匹配项 (按输入实时过滤)
+  const matches = useMemo(() => {
+    const q = (value || '').trim().toLowerCase();
+    if (!q || !products || products.length === 0) return [];
+    return products.filter(p => {
+      if (mode === 'sku') {
+        return (p.sku || '').toLowerCase().includes(q) || (p.name || '').toLowerCase().includes(q);
+      }
+      return (p.name || '').toLowerCase().includes(q) || (p.sku || '').toLowerCase().includes(q);
+    }).slice(0, 8);
+  }, [value, products, mode]);
+  
+  // 点击外部关闭
+  useEffect(() => {
+    const onClick = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
+  
+  const handleSelect = (p) => {
+    onSelect(p);
+    setOpen(false);
+  };
+  
+  const handleKey = (e) => {
+    if (!open || matches.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted(h => Math.min(h + 1, matches.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)); }
+    else if (e.key === 'Enter') { e.preventDefault(); handleSelect(matches[highlighted]); }
+    else if (e.key === 'Escape') setOpen(false);
+  };
+  
+  return (
+    <div ref={containerRef} style={{position:'relative', flex:1, minWidth:0, ...style}}>
+      <input
+        value={value || ''}
+        onChange={e => { onChange(e.target.value); setOpen(true); setHighlighted(0); }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={handleKey}
+        placeholder={placeholder || (mode === 'sku' ? 'SKU (输入联想)' : '产品名 (输入联想)')}
+        style={{padding:'5px 8px', border:'1px solid var(--line)', borderRadius:5, fontSize:12, fontFamily: mode === 'sku' ? 'monospace' : 'inherit', width:'100%', boxSizing:'border-box'}}
+      />
+      {open && matches.length > 0 && (
+        <div style={{
+          position:'absolute', top:'100%', left:0, right:0, marginTop:2,
+          background:'white', border:'1px solid var(--line)', borderRadius:6,
+          boxShadow:'0 8px 24px rgba(0,0,0,.12)', zIndex:9999,
+          maxHeight:280, overflowY:'auto',
+        }}>
+          {matches.map((p, idx) => (
+            <div key={p.id}
+              onMouseEnter={() => setHighlighted(idx)}
+              onClick={() => handleSelect(p)}
+              style={{
+                padding:'7px 10px', cursor:'pointer',
+                background: idx === highlighted ? '#eff6ff' : 'white',
+                borderBottom: idx < matches.length - 1 ? '1px solid #f3f4f6' : 'none',
+                display:'flex', gap:8, alignItems:'center',
+              }}>
+              {p.image ? (
+                <img src={p.image} alt="" style={{width:32, height:32, objectFit:'cover', borderRadius:4, flexShrink:0}} />
+              ) : (
+                <span style={{width:32, height:32, background:'#fafafa', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--ink-4)', fontSize:14, flexShrink:0}}>📷</span>
+              )}
+              <div style={{flex:1, minWidth:0}}>
+                <div style={{fontSize:11, fontWeight:600, color:'var(--ink)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                  {p.sku && <span style={{fontFamily:'monospace', color:'#0369a1', marginRight:6}}>{p.sku}</span>}
+                  {p.name}
+                </div>
+                <div style={{fontSize:9, color:'var(--ink-3)', marginTop:1, display:'flex', gap:8}}>
+                  {p.supplier_name && <span>🏭 {p.supplier_name}</span>}
+                  {p.default_unit_price && <span style={{fontFamily:'monospace'}}>{p.default_currency || 'USD'} {p.default_unit_price}</span>}
+                  {p.total_aftersales > 0 && <span style={{color: p.total_aftersales >= 5 ? '#dc2626' : '#d97706'}}>🔧 {p.total_aftersales}</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div style={{padding:'5px 10px', fontSize:9, color:'var(--ink-4)', borderTop:'1px solid #f3f4f6', background:'#fafafa'}}>
+            ↑↓ 选择 · Enter 确认 · Esc 关闭
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast }) => {
+  const allSites = useSiteCodes();  // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   const isEdit = !!order;
   const [orderNo, setOrderNo] = useState(order?.order_no || '');
   const [site, setSite] = useState(order?.site || '');
@@ -1194,6 +1295,7 @@ const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast })
   const [receivedAmount, setReceivedAmount] = useState(order?.received_amount || '');
   const [paidAt, setPaidAt] = useState(order?.paid_at || '');
   const [products, setProducts] = useState(order?.products || []);
+  const productsList = useProducts();  // 🆕 fix22 联动 1: 产品主表供 SKU 联想
   const [quoteNo, setQuoteNo] = useState(order?.quote_no || '');
   const [attachments, setAttachments] = useState(order?.attachments || []);
   const [notes, setNotes] = useState(order?.notes || '');
@@ -1360,7 +1462,7 @@ const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast })
                 <select value={site} onChange={e => handleSiteChange(e.target.value)} disabled={isEdit}
                   style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
                   <option value="">选择</option>
-                  {SITES.map(s => <option key={s} value={s}>{s}</option>)}
+                  {allSites.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
@@ -1514,12 +1616,36 @@ const OfflineOrderEditor = ({ order, user, employees, onClose, onSaved, toast })
               <button onClick={addProduct} className="btn-sec" style={{padding:'4px 12px', fontSize:11}}>+ 加产品</button>
             </div>
             {products.map((p, i) => (
-              <div key={i} style={{display:'grid', gridTemplateColumns:'52px 0.8fr 2fr 0.5fr 0.8fr 30px', gap:6, marginBottom:6, alignItems:'center'}}>
+              <div key={i} style={{display:'grid', gridTemplateColumns:'52px 0.9fr 2fr 0.5fr 0.8fr 30px', gap:6, marginBottom:6, alignItems:'center'}}>
                 <ProductImageSlot value={p.image} onChange={(img) => updateProduct(i, { image: img })} productName={p.name} />
-                <input value={p.sku || ''} onChange={e => updateProduct(i, { sku: e.target.value })} placeholder="SKU"
-                  style={{padding:'5px 8px', border:'1px solid var(--line)', borderRadius:5, fontSize:12, fontFamily:'monospace'}} />
-                <input value={p.name || ''} onChange={e => updateProduct(i, { name: e.target.value })} placeholder="产品名"
-                  style={{padding:'5px 8px', border:'1px solid var(--line)', borderRadius:5, fontSize:12}} />
+                <ProductAutocomplete
+                  value={p.sku || ''}
+                  onChange={v => updateProduct(i, { sku: v })}
+                  onSelect={prod => updateProduct(i, {
+                    sku: prod.sku || '',
+                    name: prod.name || p.name,
+                    image: prod.image || p.image,
+                    unit_price: !p.unit_price && prod.default_unit_price ? String(prod.default_unit_price) : p.unit_price,
+                    product_id: prod.id,
+                  })}
+                  products={productsList}
+                  mode="sku"
+                  placeholder="SKU (联想)"
+                />
+                <ProductAutocomplete
+                  value={p.name || ''}
+                  onChange={v => updateProduct(i, { name: v })}
+                  onSelect={prod => updateProduct(i, {
+                    sku: !p.sku && prod.sku ? prod.sku : p.sku,
+                    name: prod.name || p.name,
+                    image: prod.image || p.image,
+                    unit_price: !p.unit_price && prod.default_unit_price ? String(prod.default_unit_price) : p.unit_price,
+                    product_id: prod.id,
+                  })}
+                  products={productsList}
+                  mode="name"
+                  placeholder="产品名 (联想)"
+                />
                 <input type="number" value={p.qty || 1} onChange={e => updateProduct(i, { qty: parseInt(e.target.value) || 1 })} placeholder="数量"
                   style={{padding:'5px 8px', border:'1px solid var(--line)', borderRadius:5, fontSize:12, textAlign:'center'}} />
                 <input type="number" step="0.01" value={p.unit_price || ''} onChange={e => updateProduct(i, { unit_price: e.target.value })} placeholder="单价"
@@ -1789,4 +1915,3 @@ const QuoteSearchModal = ({ onClose, onSelect, toast }) => {
     document.body
   );
 };
-

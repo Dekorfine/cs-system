@@ -1,9 +1,10 @@
 // ════════════════════════════════════════════════════════════════════
 // 📈 数据看板 + 🗑 回收站
-// 拆自 workspace.html (fix21 模块化结构)
-// 原始行号: 6156 - 7440
+// 拆自 workspace.html (fix22 模块化结构)
+// 原始行号: 6184 - 7470
 // ════════════════════════════════════════════════════════════════════
 
+// ============================================================
 // 数据看板 - 当天/7天/本月
 // ============================================================
 const DashboardModule = ({ user, employees, records }) => {
@@ -998,6 +999,7 @@ const AlertThresholdsSettings = ({ user, toast }) => {
 
 
 const ChargebackOwnersSettings = ({ employees, user, toast }) => {
+  const allSites = useSiteCodes();  // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   // 按网站映射 + 周六值班 + 周日值班
   const [siteOwners, setSiteOwners] = useState({});  // site -> uid
   const [defaultOwner, setDefaultOwner] = useState('');  // 其他网站默认负责人
@@ -1112,7 +1114,7 @@ const ChargebackOwnersSettings = ({ employees, user, toast }) => {
       
       <div style={{marginTop:18}}>
         <div style={{fontSize:14, fontWeight:600, marginBottom:10, color:'var(--ink)'}}>① 工作日 · 按网站指派</div>
-        {SITES.map(site => (
+        {allSites.map(site => (
           <div key={site} style={{display:'grid', gridTemplateColumns:'80px 1fr', gap:10, marginBottom:8, alignItems:'center'}}>
             <div style={{fontWeight:600, fontSize:13, color:'#dc2626', padding:'5px 12px', background:'#fef2f2', borderRadius:6, textAlign:'center'}}>{site}</div>
             {renderEmployeeSelect(
@@ -1144,7 +1146,7 @@ const ChargebackOwnersSettings = ({ employees, user, toast }) => {
       
       <div style={{marginTop:20, padding:'12px 16px', background:'#f0f9ff', borderRadius:8, fontSize:12, color:'#075985'}}>
         <strong>👀 当前配置预览:</strong><br/>
-        {SITES.map(s => {
+        {allSites.map(s => {
           const ownerId = siteOwners[s];
           const owner = ownerId ? visibleEmployees.find(e => e.id === ownerId) : null;
           if (!owner && !defaultOwner) return null;

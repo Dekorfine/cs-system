@@ -1,8 +1,9 @@
 // ════════════════════════════════════════════════════════════════════
 // 🎨 定制&实拍 + ⭐ 产品评价
-// 拆自 workspace.html (fix21 模块化结构)
-// 原始行号: 13502 - 15382
+// 拆自 workspace.html (fix22 模块化结构)
+// 原始行号: 13656 - 15540
 // ════════════════════════════════════════════════════════════════════
+
 
 // ============================================================
 // 🎨 定制 & 实拍合并模块
@@ -200,6 +201,7 @@ const FileListSection = ({ title, files, onPreview }) => (
 );
 
 const CustomInquiryEditor = ({ item, user, onClose, onSaved, toast }) => {
+  const allSites = useSiteCodes();  // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   const isEdit = !!item;
   const [customerName, setCustomerName] = useState(item?.customer_name || '');
   const [customerEmail, setCustomerEmail] = useState(item?.customer_email || '');
@@ -268,7 +270,7 @@ const CustomInquiryEditor = ({ item, user, onClose, onSaved, toast }) => {
               style={{padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
             <select value={site} onChange={e => setSite(e.target.value)}
               style={{padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
-              <option value="">网站</option>{SITES.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="">网站</option>{allSites.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:12}}>
@@ -846,6 +848,7 @@ const CustomerRepliesBoard = ({ replies, setReplies, user }) => {
 
 
 const ReviewsModule = ({ user, employees, toast }) => {
+  const allSites = useSiteCodes();  // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);  // 'new' or review object
@@ -1008,7 +1011,7 @@ const ReviewsModule = ({ user, employees, toast }) => {
           <select value={filterSite} onChange={e => setFilterSite(e.target.value)}
             style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, background:'white'}}>
             <option value="all">全部网站</option>
-            {SITES.map(s => <option key={s} value={s}>{s}</option>)}
+            {allSites.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)}
             style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, background:'white'}}>
@@ -1436,6 +1439,7 @@ const ReviewAiPanel = ({ visible, review, user, onClose, onComplete }) => {
 
 // 编辑器（发布 + 编辑）
 const ReviewEditor = ({ review, user, employees, onClose, onSaved, toast }) => {
+  const allSites = useSiteCodes();  // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   const isEdit = !!review;
   const [productUrl, setProductUrl] = useState(review?.product_url || '');
   const [productName, setProductName] = useState(review?.product_name || '');
@@ -1548,7 +1552,7 @@ const ReviewEditor = ({ review, user, employees, onClose, onSaved, toast }) => {
               <select value={site} onChange={e => setSite(e.target.value)}
                 style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white'}}>
                 <option value="">(选填)</option>
-                {SITES.map(s => <option key={s} value={s}>{s}</option>)}
+                {allSites.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>

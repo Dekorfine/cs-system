@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 使用手册 + 🎯 App 主入口
-// 拆自 workspace.html (fix21 模块化结构)
-// 原始行号: 22347 - 24401
+// 📖 使用手册 + 🎯 App 主入口 (含 fix22 Provider 注入)
+// 拆自 workspace.html (fix22 模块化结构)
+// 原始行号: 22505 - 24620
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -738,6 +738,53 @@ const HelpSectionPhilosophy = () => (
 // 主 App (Shell + 路由)
 // ============================================================
 const App = () => {
+  // 🆕 fix22: 联动 1+3 — 全局加载产品主表 + 自定义网站,Context 注入到所有模块
+  const [customSites, setCustomSites] = useState([]);
+  const [productsList, setProductsList] = useState([]);
+  
+  const loadCustomSites = useCallback(async () => {
+    try {
+      if (!CLOUD.client) return;
+      const { data } = await CLOUD.client.from('system_settings').select('value').eq('key', 'custom_sites').maybeSingle();
+      setCustomSites((data?.value?.sites) || []);
+    } catch (e) { console.warn('[联动3] 加载自定义网站失败', e); }
+  }, []);
+  
+  const loadProductsList = useCallback(async () => {
+    try {
+      const list = await CLOUD.list('products', { limit: 2000 });
+      setProductsList((list || []).filter(p => !p.deleted));
+    } catch (e) { console.warn('[联动1] 加载产品主表失败', e); }
+  }, []);
+  
+  useEffect(() => {
+    // 延迟加载,等 CLOUD 初始化完
+    const t = setTimeout(() => { loadCustomSites(); loadProductsList(); }, 1500);
+    return () => clearTimeout(t);
+  }, []);
+  
+  // 监听 Realtime — 产品/自定义网站变了立刻刷新
+  useEffect(() => {
+    if (!CLOUD.isOn || !CLOUD.supabase) return;
+    let ch1 = null, ch2 = null;
+    try {
+      ch1 = CLOUD.supabase.channel('products_global').on('postgres_changes',
+        { event:'*', schema:'public', table:'products' }, () => loadProductsList()).subscribe();
+      ch2 = CLOUD.supabase.channel('settings_global').on('postgres_changes',
+        { event:'*', schema:'public', table:'system_settings', filter:'key=eq.custom_sites' }, () => loadCustomSites()).subscribe();
+    } catch (e) { console.warn('Realtime 订阅失败', e); }
+    return () => { try { if (ch1) CLOUD.supabase.removeChannel(ch1); if (ch2) CLOUD.supabase.removeChannel(ch2); } catch {} };
+  }, [loadProductsList, loadCustomSites]);
+  
+  // 合并的网站代码 — 内置 + 启用的自定义
+  const mergedSiteCodes = useMemo(() => {
+    const activeCustom = customSites.filter(s => s.active !== false).map(s => s.code);
+    return [...SITES, ...activeCustom.filter(c => !SITES.includes(c))];
+  }, [customSites]);
+  
+  const sitesContextValue = useMemo(() => ({ siteCodes: mergedSiteCodes, customSites, refresh: loadCustomSites }), [mergedSiteCodes, customSites, loadCustomSites]);
+  const productsContextValue = useMemo(() => ({ products: productsList, refresh: loadProductsList }), [productsList, loadProductsList]);
+  
   // 员工 (localStorage + 云同步备份) - 加版本号机制，代码里改了 INITIAL_EMPLOYEES 后能自动覆盖
   const EMPLOYEES_VERSION = 8;  // 🆕 加入 13 个北简客服
   const [employees, setEmployees] = useState(() => {
@@ -1652,6 +1699,8 @@ const App = () => {
   }
   
   return (
+    <SitesContext.Provider value={sitesContextValue}>
+    <ProductsContext.Provider value={productsContextValue}>
     <div className="min-h-screen">
       <TopNav user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} stats={stats} notifPerm={notifPerm} requestNotifPerm={requestNotifPerm} cloudOn={cloudOn} employees={employees} switchAccount={switchAccount} onOpenSearch={() => setSearchOpen(true)} cdmUnreadCount={cdmUnreadCount} cdmUrgentUnread={cdmUrgentUnread} topTabs={topTabs} sidebarHiddenCount={sidebarTabs.length} onOpenCustomize={() => setCustomizeOpen(true)} />
       
@@ -1858,11 +1907,13 @@ const App = () => {
       )}
       {toastNode}
     </div>
+    </ProductsContext.Provider>
+    </SitesContext.Provider>
   );
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix21';
+const APP_VERSION = '2026.05.25-fix22';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
@@ -1871,6 +1922,16 @@ const APP_VERSION = '2026.05.25-fix21';
 // type: 'feature' 新功能 / 'fix' 修复 / 'refactor' 重构 / 'perf' 性能 / 'data' 数据
 // ════════════════════════════════════════════════════════════════════
 const VERSION_HISTORY = [
+  { version: '2026.05.25-fix22', date: '2026.05.25', title: '🔗 三大联动 — SKU 联想 + 售后自动统计 + 网站全局生效', changes: [
+    { type:'feature', text:'🔗 联动 1: 线下单产品行 / 售后产品名 / 退款产品名 输入时自动联想产品主表 — 显示缩略图/SKU/供应商/默认价/历史售后次数' },
+    { type:'feature', text:'选中产品自动填:SKU + 产品名 + 缩略图 + 默认单价(单价为空时)+ 关联 product_id 字段' },
+    { type:'feature', text:'联想支持 ↑↓ 选择 / Enter 确认 / Esc 关闭 · 实时模糊匹配 SKU 和产品名' },
+    { type:'feature', text:'🔗 联动 2: 新建售后事件时,自动给产品主表的 total_aftersales 计数 +1 — 哪款产品问题多自动统计' },
+    { type:'feature', text:'按 product_name 精确匹配 +(若填了)product_sku 匹配 · 失败静默不阻塞保存' },
+    { type:'feature', text:'🔗 联动 3: 自定义网站(⚙ 设置 → 🌐 网站 添加的)自动加进所有网站下拉 — 筛选/录入/编辑全场景' },
+    { type:'feature', text:'共改造 10 处 SITES.map → allSites.map,涉及 7 个模块 · Realtime 监听自定义网站变更立即生效' },
+    { type:'refactor', text:'新增 React Context:SitesContext + ProductsContext · App 启动时加载并通过 Provider 分发 · 各模块用 useSiteCodes() / useProducts() Hook 消费' },
+  ]},
   { version: '2026.05.25-fix21', date: '2026.05.25', title: '⚙ 统一设置中心 — 网站 + 产品 + 人员 一处维护', changes: [
     { type:'feature', text:'⚙ 设置 重新分组:基础维护(人员/网站/产品/供应商)/ 业务规则 / 系统 — 视觉分隔更清晰' },
     { type:'feature', text:'🌐 网站维护:11 个内置网站可见 + 主管可添加自定义站点(代码/名称/品牌/域名/订单前缀/主题色)' },

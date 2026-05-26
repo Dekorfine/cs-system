@@ -1,12 +1,11 @@
 // ════════════════════════════════════════════════════════════════════
 // 📞 客服跟进 (CSModule)
-// 拆自 workspace.html (fix21 模块化结构)
-// 原始行号: 2067 - 6155
+// 拆自 workspace.html (fix22 模块化结构)
+// 原始行号: 2079 - 6183
 // ════════════════════════════════════════════════════════════════════
 
-
-
 const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudOn }) => {
+  const allSites = useSiteCodes();  // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   const [viewDate, setViewDate] = useState(todayISO());
   const [filterStatus, setFilterStatus] = useState('all');
   const [showAll, setShowAll] = useState(() => {
@@ -1129,7 +1128,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
               <span className="text-[11px]" style={{color:'var(--ink-3)'}}>网站</span>
               <select value={filterSite} onChange={e => setFilterSite(e.target.value)} style={{padding:'4px 8px', fontSize:'11px'}}>
                 <option value="all">全部</option>
-                {SITES.map(s => <option key={s} value={s}>{s}</option>)}
+                {allSites.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="flex items-center gap-1.5">
@@ -1483,7 +1482,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                       <select disabled={!editable} value={r.website} onChange={e => updateRow(r.id, {website:e.target.value})}
                         style={{width:'100%', padding:'7px 10px', fontSize:13, border:'1px solid var(--line)', borderRadius:7, background:'white'}}>
                         <option value="">选择网站...</option>
-                        {SITES.map(s => <option key={s} value={s}>{s}</option>)}
+                        {allSites.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
                     
@@ -2786,6 +2785,7 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
   const [issueTypeCustom, setIssueTypeCustom] = useState(existingEvent?.issue_type_custom || '');
   const [damagedPart, setDamagedPart] = useState(existingEvent?.damaged_part || '');
   const [productName, setProductName] = useState(existingEvent?.product_name || '');
+  const productsList = useProducts();  // 🆕 fix22 联动 1: 售后/补件/退款 productName 联想
   const [issueDetail, setIssueDetail] = useState(existingEvent?.issue_detail || '');
   const [country, setCountry] = useState(existingEvent?.country || '');
   const [packer, setPacker] = useState(existingEvent?.packer || '');
@@ -2895,6 +2895,21 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
         if (!isEdit) {
           notifyCoordinator(kind, res[0] || payload, user);
         }
+        // 🆕 fix22 联动2: 新建售后时,自动累加产品主表的 total_aftersales
+        if (!isEdit && kind === 'aftersale' && payload.product_name) {
+          try {
+            const allProds = await CLOUD.list('products', { limit: 1000 });
+            const targetName = (payload.product_name || '').trim().toLowerCase();
+            // 优先按 SKU(如有) 匹配,否则按精确产品名匹配
+            const match = (allProds || []).filter(p => !p.deleted).find(p => {
+              if (payload.product_sku && p.sku && p.sku.toLowerCase() === payload.product_sku.toLowerCase()) return true;
+              return (p.name || '').trim().toLowerCase() === targetName;
+            });
+            if (match) {
+              await CLOUD.upsert('products', { ...match, total_aftersales: (match.total_aftersales || 0) + 1, updated_at: new Date().toISOString() });
+            }
+          } catch (e) { console.warn('[联动2] 累加产品售后次数失败:', e); }
+        }
         onSaved && onSaved(res[0] || payload);
         onClose();
       } else {
@@ -2992,9 +3007,10 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
               )}
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:14}}>
                 <div>
-                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>产品名</label>
-                  <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="Modern Lava Pendant Lamp"
-                    style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>产品名 <span style={{fontWeight:400, color:'var(--ink-3)'}}>(输入联想产品主表)</span></label>
+                  <ProductAutocomplete value={productName} onChange={setProductName}
+                    onSelect={prod => setProductName(prod.name || '')}
+                    products={productsList} mode="name" placeholder="Modern Lava Pendant Lamp" />
                 </div>
                 <div>
                   <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>损坏部位</label>
@@ -3159,9 +3175,10 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
                 </div>
               )}
               <div style={{marginBottom:14}}>
-                <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>产品名</label>
-                <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="Marie Petite Surface Ceiling Lamp"
-                  style={{width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+                <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>产品名 <span style={{fontWeight:400, color:'var(--ink-3)'}}>(输入联想产品主表)</span></label>
+                <ProductAutocomplete value={productName} onChange={setProductName}
+                  onSelect={prod => setProductName(prod.name || '')}
+                  products={productsList} mode="name" placeholder="Marie Petite Surface Ceiling Lamp" />
               </div>
               <div style={{marginBottom:14}}>
                 <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>退款原因详情 *</label>
@@ -4092,4 +4109,3 @@ const SiteDailyBreakdown = ({ scope, selectedEmpId, employees, live, today, last
 };
 
 
-// ============================================================
