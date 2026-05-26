@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📨 跨部门协作
-// 拆自 workspace.html (fix22 模块化结构)
-// 原始行号: 17554 - 20239
+// 📚 知识库 + 📨 跨部门协作 (fix23 含 矩阵批量 + 智能 fallback)
+// 拆自 workspace.html (fix23 模块化结构)
+// 原始行号: 17554 - 20413
 // ════════════════════════════════════════════════════════════════════
 
 // ============================================================
@@ -1473,17 +1473,23 @@ const CdmNewMessageModal = ({ user, employees, shopOwners = [], onClose, onSent,
   // 🆕 v22-CY: 可选网站列表直接用预设(不再从 shopOwners 提取 — 避免拼写不一致)
   const availableShops = SHOPS_SELECTABLE;
 
-  // 🆕 v22-CW: 选了网站 + 目标部门 → 自动建议负责人(primary > manager > 第一个)
+  // 🆕 v22-CW: 选了网站 + 目标部门 → 自动建议负责人
   // 🆕 v22-CY: "__other__" 不触发自动建议
+  // 🆕 fix23: 客服系统更完整 fallback — primary → night → escalation → backup → manager → 第一个
   useEffect(() => {
     if (!relatedShop || relatedShop === '__other__' || !toSystem) return;
     const candidates = (shopOwners || []).filter(s => s.shopName === relatedShop && s.system === toSystem);
-    const primary = candidates.find(c => c.role === 'primary')
-                 || candidates.find(c => c.role === 'manager')
-                 || candidates[0];
-    if (primary && !toUserId) {
-      setToUserId(primary.userId);
-      setToUserName(primary.userName);
+    // 按业务优先级 fallback (适用于客服派单 / 跟单分配等)
+    const fallbackOrder = ['primary', 'night', 'escalation', 'backup', 'manager'];
+    let chosen = null;
+    for (const r of fallbackOrder) {
+      chosen = candidates.find(c => c.role === r);
+      if (chosen) break;
+    }
+    chosen = chosen || candidates[0];
+    if (chosen && !toUserId) {
+      setToUserId(chosen.userId);
+      setToUserName(chosen.userName);
     }
   }, [relatedShop, toSystem, shopOwners]);
 
@@ -2253,10 +2259,12 @@ const CdmDetailModal = ({ msg, user, employees = [], shopOwners = [], cdmTimeout
 // 🆕 v22-CW Round 3b: 店铺负责人管理 (主管/admin)
 // ════════════════════════════════════════════════════════════════════
 const CDM_OWNER_ROLES = [
-  { id:'primary',  label:'★ 主负责',     color:'#0071e3' },
-  { id:'backup',   label:'· 备用',       color:'#86868b' },
-  { id:'manager',  label:'👑 主管',      color:'#7c3aed' },
-  { id:'designer', label:'🎨 设计师',    color:'#ec4899' },
+  { id:'primary',    label:'★ 主负责',     color:'#0071e3', desc:'日常接所有询盘' },
+  { id:'night',      label:'🌙 夜班',      color:'#7c3aed', desc:'晚 6 点后美区询盘' },
+  { id:'escalation', label:'🚨 升级处理',  color:'#dc2626', desc:'投诉 / 退款纠纷' },
+  { id:'backup',     label:'· 备用',       color:'#86868b', desc:'主负责不在时兜底' },
+  { id:'manager',    label:'👑 主管',      color:'#d97706', desc:'最终决策人' },
+  { id:'designer',   label:'🎨 设计师',    color:'#ec4899', desc:'(美工系统专用)' },
 ];
 
 const ShopOwnersManager = ({ user, employees, shopOwners = [], onClose, toast }) => {
@@ -2301,6 +2309,46 @@ const ShopOwnersManager = ({ user, employees, shopOwners = [], onClose, toast })
       setEditing(null);
       setShowNew(false);
     } catch (e) { alert('保存失败: ' + (e.message || e)); }
+  };
+
+  // 🆕 fix23: 批量矩阵添加 — N 网站 × M 人 × 1 角色 = N*M 条记录,自动去重
+  const saveOwnersBatch = async ({ shopNames, userIds, role, notes }) => {
+    const client = getCdmClient();
+    if (!client) { alert('消息总线未连接'); return; }
+    try {
+      const existingKeys = new Set(
+        (shopOwners || [])
+          .filter(s => s.system === MY_SYSTEM)
+          .map(s => `${s.shopName}__${s.userId}__${s.role}`)
+      );
+      const rows = [];
+      let skipped = 0;
+      shopNames.forEach(shopName => {
+        userIds.forEach(userId => {
+          const emp = employees.find(e => e.id === userId);
+          if (!emp) return;
+          const userName = emp.name + (emp.alias ? ' ' + emp.alias : '');
+          const key = `${shopName.trim()}__${userId}__${role}`;
+          if (existingKeys.has(key)) { skipped++; return; }
+          rows.push({
+            id: (crypto.randomUUID ? crypto.randomUUID() : ('so_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8))),
+            shop_name: shopName.trim(),
+            system: MY_SYSTEM,
+            user_id: userId,
+            user_name: userName,
+            role,
+            notes: (notes || '').trim() || null,
+            created_at_ms: Date.now(),
+            updated_at: new Date().toISOString(),
+          });
+        });
+      });
+      if (rows.length === 0) { toast(`⚠ ${skipped} 条全部已存在,无需重复添加`); setShowNew(false); return; }
+      const { error } = await client.from('shop_owners').insert(rows);
+      if (error) throw error;
+      toast(`✓ 添加 ${rows.length} 条${skipped > 0 ? ` · 跳过 ${skipped} 条重复` : ''}`);
+      setShowNew(false);
+    } catch (e) { alert('批量保存失败: ' + (e.message || e)); }
   };
 
   const deleteOwner = async (owner) => {
@@ -2397,6 +2445,7 @@ const ShopOwnersManager = ({ user, employees, shopOwners = [], onClose, toast })
           employees={availableEmployees}
           existingShopNames={Array.from(new Set((shopOwners || []).map(s => s.shopName))).sort()}
           onSave={saveOwner}
+          onSaveBatch={saveOwnersBatch}
           onClose={() => { setEditing(null); setShowNew(false); }}
         />
       )}
@@ -2407,8 +2456,11 @@ const ShopOwnersManager = ({ user, employees, shopOwners = [], onClose, toast })
 
 // 子表单
 // 🆕 v22-CY: 网站名改用 SHOPS_PRESET 预设下拉(防止拼写不一致)
-const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onClose }) => {
+// 🆕 fix23: 新增模式可切换 batch (矩阵批量) — N 网站 × M 人 × 1 角色
+const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onSaveBatch, onClose }) => {
   const isEdit = !!record.id;
+  // 🆕 fix23: 批量模式 (仅新增时可用)
+  const [batchMode, setBatchMode] = useState(false);
   // 判断初始 shopName 是否在预设里
   const initIsPreset = !isEdit ? false : SHOPS_SELECTABLE.some(s => s.label === record.shopName);
   const initShopVal = isEdit ? (initIsPreset ? record.shopName : '__other__') : '';
@@ -2418,6 +2470,12 @@ const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onClose
   const [role, setRole] = useState(record.role || 'primary');
   const [notes, setNotes] = useState(record.notes || '');
   const [saving, setSaving] = useState(false);
+  
+  // 🆕 fix23: 批量模式专用 state
+  const [batchShops, setBatchShops] = useState([]);     // 选中的 shopName 数组
+  const [batchUserIds, setBatchUserIds] = useState([]); // 选中的员工 id 数组
+  const [batchCustomShop, setBatchCustomShop] = useState('');
+  const [batchIncludeCustom, setBatchIncludeCustom] = useState(false);
 
   const selectedEmp = employees.find(e => e.id === userId);
 
@@ -2442,6 +2500,22 @@ const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onClose
     setSaving(false);
   };
 
+  // 🆕 fix23: 批量保存
+  const submitBatch = async () => {
+    const shops = [...batchShops];
+    if (batchIncludeCustom && batchCustomShop.trim()) shops.push(batchCustomShop.trim());
+    if (shops.length === 0) { alert('请至少勾选一个网站'); return; }
+    if (batchUserIds.length === 0) { alert('请至少勾选一位员工'); return; }
+    setSaving(true);
+    await onSaveBatch({ shopNames: shops, userIds: batchUserIds, role, notes });
+    setSaving(false);
+  };
+
+  const toggleShop = (label) => setBatchShops(prev => prev.includes(label) ? prev.filter(s => s !== label) : [...prev, label]);
+  const toggleUser = (uid) => setBatchUserIds(prev => prev.includes(uid) ? prev.filter(u => u !== uid) : [...prev, uid]);
+  
+  const previewCount = batchShops.length * batchUserIds.length + (batchIncludeCustom && batchCustomShop.trim() ? batchUserIds.length : 0);
+
   return ReactDOM.createPortal(
     <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:100001, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px'}}>
       <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:12, width:'100%', maxWidth:480, boxShadow:'0 20px 60px rgba(0,0,0,.3)'}}>
@@ -2450,6 +2524,100 @@ const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onClose
           <button onClick={onClose} style={{background:'transparent', border:'none', cursor:'pointer', fontSize:18}}>×</button>
         </div>
         <div style={{padding:'16px 18px', display:'flex', flexDirection:'column', gap:11}}>
+          {/* 🆕 fix23: 模式切换 (新增模式才显示) */}
+          {!isEdit && (
+            <div style={{display:'flex', gap:4, padding:4, background:'#f5f5f7', borderRadius:8}}>
+              <button onClick={() => setBatchMode(false)} type="button"
+                style={{flex:1, padding:'6px 10px', background: !batchMode ? 'white' : 'transparent', color: !batchMode ? '#0071e3' : 'var(--ink-3)', border:'none', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit', boxShadow: !batchMode ? '0 1px 3px rgba(0,0,0,.08)' : 'none'}}>
+                📝 单条添加
+              </button>
+              <button onClick={() => setBatchMode(true)} type="button"
+                style={{flex:1, padding:'6px 10px', background: batchMode ? 'white' : 'transparent', color: batchMode ? '#7c3aed' : 'var(--ink-3)', border:'none', borderRadius:6, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit', boxShadow: batchMode ? '0 1px 3px rgba(0,0,0,.08)' : 'none'}}>
+                🔢 矩阵批量
+              </button>
+            </div>
+          )}
+          
+          {batchMode && !isEdit ? (
+          /* ━━━━━━━━━━━━━━ 🆕 fix23: 批量矩阵模式 ━━━━━━━━━━━━━━ */
+          <>
+            <div style={{padding:'8px 12px', background:'#f3e8ff', border:'1px solid #d8b4fe', borderRadius:7, fontSize:11, color:'#6b21a8'}}>
+              💡 勾选多个网站 + 多个员工 + 一个角色 = 一次性添加 <strong>{previewCount || 0}</strong> 条记录(重复自动跳过)
+            </div>
+            
+            {/* 多选网站 */}
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:6}}>
+                网站 * <span style={{fontWeight:400, color:'var(--ink-4)'}}>已选 {batchShops.length + (batchIncludeCustom && batchCustomShop.trim() ? 1 : 0)}</span>
+              </label>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:5}}>
+                {SHOPS_SELECTABLE.map(s => {
+                  const checked = batchShops.includes(s.label);
+                  return (
+                    <label key={s.id} style={{display:'flex', alignItems:'center', gap:5, padding:'6px 9px', border:'1px solid '+(checked?'#7c3aed':'var(--line)'), borderRadius:6, cursor:'pointer', background: checked?'#faf5ff':'white', fontSize:11}}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleShop(s.label)} style={{margin:0}} />
+                      <span style={{fontWeight: checked ? 600 : 400}}>{s.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <label style={{display:'flex', alignItems:'center', gap:6, marginTop:6, fontSize:11, color:'var(--ink-3)'}}>
+                <input type="checkbox" checked={batchIncludeCustom} onChange={e => setBatchIncludeCustom(e.target.checked)} />
+                📝 含自定义网站
+              </label>
+              {batchIncludeCustom && (
+                <input value={batchCustomShop} onChange={e => setBatchCustomShop(e.target.value)} placeholder="如 Singapore Outlet"
+                  style={{marginTop:5, width:'100%', padding:'6px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'inherit'}} />
+              )}
+            </div>
+            
+            {/* 多选员工 */}
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:6}}>
+                员工 * <span style={{fontWeight:400, color:'var(--ink-4)'}}>已选 {batchUserIds.length}</span>
+              </label>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:5, maxHeight:220, overflowY:'auto', padding:4, background:'#fafafa', borderRadius:6}}>
+                {employees.map(e => {
+                  const checked = batchUserIds.includes(e.id);
+                  const tag = e.role === 'admin' ? '主管' : e.role === 'super_admin' ? '总管' : e.role === 'finance' ? '财务' : '';
+                  return (
+                    <label key={e.id} style={{display:'flex', alignItems:'center', gap:5, padding:'5px 8px', border:'1px solid '+(checked?'#7c3aed':'var(--line)'), borderRadius:6, cursor:'pointer', background: checked?'#faf5ff':'white', fontSize:11}}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleUser(e.id)} style={{margin:0}} />
+                      <span style={{fontWeight: checked ? 600 : 400, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.name}{e.alias ? ' '+e.alias : ''}</span>
+                      {tag && <span style={{fontSize:9, color:'var(--ink-4)'}}>·{tag}</span>}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* 角色 (单选) */}
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>角色 (单选,适用于所有勾选组合)</label>
+              <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
+                {CDM_OWNER_ROLES.filter(r => r.id !== 'designer').map(r => {
+                  const sel = role === r.id;
+                  return (
+                    <button key={r.id} type="button" onClick={() => setRole(r.id)}
+                      style={{padding:'5px 11px', background: sel ? r.color : 'white', color: sel ? 'white' : r.color, border:'1px solid ' + r.color, borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}
+                      title={r.desc || ''}>
+                      {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* 备注 */}
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>备注 (选填,所有记录共享)</label>
+              <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="如 周末班 / 临时安排 / 主要处理售前..."
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit'}} />
+            </div>
+          </>
+          ) : (
+          /* ━━━━━━━━━━━━━━ 单条添加 / 编辑模式 (原样保留) ━━━━━━━━━━━━━━ */
+          <>
           {/* 🆕 v22-CY: 网站名预设下拉 */}
           <div>
             <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>网站 *</label>
@@ -2497,7 +2665,8 @@ const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onClose
                 const sel = role === r.id;
                 return (
                   <button key={r.id} type="button" onClick={() => setRole(r.id)}
-                    style={{padding:'5px 11px', background: sel ? r.color : 'white', color: sel ? 'white' : r.color, border:'1px solid ' + r.color, borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                    style={{padding:'5px 11px', background: sel ? r.color : 'white', color: sel ? 'white' : r.color, border:'1px solid ' + r.color, borderRadius:7, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}
+                    title={r.desc || ''}>
                     {r.label}
                   </button>
                 );
@@ -2510,12 +2679,14 @@ const ShopOwnerEditor = ({ record, employees, existingShopNames, onSave, onClose
             <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="如 周末 / 临时 / 主管代班..."
               style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit'}} />
           </div>
+          </>
+          )}
         </div>
         <div style={{padding:'10px 18px', borderTop:'1px solid var(--line)', display:'flex', justifyContent:'flex-end', gap:6}}>
           <button onClick={onClose} disabled={saving} className="btn-sec" style={{padding:'7px 14px', fontSize:12}}>取消</button>
-          <button onClick={submit} disabled={saving}
-            style={{padding:'7px 16px', background:'#0071e3', color:'white', border:'none', borderRadius:7, cursor:saving?'wait':'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}>
-            {saving ? '保存中...' : '✓ 保存'}
+          <button onClick={batchMode && !isEdit ? submitBatch : submit} disabled={saving}
+            style={{padding:'7px 16px', background: batchMode && !isEdit ? '#7c3aed' : '#0071e3', color:'white', border:'none', borderRadius:7, cursor:saving?'wait':'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}>
+            {saving ? '保存中...' : (batchMode && !isEdit ? `✓ 添加 ${previewCount} 条` : '✓ 保存')}
           </button>
         </div>
       </div>
@@ -2690,3 +2861,6 @@ const TimeoutSettingsModal = ({ user, cdmTimeoutConfig = {}, onClose, toast }) =
   );
 };
 
+// ════════════════════════════════════════════════════════════════════
+// 📌 任务分派模块 (fix19) — 临时任务派给某人,主管看是否处理
+// 工作流: 创建者 → 派给 X → X 接手/标处理中 → 完成 · 主管全局可见 · Realtime 推送
