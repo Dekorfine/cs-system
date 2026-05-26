@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════
-// 📝 报价单 + 📢 会议纪要 (含 fix29 不撑大 iframe)
-// 拆自 workspace.html (fix29 模块化结构)
-// 原始行号: 9532 - 11747
+// 📝 报价单 + 📢 会议纪要 (含 fix29 iframe + fix30 期号)
+// 拆自 workspace.html (fix30 模块化结构)
+// 原始行号: 9532 - 11770
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -458,9 +458,20 @@ const BriefingItem = ({ briefing, user, isAdmin, onEdit, onDelete, onTogglePin, 
 };
 
 // 会议纪要编辑器
+// 🆕 fix30: 期号格式改成 "2026年6月份 第一周" (自然月分周,跟 getDateRange 的 week_of_month 一致)
+const CN_WEEK_NUMS = ['', '一', '二', '三', '四', '五'];
+function getMonthWeekLabel(date) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  const w = Math.ceil(day / 7);  // 1-5,匹配 1-7 / 8-14 / 15-21 / 22-28 / 29-end
+  return `${y}年${m}月份 第${CN_WEEK_NUMS[w] || w}周`;
+}
 const BriefingEditor = ({ briefing, user, employees, onClose, onSaved, toast }) => {
   const isEdit = !!briefing;
-  const [weekLabel, setWeekLabel] = useState(briefing?.week_label || `${new Date().getFullYear()} 第 ${Math.ceil((new Date() - new Date(new Date().getFullYear(), 0, 1)) / (7 * 86400000))} 周`);
+  const [weekLabel, setWeekLabel] = useState(briefing?.week_label || getMonthWeekLabel(new Date()));
   const [title, setTitle] = useState(briefing?.title || '');
   const [content, setContent] = useState(briefing?.content || '');
   const [highlights, setHighlights] = useState(briefing?.highlights || []);
@@ -523,8 +534,20 @@ const BriefingEditor = ({ briefing, user, employees, onClose, onSaved, toast }) 
           <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:10, marginBottom:14}}>
             <div>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>期号 / 日期 *</label>
-              <input value={weekLabel} onChange={e => setWeekLabel(e.target.value)} placeholder="2026 第 22 周"
+              <input value={weekLabel} onChange={e => setWeekLabel(e.target.value)} placeholder="2026年5月份 第四周"
                 style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+              {/* 🆕 fix30: 快速切上下周 + 自定义日期 */}
+              <div style={{display:'flex', gap:4, marginTop:6, flexWrap:'wrap', alignItems:'center'}}>
+                <button type="button" onClick={() => setWeekLabel(getMonthWeekLabel(new Date(Date.now() - 7*86400000)))}
+                  style={{padding:'3px 8px', border:'1px solid var(--line)', background:'white', borderRadius:4, fontSize:11, cursor:'pointer', fontFamily:'inherit'}} title="上周">← 上周</button>
+                <button type="button" onClick={() => setWeekLabel(getMonthWeekLabel(new Date()))}
+                  style={{padding:'3px 8px', border:'1px solid var(--accent)', background:'var(--accent)', color:'white', borderRadius:4, fontSize:11, cursor:'pointer', fontFamily:'inherit'}} title="本周">本周</button>
+                <button type="button" onClick={() => setWeekLabel(getMonthWeekLabel(new Date(Date.now() + 7*86400000)))}
+                  style={{padding:'3px 8px', border:'1px solid var(--line)', background:'white', borderRadius:4, fontSize:11, cursor:'pointer', fontFamily:'inherit'}} title="下周">下周 →</button>
+                <input type="date" onChange={e => { if (e.target.value) setWeekLabel(getMonthWeekLabel(new Date(e.target.value + 'T12:00'))); }}
+                  title="选具体日期 → 自动生成期号"
+                  style={{padding:'2px 6px', border:'1px solid var(--line)', borderRadius:4, fontSize:11, color:'var(--ink-3)', cursor:'pointer'}} />
+              </div>
             </div>
             <div>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>会议标题 *</label>
