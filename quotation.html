@@ -2781,9 +2781,6 @@ function openSettings() {
 function closeSettings() { const el = $('settings-overlay'); if (el) el.classList.add('hidden'); }
 function openHelp() {
   document.getElementById('help-overlay').classList.remove('hidden');
-  if (window.parent && window.parent !== window) {
-    try { window.parent.postMessage({ type: 'iframe-modal-open', source: 'quotation' }, '*'); } catch(e){}
-  }
 }
 function closeHelp() { document.getElementById('help-overlay').classList.add('hidden'); }
 function renderUserBar() {
@@ -3241,6 +3238,29 @@ async function cloudSave() {
   const username = getUsername();
   if (!username) { openSettings(); return; }
   const data = collectFormData();
+  
+  // 🆕 fix26: 保存前校验 — 不让空报价单被存
+  const validationErrors = [];
+  // 客户信息(必填)
+  const buyerInfo = (data.buyer_info || '').trim();
+  if (!buyerInfo) validationErrors.push('客户信息 / Buyer Info');
+  // 至少一项有效产品(SKU 或 描述 或 数量>0)
+  const items = (data.items || []);
+  const validItems = items.filter(it => {
+    const sku  = (it.sku || '').trim();
+    const desc = (it.description || '').trim();
+    const qty  = parseFloat(it.qty) || 0;
+    return sku || desc || qty > 0;
+  });
+  if (validItems.length === 0) validationErrors.push('至少 1 项产品 / At least 1 product (SKU / 描述 / 数量)');
+  
+  if (validationErrors.length > 0) {
+    const msg = '⚠ 保存前请填写以下必填项 / Please fill in before saving:\n\n• ' + validationErrors.join('\n• ');
+    alert(msg);
+    setCloudStatus('⚠ 报价单还没填完,无法保存', 'err');
+    return;
+  }
+  
   const piNo = sanitizeForFilename(data.pi_number || 'QUOTE') || 'QUOTE';
   const buyerName = sanitizeForFilename(getBuyerNameFromData(data)) || 'Unnamed';
   const buyerNameDisplay = (getBuyerNameFromData(data) || 'Unnamed').split('\n')[0].slice(0, 100);
@@ -3625,27 +3645,8 @@ document.addEventListener('DOMContentLoaded', function() {
   loadCloudList();  // 🆕 fix25: 不再卡住,直接加载
 });
 
-// ── iframe 嵌入时向父窗口汇报高度 ──
-if (window.parent && window.parent !== window) {
-  let lastH = 0;
-  const reportHeight = () => {
-    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
-    if (Math.abs(h - lastH) > 5) {
-      lastH = h;
-      window.parent.postMessage({ type: 'iframe-resize', source: 'quotation', height: h }, '*');
-    }
-  };
-  setTimeout(reportHeight, 300);
-  setTimeout(reportHeight, 1200);
-  if (window.ResizeObserver) {
-    const ro = new ResizeObserver(reportHeight);
-    document.addEventListener('DOMContentLoaded', () => ro.observe(document.body));
-    if (document.body) ro.observe(document.body);
-  } else {
-    setInterval(reportHeight, 600);
-  }
-  window.addEventListener('resize', reportHeight);
-}
+// 🆕 fix26: 移除 iframe 嵌入框架(原来会向父窗口汇报高度 + 监听 ResizeObserver
+// 触发 postMessage 导致页面自动滑动)— quotation.html 现在是纯独立工具
 </script>
 
 </body>
