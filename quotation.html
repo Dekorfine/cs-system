@@ -20,6 +20,9 @@
   --ink-3: #6e6e73;
   --ink-4: #86868b;
   --line: rgba(0,0,0,.085);
+  /* 🆕 fix39: 图片尺寸 — S=56(默认)/ M=90 / L=140,可通过 JS 切换 */
+  --img-size: 56px;
+  --img-size-print: 40px;
   --line-soft: rgba(0,0,0,.05);
   --line-strong: rgba(0,0,0,.15);
   --accent: #0071e3;
@@ -250,7 +253,8 @@ fieldset legend {
 #item-table textarea { resize: vertical; min-height: 40px; font-family: inherit; }
 .paste-area {
   border: 1.5px dashed var(--line-strong); border-radius: var(--radius-sm);
-  min-height: 50px; min-width: 60px;
+  /* 🆕 fix39: min-height 跟随 --img-size,避免大图被压扁 */
+  min-height: calc(var(--img-size, 48px) + 8px); min-width: 60px;
   display: flex; align-items: center; justify-content: center;
   color: var(--ink-4); font-size: 10px; text-align: center;
   cursor: pointer; padding: 4px; background: var(--bg-soft);
@@ -258,7 +262,17 @@ fieldset legend {
 }
 .paste-area:hover { border-color: var(--accent); background: var(--accent-soft); }
 .paste-area:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
-.paste-area img { max-width: 100%; max-height: 48px; object-fit: contain; }
+.paste-area img { max-width: 100%; max-height: var(--img-size, 48px); object-fit: contain; }
+
+/* 🆕 fix39: 图片尺寸切换按钮 */
+.img-size-btn { transition: all .15s; }
+.img-size-btn:hover { background: var(--accent-soft) !important; border-color: var(--accent) !important; }
+.img-size-btn.active {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: white !important;
+  font-weight: 600;
+}
 .btn-row-remove {
   background: var(--bad-soft); color: var(--bad); border: none;
   padding: 6px 10px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 500;
@@ -602,16 +616,16 @@ fieldset legend {
   background: #f8fafc; font-weight: 700; font-size: 10.5px;
   color: #475569; transition: background-color 0.3s;
 }
-/* 🆕 fix24-2: 强制约束产品图,避免大图溢出到其他列,文字盖在图上 */
+/* 🆕 fix24-2 + fix39: 文档图片尺寸用 CSS 变量,可通过 S/M/L 切换 */
 .doc-table img,
 .quote-item-image {
-  max-width: 56px !important;
-  max-height: 56px !important;
+  max-width: var(--img-size, 56px) !important;
+  max-height: var(--img-size, 56px) !important;
   object-fit: contain;
   display: block;
   margin: 0 auto;
 }
-.quote-item-image { max-width: 55px; max-height: 55px; object-fit: contain; }
+.quote-item-image { max-width: var(--img-size, 56px); max-height: var(--img-size, 56px); object-fit: contain; }
 .total-section { margin-top: 14px; text-align: right; }
 .total-section p {
   font-size: 12px; margin: 4px 0; font-weight: 600; color: #1f2937;
@@ -786,9 +800,9 @@ fieldset legend {
   .total-section { margin-top: 6px !important; padding-right: 3px !important; }
   .total-section p { font-size: 10.5px !important; margin: 1.5px 0 !important; }
   .signature-block { margin-top: 18px !important; padding-top: 10px !important; }
-  .quote-item-image { max-width: 38px !important; max-height: 38px !important; }
-  /* 🆕 fix24-2: 打印时同样严格约束 (any img inside table) */
-  .doc-table img { max-width: 40px !important; max-height: 40px !important; }
+  .quote-item-image { max-width: var(--img-size-print, 38px) !important; max-height: var(--img-size-print, 38px) !important; }
+  /* 🆕 fix24-2 + fix39: 打印时尺寸,跟着 S/M/L 同步缩放 */
+  .doc-table img { max-width: var(--img-size-print, 40px) !important; max-height: var(--img-size-print, 40px) !important; }
   .manual-input { border-color: transparent !important; background: transparent !important; }
 }
 
@@ -1129,12 +1143,20 @@ fieldset legend {
     <!-- Items -->
     <div style="margin-bottom:14px;">
       <h3 style="font-size:13px;font-weight:700;color:#334155;margin:0 0 8px;" data-lang-key="product_items_packing">📦 Product Items & Packing Details</h3>
-      <div style="display:flex; align-items:center; gap:12px; margin:8px 0;">
+      <div style="display:flex; align-items:center; gap:18px; margin:8px 0; flex-wrap:wrap;">
         <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); cursor:pointer;">
           <input type="checkbox" id="show_packing_cols" onchange="togglePackingCols()" style="cursor:pointer;">
           <span>📦 显示装箱单字段 · Show packing list fields</span>
           <span style="color:var(--ink-3); font-size:11px;">(默认隐藏 — 装箱单专用)</span>
         </label>
+        <!-- 🆕 fix39: 图片尺寸切换 -->
+        <div style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2);">
+          <span>🖼 图片尺寸:</span>
+          <button type="button" class="img-size-btn active" data-size="S" onclick="setImgSize('S')" style="padding:3px 10px; border:1px solid var(--line); background:white; border-radius:5px; font-size:11px; cursor:pointer; font-family:inherit;">小 S</button>
+          <button type="button" class="img-size-btn" data-size="M" onclick="setImgSize('M')" style="padding:3px 10px; border:1px solid var(--line); background:white; border-radius:5px; font-size:11px; cursor:pointer; font-family:inherit;">中 M</button>
+          <button type="button" class="img-size-btn" data-size="L" onclick="setImgSize('L')" style="padding:3px 10px; border:1px solid var(--line); background:white; border-radius:5px; font-size:11px; cursor:pointer; font-family:inherit;">大 L</button>
+          <span style="color:var(--ink-4); font-size:11px;">(影响预览 + 导出)</span>
+        </div>
       </div>
       <div class="item-table-wrap">
         <table id="item-table">
@@ -1875,6 +1897,26 @@ function togglePackingCols() {
   try { localStorage.setItem('show_packing_cols', cb.checked ? '1' : '0'); } catch(e){}
 }
 
+/* 🆕 fix39: 图片尺寸切换 S / M / L
+   S = 默认(56px 预览 / 40px 打印)— 紧凑,适合多产品行
+   M = 中等(90px 预览 / 65px 打印)
+   L = 大图(140px 预览 / 100px 打印)— 突出展示
+   作用范围:Image 列编辑区缩略图 + 报价单/PI 预览 + 导出 PDF */
+const IMG_SIZE_MAP = {
+  S: { preview: 56,  print: 40  },
+  M: { preview: 90,  print: 65  },
+  L: { preview: 140, print: 100 },
+};
+function setImgSize(size) {
+  const cfg = IMG_SIZE_MAP[size] || IMG_SIZE_MAP.S;
+  document.documentElement.style.setProperty('--img-size', cfg.preview + 'px');
+  document.documentElement.style.setProperty('--img-size-print', cfg.print + 'px');
+  document.querySelectorAll('.img-size-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.size === size);
+  });
+  try { localStorage.setItem('img_size_pref', size); } catch(e){}
+}
+
 // 切换导出菜单显示
 function toggleExportMenu(e) {
   e.stopPropagation();
@@ -2198,7 +2240,7 @@ function syncAndCalculate() {
 
     poRows.push(`<tr><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
     piRows.push(`<tr><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
-    quoteRows.push(`<tr><td>${imageSrc ? `<img src="${imageSrc}" class="quote-item-image" style="max-width:55px;max-height:55px;object-fit:contain;display:block;margin:0 auto;">` : ''}</td><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
+    quoteRows.push(`<tr><td>${imageSrc ? `<img src="${imageSrc}" class="quote-item-image">` : ''}</td><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
     plRows.push(`<tr><td>${safeCarton}</td><td>${safeDesc}<br><strong>SKU: ${safeSku}</strong></td><td>${qty}</td><td class="pl-dim-col">${dimsStr}</td><td>${nw.toFixed(2)}</td><td>${gw.toFixed(2)}</td><td>${cbm.toFixed(3)}</td></tr>`);
   });
 
@@ -3870,6 +3912,12 @@ document.addEventListener('DOMContentLoaded', function() {
       const cb = $('show_packing_cols');
       if (cb) { cb.checked = true; togglePackingCols(); }
     }
+  } catch(e){}
+  
+  // 🆕 fix39: 恢复图片尺寸偏好
+  try {
+    const savedSize = localStorage.getItem('img_size_pref');
+    if (savedSize && IMG_SIZE_MAP[savedSize]) setImgSize(savedSize);
   } catch(e){}
   
   // 🆕 fix36: 如果 URL 带 #print=X (来自 iframe 触发的新窗口),自动 print
