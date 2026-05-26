@@ -314,9 +314,12 @@ const calcBoxByCarrier = (carrierId, dims, weight, isCrate, region, isMulti, sur
     baseCost = r.b + (bw - 5) * r.e;
     formula = `¥${r.b}+(${bw}-5)×¥${r.e}`;
   } else if (carrierId === 'my') {
-    if (bw >= 101) { const rate = { east:16, mid:15, west:14 }[region]; baseCost = bw*rate; formula = `${bw}kg × ¥${rate}`; }
-    else if (bw >= 12) { const rate = { east:20, mid:19, west:14 }[region]; baseCost = bw*rate; formula = `${bw}kg × ¥${rate}`; }
-    else { const c = { east:{base:160,extra:17}, mid:{base:150,extra:16}, west:{base:140,extra:15} }[region]; baseCost = (bw-5)*c.extra+c.base; formula = `¥${c.base}+(${bw}-5)×¥${c.extra}`; }
+    // 🆕 v22-financefix1: 明扬加班船 — 美森MAX加班船 +1元/kg
+    // 12-99kg: 美东19 / 美中18 / 美西17
+    // 100kg+:  美东15 / 美中14 / 美西13
+    // <12kg 起收按 12kg 算 (bw 已被强制 ≥12)
+    if (bw >= 101) { const rate = { east:15, mid:14, west:13 }[region]; baseCost = bw*rate; formula = `${bw}kg × ¥${rate} · 100kg+档`; }
+    else { const rate = { east:19, mid:18, west:17 }[region]; baseCost = bw*rate; formula = `${bw}kg × ¥${rate} · 12-99kg档`; }
   } else if (carrierId === 'my_small') {
     const c = { east:{base:160,extra:17}, mid:{base:150,extra:16}, west:{base:140,extra:15} }[region];
     baseCost = (bw-5)*c.extra+c.base;
@@ -334,6 +337,7 @@ const calcBoxByCarrier = (carrierId, dims, weight, isCrate, region, isMulti, sur
   }
 
   const surList = [];
+  let invalidReason = null;
   const addSur = (n, c) => { surList.push({ name: n, cost: c }); };
 
   if (carrierId === 'ch' || carrierId === 'ch_small') {
@@ -342,7 +346,27 @@ const calcBoxByCarrier = (carrierId, dims, weight, isCrate, region, isMulti, sur
     if (sides[0] > 120) addSur('超长附加费', sides[0] >= 240 ? 910 : 100);
     if (sides[1] >= 75) addSur('二边超限费', 100);
     if (girth > 265) addSur('围长附加费', girth > 320 ? 600 : 120);
-  } else if (carrierId === 'my' || carrierId === 'my_small') {
+  } else if (carrierId === 'my') {
+    // 🆕 v22-financefix1: 明扬加班船 附加费规则 (image 3 spec)
+    // 不接收阈值
+    if (weight > 68) invalidReason = `实重 ${weight}kg > 68kg · 明扬加班船不接收`;
+    else if (sides[0] > 300) invalidReason = `单边 ${Math.round(sides[0])}cm > 300cm · 明扬加班船不接收`;
+    else if (girth > 420) invalidReason = `围长 ${Math.round(girth)}cm > 420cm · 明扬加班船不接收`;
+    else {
+      // 单边长度附加费 (200-300 不与 120-200 叠加, 区间无重叠)
+      if (sides[0] >= 200 && sides[0] <= 300) addSur('单边200-300cm', 200);
+      else if (sides[0] > 120 && sides[0] < 200) addSur('单边120-200cm', 80);
+      // 第二边
+      if (sides[1] > 75) addSur('第二边>75cm', 80);
+      // 实重 22-68kg
+      if (weight >= 22 && weight <= 68) addSur('实重22-68kg', 80);
+      // 围长附加费 (410-420 不与 320-410 / 266-320 叠加, 优先级从大到小)
+      if (girth >= 410 && girth <= 420) addSur('围长410-420cm', 800);
+      else if (girth >= 320 && girth < 410) addSur('围长320-410cm', 500);
+      else if (girth > 266 && girth < 320) addSur('围长266-320cm', 80);
+    }
+  } else if (carrierId === 'my_small') {
+    // 明扬小货 — 保留原规则 (用户本次仅升级加班船 my,小货另议)
     if (sides[0] > 120 && sides[0] < 200) addSur('长边120-200', 100);
     else if (sides[0] >= 200) addSur('长边≥200', 200);
     if (sides[1] > 75) addSur('二边>75', 100);
@@ -361,7 +385,12 @@ const calcBoxByCarrier = (carrierId, dims, weight, isCrate, region, isMulti, sur
   }
 
   const surTotal = surList.reduce((s, x) => s + x.cost, 0);
-  return { carrierId, name: US_CARRIERS[carrierId].name, freight: baseCost, billWeight: bw, formula, surcharges: surList, surTotal, totalCost: baseCost + surTotal };
+  return { 
+    carrierId, name: US_CARRIERS[carrierId].name, 
+    freight: baseCost, billWeight: bw, formula, 
+    surcharges: surList, surTotal, totalCost: baseCost + surTotal,
+    invalid: !!invalidReason, invalidReason: invalidReason || null,
+  };
 };
 
 // 加拿大 - 信源
@@ -795,11 +824,17 @@ const evaluateAll = (boxes, country, opts) => {
     const ids = isMulti ? ['ch', 'my', 'zs'] : ['ch', 'ch_small', 'my', 'my_small', 'zs'];
     results = ids.map(id => {
       let total = 0, billW = 0;
+      let anyInvalid = false, firstReason = null;
       boxes.forEach(box => {
         const r = calcBoxByCarrier(id, box.dims, box.weight, !!box.isCrate, region, isMulti, box.surchargeBuffer || 0);
         total += r.totalCost * box.qty;
         billW += r.billWeight * box.qty;
+        if (r.invalid && !anyInvalid) { anyInvalid = true; firstReason = r.invalidReason; }
       });
+      if (anyInvalid) {
+        // 🆕 v22-financefix1: 任一箱超规 → 整个承运商标记不可发
+        return { carrierId: id, name: US_CARRIERS[id].name, valid: false, invalidReason: firstReason, totalCost: Infinity, billWeight: Math.ceil(billW), surcharges: [], surTotal: 0, formula: '', freight: 0 };
+      }
       return { carrierId: id, name: US_CARRIERS[id].name, valid: true, totalCost: total, billWeight: Math.ceil(billW) };
     });
     results.push(calcYunding(boxes, opts));
@@ -2195,6 +2230,12 @@ if (window.parent && window.parent !== window) {
   // 窗口尺寸变化也汇报
   window.addEventListener('resize', reportHeight);
 }
+
+// 🆕 v22-financefix1 (2026.05.25): 明扬加班船报价更新 (19/18/17 美东/中/西) + 附加费规则按图3 spec + 超规自动标记不接收
+console.log(
+  '%c💰 财务计算器 v2026.05.25-financefix1 已加载',
+  'color:#0369a1; font-weight:bold; font-size:13px; background:#e0f2fe; padding:3px 8px; border-radius:4px'
+);
 </script>
 </body>
 </html>
