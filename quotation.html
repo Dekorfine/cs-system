@@ -654,6 +654,9 @@ fieldset legend {
   padding: 36px 40px; width: 100%; max-width: 460px;
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--line);
+  /* 🆕 fix26: 限高 + 内部滚动,避免模态框比视窗高时把 body 滚下去 */
+  max-height: 88vh;
+  overflow-y: auto;
 }
 .modal h3 {
   margin: 0 0 6px; font-size: 22px; font-weight: 600; color: var(--ink);
@@ -2778,11 +2781,15 @@ function openSettings() {
   renderUserBar();
   loadCloudList();
 }
-function closeSettings() { const el = $('settings-overlay'); if (el) el.classList.add('hidden'); }
+function closeSettings() { const el = $('settings-overlay'); if (el) el.classList.add('hidden'); document.body.style.overflow = ''; }
 function openHelp() {
   document.getElementById('help-overlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';  // 🆕 fix26: 锁定底层滚动
 }
-function closeHelp() { document.getElementById('help-overlay').classList.add('hidden'); }
+function closeHelp() {
+  document.getElementById('help-overlay').classList.add('hidden');
+  document.body.style.overflow = '';  // 🆕 fix26: 解锁
+}
 function renderUserBar() {
   const name = getUsername();
   const avatar = $('user-avatar');
