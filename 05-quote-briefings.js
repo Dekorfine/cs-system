@@ -1,8 +1,9 @@
 // ════════════════════════════════════════════════════════════════════
-// 📝 报价单 + 📢 会议纪要
-// 拆自 workspace.html (fix22 模块化结构)
-// 原始行号: 9533 - 11744
+// 📝 报价单 + 📢 会议纪要 (含 fix29 不撑大 iframe)
+// 拆自 workspace.html (fix29 模块化结构)
+// 原始行号: 9532 - 11747
 // ════════════════════════════════════════════════════════════════════
+
 
 const QuoteModule = ({ user, toast }) => {
   const userParam = encodeURIComponent((user.name || '') + (user.alias ? ' ' + user.alias : ''));
@@ -14,13 +15,16 @@ const QuoteModule = ({ user, toast }) => {
   useEffect(() => {
     const handler = (e) => {
       if (e.data?.type === 'iframe-resize' && e.data?.source === 'quotation') {
-        setIframeHeight(Math.max(600, e.data.height + 20) + 'px');
+        // 🆕 fix29 (参考 KB fix8): 不再撑大 iframe 到内容高度!
+        // 原因 — 跟 KB 一样的问题:
+        //   • iframe 内容高度 ~3000px,撑大后 workspace 主页面也变巨高,出现"无限下滑"
+        //   • position:fixed 的 modal(❓ 使用说明)会铆在 iframe 顶部,用户向下滚后看不到
+        //   • 用户感受到的"自动下滑"其实是 iframe 撑大后页面太长导致的副作用
+        // 正确做法:保持 iframe = viewport-bound (calc(100vh - 100px)),iframe 自己有滚动条
+        // setIframeHeight(Math.max(600, e.data.height + 20) + 'px');  ← 已禁用 (撑大破坏 modal + 无限下滑)
       }
-      if (e.data?.type === 'iframe-modal-open' && e.data?.source === 'quotation') {
-        if (iframeRef.current) {
-          iframeRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      }
+      // 🆕 fix29: 移除 iframe-modal-open 的 scrollIntoView (这是真正的"自动下滑"罪魁)
+      // 旧逻辑会让父页面平滑滚到 iframe 顶,改成不做任何事
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);

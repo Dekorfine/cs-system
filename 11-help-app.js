@@ -1,9 +1,11 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 使用手册 + 🎯 App 主入口 (fix23 版本号)
-// 拆自 workspace.html (fix23 模块化结构)
-// 原始行号: 22677 - 24799
+// 📖 使用手册 + 🎯 App (fix29 版本号)
+// 拆自 workspace.html (fix29 模块化结构)
+// 原始行号: 22745 - 24891
 // ════════════════════════════════════════════════════════════════════
 
+
+// ════════════════════════════════════════════════════════════════════
 // 📖 帮助中心模块 (fix13)
 // 包含:入门指南 / 模块详解 / 角色权限 / 快捷操作 / 报告 Bug / 版本日志 / AI 能力 / 路线图 / 设计哲学
 // ════════════════════════════════════════════════════════════════════
@@ -1326,7 +1328,7 @@ const App = () => {
   // ══════════════════════════════════════════════════════════════
   const DEFAULT_TOP_KEYS = ['cs', 'chargebacks', 'offline_orders', 'custom_photo', 'events', 'reviews'];
 
-  const [layoutPrefs, setLayoutPrefs] = useState({ topKeys: DEFAULT_TOP_KEYS, sidebarCollapsed: false });
+  const [layoutPrefs, setLayoutPrefs] = useState({ topKeys: DEFAULT_TOP_KEYS, sidebarOrder: [], sidebarCollapsed: false });
   // 登录或切换账号时重新加载该用户的布局
   useEffect(() => {
     if (!user) return;
@@ -1334,10 +1336,11 @@ const App = () => {
     if (saved && Array.isArray(saved.topKeys)) {
       setLayoutPrefs({
         topKeys: saved.topKeys,
+        sidebarOrder: Array.isArray(saved.sidebarOrder) ? saved.sidebarOrder : [],  // 🆕 fix28
         sidebarCollapsed: !!saved.sidebarCollapsed,
       });
     } else {
-      setLayoutPrefs({ topKeys: DEFAULT_TOP_KEYS, sidebarCollapsed: false });
+      setLayoutPrefs({ topKeys: DEFAULT_TOP_KEYS, sidebarOrder: [], sidebarCollapsed: false });
     }
   }, [user?.id]);
   // 保存
@@ -1402,8 +1405,17 @@ const App = () => {
 
   const sidebarTabs = useMemo(() => {
     if (!allTabs.length) return [];
-    return allTabs.filter(t => !layoutPrefs.topKeys.includes(t.key));
-  }, [allTabs, layoutPrefs.topKeys]);
+    const nonPinned = allTabs.filter(t => !layoutPrefs.topKeys.includes(t.key));
+    // 🆕 fix28: 按用户自定义 sidebarOrder 排序;没在 order 里的项保持 allTabs 原顺序
+    const order = layoutPrefs.sidebarOrder || [];
+    if (order.length === 0) return nonPinned;
+    const orderMap = new Map(order.map((k, i) => [k, i]));
+    return [...nonPinned].sort((a, b) => {
+      const ia = orderMap.has(a.key) ? orderMap.get(a.key) : 99999;
+      const ib = orderMap.has(b.key) ? orderMap.get(b.key) : 99999;
+      return ia - ib;
+    });
+  }, [allTabs, layoutPrefs.topKeys, layoutPrefs.sidebarOrder]);
 
   // 通知权限
   const [notifPerm, setNotifPerm] = useState(() => {
@@ -1900,7 +1912,7 @@ const App = () => {
           allTabs={allTabs}
           layoutPrefs={layoutPrefs}
           defaultTopKeys={DEFAULT_TOP_KEYS}
-          onSave={(newTopKeys) => setLayoutPrefs(p => ({ ...p, topKeys: newTopKeys }))}
+          onSave={({ topKeys: newTopKeys, sidebarOrder: newSidebarOrder }) => setLayoutPrefs(p => ({ ...p, topKeys: newTopKeys, sidebarOrder: newSidebarOrder || [] }))}
           onClose={() => setCustomizeOpen(false)}
         />
       )}
@@ -1912,7 +1924,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix23';
+const APP_VERSION = '2026.05.25-fix29';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
@@ -1921,6 +1933,18 @@ const APP_VERSION = '2026.05.25-fix23';
 // type: 'feature' 新功能 / 'fix' 修复 / 'refactor' 重构 / 'perf' 性能 / 'data' 数据
 // ════════════════════════════════════════════════════════════════════
 const VERSION_HISTORY = [
+  { version: '2026.05.25-fix29', date: '2026.05.25', title: '📝 报价单 — 修复"无限下滑"(应用 KB 的 fix8 方案)', changes: [
+    { type:'fix', text:'报价单 iframe 不再撑大 — 跟知识库 fix8 同样的处理,iframe 保持 calc(100vh - 100px),自己有滚动条' },
+    { type:'fix', text:'根因:之前 iframe 撑到内容高度(~3000px),workspace 主页面也变巨高 → "无限下滑"' },
+    { type:'fix', text:'副效:position:fixed 的 modal(❓ 使用手册)不再锚到 iframe 顶部,而是锁在 iframe viewport — 点 ❓ 就在你眼前出现' },
+    { type:'fix', text:'移除 iframe-modal-open 的 scrollIntoView 旧逻辑 (这是真正触发"页面平滑滑动到顶"的元凶)' },
+  ]},
+  { version: '2026.05.25-fix28', date: '2026.05.25', title: '⚙ 侧栏自定义 — 其他功能也支持手动 ↑↓ 排序', changes: [
+    { type:'feature', text:'侧栏自定义弹窗:下方"其他功能"区每个 tab 项加 ↑↓ 按钮,可手动调整组内顺序' },
+    { type:'feature', text:'排序规则:在 同组内 (主功能 / 资源工具 / 协作 / 管理) 上下交换,不跨组' },
+    { type:'feature', text:'用户自定义顺序保存在 layoutPrefs.sidebarOrder · 每个员工独立,不影响他人' },
+    { type:'fix', text:'重置按钮:同时清掉 topKeys + sidebarOrder,恢复完全默认' },
+  ]},
   { version: '2026.05.25-fix23', date: '2026.05.25', title: '🌐 店铺负责人 — 新角色 + 矩阵批量添加 + 智能派单', changes: [
     { type:'feature', text:'CDM_OWNER_ROLES 新增 2 个客服角色:🌙 夜班(晚 6 点后美区询盘)/ 🚨 升级处理(投诉退款纠纷)' },
     { type:'feature', text:'店铺负责人维护新增"🔢 矩阵批量"模式:N 网站 × M 员工 × 1 角色 → 一键添加 N×M 条记录' },
