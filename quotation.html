@@ -2588,7 +2588,8 @@ function _loadSbCfg() {
 const _sbCfg = _loadSbCfg();
 const SB_URL = _sbCfg.url;
 const SB_KEY = _sbCfg.key;
-const SB_TABLE = 'quotation_records';
+// 🆕 fix25: 切换到新表 quotations (避开旧 repo 留下的 quotation_records 脏数据)
+const SB_TABLE = 'quotations';
 const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
 
 /* Sanitize a string into a filename-safe token.
@@ -2739,6 +2740,8 @@ function refreshPiAutoIncrement() {
   }
 }
 
+// 🆕 fix25: 删登录验证 — getUsername 永远返回非空,不再卡住保存
+// 旧的"必填用户名"逻辑已废弃,改成可选 displayName(留空也能保存)
 function getSettings()  { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch(e) { return {}; } }
 function getToken()     { return getSettings().token || 'supabase'; } // Legacy; kept for compatibility
 function getUsername()  {
@@ -2754,44 +2757,28 @@ function getUsername()  {
       return u;
     }
   }
-  return getSettings().username || '';
+  // 🆕 fix25: 没设过名字就返回 'guest',让所有 if(!getUsername()) 检查恒为 true,不再弹设置框
+  return getSettings().username || 'guest';
 }
 function saveSetup() {
   const name = $('setup-name').value.trim();
-  if (!name) { alert('Please enter your name.'); return; }
+  // 🆕 fix25: 允许空(不再要求必填),空 = guest
   const prev = getSettings();
-  if (prev.username && prev.username !== name) {
-    const hasMyRecords = cloudRecords.some(r => r.user === prev.username);
-    if (hasMyRecords) {
-      const proceed = confirm(
-        `You are about to change your name from "${prev.username}" to "${name}".\n\n` +
-        `Your existing ${cloudRecords.filter(r => r.user === prev.username).length} quote(s) will remain under "${prev.username}" in Team view, ` +
-        `and new saves will go under "${name}". Continue?`
-      );
-      if (!proceed) return;
-    }
-  }
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ username: name }));
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ username: name || 'guest' }));
   closeSettings();
   renderUserBar();
   loadCloudList();
 }
 function openSettings() {
-  const s = getSettings();
-  $('setup-name').value  = s.username || '';
-  if ($('setup-token')) $('setup-token').value = '';
-  const warning = $('setup-name-locked-warning');
-  if (warning) {
-    const hasExistingName = !!s.username;
-    const hasMyRecords = cloudRecords.some(r => r.user === s.username);
-    warning.style.display = (hasExistingName && hasMyRecords) ? '' : 'none';
-  }
-  $('settings-overlay').classList.remove('hidden');
-  if (window.parent && window.parent !== window) {
-    try { window.parent.postMessage({ type: 'iframe-modal-open', source: 'quotation' }, '*'); } catch(e){}
-  }
+  // 🆕 fix25: 改成简单 prompt,不阻塞主流程
+  const cur = (getSettings().username || '').replace('guest', '');
+  const name = prompt('显示名称(可选,留空即可)\nDisplay name (optional, leave blank if not needed):', cur);
+  if (name === null) return;  // 取消
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ username: name.trim() || 'guest' }));
+  renderUserBar();
+  loadCloudList();
 }
-function closeSettings() { $('settings-overlay').classList.add('hidden'); }
+function closeSettings() { const el = $('settings-overlay'); if (el) el.classList.add('hidden'); }
 function openHelp() {
   document.getElementById('help-overlay').classList.remove('hidden');
   if (window.parent && window.parent !== window) {
@@ -2826,6 +2813,29 @@ function renderUserBar() {
    - 替代原 GitHub Contents API
    - 表 quotation_records: id / username / pi_no / buyer_name / status / amount / trashed / data(JSONB) / created_at / updated_at
    ============================================================ */
+// 🆕 fix24-4: 防框架污染 — 检测是否被 workspace 错误加载,卸载冲突 Service Worker
+(function isolateQuotationTool() {
+  // 如果检测到 workspace 的 APP_VERSION 全局变量,说明被混入了
+  setTimeout(() => {
+    if (typeof window.APP_VERSION !== 'undefined' && /fix\d+/.test(String(window.APP_VERSION))) {
+      console.warn('⚠ 检测到 workspace 的 APP_VERSION =', window.APP_VERSION, '— quotation.html 应是独立页面!');
+    }
+  }, 2000);
+  // 强制注销该域下的任何 Service Worker(防止旧 SW 拦截请求)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(r => { r.unregister(); console.log('🧹 已注销 Service Worker:', r.scope); });
+    }).catch(() => {});
+  }
+  // 清掉可能的 Tailwind/Babel 残留(workspace 用,quotation 不用)
+  document.querySelectorAll('script[src*="tailwindcss"], script[src*="babel-standalone"]').forEach(s => {
+    if (s.src.includes('cdn.tailwindcss.com') || s.src.includes('babel-standalone')) {
+      console.warn('🧹 清掉非本工具脚本:', s.src);
+      s.remove();
+    }
+  });
+})();
+
 // 🆕 fix24-3: 提取 Supabase 完整错误信息 (message/details/hint/code)
 function extractSbError(e) {
   if (!e) return '未知错误';
@@ -2842,16 +2852,73 @@ function extractSbError(e) {
   return parts.join(' · ');
 }
 
+// 🆕 fix24-4: 一键健康检查 — 给用户排查表结构
+window.sbHealthCheck = async function() {
+  if (!sb) { console.error('❌ Supabase SDK 未加载'); return; }
+  console.log('===== 🩺 Supabase 健康检查 =====');
+  console.log('URL:', SB_URL);
+  console.log('TABLE:', SB_TABLE);
+  
+  // 1. 测试表是否能 SELECT
+  console.log('\n[1] 测试 SELECT *...');
+  try {
+    const { data, error } = await sb.from(SB_TABLE).select('*').limit(1);
+    if (error) {
+      console.error('❌ SELECT 失败:', error);
+      console.error('   code =', error.code, '| message =', error.message);
+      console.error('   details =', error.details, '| hint =', error.hint);
+    } else {
+      console.log('✓ SELECT 成功 · 返回', data.length, '行');
+      if (data[0]) console.log('   样本字段:', Object.keys(data[0]));
+    }
+  } catch (e) { console.error('❌ SELECT 异常:', e); }
+  
+  // 2. 测试空 INSERT 看必填字段
+  console.log('\n[2] 测试最小 INSERT...');
+  const testId = 'healthcheck_' + Date.now();
+  try {
+    // 🆕 fix25: 用新 schema (created_by_name 替代 username)
+    const { data, error } = await sb.from(SB_TABLE).insert({
+      id: testId,
+      created_by_name: 'healthcheck',
+      pi_no: 'TEST',
+      buyer_name: '健康检查',
+      status: 'draft',
+      amount: 0,
+      trashed: false,
+      data: {},
+    }).select();
+    if (error) {
+      console.error('❌ INSERT 失败:', error);
+      console.error('   code =', error.code, '| message =', error.message);
+      console.error('   details =', error.details, '| hint =', error.hint);
+    } else {
+      console.log('✓ INSERT 成功 · 删掉测试数据...');
+      await sb.from(SB_TABLE).delete().eq('id', testId);
+      console.log('✓ 测试数据已清理');
+    }
+  } catch (e) { console.error('❌ INSERT 异常:', e); }
+  
+  console.log('===== 检查完成 =====');
+  console.log('如有 ❌,把上面输出截图给开发者');
+};
+
 async function sbList(opts = {}) {
   if (!sb) { setCloudStatus('Supabase SDK not loaded', 'err'); return []; }
   try {
     let q = sb.from(SB_TABLE).select('*').order('updated_at', { ascending: false });
-    if (opts.username) q = q.eq('username', opts.username);
+    // 🆕 fix25: 新列名 created_by_name (旧的 username 已废弃)
+    if (opts.username && opts.username !== 'guest') q = q.eq('created_by_name', opts.username);
     if (typeof opts.trashed === 'boolean') q = q.eq('trashed', opts.trashed);
     const { data, error } = await q;
     if (error) throw error;
     return data || [];
-  } catch(e) { console.error('[sbList]', e); setCloudStatus('Load error: ' + extractSbError(e), 'err'); return []; }
+  } catch(e) {
+    console.error('[sbList] code=' + e.code + ' msg=' + e.message + ' details=' + e.details + ' hint=' + e.hint);
+    console.error('[sbList] full:', e);
+    setCloudStatus('Load error: ' + extractSbError(e), 'err');
+    return [];
+  }
 }
 async function sbUpsert(row) {
   if (!sb) return null;
@@ -2859,7 +2926,21 @@ async function sbUpsert(row) {
     const { data, error } = await sb.from(SB_TABLE).upsert(row).select().single();
     if (error) throw error;
     return data;
-  } catch(e) { console.error('[sbUpsert] FULL ERROR:', e, '\nROW (without data):', { ...row, data: '<JSONB ' + JSON.stringify(row.data || {}).length + ' bytes>' }); setCloudStatus('Save error: ' + extractSbError(e), 'err'); return null; }
+  } catch(e) {
+    // 🆕 fix24-4: 把所有关键字段打平输出,不要藏在 Object 里
+    console.error('━━━━━━━━━━━ ❌ Save FAILED ━━━━━━━━━━━');
+    console.error('错误 code: ' + (e.code || '(无)'));
+    console.error('错误 msg:  ' + (e.message || '(无)'));
+    console.error('详情 details: ' + (e.details || '(无)'));
+    console.error('修复提示 hint: ' + (e.hint || '(无)'));
+    console.error('HTTP status: ' + (e.status || '(无)'));
+    console.error('上传 row 大小: ' + (JSON.stringify(row).length / 1024).toFixed(1) + ' KB');
+    console.error('Row keys:', Object.keys(row));
+    console.error('完整错误对象:', e);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    setCloudStatus('Save error: ' + extractSbError(e), 'err');
+    return null;
+  }
 }
 async function sbUpdate(id, patch) {
   if (!sb) return null;
@@ -2867,7 +2948,11 @@ async function sbUpdate(id, patch) {
     const { data, error } = await sb.from(SB_TABLE).update({ ...patch, updated_at: new Date().toISOString() }).eq('id', id).select().single();
     if (error) throw error;
     return data;
-  } catch(e) { console.error('[sbUpdate]', e); setCloudStatus('Update error: ' + extractSbError(e), 'err'); return null; }
+  } catch(e) {
+    console.error('[sbUpdate] code=' + e.code + ' msg=' + e.message);
+    setCloudStatus('Update error: ' + extractSbError(e), 'err');
+    return null;
+  }
 }
 async function sbDelete(id) {
   if (!sb) return false;
@@ -2875,7 +2960,11 @@ async function sbDelete(id) {
     const { error } = await sb.from(SB_TABLE).delete().eq('id', id);
     if (error) throw error;
     return true;
-  } catch(e) { console.error('[sbDelete]', e); setCloudStatus('Delete error: ' + extractSbError(e), 'err'); return false; }
+  } catch(e) {
+    console.error('[sbDelete] code=' + e.code + ' msg=' + e.message);
+    setCloudStatus('Delete error: ' + extractSbError(e), 'err');
+    return false;
+  }
 }
 
 // 兼容函数：旧代码调用 ghAPI，我们 stub 掉避免崩
@@ -2912,8 +3001,7 @@ function setStatusFilter(status) {
 }
 
 async function loadCloudList() {
-  const me = getUsername();
-  if (!me) { openSettings(); return; }
+  const me = getUsername();  // 🆕 fix25: 永远非空,'guest' 为默认 — 不再阻塞
   setCloudStatus('<span class="loading-spinner"></span> 加载中… · Loading…', '');
   $('cloud-list').innerHTML = '<div class="cloud-list-empty"><span class="loading-spinner"></span> 拉取记录中… · Fetching records…</div>';
   cloudRecords = [];
@@ -2956,13 +3044,14 @@ function rowToCloudRecord(row) {
   const displayName = (row.buyer_name || '(unnamed customer)').replace(/-/g, ' ');
   const rawData = row.data || {};
   return {
-    user: row.username,
+    // 🆕 fix25: 新表用 created_by_name,兼容旧 row.username
+    user: row.created_by_name || row.username || 'guest',
     id: row.id,
     path: row.id,                  // 兼容旧代码用 path
     sha: row.updated_at,           // 用 updated_at 做冲突检测
     rawData,
     buyerName: displayName,
-    buyerEmail: (rawData.buyer_email || '').trim().toLowerCase(),  // 🆕 用于按邮箱搜索 + 历史记录
+    buyerEmail: (row.buyer_email || rawData.buyer_email || '').trim().toLowerCase(),
     piNo: row.pi_no || '',
     date: (row.updated_at || '').slice(0,16).replace('T','-').replace(':','-'),
     status: row.status || 'draft',
@@ -3175,11 +3264,10 @@ async function cloudSave() {
   let isUpdate = !!recordId;
   
   if (!recordId && piNo && piNo !== 'QUOTE') {
-    // 按 PI No 查找该用户已有的记录
+    // 🆕 fix25: 按 PI No 全表去重 (不再按 username 分隔,因为不要求登录)
     try {
       const { data: existing } = await sb.from(SB_TABLE)
         .select('id, updated_at, trashed')
-        .eq('username', username)
         .eq('pi_no', piNo)
         .eq('trashed', false)
         .order('updated_at', { ascending: false })
@@ -3219,13 +3307,19 @@ async function cloudSave() {
 
   const row = {
     id: recordId,
-    username: username,
+    // 🆕 fix25: 新表 quotations 的扁平 schema
+    created_by_name: (username === 'guest' ? null : username),  // 可空
     pi_no: piNo,
+    quote_no: data.quote_number || null,
+    po_no: data.po_number || null,
     buyer_name: buyerNameDisplay,
+    buyer_email: data.buyer_email || null,
     status: status,
     amount: amount,
+    currency: data.currency || 'USD',
+    customer_note: (data.opt_show_customer_note && data.customer_note) ? data.customer_note : null,
     trashed: false,
-    data: data,
+    data: data,  // 完整快照,方便完整还原
     updated_at: new Date().toISOString(),
   };
   if (!isUpdate) row.created_at = new Date().toISOString();
@@ -3425,7 +3519,7 @@ function setCloudStatus(html, type) {
   el.className = 'cloud-status-msg' + (type ? ' ' + type : '');
 }
 async function quickSave() {
-  if (!getUsername()) { openSettings(); return; }
+  // 🆕 fix25: 不再要求登录,直接保存
   const pill = $('status-pill');
   pill.textContent = 'Saving…'; pill.className = 'status-pill busy';
   await cloudSave();
@@ -3528,8 +3622,7 @@ document.addEventListener('DOMContentLoaded', function() {
   switchPreview('quotation');
 
   // First-visit setup prompt
-  if (getUsername()) loadCloudList();
-  else openSettings();
+  loadCloudList();  // 🆕 fix25: 不再卡住,直接加载
 });
 
 // ── iframe 嵌入时向父窗口汇报高度 ──
