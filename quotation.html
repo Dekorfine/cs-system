@@ -648,6 +648,9 @@ fieldset legend {
   -webkit-backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center;
   padding: 20px;
+  /* 🆕 fix27-2: 防止滚轮事件传给底层 body / iframe 父窗口 */
+  overscroll-behavior: contain;
+  overflow: hidden;
 }
 .modal {
   background: var(--bg-card); border-radius: var(--radius-xl);
@@ -3658,6 +3661,14 @@ document.addEventListener('DOMContentLoaded', function() {
 if (window.parent && window.parent !== window) {
   let lastH = 0;
   const reportHeight = () => {
+    // 🆕 fix27-2: modal 打开期间不报告高度,防止 iframe 跳动触发父窗口滚屏
+    const helpEl = document.getElementById('help-overlay');
+    const settingsEl = document.getElementById('settings-overlay');
+    const modalOpen =
+      (helpEl && !helpEl.classList.contains('hidden')) ||
+      (settingsEl && !settingsEl.classList.contains('hidden'));
+    if (modalOpen) return;
+    
     const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
     if (Math.abs(h - lastH) > 5) {
       lastH = h;
