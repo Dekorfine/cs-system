@@ -1,10 +1,563 @@
 // ════════════════════════════════════════════════════════════════════
-// ⚙ 设置 + 🧮 财务计算器 + 🚚 运费支付
-// 拆自 workspace.html 单文件 (fix20 模块化重构)
-// 原始行号: 7439 - 8923
+// ⚙ 设置 (网站/产品/人员/供应商/规则/云) + 财务计算 + 运费
+// 拆自 workspace.html (fix21 模块化结构)
+// 原始行号: 7441 - 9502
 // ════════════════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix21: 网站维护 (SitesMaintenanceSection)
+// 存储:Supabase system_settings 表,key='custom_sites',value=JSONB 数组
+// 默认显示内置 SITES + 已添加的自定义站点 · 可新增/编辑/停用
+// ════════════════════════════════════════════════════════════════════
+const SitesMaintenanceSection = ({ user, toast }) => {
+  const [customSites, setCustomSites] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showNew, setShowNew] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  
+  const load = async () => {
+    setLoading(true);
+    try {
+      if (CLOUD.client) {
+        const { data } = await CLOUD.client.from('system_settings').select('value').eq('key', 'custom_sites').maybeSingle();
+        setCustomSites((data?.value?.sites) || []);
+      }
+    } catch (e) { console.warn('加载自定义网站失败', e); }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+  
+  const saveCustomSites = async (newList) => {
+    if (!CLOUD.client) { toast('❌ 云同步未启用'); return false; }
+    try {
+      await CLOUD.client.from('system_settings').upsert({
+        key: 'custom_sites',
+        value: { sites: newList },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+      setCustomSites(newList);
+      return true;
+    } catch (e) { toast('❌ 保存失败: ' + e.message); return false; }
+  };
+  
+  const addSite = async (site) => {
+    if (!isAdmin) { toast('仅主管可添加网站'); return; }
+    const exists = SITES.includes(site.code) || customSites.some(s => s.code === site.code);
+    if (exists) { toast('⚠ 该代码已存在'); return; }
+    const ok = await saveCustomSites([...customSites, { ...site, isBuiltin: false, active: true, created_at: new Date().toISOString() }]);
+    if (ok) { setShowNew(false); toast('✓ 网站已添加'); }
+  };
+  
+  const updateSite = async (code, patch) => {
+    if (!isAdmin) { toast('仅主管可修改'); return; }
+    const next = customSites.map(s => s.code === code ? { ...s, ...patch } : s);
+    const ok = await saveCustomSites(next);
+    if (ok) { setEditing(null); toast('✓ 已更新'); }
+  };
+  
+  const deleteSite = async (code) => {
+    if (!isAdmin) { toast('仅主管可删除'); return; }
+    if (!confirm(`确认删除自定义网站 "${code}"?\n\n警告:已使用此网站的历史记录会保留代码,但下拉不再出现。`)) return;
+    const ok = await saveCustomSites(customSites.filter(s => s.code !== code));
+    if (ok) toast('✓ 已删除');
+  };
+  
+  // 合并内置 + 自定义,用于显示
+  const builtinSites = SITES.map(code => ({ code, name: getShopFromSiteCode(code), brand: '', color: '', isBuiltin: true, active: true }));
+  const allSites = [...builtinSites, ...customSites];
+  
+  return (
+    <div className="paper rounded-2xl p-4">
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8}}>
+        <div>
+          <div className="font-display" style={{fontSize:17, fontWeight:600}}>🌐 网站维护</div>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginTop:3}}>
+            共 {allSites.length} 个网站 · {builtinSites.length} 个内置 + {customSites.length} 个自定义
+          </div>
+        </div>
+        {isAdmin && (
+          <button onClick={() => setShowNew(true)}
+            style={{padding:'7px 14px', background:'#1e40af', color:'white', border:'none', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}>
+            + 添加自定义网站
+          </button>
+        )}
+      </div>
+      
+      {loading ? (
+        <div style={{padding:'30px', textAlign:'center', color:'var(--ink-3)'}}>加载中...</div>
+      ) : (
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
+            <thead>
+              <tr style={{background:'#f8fafc', color:'var(--ink-3)'}}>
+                <th style={{padding:'8px 10px', textAlign:'left', fontWeight:600, borderBottom:'1px solid var(--line)', width:80}}>代码</th>
+                <th style={{padding:'8px 10px', textAlign:'left', fontWeight:600, borderBottom:'1px solid var(--line)'}}>名称 / 品牌</th>
+                <th style={{padding:'8px 10px', textAlign:'left', fontWeight:600, borderBottom:'1px solid var(--line)'}}>域名</th>
+                <th style={{padding:'8px 10px', textAlign:'center', fontWeight:600, borderBottom:'1px solid var(--line)', width:80}}>类型</th>
+                <th style={{padding:'8px 10px', textAlign:'center', fontWeight:600, borderBottom:'1px solid var(--line)', width:80}}>状态</th>
+                <th style={{padding:'8px 10px', textAlign:'center', fontWeight:600, borderBottom:'1px solid var(--line)', width:120}}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allSites.map(s => (
+                <tr key={s.code} style={{borderBottom:'1px solid var(--line)'}}>
+                  <td style={{padding:'8px 10px', fontWeight:700, fontFamily:'monospace'}}>{s.code}</td>
+                  <td style={{padding:'8px 10px'}}>
+                    <div style={{fontWeight:600}}>{s.name || s.code}</div>
+                    {s.brand && <div style={{fontSize:10, color:'var(--ink-3)'}}>{s.brand}</div>}
+                  </td>
+                  <td style={{padding:'8px 10px', color:'var(--ink-3)', fontFamily:'monospace', fontSize:11}}>{s.domain || '-'}</td>
+                  <td style={{padding:'8px 10px', textAlign:'center'}}>
+                    <span style={{padding:'2px 8px', background: s.isBuiltin ? '#f3e8ff' : '#fef3c7', color: s.isBuiltin ? '#7c3aed' : '#92400e', borderRadius:8, fontSize:10, fontWeight:600}}>
+                      {s.isBuiltin ? '内置' : '自定义'}
+                    </span>
+                  </td>
+                  <td style={{padding:'8px 10px', textAlign:'center'}}>
+                    <span style={{padding:'2px 8px', background: s.active !== false ? '#dcfce7' : '#f5f5f7', color: s.active !== false ? '#15803d' : '#86868b', borderRadius:8, fontSize:10, fontWeight:600}}>
+                      {s.active !== false ? '✓ 启用' : '✕ 停用'}
+                    </span>
+                  </td>
+                  <td style={{padding:'8px 10px', textAlign:'center'}}>
+                    {!s.isBuiltin && isAdmin && (
+                      <>
+                        <button onClick={() => setEditing(s)} style={{padding:'3px 8px', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:4, cursor:'pointer', fontSize:10, fontWeight:600, marginRight:3}}>✏️</button>
+                        <button onClick={() => updateSite(s.code, { active: s.active === false })} style={{padding:'3px 8px', background:'#fef3c7', color:'#92400e', border:'1px solid #fbbf24', borderRadius:4, cursor:'pointer', fontSize:10, fontWeight:600, marginRight:3}}>{s.active === false ? '启用' : '停用'}</button>
+                        <button onClick={() => deleteSite(s.code)} style={{padding:'3px 8px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:4, cursor:'pointer', fontSize:10, fontWeight:600}}>🗑</button>
+                      </>
+                    )}
+                    {s.isBuiltin && <span style={{fontSize:10, color:'var(--ink-4)'}}>—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      
+      <div style={{marginTop:12, padding:'10px 12px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, fontSize:11, color:'#1e40af', lineHeight:1.6}}>
+        💡 <strong>说明</strong>:内置网站(VK/RD/DC/MJ/DF/LS/RS/J/PL/MO/海服)是代码里写死的,所有客服系统都能用。<br/>
+        自定义网站存在 Supabase <code>system_settings</code> 表,所有客服共享,可后台动态增删改。
+      </div>
+      
+      {showNew && (
+        <SiteEditorModal site={null} onSave={addSite} onClose={() => setShowNew(false)} />
+      )}
+      {editing && (
+        <SiteEditorModal site={editing} onSave={(s) => updateSite(editing.code, s)} onClose={() => setEditing(null)} />
+      )}
+    </div>
+  );
+};
 
+const SiteEditorModal = ({ site, onSave, onClose }) => {
+  const [code, setCode] = useState(site?.code || '');
+  const [name, setName] = useState(site?.name || '');
+  const [brand, setBrand] = useState(site?.brand || '');
+  const [domain, setDomain] = useState(site?.domain || '');
+  const [color, setColor] = useState(site?.color || '#0369a1');
+  const [prefix, setPrefix] = useState(site?.prefix || '');
+  const isEdit = !!site;
+  
+  const handleSave = () => {
+    if (!code.trim() || !name.trim()) { alert('代码和名称必填'); return; }
+    if (code.length > 12) { alert('代码不超过 12 个字符'); return; }
+    onSave({ code: code.trim().toUpperCase(), name: name.trim(), brand: brand.trim(), domain: domain.trim(), color, prefix: prefix.trim().toUpperCase() });
+  };
+  
+  return ReactDOM.createPortal(
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:100000, display:'flex', alignItems:'flex-start', justifyContent:'center', overflow:'auto', padding:'30px 20px'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, width:'100%', maxWidth:520, boxShadow:'0 20px 60px rgba(0,0,0,.25)'}}>
+        <div style={{padding:'14px 20px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div className="font-display" style={{fontSize:16, fontWeight:600}}>🌐 {isEdit ? '编辑网站' : '添加自定义网站'}</div>
+          <button onClick={onClose} style={{background:'transparent', border:'none', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+        <div style={{padding:'16px 20px', display:'flex', flexDirection:'column', gap:11}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>代码 *</label>
+              <input value={code} onChange={e => setCode(e.target.value)} placeholder="如 SG / GMV" disabled={isEdit} maxLength={12}
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace', textTransform:'uppercase', background: isEdit ? '#f5f5f7' : 'white'}} />
+              <div style={{fontSize:10, color:'var(--ink-4)', marginTop:2}}>2-12 字符 · 大写 · 不可重复</div>
+            </div>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>名称 *</label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="如 Singapore Outlet"
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit'}} />
+            </div>
+          </div>
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>品牌全称</label>
+            <input value={brand} onChange={e => setBrand(e.target.value)} placeholder="如 Vakkerlight Singapore"
+              style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit'}} />
+          </div>
+          <div style={{display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:10}}>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>域名</label>
+              <input value={domain} onChange={e => setDomain(e.target.value)} placeholder="如 vakkerlight.sg"
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
+            </div>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>订单前缀</label>
+              <input value={prefix} onChange={e => setPrefix(e.target.value)} placeholder="VKS" maxLength={6}
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace', textTransform:'uppercase'}} />
+            </div>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>主题色</label>
+              <input type="color" value={color} onChange={e => setColor(e.target.value)}
+                style={{width:'100%', height:33, padding:0, border:'1px solid var(--line)', borderRadius:6, cursor:'pointer'}} />
+            </div>
+          </div>
+        </div>
+        <div style={{padding:'12px 20px', borderTop:'1px solid var(--line)', display:'flex', justifyContent:'flex-end', gap:6, background:'#fafafa'}}>
+          <button onClick={onClose} className="btn-sec" style={{padding:'7px 14px', fontSize:12}}>取消</button>
+          <button onClick={handleSave}
+            style={{padding:'7px 18px', background:'#1e40af', color:'white', border:'none', borderRadius:7, cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit'}}>
+            {isEdit ? '💾 保存修改' : '+ 添加'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// 内置网站代码 → 名称(从 SHOP_CONFIGS 推断)
+const getShopFromSiteCode = (code) => {
+  const map = {
+    VK: 'Vakkerlight', RD: 'Radilum', DC: 'DecorAdd', MJ: 'Manjouri',
+    DF: 'Dekorfine', LS: 'LampsMore', RS: 'RusticStyle',
+    J: 'JaneDecor', PL: 'PlaceList', MO: 'Move Outlet', '海服': '海服', SH: '上海',
+  };
+  return map[code] || code;
+};
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix21: 产品维护 (ProductsMaintenanceSection)
+// 存储:Supabase products 表 · 完整 CRUD + 搜索 + 适用网站标签
+// 将来在线下单 / 售后录入时可联想推荐
+// ════════════════════════════════════════════════════════════════════
+const ProductsMaintenanceSection = ({ user, toast }) => {
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterSupplier, setFilterSupplier] = useState('all');
+  const [editing, setEditing] = useState(null);   // null | 'new' | productObj
+  const [suppliers, setSuppliers] = useState([]);
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  
+  const load = async () => {
+    setLoading(true);
+    try {
+      const list = await CLOUD.list('products', { order:{col:'updated_at', asc:false}, limit:1000 });
+      setProducts((list || []).filter(p => !p.deleted));
+      const supps = await CLOUD.list('suppliers', { order:{col:'name', asc:true}, limit:500 });
+      setSuppliers((supps || []).filter(s => !s.deleted));
+    } catch (e) { toast('❌ 加载失败: ' + (e.message || e)); }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+  
+  const handleDelete = async (p) => {
+    if (!isAdmin) { toast('仅主管可删除'); return; }
+    if (!confirm(`确认删除 ${p.sku || ''} ${p.name}?`)) return;
+    const ok = await CLOUD.upsert('products', { ...p, deleted: true, deleted_at: Date.now(), deleted_by: user.id });
+    if (ok) { toast('✓ 已删除'); load(); }
+  };
+  
+  const filtered = useMemo(() => {
+    let arr = products;
+    if (filterCategory !== 'all') arr = arr.filter(p => p.category === filterCategory);
+    if (filterSupplier !== 'all') arr = arr.filter(p => p.supplier_id === filterSupplier);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      arr = arr.filter(p => [p.sku, p.name, p.supplier_name, p.tags, p.description, p.notes].filter(Boolean).join(' ').toLowerCase().includes(q));
+    }
+    return arr;
+  }, [products, search, filterCategory, filterSupplier]);
+  
+  const PRODUCT_CATEGORIES = [
+    { id:'lighting',    label:'💡 灯具' },
+    { id:'furniture',   label:'🪑 家具' },
+    { id:'accessories', label:'🔧 配件' },
+    { id:'lampshade',   label:'灯罩' },
+    { id:'parts',       label:'零件' },
+    { id:'other',       label:'其他' },
+  ];
+  
+  return (
+    <div className="paper rounded-2xl p-4">
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8}}>
+        <div>
+          <div className="font-display" style={{fontSize:17, fontWeight:600}}>📦 产品维护</div>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginTop:3}}>
+            共 {products.length} 款产品 · 当前显示 {filtered.length}
+          </div>
+        </div>
+        <button onClick={() => setEditing('new')}
+          style={{padding:'7px 14px', background:'#1e40af', color:'white', border:'none', borderRadius:7, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}>
+          + 新建产品
+        </button>
+      </div>
+      
+      {/* 筛选 */}
+      <div style={{display:'flex', gap:6, flexWrap:'wrap', alignItems:'center', marginBottom:12}}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 SKU / 产品名 / 供应商 / 标签..."
+          style={{flex:1, minWidth:220, padding:'6px 11px', border:'1px solid var(--line)', borderRadius:7, fontSize:12, fontFamily:'inherit'}} />
+        <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+          style={{padding:'6px 11px', border:'1px solid var(--line)', borderRadius:7, fontSize:12, background:'white', fontFamily:'inherit'}}>
+          <option value="all">所有分类</option>
+          {PRODUCT_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+        <select value={filterSupplier} onChange={e => setFilterSupplier(e.target.value)}
+          style={{padding:'6px 11px', border:'1px solid var(--line)', borderRadius:7, fontSize:12, background:'white', fontFamily:'inherit', maxWidth:160}}>
+          <option value="all">所有供应商</option>
+          {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+      
+      {/* 列表 */}
+      {loading ? (
+        <div style={{padding:'30px', textAlign:'center', color:'var(--ink-3)'}}>加载中...</div>
+      ) : filtered.length === 0 ? (
+        <div style={{padding:'40px 14px', textAlign:'center', color:'var(--ink-4)', fontSize:12}}>
+          {products.length === 0 ? '还没有产品 · 点右上"+ 新建产品"开始' : '当前筛选下没有产品'}
+        </div>
+      ) : (
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
+            <thead>
+              <tr style={{background:'#f8fafc', color:'var(--ink-3)'}}>
+                <th style={{padding:'8px 10px', textAlign:'center', fontWeight:600, borderBottom:'1px solid var(--line)', width:60}}>图</th>
+                <th style={{padding:'8px 10px', textAlign:'left', fontWeight:600, borderBottom:'1px solid var(--line)', width:130}}>SKU</th>
+                <th style={{padding:'8px 10px', textAlign:'left', fontWeight:600, borderBottom:'1px solid var(--line)'}}>产品名</th>
+                <th style={{padding:'8px 10px', textAlign:'left', fontWeight:600, borderBottom:'1px solid var(--line)', width:140}}>供应商</th>
+                <th style={{padding:'8px 10px', textAlign:'center', fontWeight:600, borderBottom:'1px solid var(--line)', width:90}}>分类</th>
+                <th style={{padding:'8px 10px', textAlign:'right', fontWeight:600, borderBottom:'1px solid var(--line)', width:100}}>默认价</th>
+                <th style={{padding:'8px 10px', textAlign:'center', fontWeight:600, borderBottom:'1px solid var(--line)', width:80}}>售后</th>
+                <th style={{padding:'8px 10px', textAlign:'center', fontWeight:600, borderBottom:'1px solid var(--line)', width:90}}>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(p => {
+                const cat = PRODUCT_CATEGORIES.find(c => c.id === p.category);
+                return (
+                  <tr key={p.id} style={{borderBottom:'1px solid var(--line)', transition:'background .12s'}}
+                    onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'white'}>
+                    <td style={{padding:'6px 10px', textAlign:'center'}}>
+                      {p.image ? (
+                        <img src={p.image} style={{width:40, height:40, objectFit:'cover', borderRadius:5, cursor:'pointer'}}
+                          onClick={() => window.open(p.image, '_blank')} title="点击查看大图" />
+                      ) : (
+                        <span style={{color:'var(--ink-4)', fontSize:14}}>📷</span>
+                      )}
+                    </td>
+                    <td style={{padding:'8px 10px', fontFamily:'monospace', fontWeight:600}}>{p.sku || '-'}</td>
+                    <td style={{padding:'8px 10px'}}>
+                      <div style={{fontWeight:600}}>{p.name}</div>
+                      {p.tags && <div style={{fontSize:10, color:'var(--ink-3)'}}>{p.tags}</div>}
+                    </td>
+                    <td style={{padding:'8px 10px', color:'var(--ink-2)'}}>{p.supplier_name || '-'}</td>
+                    <td style={{padding:'8px 10px', textAlign:'center'}}>
+                      {cat ? <span style={{padding:'2px 7px', background:'#f3e8ff', color:'#7c3aed', borderRadius:8, fontSize:10, fontWeight:600}}>{cat.label}</span> : '-'}
+                    </td>
+                    <td style={{padding:'8px 10px', textAlign:'right', fontFamily:'monospace'}}>
+                      {p.default_unit_price ? `${p.default_currency || 'USD'} ${p.default_unit_price}` : '-'}
+                    </td>
+                    <td style={{padding:'8px 10px', textAlign:'center'}}>
+                      {p.total_aftersales > 0 ? (
+                        <span style={{padding:'2px 7px', background: p.total_aftersales >= 5 ? '#fee2e2' : '#fef3c7', color: p.total_aftersales >= 5 ? '#b91c1c' : '#92400e', borderRadius:8, fontSize:10, fontWeight:700}}>
+                          🔧 {p.total_aftersales}
+                        </span>
+                      ) : <span style={{color:'var(--ink-4)'}}>-</span>}
+                    </td>
+                    <td style={{padding:'6px 10px', textAlign:'center'}}>
+                      <button onClick={() => setEditing(p)} style={{padding:'3px 8px', background:'#e0f2fe', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:4, cursor:'pointer', fontSize:10, fontWeight:600, marginRight:3}}>✏️</button>
+                      {isAdmin && <button onClick={() => handleDelete(p)} style={{padding:'3px 8px', background:'#fef2f2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:4, cursor:'pointer', fontSize:10, fontWeight:600}}>🗑</button>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      
+      <div style={{marginTop:12, padding:'10px 12px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, fontSize:11, color:'#15803d', lineHeight:1.6}}>
+        💡 <strong>用途</strong>:产品主表是公司的"产品字典"。将来在线下单 / 售后 / 退款录入时,可输入 SKU 自动填充产品名 + 图 + 供应商,大幅减少重复输入。<br/>
+        售后次数会在 fix22 自动统计(基于售后记录的 product_name 匹配),目前仍可手动维护。
+      </div>
+      
+      {editing && (
+        <ProductEditorModal
+          product={editing === 'new' ? null : editing}
+          suppliers={suppliers}
+          user={user}
+          categories={PRODUCT_CATEGORIES}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load(); toast('✓ 已保存'); }}
+        />
+      )}
+    </div>
+  );
+};
+
+const ProductEditorModal = ({ product, suppliers, user, categories, onClose, onSaved }) => {
+  const [sku, setSku] = useState(product?.sku || '');
+  const [name, setName] = useState(product?.name || '');
+  const [category, setCategory] = useState(product?.category || 'lighting');
+  const [supplierId, setSupplierId] = useState(product?.supplier_id || '');
+  const [defaultPrice, setDefaultPrice] = useState(product?.default_unit_price || '');
+  const [defaultCurrency, setDefaultCurrency] = useState(product?.default_currency || 'USD');
+  const [image, setImage] = useState(product?.image || '');
+  const [url, setUrl] = useState(product?.url || '');
+  const [description, setDescription] = useState(product?.description || '');
+  const [tags, setTags] = useState(product?.tags || '');
+  const [notes, setNotes] = useState(product?.notes || '');
+  const [saving, setSaving] = useState(false);
+  const isEdit = !!product;
+  
+  const handleSave = async () => {
+    if (!name.trim()) { alert('产品名必填'); return; }
+    setSaving(true);
+    try {
+      const supplier = suppliers.find(s => s.id === supplierId);
+      const userName = user.name + (user.alias ? ' ' + user.alias : '');
+      const id = product?.id || (crypto.randomUUID ? crypto.randomUUID() : ('prod_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)));
+      const record = {
+        id,
+        sku: sku.trim() || null,
+        name: name.trim(),
+        category,
+        supplier_id: supplierId || null,
+        supplier_name: supplier ? supplier.name : null,
+        default_unit_price: defaultPrice ? parseFloat(defaultPrice) : null,
+        default_currency: defaultCurrency,
+        image: image || null,
+        url: url.trim() || null,
+        description: description.trim() || null,
+        tags: tags.trim() || null,
+        notes: notes.trim() || null,
+        total_aftersales: product?.total_aftersales || 0,
+        created_by: product?.created_by || user.id,
+        created_by_name: product?.created_by_name || userName,
+        created_at_ms: product?.created_at_ms || Date.now(),
+        updated_at: new Date().toISOString(),
+      };
+      const ok = await CLOUD.upsert('products', record);
+      if (!ok) throw new Error('保存失败');
+      onSaved();
+    } catch (e) { alert('保存失败: ' + (e.message || e)); }
+    setSaving(false);
+  };
+  
+  return ReactDOM.createPortal(
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:100000, display:'flex', alignItems:'flex-start', justifyContent:'center', overflow:'auto', padding:'30px 20px'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, width:'100%', maxWidth:720, boxShadow:'0 20px 60px rgba(0,0,0,.25)'}}>
+        <div style={{padding:'14px 20px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div className="font-display" style={{fontSize:16, fontWeight:600}}>📦 {isEdit ? '编辑产品' : '新建产品'}</div>
+          <button onClick={onClose} style={{background:'transparent', border:'none', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+        <div style={{padding:'16px 20px', display:'flex', flexDirection:'column', gap:11, maxHeight:'70vh', overflowY:'auto'}}>
+          <div style={{display:'grid', gridTemplateColumns:'120px 1fr', gap:14}}>
+            {/* 产品图 */}
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>产品图</label>
+              <ProductImageSlot value={image} onChange={setImage} productName={name} />
+              <div style={{fontSize:9, color:'var(--ink-4)', marginTop:3, lineHeight:1.4}}>点击 · Ctrl+V · 拖入</div>
+            </div>
+            <div style={{display:'flex', flexDirection:'column', gap:8}}>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:10}}>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>SKU</label>
+                  <input value={sku} onChange={e => setSku(e.target.value)} placeholder="如 VKL-0042"
+                    style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
+                </div>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>产品名 *</label>
+                  <input value={name} onChange={e => setName(e.target.value)} placeholder="如 8-Light Bohemian Chandelier"
+                    style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit'}} />
+                </div>
+              </div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>分类</label>
+                  <select value={category} onChange={e => setCategory(e.target.value)}
+                    style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white', fontFamily:'inherit'}}>
+                    {categories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>供应商</label>
+                  <select value={supplierId} onChange={e => setSupplierId(e.target.value)}
+                    style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white', fontFamily:'inherit'}}>
+                    <option value="">— 不指定 —</option>
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div style={{display:'grid', gridTemplateColumns:'1fr 80px', gap:8}}>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>默认单价</label>
+              <input type="number" step="0.01" value={defaultPrice} onChange={e => setDefaultPrice(e.target.value)} placeholder="0.00"
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
+            </div>
+            <div>
+              <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>币种</label>
+              <select value={defaultCurrency} onChange={e => setDefaultCurrency(e.target.value)}
+                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, background:'white', fontFamily:'inherit'}}>
+                <option value="USD">USD</option>
+                <option value="CNY">CNY</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="AUD">AUD</option>
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>产品 URL</label>
+            <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://vakkerlight.com/products/..."
+              style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'monospace'}} />
+          </div>
+          
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>标签 (用逗号或空格分隔)</label>
+            <input value={tags} onChange={e => setTags(e.target.value)} placeholder="如 黄铜, 古典, 客厅"
+              style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit'}} />
+          </div>
+          
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>产品描述</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2}
+              placeholder="规格 / 材质 / 尺寸..."
+              style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
+          </div>
+          
+          <div>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>内部备注</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+              placeholder="易碎注意事项 / 物流要求 / 历史问题..."
+              style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, fontFamily:'inherit', resize:'vertical'}} />
+          </div>
+        </div>
+        <div style={{padding:'12px 20px', borderTop:'1px solid var(--line)', display:'flex', justifyContent:'flex-end', gap:6, background:'#fafafa'}}>
+          <button onClick={onClose} disabled={saving} className="btn-sec" style={{padding:'7px 14px', fontSize:12}}>取消</button>
+          <button onClick={handleSave} disabled={saving}
+            style={{padding:'7px 18px', background:'#1e40af', color:'white', border:'none', borderRadius:7, cursor:saving?'wait':'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit'}}>
+            {saving ? '保存中...' : (isEdit ? '💾 保存修改' : '+ 创建')}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudCfg, onCloudApply }) => {
   const [editingId, setEditingId] = useState(null);
@@ -164,16 +717,40 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
   return (
     <div className="space-y-5 fade-in">
       <div className="paper rounded-2xl p-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <button className={`tab-btn ${section==='cloud'?'active':''}`} onClick={() => setSection('cloud')}>☁ 云同步设置</button>
-          <button className={`tab-btn ${section==='gemini'?'active':''}`} onClick={() => setSection('gemini')}>✨ Gemini AI</button>
+        <div style={{display:'flex', alignItems:'center', gap:6, flexWrap:'wrap'}}>
+          {/* 🆕 fix21: 分组 — 基础维护 */}
+          <span style={{fontSize:10, fontWeight:700, color:'var(--ink-4)', marginRight:4, letterSpacing:'.5px'}}>基础维护</span>
+          <button className={`tab-btn ${section==='employees'?'active':''}`} onClick={() => setSection('employees')}>👥 人员 ({employees.length})</button>
+          <button className={`tab-btn ${section==='sites'?'active':''}`} onClick={() => setSection('sites')}>🌐 网站</button>
+          <button className={`tab-btn ${section==='products'?'active':''}`} onClick={() => setSection('products')}>📦 产品</button>
+          <button className={`tab-btn ${section==='suppliers'?'active':''}`} onClick={() => setSection('suppliers')}>🏭 供应商</button>
+          
+          <span style={{width:1, height:18, background:'var(--line)', margin:'0 4px'}} />
+          
+          {/* 业务规则 */}
+          <span style={{fontSize:10, fontWeight:700, color:'var(--ink-4)', marginRight:4, letterSpacing:'.5px'}}>业务规则</span>
           <button className={`tab-btn ${section==='chargeback_owners'?'active':''}`} onClick={() => setSection('chargeback_owners')}>🚨 拒付专人</button>
           <button className={`tab-btn ${section==='refund_processors'?'active':''}`} onClick={() => setSection('refund_processors')}>💰 退款处理人</button>
           <button className={`tab-btn ${section==='alert_thresholds'?'active':''}`} onClick={() => setSection('alert_thresholds')}>⏰ 预警阈值</button>
-          <button className={`tab-btn ${section==='employees'?'active':''}`} onClick={() => setSection('employees')}>👥 员工管理 ({employees.length})</button>
-          <button className={`tab-btn ${section==='suppliers'?'active':''}`} onClick={() => setSection('suppliers')}>🏭 供应商管理</button>
+          
+          <span style={{width:1, height:18, background:'var(--line)', margin:'0 4px'}} />
+          
+          {/* 系统 */}
+          <span style={{fontSize:10, fontWeight:700, color:'var(--ink-4)', marginRight:4, letterSpacing:'.5px'}}>系统</span>
+          <button className={`tab-btn ${section==='cloud'?'active':''}`} onClick={() => setSection('cloud')}>☁ 云同步</button>
+          <button className={`tab-btn ${section==='gemini'?'active':''}`} onClick={() => setSection('gemini')}>✨ Gemini AI</button>
         </div>
       </div>
+      
+      {/* 🆕 fix21: 网站维护 */}
+      {section === 'sites' && (
+        <SitesMaintenanceSection user={user} toast={toast} />
+      )}
+      
+      {/* 🆕 fix21: 产品维护 */}
+      {section === 'products' && (
+        <ProductsMaintenanceSection user={user} toast={toast} />
+      )}
       
       {section === 'suppliers' && (
         <SuppliersManagement toast={toast} user={user} />

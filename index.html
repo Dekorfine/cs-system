@@ -450,9 +450,7 @@ tr:hover td{background:var(--bg-soft)}
 <div id="root"></div>
 
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<!-- fix20: 模块化重构 — 单文件 23k 行拆成 11 个 JS 文件,职责清晰         -->
-<!-- 顺序加载 · Babel-standalone 在浏览器内运行时转译                       -->
-<!-- 各文件之间通过顶层 const(转 var)在全局共享 → 任意文件可互引用         -->
+<!-- fix21: 模块化结构 — 11 个 JS 文件按顺序加载                          -->
 <!-- ════════════════════════════════════════════════════════════════════ -->
 <script type="text/babel" data-presets="react,env" src="01-core.js"></script>
 <script type="text/babel" data-presets="react,env" src="02-cs.js"></script>

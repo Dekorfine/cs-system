@@ -1,10 +1,8 @@
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付 + 💳 线下单 (含 转单/产品图)
-// 拆自 workspace.html 单文件 (fix20 模块化重构)
-// 原始行号: 11135 - 12921
+// 🚨 拒付 + 💳 线下单
+// 拆自 workspace.html (fix21 模块化结构)
+// 原始行号: 11716 - 13501
 // ════════════════════════════════════════════════════════════════════
-
-
 
 const ChargebacksModule = ({ user, employees, toast }) => {
   const [list, setList] = useState([]);
@@ -1791,3 +1789,4 @@ const QuoteSearchModal = ({ onClose, onSelect, toast }) => {
     document.body
   );
 };
+
