@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════════════
-// 📝 报价单 + 📢 会议纪要 (含 fix29 iframe + fix30 期号)
-// 拆自 workspace.html (fix30 模块化结构)
-// 原始行号: 9532 - 11770
+// 📝 报价单 + 📢 会议纪要 (fix31: iframe 内部滚动恢复)
+// 拆自 workspace.html (fix31 模块化结构)
+// 原始行号: 9532 - 11771
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -45,10 +45,11 @@ const QuoteModule = ({ user, toast }) => {
       <iframe
         ref={iframeRef}
         src={sameDirUrl}
-        style={{width:'100%', height:iframeHeight, border:'none', background:'#fff', display:'block', transition:'height .15s'}}
+        style={{width:'100%', height:iframeHeight, border:'none', background:'#fff', display:'block', transition:'height .15s', minHeight:600}}
         title="报价单"
-        scrolling="no"
       />
+      {/* 🆕 fix31: 移除 scrolling="no" — 之前禁用了 iframe 内部滚动,导致用户看不到下面的 PDF 预览区
+                   现在跟 KB iframe 一样,允许 iframe 自己有滚动条,内容超长就在 iframe 内滚 */}
     </div>
   );
 };

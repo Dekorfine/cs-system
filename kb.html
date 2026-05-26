@@ -12516,6 +12516,13 @@ const SB_KEY = _sbCfg.key;
 const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
 console.log('[KB] Supabase 客户端初始化:', SB_URL, '· Key:', SB_KEY.slice(0, 16) + '...');
 
+// 🆕 fix31: cdmClient — 用于"升级主管"按钮自动派单给 Miya (跨部门消息系统)
+// 跟工作台共用 xyhbwqugbnowfjuhqhsj 项目
+const CDM_URL = "https://xyhbwqugbnowfjuhqhsj.supabase.co";
+const CDM_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5aGJ3cXVnYm5vd2ZqdWhxaHNqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMyOTcyNzgsImV4cCI6MjA2ODg3MzI3OH0.G1bWlnt48zL6wWLzpJ7B-c7yARYxhSL8aHrPxopUUvg";
+const cdmSb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(CDM_URL, CDM_KEY) : null;
+const ESCALATION_TARGET = { id: 'u_miya', name: 'Miya 邱琴方' };  // 升级主管默认接单人
+
 // 简单加密：XOR + Base64（仅防 plain text 泄漏，不能防有心人）
 // 主要目的：URL/截图泄漏时 key 不可读
 const _SECRET = 'wk2024-radilum-cs-team';
@@ -12586,6 +12593,44 @@ const KB_DAO = {
     const { error } = await sb.from('kb_ratings').insert({
       entry_id: entryId, rating_type: ratingType, username: user, comment: comment || null,
     });
+    
+    // 🆕 fix31: 升级主管 → 自动发跨部门消息给 Miya
+    if (ratingType === 'report' && cdmSb) {
+      try {
+        // 找当前模板的问题文本(用于消息标题)
+        const entry = (typeof ENTRIES !== 'undefined' ? ENTRIES : []).find(e => e.id === entryId);
+        const questionText = entry?.q_cn || entry?.q_en || `Entry #${entryId}`;
+        
+        await cdmSb.from('cross_dept_messages').insert({
+          from_system: 'cs',
+          from_user_id: 'kb_' + user,
+          from_user_name: user,
+          to_system: 'cs',
+          to_user_id: ESCALATION_TARGET.id,
+          to_user_name: ESCALATION_TARGET.name,
+          related_shop: null,
+          watchers: null,
+          category: 'kb_escalation',
+          priority: 'high',
+          title: `[KB 升级] ${questionText.slice(0, 60)}`,
+          body: `📚 模板 #${entryId} 需要主管处理\n\n问题:${questionText}\n\n` + 
+                `员工 ${user} 的说明:\n${comment || '(未填写说明)'}\n\n` +
+                `直达链接: kb.html#entry=${entryId}`,
+          attachments: null,
+          related_type: 'kb_entry',
+          related_ref: String(entryId),
+          status: 'pending',
+          thread: [],
+          read_by: ['kb_' + user],
+          created_at_ms: Date.now(),
+          updated_at: new Date().toISOString(),
+        });
+        console.log(`[KB] 升级主管 — 已派单给 ${ESCALATION_TARGET.name}`);
+      } catch (e) {
+        console.warn('[KB] 跨部门消息发送失败 (kb_ratings 已正常保存):', e);
+      }
+    }
+    
     return !error;
   },
   
