@@ -1044,6 +1044,274 @@ if (typeof window !== 'undefined') {
   window.__cdmHelpers = { getCategoryDef, getTimeoutDays, isOverdue, getDueAt };
 }
 
+// ════════════════════════════════════════════════════════════════════
+// 📅 增强日期筛选系统 (fix15)
+// 统一所有模块的日期筛选:本周/上周/本月/上月/任意月份/任意月份的第N周
+// 用法: const [df, setDf] = useState({kind:'days', n:30});
+//       const { start, end } = getDateRange(df);
+//       arr.filter(x => x.created_at_ms >= start && x.created_at_ms < end);
+//       <AdvancedDateFilter value={df} onChange={setDf} />
+// ════════════════════════════════════════════════════════════════════
+
+// 周划分按"自然月内的 1-7 / 8-14 / 15-21 / 22-28 / 29-月底"
+// 这样老板说"6月第一周"= 6月1-7号 直观
+function getDateRange(filter, nowMs) {
+  if (typeof nowMs !== 'number') nowMs = Date.now();
+  const now = new Date(nowMs);
+  const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayStart = today0.getTime();
+  const tomorrowStart = todayStart + 86400000;
+  const getMondayMs = (d) => {
+    const dt = new Date(d);
+    const day = dt.getDay() || 7;  // Sunday = 7
+    return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate() - (day - 1)).getTime();
+  };
+  const f = filter || { kind: 'all' };
+  switch (f.kind) {
+    case 'all':       return { start: 0, end: Infinity };
+    case 'today':     return { start: todayStart, end: tomorrowStart };
+    case 'yesterday': return { start: todayStart - 86400000, end: todayStart };
+    case 'this_week': {
+      const mon = getMondayMs(now);
+      return { start: mon, end: mon + 7 * 86400000 };
+    }
+    case 'last_week': {
+      const mon = getMondayMs(now);
+      return { start: mon - 7 * 86400000, end: mon };
+    }
+    case 'this_month': {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
+      return { start: s, end: e };
+    }
+    case 'last_month': {
+      const s = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+      const e = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      return { start: s, end: e };
+    }
+    case 'days': {
+      const n = Math.max(1, parseInt(f.n, 10) || 7);
+      return { start: todayStart - (n - 1) * 86400000, end: tomorrowStart };
+    }
+    case 'month': {
+      const y = f.year, m = f.month;  // month 1-12
+      const s = new Date(y, m - 1, 1).getTime();
+      const e = new Date(y, m, 1).getTime();
+      return { start: s, end: e };
+    }
+    case 'week_of_month': {
+      const y = f.year, m = f.month, w = f.week;  // week 1-5
+      const startDay = (w - 1) * 7 + 1;       // 1, 8, 15, 22, 29
+      const lastDayOfMonth = new Date(y, m, 0).getDate();
+      const endDay = Math.min(w * 7, lastDayOfMonth);  // 7, 14, 21, 28, last
+      const s = new Date(y, m - 1, startDay).getTime();
+      const e = new Date(y, m - 1, endDay + 1).getTime();
+      return { start: s, end: e };
+    }
+    case 'year': {
+      const y = f.year;
+      const s = new Date(y, 0, 1).getTime();
+      const e = new Date(y + 1, 0, 1).getTime();
+      return { start: s, end: e };
+    }
+    case 'custom':    return { start: f.startMs || 0, end: f.endMs || Infinity };
+    default:          return { start: 0, end: Infinity };
+  }
+}
+
+function formatDateFilterLabel(filter) {
+  const f = filter || { kind: 'all' };
+  switch (f.kind) {
+    case 'all':         return '全部时间';
+    case 'today':       return '今天';
+    case 'yesterday':   return '昨天';
+    case 'this_week':   return '本周';
+    case 'last_week':   return '上周';
+    case 'this_month':  return '本月';
+    case 'last_month':  return '上月';
+    case 'days':        return `近 ${f.n} 天`;
+    case 'month':       return `${f.year} 年 ${f.month} 月`;
+    case 'week_of_month': return `${f.year}年${f.month}月第${f.week}周`;
+    case 'year':        return `${f.year} 年`;
+    case 'custom': {
+      const fmt = (ms) => {
+        const d = new Date(ms);
+        return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+      };
+      return `${f.startMs ? fmt(f.startMs) : '开始'} - ${f.endMs ? fmt(f.endMs - 1) : '结束'}`;
+    }
+    default: return '全部时间';
+  }
+}
+
+// 全局暴露
+if (typeof window !== 'undefined') {
+  window.__dateHelpers = { getDateRange, formatDateFilterLabel };
+}
+
+// 📅 增强日期筛选 UI 组件
+// 支持:今天/本周/本月/全部 4 个快捷 chip + 更多弹窗(年月周精确选择)
+const AdvancedDateFilter = ({ value, onChange, size = 'sm', extraChips = null }) => {
+  const [open, setOpen] = useState(false);
+  const popoverRef = useRef(null);
+  const buttonRef = useRef(null);
+  const now = new Date();
+  const [pickerYear, setPickerYear] = useState(value?.year || now.getFullYear());
+  const [pickerMonth, setPickerMonth] = useState(value?.month || (now.getMonth() + 1));
+
+  // 点击外部关闭
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target) &&
+          buttonRef.current && !buttonRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const apply = (newVal) => { onChange(newVal); setOpen(false); };
+
+  const QUICK_CHIPS = [
+    { kind:'today',      label:'今天' },
+    { kind:'this_week',  label:'本周' },
+    { kind:'this_month', label:'本月' },
+    { kind:'all',        label:'全部' },
+  ];
+
+  const isSelected = (kind) => value?.kind === kind && !value?.year && !value?.month;
+  const chipPad = size === 'md' ? '5px 12px' : '3px 10px';
+  const chipFontSize = size === 'md' ? 12 : 11;
+
+  const currentLabel = formatDateFilterLabel(value);
+  // 是否当前选中的是更复杂选项(不是 4 个快捷之一)
+  const isAdvancedSelected = value && !['today','this_week','this_month','all'].includes(value.kind);
+
+  return (
+    <div style={{display:'inline-flex', gap:4, alignItems:'center', flexWrap:'wrap', position:'relative'}}>
+      {QUICK_CHIPS.map(c => {
+        const sel = isSelected(c.kind);
+        return (
+          <button key={c.kind} onClick={() => apply({ kind: c.kind })} type="button"
+            style={{
+              padding: chipPad, fontSize: chipFontSize, borderRadius: 6,
+              border: '1px solid ' + (sel ? '#0071e3' : 'var(--line)'),
+              background: sel ? '#0071e3' : 'white',
+              color: sel ? 'white' : 'var(--ink-2)',
+              cursor: 'pointer', fontFamily: 'inherit',
+              fontWeight: sel ? 600 : 500, whiteSpace: 'nowrap',
+            }}>
+            {c.label}
+          </button>
+        );
+      })}
+      <button ref={buttonRef} onClick={() => setOpen(v => !v)} type="button"
+        style={{
+          padding: chipPad, fontSize: chipFontSize, borderRadius: 6,
+          border: '1px solid ' + (isAdvancedSelected ? '#7c3aed' : 'var(--line)'),
+          background: isAdvancedSelected ? '#7c3aed' : 'white',
+          color: isAdvancedSelected ? 'white' : 'var(--ink-2)',
+          cursor: 'pointer', fontFamily: 'inherit',
+          fontWeight: isAdvancedSelected ? 600 : 500, whiteSpace: 'nowrap',
+        }}
+        title="按周/按月/按年精确筛选">
+        📅 {isAdvancedSelected ? currentLabel : '更多'} {open ? '▴' : '▾'}
+      </button>
+      {extraChips}
+
+      {open && (
+        <div ref={popoverRef}
+          style={{
+            position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:1000,
+            background:'white', border:'1px solid var(--line)', borderRadius:10,
+            boxShadow:'0 8px 24px rgba(0,0,0,.12)', padding:'12px 14px',
+            width:340, maxWidth:'calc(100vw - 40px)',
+          }}>
+          {/* 快捷 */}
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', marginBottom:5, textTransform:'uppercase'}}>常用</div>
+            <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
+              {[
+                { kind:'yesterday',  label:'昨天' },
+                { kind:'last_week',  label:'上周' },
+                { kind:'last_month', label:'上月' },
+                { kind:'days', n:3,  label:'近 3 天' },
+                { kind:'days', n:7,  label:'近 7 天' },
+                { kind:'days', n:14, label:'近 14 天' },
+                { kind:'days', n:30, label:'近 30 天' },
+                { kind:'days', n:90, label:'近 90 天' },
+              ].map(c => {
+                const sel = (c.kind === 'days' ? (value?.kind === 'days' && value?.n === c.n) : value?.kind === c.kind);
+                const next = c.kind === 'days' ? { kind:'days', n:c.n } : { kind:c.kind };
+                return (
+                  <button key={c.label} type="button" onClick={() => apply(next)}
+                    style={{padding:'4px 10px', fontSize:11, borderRadius:5, border:'1px solid '+(sel?'#0071e3':'var(--line)'), background: sel?'#0071e3':'white', color: sel?'white':'var(--ink-2)', cursor:'pointer', fontFamily:'inherit', fontWeight: sel?600:500}}>
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 按月份/周精确选择 */}
+          <div style={{borderTop:'1px solid var(--line)', paddingTop:10}}>
+            <div style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', marginBottom:5, textTransform:'uppercase'}}>按月份 / 按周精确选择</div>
+
+            {/* 年份切换 */}
+            <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:6}}>
+              <button type="button" onClick={() => setPickerYear(y => y - 1)}
+                style={{padding:'2px 8px', border:'1px solid var(--line)', borderRadius:5, background:'white', cursor:'pointer', fontSize:11, fontFamily:'inherit'}}>‹</button>
+              <span style={{fontSize:13, fontWeight:600, minWidth:50, textAlign:'center'}}>{pickerYear} 年</span>
+              <button type="button" onClick={() => setPickerYear(y => y + 1)}
+                style={{padding:'2px 8px', border:'1px solid var(--line)', borderRadius:5, background:'white', cursor:'pointer', fontSize:11, fontFamily:'inherit'}}>›</button>
+              <button type="button" onClick={() => apply({ kind:'year', year: pickerYear })}
+                style={{marginLeft:'auto', padding:'2px 9px', fontSize:11, border:'1px solid '+((value?.kind==='year' && value?.year===pickerYear)?'#0071e3':'var(--line)'), background: (value?.kind==='year' && value?.year===pickerYear)?'#0071e3':'white', color:(value?.kind==='year' && value?.year===pickerYear)?'white':'var(--ink-2)', borderRadius:5, cursor:'pointer', fontFamily:'inherit', fontWeight:600}}>
+                整年 {pickerYear}
+              </button>
+            </div>
+
+            {/* 月份网格 */}
+            <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:3, marginBottom:8}}>
+              {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => {
+                const sel = pickerMonth === m;
+                const isCurrent = value?.kind === 'month' && value?.year === pickerYear && value?.month === m;
+                return (
+                  <button key={m} type="button" onClick={() => setPickerMonth(m)}
+                    style={{padding:'5px 0', fontSize:11, border:'1px solid '+(isCurrent?'#0071e3':(sel?'#7c3aed':'var(--line)')), background: isCurrent?'#0071e3':(sel?'#f3e8ff':'white'), color: isCurrent?'white':(sel?'#7c3aed':'var(--ink-2)'), borderRadius:5, cursor:'pointer', fontFamily:'inherit', fontWeight: (sel||isCurrent)?600:500}}>
+                    {m}月
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 选整月按钮 */}
+            <button type="button" onClick={() => apply({ kind:'month', year:pickerYear, month:pickerMonth })}
+              style={{width:'100%', padding:'6px 10px', fontSize:11, border:'1px solid #0071e3', background: '#0071e3', color:'white', borderRadius:6, cursor:'pointer', fontFamily:'inherit', fontWeight:600, marginBottom:6}}>
+              ✓ 整月: {pickerYear} 年 {pickerMonth} 月
+            </button>
+
+            {/* 周选择 */}
+            <div style={{fontSize:10, color:'var(--ink-3)', marginBottom:3}}>或选某一周(1-7号 / 8-14号 / 15-21号 / 22-28号 / 29号-月底):</div>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:3}}>
+              {[1,2,3,4,5].map(w => {
+                const sel = value?.kind === 'week_of_month' && value?.year === pickerYear && value?.month === pickerMonth && value?.week === w;
+                return (
+                  <button key={w} type="button" onClick={() => apply({ kind:'week_of_month', year:pickerYear, month:pickerMonth, week:w })}
+                    style={{padding:'5px 0', fontSize:10, border:'1px solid '+(sel?'#0071e3':'var(--line)'), background: sel?'#0071e3':'white', color: sel?'white':'var(--ink-2)', borderRadius:5, cursor:'pointer', fontFamily:'inherit', fontWeight: sel?600:500}}>
+                    第 {w} 周
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // 🆕 售后状态
 const AFTERSALE_STATUSES = [
   { key:'pending_remind', label:'待催货', color:'#ca8a04', bg:'#fef9c3' },
@@ -1831,6 +2099,8 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
   const [timeFilter, setTimeFilter] = useState('all');
   const [customRangeStart, setCustomRangeStart] = useState('');
   const [customRangeEnd, setCustomRangeEnd] = useState('');
+  // 🆕 fix15: 日期范围筛选(本周/本月/任意月第N周)
+  const [dateFilter, setDateFilter] = useState({ kind:'all' });
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   
   // 🆕 状态下拉菜单当前打开的行 ID（null = 全部关闭）
@@ -1905,6 +2175,8 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
     // 🆕 时间范围筛选(仅在全部模式生效) - 改用统一函数
     if (viewMode === 'all') {
       list = filterByTimeRange(list, timeFilter, customRangeStart, customRangeEnd, 'date');
+      // 🆕 fix15: 日期范围筛选(本周/本月/任意月第N周)
+      list = filterByDateRange(list, dateFilter, 'date');
     }
     
     // 🆕 只看未解决
@@ -1913,7 +2185,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
     }
     
     return list;
-  }, [sourceRecords, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, isAdmin, showAll, viewMode, timeFilter, customRangeStart, customRangeEnd, showUnresolvedOnly]);
+  }, [sourceRecords, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, isAdmin, showAll, viewMode, timeFilter, customRangeStart, customRangeEnd, dateFilter, showUnresolvedOnly]);
   
   // 🆕 分页后的数据（在全部模式下分页,当日模式直接显示）
   const totalPages = Math.max(1, Math.ceil(tableRecords.length / pageSize));
@@ -3110,6 +3382,12 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                   ⚠ 超 7 天未解决: {overdueUnresolved.length} 条
                 </button>
               )}
+            </div>
+            
+            {/* 🆕 fix15: 按月/周精确筛选(本周/本月/任意月第N周) */}
+            <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', paddingTop:6, borderTop:'1px dashed var(--line)'}}>
+              <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>📅 按月/周筛选:</span>
+              <AdvancedDateFilter value={dateFilter} onChange={setDateFilter} size="sm" />
             </div>
             
             {/* 🆕 筛选反馈条 */}
@@ -10122,6 +10400,31 @@ const TimeRangeFilter = ({ value, onChange, customStart, customEnd, onCustomChan
 };
 
 // 🛡 全局时间筛选 - 语义: "超 N 天未处理"
+// 🆕 fix15: filterByDateRange — 按"创建/更新在范围内"筛选 (语义跟 cross-dept / 反馈中心一致)
+// 配合 AdvancedDateFilter 用 · 区别于上面的 filterByTimeRange("超 N 天未跟进"的老语义)
+// 用法: filterByDateRange(list, dateFilter, 'created_at')
+const filterByDateRange = (list, dateFilter, dateField) => {
+  if (!list || list.length === 0) return list;
+  if (!dateFilter || dateFilter.kind === 'all') return list;
+  const range = getDateRange(dateFilter);
+  if (range.start <= 0 && range.end >= Infinity) return list;
+  return list.filter(r => {
+    // 优先使用传入的 dateField,再 fallback 到常见字段
+    const candidates = [r[dateField], r.created_at_ms, r.updated_at, r.created_at, r.createdAt, r.date]
+      .filter(v => v !== undefined && v !== null && v !== '');
+    if (candidates.length === 0) return true;  // 无日期字段 — 包含
+    let ts = 0;
+    for (const c of candidates) {
+      let t = 0;
+      if (typeof c === 'number') t = c;
+      else if (typeof c === 'string') t = Date.parse(c) || 0;
+      else if (c instanceof Date) t = c.getTime();
+      if (t > ts) ts = t;
+    }
+    return ts >= range.start && ts < range.end;
+  });
+};
+
 // 用法: filterByTimeRange(records, '7d', null, null, 'date')
 //       筛出"上次更新时间已超过 7 天"的记录(陈年未跟进)
 // custom 模式: 筛出"创建/更新时间在自定义日期范围内"
@@ -10459,6 +10762,8 @@ const ChargebacksModule = ({ user, employees, toast }) => {
   // 🆕 时间筛选
   const [timeFilter, setTimeFilter] = useState('all');
   const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
+  // 🆕 fix15: 日期范围筛选(新:"创建在范围内"语义,支持本周/本月/任意月第N周)
+  const [dateFilter, setDateFilter] = useState({ kind:'all' });
   
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   
@@ -10500,9 +10805,11 @@ const ChargebacksModule = ({ user, employees, toast }) => {
     
     // 🆕 时间筛选
     l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
+    // 🆕 fix15: 日期范围筛选(创建在范围内)
+    l = filterByDateRange(l, dateFilter, 'created_at');
     
     return l;
-  }, [list, filterStatus, search, user.id, timeFilter, timeCustom]);
+  }, [list, filterStatus, search, user.id, timeFilter, timeCustom, dateFilter]);
   
   const stats = useMemo(() => {
     const active = list.filter(c => c.status !== 'won' && c.status !== 'lost' && c.status !== 'closed');
@@ -10565,6 +10872,11 @@ const ChargebacksModule = ({ user, employees, toast }) => {
             customStart={timeCustom.start} customEnd={timeCustom.end}
             onCustomChange={setTimeCustom} label="🕓 超期筛选:"
             records={list} dateField="created_at" />
+        </div>
+        {/* 🆕 fix15: 创建日期范围筛选(本周/本月/任意月第N周) */}
+        <div style={{marginTop:8, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+          <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>📅 创建时间:</span>
+          <AdvancedDateFilter value={dateFilter} onChange={setDateFilter} size="sm" />
         </div>
       </div>
       
@@ -11067,6 +11379,8 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
   // 🆕 时间筛选
   const [timeFilter, setTimeFilter] = useState('all');
   const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
+  // 🆕 fix15: 日期范围筛选(本周/本月/任意月第N周)
+  const [dateFilter, setDateFilter] = useState({ kind:'all' });
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
 
   const load = async () => {
@@ -11103,8 +11417,10 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
     }
     // 🆕 时间筛选
     l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
+    // 🆕 fix15: 日期范围筛选(创建在范围内)
+    l = filterByDateRange(l, dateFilter, 'created_at');
     return l;
-  }, [list, filterStatus, filterSite, search, user.id, timeFilter, timeCustom]);
+  }, [list, filterStatus, filterSite, search, user.id, timeFilter, timeCustom, dateFilter]);
 
   const stats = useMemo(() => {
     const totalAmount = list.filter(o => ['paid','dispatched','completed'].includes(o.status))
@@ -11156,6 +11472,11 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
             customStart={timeCustom.start} customEnd={timeCustom.end}
             onCustomChange={setTimeCustom} label="🕓 超期筛选:"
             records={list} dateField="created_at" />
+        </div>
+        {/* 🆕 fix15: 创建日期范围筛选(本周/本月/任意月第N周) */}
+        <div style={{marginTop:8, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+          <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>📅 创建时间:</span>
+          <AdvancedDateFilter value={dateFilter} onChange={setDateFilter} size="sm" />
         </div>
       </div>
       {loading ? <div className="paper rounded-2xl p-10" style={{textAlign:'center'}}>⏳ 加载中...</div>
@@ -11890,6 +12211,8 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
   // 🆕 时间筛选
   const [timeFilter, setTimeFilter] = useState('all');
   const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
+  // 🆕 fix15: 日期范围筛选
+  const [dateFilter, setDateFilter] = useState({ kind:'all' });
   const load = async () => {
     setLoading(true);
     try {
@@ -11919,8 +12242,10 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
     }
     // 🆕 时间筛选
     l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
+    // 🆕 fix15: 日期范围筛选
+    l = filterByDateRange(l, dateFilter, 'created_at');
     return l;
-  }, [list, filterStage, search, user.id, timeFilter, timeCustom]);
+  }, [list, filterStage, search, user.id, timeFilter, timeCustom, dateFilter]);
 
   return (
     <div className="space-y-3">
@@ -11949,6 +12274,11 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
             customStart={timeCustom.start} customEnd={timeCustom.end}
             onCustomChange={setTimeCustom} label="🕓 超期筛选:"
             records={list} dateField="created_at" />
+        </div>
+        {/* 🆕 fix15: 创建日期范围筛选(本周/本月/任意月第N周) */}
+        <div style={{marginTop:8, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+          <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>📅 创建时间:</span>
+          <AdvancedDateFilter value={dateFilter} onChange={setDateFilter} size="sm" />
         </div>
       </div>
       {loading ? <div className="paper rounded-2xl p-8" style={{textAlign:'center'}}>⏳</div>
@@ -12178,6 +12508,8 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
   // 🆕 时间筛选
   const [timeFilter, setTimeFilter] = useState('all');
   const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
+  // 🆕 fix15: 日期范围筛选
+  const [dateFilter, setDateFilter] = useState({ kind:'all' });
   const load = async () => {
     setLoading(true);
     try {
@@ -12207,8 +12539,10 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
     }
     // 🆕 时间筛选
     l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
+    // 🆕 fix15: 日期范围筛选
+    l = filterByDateRange(l, dateFilter, 'created_at');
     return l;
-  }, [list, filterStatus, search, timeFilter, timeCustom]);
+  }, [list, filterStatus, search, timeFilter, timeCustom, dateFilter]);
 
   return (
     <div className="space-y-3">
@@ -12236,6 +12570,11 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
             customStart={timeCustom.start} customEnd={timeCustom.end}
             onCustomChange={setTimeCustom} label="🕓 超期筛选:"
             records={list} dateField="created_at" />
+        </div>
+        {/* 🆕 fix15: 创建日期范围筛选(本周/本月/任意月第N周) */}
+        <div style={{marginTop:8, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+          <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>📅 创建时间:</span>
+          <AdvancedDateFilter value={dateFilter} onChange={setDateFilter} size="sm" />
         </div>
       </div>
       {loading ? <div className="paper rounded-2xl p-8" style={{textAlign:'center'}}>⏳</div>
@@ -16647,7 +16986,8 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast, 
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   // 🆕 v22-CV/CW: 4 个 tab — inbox / assigned-to-me / overdue / sent
   const [tab, setTab] = useState('inbox');
-  const [filterTime, setFilterTime] = useState('30');  // today / 3 / 7 / 14 / 30 / 90 / all
+  // 🆕 fix15: 升级为 AdvancedDateFilter (本周/上周/本月/任意月份/任意月份的第N周)
+  const [dateFilter, setDateFilter] = useState({ kind:'days', n:30 });
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
@@ -16672,15 +17012,8 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast, 
     } catch (e) {}
   }, []);
 
-  // 时间 cutoff (毫秒)
-  const cutoffMs = useMemo(() => {
-    if (filterTime === 'all') return null;
-    if (filterTime === 'today') {
-      const d = new Date(); d.setHours(0,0,0,0); return d.getTime();
-    }
-    const days = parseInt(filterTime, 10);
-    return Date.now() - days * 24 * 3600 * 1000;
-  }, [filterTime]);
+  // 🆕 fix15: 时间范围 (start ≤ created_at_ms < end)
+  const dateRange = useMemo(() => getDateRange(dateFilter), [dateFilter]);
 
   // 🆕 v22-CV/CW: canSee — 收件箱可以看到 to_system=cs 或自己是 watcher 的工单
   const canSee = (m) => {
@@ -16700,7 +17033,13 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast, 
 
   const filtered = useMemo(() => {
     let arr = tabFiltered;
-    if (cutoffMs) arr = arr.filter(m => (m.created_at_ms || 0) >= cutoffMs);
+    // 🆕 fix15: 用 start/end 范围筛选 (支持本周/上周/本月/任意月份/任意月份的第N周)
+    if (dateRange.start > 0 || dateRange.end < Infinity) {
+      arr = arr.filter(m => {
+        const t = m.created_at_ms || 0;
+        return t >= dateRange.start && t < dateRange.end;
+      });
+    }
     if (filterStatus !== 'all')   arr = arr.filter(m => m.status === filterStatus);
     if (filterCategory !== 'all') arr = arr.filter(m => m.category === filterCategory);
     if (filterPriority !== 'all') arr = arr.filter(m => m.priority === filterPriority);
@@ -16727,7 +17066,7 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast, 
       return (b.created_at_ms || 0) - (a.created_at_ms || 0);
     });
     return arr;
-  }, [tabFiltered, cutoffMs, filterStatus, filterCategory, filterPriority, filterFrom, search, tab, cdmTimeoutConfig]);
+  }, [tabFiltered, dateRange, filterStatus, filterCategory, filterPriority, filterFrom, search, tab, cdmTimeoutConfig]);
 
   // 🆕 v22-CV/CW: 统计 — 收件箱基础 + overdue + assigned-to-me
   const stats = useMemo(() => {
@@ -16747,17 +17086,9 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast, 
   const pageItems = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   // 切换 tab / filter 时重置页码
-  useEffect(() => { setPage(1); }, [tab, filterTime, filterStatus, filterCategory, filterPriority, filterFrom, search, pageSize]);
+  useEffect(() => { setPage(1); }, [tab, dateFilter, filterStatus, filterCategory, filterPriority, filterFrom, search, pageSize]);
 
-  const timeChips = [
-    { key:'today', label:'今天' },
-    { key:'3',     label:'近 3 天' },
-    { key:'7',     label:'近 7 天' },
-    { key:'14',    label:'近 14 天' },
-    { key:'30',    label:'近 30 天' },
-    { key:'90',    label:'近 90 天' },
-    { key:'all',   label:'全部' },
-  ];
+  // 🆕 fix15: 旧的 timeChips 已被 <AdvancedDateFilter> 取代
 
   return (
     <div className="space-y-4 fade-in">
@@ -16875,15 +17206,10 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast, 
           })}
         </div>
 
-        {/* 时间 chips */}
-        <div style={{display:'flex', flexWrap:'wrap', gap:4, marginBottom:10}}>
-          <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, alignSelf:'center', marginRight:4}}>⏱ 时间:</span>
-          {timeChips.map(c => (
-            <button key={c.key} onClick={() => setFilterTime(c.key)}
-              style={{padding:'3px 10px', fontSize:11, borderRadius:6, border:'1px solid ' + (filterTime===c.key ? '#0071e3' : 'var(--line)'), background: filterTime===c.key ? '#0071e3' : 'white', color: filterTime===c.key ? 'white' : 'var(--ink-2)', cursor:'pointer', fontFamily:'inherit', fontWeight: filterTime===c.key ? 600 : 500}}>
-              {c.label}
-            </button>
-          ))}
+        {/* 🆕 fix15: 时间筛选 — 升级为 AdvancedDateFilter (本周/上周/本月/任意月份/任意月份的第N周) */}
+        <div style={{display:'flex', flexWrap:'wrap', gap:6, marginBottom:10, alignItems:'center'}}>
+          <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, marginRight:4}}>⏱ 时间:</span>
+          <AdvancedDateFilter value={dateFilter} onChange={setDateFilter} size="sm" />
         </div>
 
         {/* 下拉筛选 + 搜索 */}
@@ -16926,7 +17252,7 @@ const CrossDeptModule = ({ user, employees, messages, loading, onReload, toast, 
         <div className="paper rounded-2xl p-10" style={{textAlign:'center', color:'var(--ink-3)'}}>⏳ 加载中...</div>
       ) : pageItems.length === 0 ? (
         <div className="paper rounded-2xl p-12" style={{textAlign:'center', color:'var(--ink-3)'}}>
-          🎉 {tab === 'inbox' ? '收件箱' : '发件箱'}暂无消息{(filterTime!=='all' || search.trim() || filterStatus!=='all' || filterCategory!=='all' || filterPriority!=='all' || filterFrom!=='all') ? '(当前筛选下)' : ''}
+          🎉 {tab === 'inbox' ? '收件箱' : '发件箱'}暂无消息{(dateFilter?.kind!=='all' || search.trim() || filterStatus!=='all' || filterCategory!=='all' || filterPriority!=='all' || filterFrom!=='all') ? '(当前筛选下)' : ''}
         </div>
       ) : (
         <div className="space-y-2">
@@ -18375,9 +18701,13 @@ const BugReportsModule = ({ user, employees, toast }) => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterScope, setFilterScope] = useState('all');  // 'all' | 'mine' (员工 default mine, 主管 default all)
+  const [dateFilter, setDateFilter] = useState({ kind:'all' });  // 🆕 fix15
   const [search, setSearch] = useState('');
 
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+
+  // 🆕 fix15
+  const dateRange = useMemo(() => getDateRange(dateFilter), [dateFilter]);
 
   // 员工只看到自己的反馈 (但能看进度); 主管看全部
   useEffect(() => {
@@ -18416,6 +18746,13 @@ const BugReportsModule = ({ user, employees, toast }) => {
     if (filterScope === 'mine') arr = arr.filter(r => r.created_by === user.id);
     if (filterStatus !== 'all') arr = arr.filter(r => r.status === filterStatus);
     if (filterCategory !== 'all') arr = arr.filter(r => r.category === filterCategory);
+    // 🆕 fix15: 日期范围
+    if (dateRange.start > 0 || dateRange.end < Infinity) {
+      arr = arr.filter(r => {
+        const t = r.created_at_ms || 0;
+        return t >= dateRange.start && t < dateRange.end;
+      });
+    }
     if (search.trim()) {
       const kws = search.toLowerCase().split(/\s+/).filter(Boolean);
       arr = arr.filter(r => {
@@ -18424,7 +18761,7 @@ const BugReportsModule = ({ user, employees, toast }) => {
       });
     }
     return arr;
-  }, [reports, filterScope, filterStatus, filterCategory, search, user.id]);
+  }, [reports, filterScope, filterStatus, filterCategory, dateRange, search, user.id]);
 
   // 统计
   const stats = useMemo(() => {
@@ -18527,6 +18864,10 @@ const BugReportsModule = ({ user, employees, toast }) => {
               </button>
             );
           })}
+        </div>
+        <div style={{display:'flex', gap:6, flexWrap:'wrap', alignItems:'center', marginBottom:8}}>
+          <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, marginRight:4}}>⏱ 时间:</span>
+          <AdvancedDateFilter value={dateFilter} onChange={setDateFilter} size="sm" />
         </div>
         <div style={{display:'flex', gap:6, flexWrap:'wrap', alignItems:'center'}}>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={{padding:'5px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:12, background:'white', fontFamily:'inherit'}}>
@@ -19112,7 +19453,9 @@ const BugReportDetailModal = ({ report, user, employees, onClose, onChanged, toa
 // ════════════════════════════════════════════════════════════════════
 const BugExportModal = ({ reports, employees, onClose, toast }) => {
   const [filterStatus, setFilterStatus] = useState('pending');  // 'all' | 'pending' | 'done'
-  const [filterDate, setFilterDate] = useState('all');         // 'all' | '7' | '30' | '90'
+  // 🆕 fix15: 升级为对象格式 (兼容旧 '7'/'30'/'90')
+  const [dateFilter, setDateFilter] = useState({ kind:'all' });
+  const dateRange = useMemo(() => getDateRange(dateFilter), [dateFilter]);
   const [filterCategory, setFilterCategory] = useState('all');
   const [includeScreenshots, setIncludeScreenshots] = useState(true);
   const [includeThread, setIncludeThread] = useState(true);
@@ -19124,10 +19467,12 @@ const BugExportModal = ({ reports, employees, onClose, toast }) => {
     let arr = reports.filter(r => !r.deleted);
     if (filterStatus === 'pending') arr = arr.filter(r => r.status === 'new' || r.status === 'reviewed' || r.status === 'planned' || r.status === 'in_progress');
     else if (filterStatus === 'done') arr = arr.filter(r => r.status === 'done');
-    if (filterDate !== 'all') {
-      const days = parseInt(filterDate, 10);
-      const cutoff = Date.now() - days * 86400000;
-      arr = arr.filter(r => (r.created_at_ms || 0) >= cutoff);
+    // 🆕 fix15: 日期范围筛选
+    if (dateRange.start > 0 || dateRange.end < Infinity) {
+      arr = arr.filter(r => {
+        const t = r.created_at_ms || 0;
+        return t >= dateRange.start && t < dateRange.end;
+      });
     }
     if (filterCategory !== 'all') arr = arr.filter(r => r.category === filterCategory);
     // 排序:紧急 + 新 在前
@@ -19138,14 +19483,16 @@ const BugExportModal = ({ reports, employees, onClose, toast }) => {
       return (b.created_at_ms || 0) - (a.created_at_ms || 0);
     });
     return arr;
-  }, [reports, filterStatus, filterDate, filterCategory]);
+  }, [reports, filterStatus, dateRange, filterCategory]);
 
   // 文件名前缀(含时间戳)
   const filenamePrefix = () => {
     const d = new Date();
     const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
     const scope = filterStatus === 'pending' ? '待修复' : filterStatus === 'done' ? '已修复' : '全部';
-    return `bug反馈_${scope}_${filtered.length}条_${stamp}`;
+    // 🆕 fix15: 文件名也带上时间范围(如 6月第2周)
+    const dateLabel = dateFilter?.kind === 'all' ? '' : ('_' + formatDateFilterLabel(dateFilter).replace(/\s/g, ''));
+    return `bug反馈_${scope}${dateLabel}_${filtered.length}条_${stamp}`;
   };
 
   const formatTs = (ms) => {
@@ -19515,22 +19862,16 @@ const BugExportModal = ({ reports, employees, onClose, toast }) => {
                 </select>
               </div>
               <div>
-                <div style={{fontSize:10, color:'var(--ink-4)', marginBottom:3}}>时间</div>
-                <select value={filterDate} onChange={e => setFilterDate(e.target.value)}
-                  style={{width:'100%', padding:'6px 9px', border:'1px solid var(--line)', borderRadius:7, fontSize:12, background:'white', fontFamily:'inherit'}}>
-                  <option value="all">全部</option>
-                  <option value="7">近 7 天</option>
-                  <option value="30">近 30 天</option>
-                  <option value="90">近 90 天</option>
-                </select>
-              </div>
-              <div>
                 <div style={{fontSize:10, color:'var(--ink-4)', marginBottom:3}}>类别</div>
                 <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
                   style={{width:'100%', padding:'6px 9px', border:'1px solid var(--line)', borderRadius:7, fontSize:12, background:'white', fontFamily:'inherit'}}>
                   <option value="all">全部类别</option>
                   {BUG_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
+              </div>
+              <div style={{gridColumn:'1 / -1'}}>
+                <div style={{fontSize:10, color:'var(--ink-4)', marginBottom:5}}>⏱ 时间范围 (本周/本月/任意月份/任意月份的第N周)</div>
+                <AdvancedDateFilter value={dateFilter} onChange={setDateFilter} size="sm" />
               </div>
             </div>
           </div>
@@ -21617,7 +21958,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix14b';
+const APP_VERSION = '2026.05.25-fix15';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
@@ -21626,6 +21967,15 @@ const APP_VERSION = '2026.05.25-fix14b';
 // type: 'feature' 新功能 / 'fix' 修复 / 'refactor' 重构 / 'perf' 性能 / 'data' 数据
 // ════════════════════════════════════════════════════════════════════
 const VERSION_HISTORY = [
+  { version: '2026.05.25-fix15', date: '2026.05.25', title: '📅 增强日期筛选 — 本周/本月/任意月份的第N周', changes: [
+    { type:'feature', text:'新增全局组件 <AdvancedDateFilter> 和辅助函数 getDateRange() / filterByDateRange()' },
+    { type:'feature', text:'支持快捷选项:今天 / 昨天 / 本周 / 上周 / 本月 / 上月 / 全部 / 近 3-90 天' },
+    { type:'feature', text:'支持按年份/月份精确选择:2026 年 + 12 月份网格 + 整月按钮' },
+    { type:'feature', text:'支持按月份的"第 N 周"精确筛选:1-7 号 / 8-14 号 / 15-21 号 / 22-28 号 / 29 号-月底' },
+    { type:'feature', text:'跨部门协作 / 反馈中心列表 + 导出模态 升级使用新筛选器' },
+    { type:'feature', text:'客户跟进 / 拒付 / 线下单 / 定制咨询 / 实拍核实 加新筛选行(与原"超 N 天未处理"过滤器并存)' },
+    { type:'feature', text:'文件名自动带时间范围(如 bug反馈_待修复_2026年6月第2周_5条_...)' },
+  ]},
   { version: '2026.05.25-fix14b', date: '2026.05.25', title: '📥 反馈中心导出 4 种格式', changes: [
     { type:'feature', text:'反馈中心头部新增 📥 下载导出按钮 (主管/admin 专属)' },
     { type:'feature', text:'4 种格式:📝 Markdown · 🖨 PDF (浏览器打印) · 🌐 HTML · 📊 CSV' },
