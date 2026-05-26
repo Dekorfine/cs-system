@@ -219,6 +219,10 @@ fieldset legend {
    ITEM TABLE
    ============================================================ */
 .item-table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--line); }
+
+/* 🆕 fix37: 装箱列默认隐藏,需要时勾复选框展开 */
+.packing-col { display: none; }
+#item-table.show-packing .packing-col { display: table-cell; }
 #item-table {
   width: 100%; border-collapse: collapse; min-width: 900px;
 }
@@ -956,10 +960,28 @@ fieldset legend {
         <input type="text" id="cloud-search" placeholder="客户 / 邮箱 / PI 号 / SKU · Customer / Email / PI / SKU" oninput="renderCloudList()">
         <select id="cloud-date-filter" onchange="renderCloudList()" title="按日期筛选 · Filter by date">
           <option value="all">全部日期 · All dates</option>
-          <option value="today">今天 · Today</option>
-          <option value="yesterday">昨天 · Yesterday</option>
-          <option value="week">最近 7 天 · Last 7 days</option>
-          <option value="month">最近 30 天 · Last 30 days</option>
+          <optgroup label="📅 单日 · Day">
+            <option value="today">今天 · Today</option>
+            <option value="yesterday">昨天 · Yesterday</option>
+          </optgroup>
+          <optgroup label="📆 周 · Week">
+            <option value="this_week">本周 · This week</option>
+            <option value="last_week">上周 · Last week</option>
+            <option value="week">最近 7 天 · Last 7 days</option>
+          </optgroup>
+          <optgroup label="📅 月 · Month">
+            <option value="this_month">本月 · This month</option>
+            <option value="last_month">上月 · Last month</option>
+            <option value="month">最近 30 天 · Last 30 days</option>
+          </optgroup>
+          <optgroup label="📊 季度 · Quarter">
+            <option value="this_quarter">本季度 · This quarter</option>
+            <option value="last_quarter">上季度 · Last quarter</option>
+          </optgroup>
+          <optgroup label="🗓 年 · Year">
+            <option value="this_year">本年 · This year</option>
+            <option value="last_year">去年 · Last year</option>
+          </optgroup>
         </select>
         <select id="cloud-user-filter" onchange="renderCloudList()" title="按团队成员筛选 · Filter by team member" style="display:none;">
           <option value="">全部成员 · All members</option>
@@ -1107,6 +1129,13 @@ fieldset legend {
     <!-- Items -->
     <div style="margin-bottom:14px;">
       <h3 style="font-size:13px;font-weight:700;color:#334155;margin:0 0 8px;" data-lang-key="product_items_packing">📦 Product Items & Packing Details</h3>
+      <div style="display:flex; align-items:center; gap:12px; margin:8px 0;">
+        <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); cursor:pointer;">
+          <input type="checkbox" id="show_packing_cols" onchange="togglePackingCols()" style="cursor:pointer;">
+          <span>📦 显示装箱单字段 · Show packing list fields</span>
+          <span style="color:var(--ink-3); font-size:11px;">(默认隐藏 — 装箱单专用)</span>
+        </label>
+      </div>
       <div class="item-table-wrap">
         <table id="item-table">
           <thead>
@@ -1116,13 +1145,13 @@ fieldset legend {
               <th data-lang-key="th_image" style="width:80px;">Image</th>
               <th data-lang-key="th_qty" style="width:60px;">Qty</th>
               <th id="master-unit-price-header" style="width:90px;">Unit Price (USD)</th>
-              <th data-lang-key="th_carton_no" style="width:80px;">Carton No.</th>
-              <th title="长 Length (cm)" style="width:55px;">L (cm)</th>
-              <th title="宽 Width (cm)" style="width:55px;">W (cm)</th>
-              <th title="高 Height (cm)" style="width:55px;">H (cm)</th>
-              <th data-lang-key="th_nw" style="width:70px;">N.W. (kgs)</th>
-              <th data-lang-key="th_gw" style="width:70px;">G.W. (kgs)</th>
-              <th data-lang-key="th_meas" style="width:70px;">Meas (cbm)</th>
+              <th data-lang-key="th_carton_no" class="packing-col" style="width:80px;">Carton No.</th>
+              <th title="长 Length (cm)" class="packing-col" style="width:55px;">L (cm)</th>
+              <th title="宽 Width (cm)" class="packing-col" style="width:55px;">W (cm)</th>
+              <th title="高 Height (cm)" class="packing-col" style="width:55px;">H (cm)</th>
+              <th data-lang-key="th_nw" class="packing-col" style="width:70px;">N.W. (kgs)</th>
+              <th data-lang-key="th_gw" class="packing-col" style="width:70px;">G.W. (kgs)</th>
+              <th data-lang-key="th_meas" class="packing-col" style="width:70px;">Meas (cbm)</th>
               <th style="width:60px;"></th>
             </tr>
           </thead>
@@ -1823,6 +1852,27 @@ function switchPreview(doc) {
   const label = labelMap[doc];
   if ($('preview-name')) $('preview-name').textContent = `${label.cn} · ${label.en}`;
   if ($('export-current-label')) $('export-current-label').textContent = `${label.cn} · ${label.en}`;
+  
+  // 🆕 fix37: 切到装箱单时自动勾上"显示装箱字段",方便用户立即填
+  if (doc === 'packing') {
+    const cb = $('show_packing_cols');
+    if (cb && !cb.checked) {
+      cb.checked = true;
+      togglePackingCols();
+      // 提示
+      showToast('📦 已自动展开装箱字段', '');
+    }
+  }
+}
+
+/* 🆕 fix37: 切换装箱列显示 */
+function togglePackingCols() {
+  const cb = $('show_packing_cols');
+  const tbl = $('item-table');
+  if (!tbl) return;
+  tbl.classList.toggle('show-packing', !!cb?.checked);
+  // 记住偏好
+  try { localStorage.setItem('show_packing_cols', cb.checked ? '1' : '0'); } catch(e){}
 }
 
 // 切换导出菜单显示
@@ -1857,6 +1907,20 @@ function exportFromMenu(which) {
 function exportCurrent() { exportPDF(currentPreviewDoc); }
 
 function exportPDF(which) {
+  // 🆕 fix36: 检测 iframe 环境 — iframe 内 window.print() 不稳定,自动新窗口打开
+  if (window.parent && window.parent !== window) {
+    const url = new URL(window.location.href.split('#')[0]);
+    url.hash = `print=${which}`;
+    const newWin = window.open(url.toString(), '_blank');
+    if (!newWin) {
+      alert('❌ 浏览器拦截了新窗口\n\n请允许 dekorfine.github.io 弹窗,或者:\n1. 点击页面顶部"↗ 新窗口打开"链接\n2. 在新页面里再点"导出 PDF"');
+      return;
+    }
+    // 新窗口加载完会自动 print (见 DOMContentLoaded 末尾)
+    console.log('[exportPDF] iframe 内导出 → 已开新窗口,新窗口会自动打印');
+    return;
+  }
+  
   // 'quotation' | 'po' | 'pi' | 'packing' | 'all'
   // 1. Make every document visible in DOM so CSS @media print sees them
   document.querySelectorAll('.document-container').forEach(d => d.classList.remove('is-hidden-preview'));
@@ -1864,7 +1928,7 @@ function exportPDF(which) {
   // 2. Apply print-only-X class (or nothing for 'all')
   document.body.className = which === 'all' ? '' : ('print-only-' + which);
 
-  // 3. cleanup 只在 afterprint 时触发，不用 setTimeout 兜底（避免打印对话框还没关闭就清掉样式）
+  // 3. cleanup 只在 afterprint 时触发
   const cleanup = () => {
     document.body.className = '';
     switchPreview(currentPreviewDoc);
@@ -1872,11 +1936,35 @@ function exportPDF(which) {
   };
   window.addEventListener('afterprint', cleanup);
 
+  // 🆕 fix36: focus + 双 rAF 确保 layout 完成再 print
+  window.focus();
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       window.print();
     });
   });
+}
+
+/* 🆕 fix36: 运费标签跟随货币 + 当前语言动态更新 */
+const CURRENCY_DISPLAY = {
+  USD: 'USD', CNY: 'RMB', EUR: 'EUR', GBP: 'GBP', AUD: 'AUD', CAD: 'CAD'
+};
+function updateFreightLabel() {
+  const label = document.querySelector('label[data-lang-key="freight_cost"]');
+  if (!label) return;
+  const curCode = $('currency')?.value || 'USD';
+  const sym = CURRENCY_DISPLAY[curCode] || curCode;
+  const lang = $('language_select')?.value || 'en';
+  const tpl = {
+    en:        `Freight Cost (in ${sym})`,
+    bilingual: `Freight Cost (in ${sym}) / 运费 (${sym})`,
+    es:        `Costo de Flete (en ${sym})`,
+    de:        `Frachtkosten (in ${sym})`,
+    fr:        `Frais de Transport (en ${sym})`,
+    ar:        `تكلفة الشحن (بـ ${sym})`,
+    ru:        `Стоимость Фрахта (в ${sym})`,
+  };
+  label.innerText = tpl[lang] || tpl.en;
 }
 
 /* ============================================================
@@ -1908,6 +1996,7 @@ function setLanguage(lang) {
     }
   }
   syncAndCalculate();
+  updateFreightLabel();  // 🆕 fix36: 语言切换时也刷新运费标签
 }
 
 /* ============================================================
@@ -2232,13 +2321,13 @@ function addItem(item) {
     </td>
     <td><input type="number" value="${item.qty}" class="qty"></td>
     <td><input type="number" value="${parseFloat(item.price || 0).toFixed(2)}" class="price" step="0.01"></td>
-    <td><input type="text" class="carton-no" value="${item.cartonNo || ''}"></td>
-    <td><input type="number" value="${parseFloat(item.length || 0) || ''}" class="length" step="0.1" placeholder="0"></td>
-    <td><input type="number" value="${parseFloat(item.width || 0) || ''}" class="width" step="0.1" placeholder="0"></td>
-    <td><input type="number" value="${parseFloat(item.height || 0) || ''}" class="height" step="0.1" placeholder="0"></td>
-    <td><input type="number" value="${parseFloat(item.nw || 0).toFixed(2)}" class="nw" step="0.01"></td>
-    <td><input type="number" value="${parseFloat(item.gw || 0).toFixed(2)}" class="gw" step="0.01"></td>
-    <td><input type="number" value="${parseFloat(item.cbm || 0).toFixed(3)}" class="cbm" step="0.001" title="可手填或留空让 LxWxH 自动算"></td>
+    <td class="packing-col"><input type="text" class="carton-no" value="${item.cartonNo || ''}"></td>
+    <td class="packing-col"><input type="number" value="${parseFloat(item.length || 0) || ''}" class="length" step="0.1" placeholder="0"></td>
+    <td class="packing-col"><input type="number" value="${parseFloat(item.width || 0) || ''}" class="width" step="0.1" placeholder="0"></td>
+    <td class="packing-col"><input type="number" value="${parseFloat(item.height || 0) || ''}" class="height" step="0.1" placeholder="0"></td>
+    <td class="packing-col"><input type="number" value="${parseFloat(item.nw || 0).toFixed(2)}" class="nw" step="0.01"></td>
+    <td class="packing-col"><input type="number" value="${parseFloat(item.gw || 0).toFixed(2)}" class="gw" step="0.01"></td>
+    <td class="packing-col"><input type="number" value="${parseFloat(item.cbm || 0).toFixed(3)}" class="cbm" step="0.001" title="可手填或留空让 LxWxH 自动算"></td>
     <td><button onclick="removeItem(this)" class="btn-row-remove">✕</button></td>`;
   tbody.appendChild(tr);
 
@@ -2702,6 +2791,44 @@ function duplicateAsNew() {
   showToast('Duplicated as new draft. Save when ready.', 'ok');
 }
 
+/* 🆕 fix35: 报价单日期筛选公共函数 — 支持本周/上周/本月/上月/本季度/上季度/本年/去年 + 最近 N 天 */
+function getQuoteDateRange(key) {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+  const startOfToday = new Date(y, m, d);
+  const startOfTomorrow = new Date(y, m, d + 1);
+  const dayOfWeek = now.getDay() || 7;                          // Sunday = 7
+  const startOfWeek = new Date(y, m, d - (dayOfWeek - 1));      // 周一
+  const startOfNextWeek = new Date(y, m, d - (dayOfWeek - 1) + 7);
+  const startOfLastWeek = new Date(y, m, d - (dayOfWeek - 1) - 7);
+  const startOfMonth = new Date(y, m, 1);
+  const startOfNextMonth = new Date(y, m + 1, 1);
+  const startOfLastMonth = new Date(y, m - 1, 1);
+  const q = Math.floor(m / 3);                                   // 0-3
+  const startOfQuarter = new Date(y, q * 3, 1);
+  const startOfNextQuarter = new Date(y, (q + 1) * 3, 1);
+  const startOfLastQuarter = new Date(y, (q - 1) * 3, 1);
+  const startOfYear = new Date(y, 0, 1);
+  const startOfNextYear = new Date(y + 1, 0, 1);
+  const startOfLastYear = new Date(y - 1, 0, 1);
+  switch (key) {
+    case 'all':          return null;
+    case 'today':        return { start: startOfToday, end: startOfTomorrow };
+    case 'yesterday':    return { start: new Date(y, m, d - 1), end: startOfToday };
+    case 'this_week':    return { start: startOfWeek, end: startOfNextWeek };
+    case 'last_week':    return { start: startOfLastWeek, end: startOfWeek };
+    case 'week':         return { start: new Date(y, m, d - 6), end: startOfTomorrow };
+    case 'this_month':   return { start: startOfMonth, end: startOfNextMonth };
+    case 'last_month':   return { start: startOfLastMonth, end: startOfMonth };
+    case 'month':        return { start: new Date(y, m, d - 29), end: startOfTomorrow };
+    case 'this_quarter': return { start: startOfQuarter, end: startOfNextQuarter };
+    case 'last_quarter': return { start: startOfLastQuarter, end: startOfQuarter };
+    case 'this_year':    return { start: startOfYear, end: startOfNextYear };
+    case 'last_year':    return { start: startOfLastYear, end: startOfYear };
+    default:             return null;
+  }
+}
+
 /* Export the currently filtered cloud list to a CSV file. */
 function exportCSV() {
   if (!cloudRecords.length) { showToast('No records loaded — refresh first', 'err'); return; }
@@ -2709,22 +2836,15 @@ function exportCSV() {
   const search = ($('cloud-search')?.value || '').toLowerCase();
   const uf = $('cloud-user-filter')?.value || '';
   const dateFilter = $('cloud-date-filter')?.value || 'all';
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfYesterday = new Date(startOfToday); startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-  const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - 6);
-  const startOfMonth = new Date(startOfToday); startOfMonth.setDate(startOfMonth.getDate() - 29);
   function passesDate(rec) {
     if (dateFilter === 'all') return true;
     if (!rec.date) return false;
     const iso = rec.date.replace(/T(\d{2})-(\d{2})/, 'T$1:$2');
     const d = new Date(iso);
     if (isNaN(d)) return false;
-    if (dateFilter === 'today') return d >= startOfToday;
-    if (dateFilter === 'yesterday') return d >= startOfYesterday && d < startOfToday;
-    if (dateFilter === 'week') return d >= startOfWeek;
-    if (dateFilter === 'month') return d >= startOfMonth;
-    return true;
+    const range = getQuoteDateRange(dateFilter);
+    if (!range) return true;
+    return d >= range.start && d < range.end;
   }
   const rows = cloudRecords.filter(r => {
     if (uf && r.user !== uf) return false;
@@ -3236,23 +3356,15 @@ function renderCloudList() {
   const dateFilter = $('cloud-date-filter')?.value || 'all';
   const list = $('cloud-list');
 
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfYesterday = new Date(startOfToday); startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-  const startOfWeek = new Date(startOfToday); startOfWeek.setDate(startOfWeek.getDate() - 6);
-  const startOfMonth = new Date(startOfToday); startOfMonth.setDate(startOfMonth.getDate() - 29);
-
   function passesDateFilter(rec) {
     if (dateFilter === 'all') return true;
     if (!rec.date) return false;
     const iso = rec.date.replace(/T(\d{2})-(\d{2})/, 'T$1:$2');
     const d = new Date(iso);
     if (isNaN(d)) return false;
-    if (dateFilter === 'today') return d >= startOfToday;
-    if (dateFilter === 'yesterday') return d >= startOfYesterday && d < startOfToday;
-    if (dateFilter === 'week') return d >= startOfWeek;
-    if (dateFilter === 'month') return d >= startOfMonth;
-    return true;
+    const range = getQuoteDateRange(dateFilter);  // 🆕 fix35: 用公共函数
+    if (!range) return true;
+    return d >= range.start && d < range.end;
   }
 
   const filtered = cloudRecords.filter(r => {
@@ -3699,6 +3811,9 @@ function attachListeners() {
   $('terms_preset').addEventListener('change', updateTerms);
   $('terms_conditions').addEventListener('input', () => { termsManuallyEdited = true; scheduleSync(); });
   
+  // 🆕 fix36: 货币切换时刷新运费标签
+  $('currency').addEventListener('change', updateFreightLabel);
+  
   // 🆕 fix24-3: 客户需求备注 textarea 监听
   const noteEl = $('customer_note');
   if (noteEl) noteEl.addEventListener('input', scheduleSync);
@@ -3747,6 +3862,27 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   switchPreview('quotation');
+  updateFreightLabel();  // 🆕 fix36: 初始化运费标签
+  
+  // 🆕 fix37: 恢复"显示装箱字段"偏好
+  try {
+    if (localStorage.getItem('show_packing_cols') === '1') {
+      const cb = $('show_packing_cols');
+      if (cb) { cb.checked = true; togglePackingCols(); }
+    }
+  } catch(e){}
+  
+  // 🆕 fix36: 如果 URL 带 #print=X (来自 iframe 触发的新窗口),自动 print
+  const printMatch = window.location.hash.match(/print=(\w+)/);
+  if (printMatch) {
+    const which = printMatch[1];
+    console.log('[init] 检测到 #print=' + which + ',1 秒后自动打开打印对话框');
+    setTimeout(() => {
+      exportPDF(which);
+      // 清掉 hash 避免刷新又触发
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }, 1000);  // 等草稿数据从 localStorage 恢复
+  }
 
   // First-visit setup prompt
   loadCloudList();  // 🆕 fix25: 不再卡住,直接加载
