@@ -2785,13 +2785,44 @@ function openSettings() {
   loadCloudList();
 }
 function closeSettings() { const el = $('settings-overlay'); if (el) el.classList.add('hidden'); document.body.style.overflow = ''; }
+// 🆕 fix27-3: 模态框状态旗标 + 滚动位置记忆 + 暂停 ResizeObserver
+// 4 重防御点开 ❓ 后的"自动下滑"
+let __modalIsOpen = false;
+let __savedScrollY = 0;
+let __savedParentScrollY = 0;
+let __resizeObserver = null;
+
 function openHelp() {
+  // 1. 先记下当前滚动位置(iframe 内 + 父窗口)
+  __savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  try {
+    if (window.parent && window.parent !== window) {
+      __savedParentScrollY = window.parent.scrollY || 0;
+    }
+  } catch (e) {}
+  // 2. 设旗标(同步,不会有 race condition)
+  __modalIsOpen = true;
+  // 3. 暂停 ResizeObserver — 模态期间彻底不报告高度
+  try { if (__resizeObserver) __resizeObserver.disconnect(); } catch (e) {}
+  // 4. 打开模态框
   document.getElementById('help-overlay').classList.remove('hidden');
-  document.body.style.overflow = 'hidden';  // 🆕 fix26: 锁定底层滚动
+  document.body.style.overflow = 'hidden';
 }
 function closeHelp() {
   document.getElementById('help-overlay').classList.add('hidden');
-  document.body.style.overflow = '';  // 🆕 fix26: 解锁
+  document.body.style.overflow = '';
+  __modalIsOpen = false;
+  // 恢复滚动位置 (双保险:即使有 jumping,也跳回原位)
+  setTimeout(() => {
+    window.scrollTo(0, __savedScrollY);
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.scrollTo(0, __savedParentScrollY);
+      }
+    } catch (e) {}
+    // 重新连上 ResizeObserver
+    try { if (__resizeObserver && document.body) __resizeObserver.observe(document.body); } catch (e) {}
+  }, 50);
 }
 function renderUserBar() {
   const name = getUsername();
@@ -3661,13 +3692,8 @@ document.addEventListener('DOMContentLoaded', function() {
 if (window.parent && window.parent !== window) {
   let lastH = 0;
   const reportHeight = () => {
-    // 🆕 fix27-2: modal 打开期间不报告高度,防止 iframe 跳动触发父窗口滚屏
-    const helpEl = document.getElementById('help-overlay');
-    const settingsEl = document.getElementById('settings-overlay');
-    const modalOpen =
-      (helpEl && !helpEl.classList.contains('hidden')) ||
-      (settingsEl && !settingsEl.classList.contains('hidden'));
-    if (modalOpen) return;
+    // 🆕 fix27-3: 用 JS 旗标(同步,无 race condition)
+    if (__modalIsOpen) return;
     
     const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
     if (Math.abs(h - lastH) > 5) {
@@ -3678,8 +3704,8 @@ if (window.parent && window.parent !== window) {
   setTimeout(reportHeight, 300);
   setTimeout(reportHeight, 1200);
   if (window.ResizeObserver) {
-    const ro = new ResizeObserver(reportHeight);
-    if (document.body) ro.observe(document.body);
+    __resizeObserver = new ResizeObserver(reportHeight);  // 🆕 暴露给 openHelp 用
+    if (document.body) __resizeObserver.observe(document.body);
   } else {
     setInterval(reportHeight, 600);
   }
