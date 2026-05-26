@@ -1047,13 +1047,13 @@ fieldset legend {
           </select>
         </div>
         <div class="form-row" style="margin-top:8px;">
-          <label>Status</label>
+          <label>状态 · Status</label>
           <div class="form-status-row" id="status-selector">
-            <button type="button" class="status-btn active draft" data-status="draft" onclick="setQuoteStatus('draft')">Draft</button>
-            <button type="button" class="status-btn sent" data-status="sent" onclick="setQuoteStatus('sent')">Sent</button>
-            <button type="button" class="status-btn won" data-status="won" onclick="setQuoteStatus('won')">Won</button>
-            <button type="button" class="status-btn lost" data-status="lost" onclick="setQuoteStatus('lost')">Lost</button>
-            <button type="button" class="status-btn archived" data-status="archived" onclick="setQuoteStatus('archived')">Archive</button>
+            <button type="button" class="status-btn active draft" data-status="draft" onclick="setQuoteStatus('draft')">草稿 Draft</button>
+            <button type="button" class="status-btn sent" data-status="sent" onclick="setQuoteStatus('sent')">已发 Sent</button>
+            <button type="button" class="status-btn won" data-status="won" onclick="setQuoteStatus('won')">成单 Won</button>
+            <button type="button" class="status-btn lost" data-status="lost" onclick="setQuoteStatus('lost')">丢单 Lost</button>
+            <button type="button" class="status-btn archived" data-status="archived" onclick="setQuoteStatus('archived')">归档 Archive</button>
           </div>
         </div>
       </fieldset>
@@ -1470,7 +1470,7 @@ fieldset legend {
     </div>
     <div class="modal-actions">
       <button class="btn-modal-primary" onclick="saveSetup()">✓ 保存并继续 · Save & Continue</button>
-      <button class="btn-modal-cancel" onclick="closeSettings()">Cancel</button>
+      <button class="btn-modal-cancel" onclick="closeSettings()">取消 · Cancel</button>
     </div>
     <p class="modal-note">🔒 Your name is stored in your browser only. Quote data syncs to Supabase cloud (shared with team).</p>
   </div>
@@ -2223,7 +2223,7 @@ function addItem(item) {
     <td><textarea rows="2" class="description">${item.description || ''}</textarea></td>
     <td>
       <div class="paste-area" contenteditable="true" title="Click then paste (Ctrl+V) an image">${item.imageSrc ? `<img src="${item.imageSrc}">` : 'Paste'}</div>
-      <button onclick="removeImage(this)" class="btn-row-remove-img${item.imageSrc ? '' : ' hidden'}">Remove img</button>
+      <button onclick="removeImage(this)" class="btn-row-remove-img${item.imageSrc ? '' : ' hidden'}">移除 · Remove</button>
     </td>
     <td><input type="number" value="${item.qty}" class="qty"></td>
     <td><input type="number" value="${parseFloat(item.price || 0).toFixed(2)}" class="price" step="0.01"></td>
@@ -3652,8 +3652,28 @@ document.addEventListener('DOMContentLoaded', function() {
   loadCloudList();  // 🆕 fix25: 不再卡住,直接加载
 });
 
-// 🆕 fix26: 移除 iframe 嵌入框架(原来会向父窗口汇报高度 + 监听 ResizeObserver
-// 触发 postMessage 导致页面自动滑动)— quotation.html 现在是纯独立工具
+// 🆕 fix27: iframe 嵌入时只发"高度"消息让父窗口调整 iframe 高度
+// (上一轮误删了导致工作台里 preview 看不到)
+// 注意:不再发 'iframe-modal-open' — 那个会触发父窗口 scrollIntoView 自动滚屏,是真正的痛点
+if (window.parent && window.parent !== window) {
+  let lastH = 0;
+  const reportHeight = () => {
+    const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    if (Math.abs(h - lastH) > 5) {
+      lastH = h;
+      window.parent.postMessage({ type: 'iframe-resize', source: 'quotation', height: h }, '*');
+    }
+  };
+  setTimeout(reportHeight, 300);
+  setTimeout(reportHeight, 1200);
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(reportHeight);
+    if (document.body) ro.observe(document.body);
+  } else {
+    setInterval(reportHeight, 600);
+  }
+  window.addEventListener('resize', reportHeight);
+}
 </script>
 
 </body>
