@@ -530,7 +530,8 @@ fieldset legend {
 }
 .btn-export-all:hover { background: #e8e8ed; }
 .preview-stage {
-  background: var(--bg-elevated); padding: 30px; min-height: 400px;
+  /* 🆕 fix33: 两边间隙加大 (30 → 48),文档跟 iframe 边缘有更多留白 */
+  background: var(--bg-elevated); padding: 48px; min-height: 400px;
   display: flex; justify-content: center;
 }
 .preview-doc-wrap {
@@ -546,7 +547,8 @@ fieldset legend {
    These are the actual quote PDFs sent to clients - DO NOT make too Apple-soft
    ============================================================ */
 .document-container {
-  padding: 0.6in; min-height: 11in;
+  /* 🆕 fix33: 文档内边距加大 (0.6in → 0.85in),TOTAL/SIGNATURE 不再贴右边 */
+  padding: 0.85in; min-height: 11in;
   font-size: 12px; color: #1f2937; line-height: 1.4;
 }
 .document-container.is-hidden-preview { display: none; }
@@ -2225,7 +2227,7 @@ function addItem(item) {
     <td><input type="text" class="sku" placeholder="SKU" value="${item.sku || ''}"></td>
     <td><textarea rows="2" class="description">${item.description || ''}</textarea></td>
     <td>
-      <div class="paste-area" contenteditable="true" title="Click then paste (Ctrl+V) an image">${item.imageSrc ? `<img src="${item.imageSrc}">` : 'Paste'}</div>
+      <div class="paste-area" contenteditable="true" title="点这里再按 Ctrl+V 粘贴图片,或拖拽图片到此">${item.imageSrc ? `<img src="${item.imageSrc}">` : '点这里 → Ctrl+V 或拖拽'}</div>
       <button onclick="removeImage(this)" class="btn-row-remove-img${item.imageSrc ? '' : ' hidden'}">移除 · Remove</button>
     </td>
     <td><input type="number" value="${item.qty}" class="qty"></td>
@@ -2272,26 +2274,67 @@ function removeImage(btn) {
 }
 function handlePaste(event) {
   const area = event.target.closest('.paste-area');
-  if (!area) return;
+  if (!area) {
+    console.log('[paste] 没在图片区域,事件忽略 (event.target:', event.target?.tagName, ')');
+    return;
+  }
   const tr = area.closest('tr');
   const removeBtn = area.nextElementSibling;
-  const items = (event.clipboardData || window.clipboardData).items;
+  // 🆕 fix34: 防御 — 检查 clipboardData 是否可访问 (iframe 内可能被拦截)
+  const clip = event.clipboardData || window.clipboardData;
+  if (!clip) {
+    console.error('[paste] clipboardData 不可访问 — iframe 可能没有 clipboard-read 权限');
+    alert('粘贴失败:浏览器没给权限访问剪贴板。请直接打开 quotation.html (不在 iframe 里),或者改用拖拽图片到此区域。');
+    return;
+  }
+  const items = clip.items;
+  console.log('[paste] clipboard items:', items.length, '·', Array.from(items).map(i => i.type).join(', '));
   let file = null;
   for (let i = 0; i < items.length; i++) {
     if (items[i].type.indexOf('image') !== -1) { file = items[i].getAsFile(); break; }
   }
-  if (file) {
+  if (!file) {
+    console.log('[paste] 剪贴板里没有图片 (可能复制的是文本/链接)');
+    return;
+  }
+  event.preventDefault();
+  console.log('[paste] 找到图片文件:', file.name || '(unnamed)', '·', (file.size/1024).toFixed(0), 'KB');
+  // 🆕 fix24: 自动压缩到 800px JPEG 0.78,避免 Supabase 8MB 请求体上限
+  compressImageFile(file, 800, 0.78).then(dataUrl => {
+    area.innerHTML = `<img src="${dataUrl}">`;
+    tr.dataset.imageSrc = dataUrl;
+    removeBtn.classList.remove('hidden');
+    scheduleSync();
+    console.log('[paste] ✓ 图片已粘贴 + 压缩');
+  }).catch(err => {
+    console.error('图片压缩失败:', err);
+    alert('图片读取失败: ' + err.message);
+  });
+}
+
+// 🆕 fix34: 拖拽图片兜底 — 即使 clipboard 被拦,拖拽仍可用
+function handleDrop(event) {
+  const area = event.target.closest('.paste-area');
+  if (!area) return;
+  event.preventDefault();
+  const tr = area.closest('tr');
+  const removeBtn = area.nextElementSibling;
+  const files = event.dataTransfer?.files;
+  if (!files || files.length === 0) return;
+  const file = Array.from(files).find(f => f.type.startsWith('image/'));
+  if (!file) { alert('请拖入图片文件'); return; }
+  compressImageFile(file, 800, 0.78).then(dataUrl => {
+    area.innerHTML = `<img src="${dataUrl}">`;
+    tr.dataset.imageSrc = dataUrl;
+    removeBtn.classList.remove('hidden');
+    scheduleSync();
+    console.log('[drop] ✓ 拖拽图片已添加');
+  }).catch(err => alert('图片读取失败: ' + err.message));
+}
+function handleDragOver(event) {
+  if (event.target.closest('.paste-area')) {
     event.preventDefault();
-    // 🆕 fix24: 自动压缩到 800px JPEG 0.78,避免 Supabase 8MB 请求体上限
-    compressImageFile(file, 800, 0.78).then(dataUrl => {
-      area.innerHTML = `<img src="${dataUrl}">`;
-      tr.dataset.imageSrc = dataUrl;
-      removeBtn.classList.remove('hidden');
-      scheduleSync();
-    }).catch(err => {
-      console.error('图片压缩失败:', err);
-      alert('图片读取失败: ' + err.message);
-    });
+    event.dataTransfer.dropEffect = 'copy';
   }
 }
 
@@ -3620,6 +3663,29 @@ function attachListeners() {
 
   // Paste handler on the items table
   $('master-items').addEventListener('paste', handlePaste);
+  // 🆕 fix34: 拖拽图片兜底 + document 级别 paste 兜底
+  $('master-items').addEventListener('drop', handleDrop);
+  $('master-items').addEventListener('dragover', handleDragOver);
+  // 全局 paste 兜底 — 如果用户没聚焦 paste-area 但 Ctrl+V,自动找当前光标所在的最近 paste-area
+  document.addEventListener('paste', (e) => {
+    if (e.target.closest('.paste-area')) return;  // 主 handler 已经处理
+    // 找 active element 附近的 paste-area
+    const activeRow = document.activeElement?.closest('tr');
+    const fallbackArea = activeRow?.querySelector('.paste-area');
+    if (fallbackArea && (e.clipboardData?.items || []).length > 0) {
+      const hasImg = Array.from(e.clipboardData.items).some(it => it.type.startsWith('image/'));
+      if (hasImg) {
+        console.log('[paste-fallback] 用户没聚焦 paste-area,但当前行有 — 自动转交');
+        // 模拟到 paste-area 上的 paste 事件
+        const fakeEvent = Object.assign(Object.create(Object.getPrototypeOf(e)), e, {
+          target: fallbackArea,
+        });
+        // 直接调 handler
+        handlePaste(fakeEvent);
+        e.preventDefault();
+      }
+    }
+  });
 
   // Special inputs
   $('pi_number').addEventListener('input', function() {
