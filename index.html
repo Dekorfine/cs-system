@@ -10,6 +10,7 @@
 <link rel="dns-prefetch" href="https://dekorfine.github.io">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
@@ -445,12 +446,22 @@ tr:hover td{background:var(--bg-soft)}
 </head>
 <body>
 <div id="root"></div>
+<body>
+<div id="root"></div>
 
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<!-- 🚀 fix32: 预编译版本 - 不需要 Babel runtime,启动速度提升 5-10 倍       -->
-<!-- 原 11 个 type="text/babel" 的 .js 文件 + Babel CDN(3 MB)全部替换为   -->
-<!-- 一个预编译的 app.compiled.js (1.2 MB)                                  -->
+<!-- fix22: 模块化结构 — 11 个 JS 文件按顺序加载                          -->
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<script src="app.compiled.js"></script>
+<script type="text/babel" data-presets="react,env" src="01-core.js"></script>
+<script type="text/babel" data-presets="react,env" src="02-cs.js"></script>
+<script type="text/babel" data-presets="react,env" src="03-dashboard-trash.js"></script>
+<script type="text/babel" data-presets="react,env" src="04-admin-finance.js"></script>
+<script type="text/babel" data-presets="react,env" src="05-quote-briefings.js"></script>
+<script type="text/babel" data-presets="react,env" src="06-chargebacks-offline.js"></script>
+<script type="text/babel" data-presets="react,env" src="07-photos-reviews.js"></script>
+<script type="text/babel" data-presets="react,env" src="08-events-report.js"></script>
+<script type="text/babel" data-presets="react,env" src="09-kb-cross-dept.js"></script>
+<script type="text/babel" data-presets="react,env" src="10-tasks-feedback.js"></script>
+<script type="text/babel" data-presets="react,env" src="11-help-app.js"></script>
 </body>
 </html>

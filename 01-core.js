@@ -1,7 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🛠 核心 — 工具/常量/Hooks/Contexts(SitesContext + ProductsContext)
-// 拆自 workspace.html (fix22 模块化结构)
-// 原始行号: 450 - 2078
+// 🧱 核心:常量 / utils / Hooks / Contexts / 翻译 (含 fix28-31 累积修复)
+// 拆自 workspace.html · 原始行号 450-2076
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -1631,5 +1630,3 @@ const EventActionDropdown = ({ record, onAftersale, onRefill, onRefund, onCharge
     </>
   );
 };
-
-

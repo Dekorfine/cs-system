@@ -1,8 +1,9 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 (CSModule)
-// 拆自 workspace.html (fix22 模块化结构)
-// 原始行号: 2079 - 6183
+// 📞 客服跟进模块 (CSModule) (含 fix28-31 累积修复)
+// 拆自 workspace.html · 原始行号 2077-6183
 // ════════════════════════════════════════════════════════════════════
+
+
 
 const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudOn }) => {
   const allSites = useSiteCodes();  // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站

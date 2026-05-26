@@ -1,10 +1,8 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📨 跨部门协作 (fix23 含 矩阵批量 + 智能 fallback)
-// 拆自 workspace.html (fix23 模块化结构)
-// 原始行号: 17554 - 20413
+// 📚 知识库 + 📨 跨部门 (含 fix28 ↑↓) (含 fix28-31 累积修复)
+// 拆自 workspace.html · 原始行号 17582-20503
 // ════════════════════════════════════════════════════════════════════
 
-// ============================================================
 // ============================================================
 // 知识库模块 - 跳转到独立 kb.html (Supabase + Gemini + 智能搜索 + 编辑同步)
 // ============================================================
@@ -878,6 +876,8 @@ const NavSidebar = ({ tabs, activeTab, setActiveTab, collapsed, onToggleCollapse
 // ============================================================
 const LayoutCustomizeModal = ({ allTabs, layoutPrefs, defaultTopKeys, onSave, onClose }) => {
   const [topKeys, setTopKeys] = useState(layoutPrefs.topKeys || defaultTopKeys);
+  // 🆕 fix28: 侧栏自定义顺序(用户拖动后的) — 默认 null = 用 allTabs 原顺序
+  const [sidebarOrder, setSidebarOrder] = useState(layoutPrefs.sidebarOrder || []);
   
   const toggleTop = (key) => {
     setTopKeys(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]);
@@ -900,12 +900,70 @@ const LayoutCustomizeModal = ({ allTabs, layoutPrefs, defaultTopKeys, onSave, on
       return next;
     });
   };
-  const reset = () => setTopKeys(defaultTopKeys);
-  const save = () => { onSave(topKeys); onClose(); };
+  
+  // 🆕 fix28: 下方"其他功能"区的 ↑↓ 排序(同组内交换)
+  const moveOtherUp = (key, group) => {
+    setSidebarOrder(prev => {
+      // 当前同组的所有 key (按 otherItemsByGroup 实际顺序)
+      const groupKeys = otherItemsByGroup[group]?.map(t => t.key) || [];
+      const idx = groupKeys.indexOf(key);
+      if (idx <= 0) return prev;
+      // 交换组内位置
+      const newGroupKeys = [...groupKeys];
+      [newGroupKeys[idx-1], newGroupKeys[idx]] = [newGroupKeys[idx], newGroupKeys[idx-1]];
+      // 合并到全局 sidebarOrder:其他组的 key 保留,该组用新顺序
+      const otherGroupKeys = otherItems.filter(t => t.group !== group).map(t => t.key);
+      // 把所有组的 key 按 ['main','resources','collab','admin'] 顺序串起来
+      const all = [];
+      ['main','resources','collab','admin'].forEach(g => {
+        if (g === group) all.push(...newGroupKeys);
+        else all.push(...otherItems.filter(t => t.group === g).map(t => t.key));
+      });
+      return all;
+    });
+  };
+  const moveOtherDown = (key, group) => {
+    setSidebarOrder(prev => {
+      const groupKeys = otherItemsByGroup[group]?.map(t => t.key) || [];
+      const idx = groupKeys.indexOf(key);
+      if (idx === -1 || idx >= groupKeys.length - 1) return prev;
+      const newGroupKeys = [...groupKeys];
+      [newGroupKeys[idx+1], newGroupKeys[idx]] = [newGroupKeys[idx], newGroupKeys[idx+1]];
+      const all = [];
+      ['main','resources','collab','admin'].forEach(g => {
+        if (g === group) all.push(...newGroupKeys);
+        else all.push(...otherItems.filter(t => t.group === g).map(t => t.key));
+      });
+      return all;
+    });
+  };
+  
+  const reset = () => { setTopKeys(defaultTopKeys); setSidebarOrder([]); };
+  const save = () => { onSave({ topKeys, sidebarOrder }); onClose(); };
   
   // 当前选中的(按顺序) + 未选中的(按分组)
   const topItems = topKeys.map(k => allTabs.find(t => t.key === k)).filter(Boolean);
-  const otherItems = allTabs.filter(t => !topKeys.includes(t.key));
+  // 🆕 fix28: otherItems 按 sidebarOrder 排序 (没在 order 里的项追加到末尾)
+  const otherItems = useMemo(() => {
+    const nonPinned = allTabs.filter(t => !topKeys.includes(t.key));
+    if (!sidebarOrder || sidebarOrder.length === 0) return nonPinned;
+    const orderMap = new Map(sidebarOrder.map((k, i) => [k, i]));
+    return [...nonPinned].sort((a, b) => {
+      const ia = orderMap.has(a.key) ? orderMap.get(a.key) : 99999;
+      const ib = orderMap.has(b.key) ? orderMap.get(b.key) : 99999;
+      return ia - ib;
+    });
+  }, [allTabs, topKeys, sidebarOrder]);
+  
+  // 🆕 fix28: 按 group 预分组,用于 ↑↓ 内部排序计算
+  const otherItemsByGroup = useMemo(() => {
+    const map = {};
+    otherItems.forEach(t => {
+      if (!map[t.group]) map[t.group] = [];
+      map[t.group].push(t);
+    });
+    return map;
+  }, [otherItems]);
   
   const groupTitles = {
     main:      '主功能',
@@ -968,16 +1026,23 @@ const LayoutCustomizeModal = ({ allTabs, layoutPrefs, defaultTopKeys, onSave, on
             📚 其他功能 (将出现在左侧栏)
           </div>
           {['main', 'resources', 'collab', 'admin'].map(grp => {
-            const items = otherItems.filter(t => t.group === grp);
+            const items = otherItemsByGroup[grp] || [];
             if (items.length === 0) return null;
             return (
               <div key={grp} style={{marginBottom: 10}}>
                 <div style={{fontSize: 10, fontWeight: 700, color: 'var(--ink-4)', marginBottom: 4, paddingLeft: 2, letterSpacing: '.5px'}}>{groupTitles[grp]}</div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: 3}}>
-                  {items.map(t => (
+                  {items.map((t, idx) => (
                     <div key={t.key} style={{padding: '7px 10px', background: 'white', border: '1px solid var(--line)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 8}}>
                       <span style={{fontSize: 15, lineHeight: 1}}>{t.icon}</span>
                       <span style={{flex: 1, fontSize: 13, color: 'var(--ink)'}}>{t.label.replace(/^.\s*/, '').trim()}</span>
+                      {/* 🆕 fix28: 组内 ↑↓ 排序 */}
+                      <button onClick={() => moveOtherUp(t.key, grp)} disabled={idx === 0}
+                        title="上移" 
+                        style={{padding:'3px 7px', background: idx === 0 ? '#f5f5f7' : 'white', color: idx === 0 ? 'var(--ink-4)' : 'var(--ink-2)', border:'1px solid var(--line)', borderRadius:4, cursor: idx === 0 ? 'not-allowed' : 'pointer', fontSize:11, fontFamily:'inherit'}}>↑</button>
+                      <button onClick={() => moveOtherDown(t.key, grp)} disabled={idx === items.length - 1}
+                        title="下移"
+                        style={{padding:'3px 7px', background: idx === items.length - 1 ? '#f5f5f7' : 'white', color: idx === items.length - 1 ? 'var(--ink-4)' : 'var(--ink-2)', border:'1px solid var(--line)', borderRadius:4, cursor: idx === items.length - 1 ? 'not-allowed' : 'pointer', fontSize:11, fontFamily:'inherit'}}>↓</button>
                       <button onClick={() => toggleTop(t.key)}
                         style={{padding: '4px 10px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit', fontWeight: 600}}>📌 钉到顶部</button>
                     </div>
@@ -2860,7 +2925,3 @@ const TimeoutSettingsModal = ({ user, cdmTimeoutConfig = {}, onClose, toast }) =
     document.body
   );
 };
-
-// ════════════════════════════════════════════════════════════════════
-// 📌 任务分派模块 (fix19) — 临时任务派给某人,主管看是否处理
-// 工作流: 创建者 → 派给 X → X 接手/标处理中 → 完成 · 主管全局可见 · Realtime 推送
