@@ -18371,6 +18371,7 @@ const BugReportsModule = ({ user, employees, toast }) => {
   const [showSubmit, setShowSubmit] = useState(false);
   const [openId, setOpenId] = useState(null);
   const [showAiSummary, setShowAiSummary] = useState(false);
+  const [showExport, setShowExport] = useState(false);  // 🆕 fix14b: 导出模态
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterScope, setFilterScope] = useState('all');  // 'all' | 'mine' (员工 default mine, 主管 default all)
@@ -18453,12 +18454,21 @@ const BugReportsModule = ({ user, employees, toast }) => {
             </div>
           </div>
           <div style={{display:'flex', gap:6, alignItems:'center', flexWrap:'wrap'}}>
-            {isAdmin && stats.pendingForAi > 0 && (
-              <button onClick={() => setShowAiSummary(true)}
-                style={{padding:'6px 14px', background:'#7c3aed', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}
-                title="把所有待修复反馈导出成 AI 可读格式,复制粘贴到 Claude 对话">
-                🤖 导出给 AI ({stats.pendingForAi})
-              </button>
+            {isAdmin && (
+              <>
+                <button onClick={() => setShowExport(true)}
+                  style={{padding:'6px 14px', background:'#d97706', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}
+                  title="下载所有反馈 · PDF/Markdown/HTML/CSV 四种格式 · 一次性发给 AI">
+                  📥 下载导出 ({reports.length})
+                </button>
+                {stats.pendingForAi > 0 && (
+                  <button onClick={() => setShowAiSummary(true)}
+                    style={{padding:'6px 14px', background:'#7c3aed', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'inherit'}}
+                    title="生成 AI 摘要文本,复制粘贴到 Claude 对话">
+                    🤖 复制给 AI ({stats.pendingForAi})
+                  </button>
+                )}
+              </>
             )}
             <button onClick={load} disabled={loading} className="btn-sec" style={{padding:'6px 12px', fontSize:12}}>
               {loading ? '⏳' : '🔄'} 刷新
@@ -18557,6 +18567,9 @@ const BugReportsModule = ({ user, employees, toast }) => {
       )}
       {showAiSummary && (
         <BugAiSummaryModal reports={reports} onClose={() => setShowAiSummary(false)} toast={toast} />
+      )}
+      {showExport && (
+        <BugExportModal reports={reports} employees={employees} onClose={() => setShowExport(false)} toast={toast} />
       )}
     </div>
   );
@@ -19088,6 +19101,498 @@ const BugReportDetailModal = ({ report, user, employees, onClose, onChanged, toa
           <img src={imgPreview} alt="" style={{maxWidth:'100%', maxHeight:'100%'}} />
         </div>
       )}
+    </div>,
+    document.body
+  );
+};
+
+// ════════════════════════════════════════════════════════════════════
+// 📥 导出反馈 modal — 主管/老板下载所有反馈,支持 Markdown / HTML / CSV / PDF 四种格式
+// 主要用途:把所有 bug 打包给 AI 一次性修复(替代手动复制粘贴)
+// ════════════════════════════════════════════════════════════════════
+const BugExportModal = ({ reports, employees, onClose, toast }) => {
+  const [filterStatus, setFilterStatus] = useState('pending');  // 'all' | 'pending' | 'done'
+  const [filterDate, setFilterDate] = useState('all');         // 'all' | '7' | '30' | '90'
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [includeScreenshots, setIncludeScreenshots] = useState(true);
+  const [includeThread, setIncludeThread] = useState(true);
+  const [includeResponse, setIncludeResponse] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  // 应用筛选
+  const filtered = useMemo(() => {
+    let arr = reports.filter(r => !r.deleted);
+    if (filterStatus === 'pending') arr = arr.filter(r => r.status === 'new' || r.status === 'reviewed' || r.status === 'planned' || r.status === 'in_progress');
+    else if (filterStatus === 'done') arr = arr.filter(r => r.status === 'done');
+    if (filterDate !== 'all') {
+      const days = parseInt(filterDate, 10);
+      const cutoff = Date.now() - days * 86400000;
+      arr = arr.filter(r => (r.created_at_ms || 0) >= cutoff);
+    }
+    if (filterCategory !== 'all') arr = arr.filter(r => r.category === filterCategory);
+    // 排序:紧急 + 新 在前
+    arr = [...arr].sort((a, b) => {
+      const pri = { urgent:4, high:3, normal:2, low:1 };
+      const pA = pri[a.priority] || 0, pB = pri[b.priority] || 0;
+      if (pA !== pB) return pB - pA;
+      return (b.created_at_ms || 0) - (a.created_at_ms || 0);
+    });
+    return arr;
+  }, [reports, filterStatus, filterDate, filterCategory]);
+
+  // 文件名前缀(含时间戳)
+  const filenamePrefix = () => {
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}_${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`;
+    const scope = filterStatus === 'pending' ? '待修复' : filterStatus === 'done' ? '已修复' : '全部';
+    return `bug反馈_${scope}_${filtered.length}条_${stamp}`;
+  };
+
+  const formatTs = (ms) => {
+    if (!ms) return '';
+    return new Date(ms).toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+  };
+  const csvEscape = (v) => {
+    if (v === null || v === undefined) return '';
+    const s = String(v).replace(/"/g, '""');
+    return /[",\n\r]/.test(s) ? `"${s}"` : s;
+  };
+  const fileSave = (blob, filename) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  };
+
+  // ──────────────────── Markdown 导出 ────────────────────
+  const exportMarkdown = () => {
+    setExporting(true);
+    try {
+      const lines = [];
+      lines.push(`# 🐛 客服系统反馈摘要`);
+      lines.push('');
+      lines.push(`> 生成时间: ${new Date().toLocaleString('zh-CN')}  `);
+      lines.push(`> 当前版本: \`${APP_VERSION}\`  `);
+      lines.push(`> 筛选范围: ${filterStatus === 'pending' ? '待修复' : filterStatus === 'done' ? '已修复' : '全部'} · ${filtered.length} 条`);
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+      lines.push('## 📋 给 AI 的话');
+      lines.push('');
+      lines.push('请你 (Claude) 分析以下反馈,对每条:');
+      lines.push('1. 简短分析问题原因 (代码层面)');
+      lines.push('2. 提出修复方案');
+      lines.push('3. 标记下个版本号');
+      lines.push('');
+      lines.push('我确认后,你直接出新 HTML。');
+      lines.push('');
+      lines.push('---');
+      lines.push('');
+
+      filtered.forEach((r, i) => {
+        const cat = findBug(BUG_CATEGORIES, r.category);
+        const pri = findBug(BUG_PRIORITIES, r.priority);
+        const st  = findBug(BUG_STATUSES,  r.status);
+        const mod = (BUG_MODULES.find(m => m.id === r.module) || { label: r.module || '未指定' });
+        lines.push(`## ${i+1}. ${r.title}`);
+        lines.push('');
+        lines.push(`**ID**: \`${r.id.slice(0, 8)}\` · **${cat.label}** · **${pri.label}** · **${st.label}** · ${mod.label}`);
+        lines.push('');
+        lines.push(`- **报告人**: ${r.created_by_name || '匿名'}${r.created_by_role === 'admin' || r.created_by_role === 'super_admin' ? ' (主管)' : r.created_by_role === 'finance' ? ' (财务)' : ''}`);
+        lines.push(`- **时间**: ${formatTs(r.created_at_ms)}`);
+        if (r.app_version) lines.push(`- **版本**: \`${r.app_version}\``);
+        if (r.browser_info) lines.push(`- **环境**: ${r.browser_info}`);
+        if (r.version_fixed) lines.push(`- **已修复于**: \`${r.version_fixed}\` ✅`);
+        lines.push('');
+        if (r.description) {
+          lines.push('### 描述');
+          lines.push(r.description);
+          lines.push('');
+        }
+        if (r.reproduce_steps) {
+          lines.push('### 复现步骤');
+          lines.push('```');
+          lines.push(r.reproduce_steps);
+          lines.push('```');
+          lines.push('');
+        }
+        if (r.expected_behavior) {
+          lines.push('### ✓ 期望结果');
+          lines.push(r.expected_behavior);
+          lines.push('');
+        }
+        if (r.actual_behavior) {
+          lines.push('### ✗ 实际结果');
+          lines.push(r.actual_behavior);
+          lines.push('');
+        }
+        if (includeScreenshots && (r.screenshots || []).length > 0) {
+          lines.push(`### 📷 截图 (${(r.screenshots || []).length} 张)`);
+          (r.screenshots || []).forEach((s, j) => {
+            lines.push(`![${s.name || `screenshot_${j+1}`}](${s.dataUrl})`);
+            lines.push('');
+          });
+        }
+        if (includeResponse && r.admin_response) {
+          lines.push('### 💬 主管回复');
+          lines.push(`> ${r.admin_response.split('\n').join('\n> ')}`);
+          lines.push('');
+        }
+        if (includeThread && (r.thread || []).length > 0) {
+          lines.push(`### 💬 对话历史 (${(r.thread || []).length} 条)`);
+          (r.thread || []).forEach(m => {
+            const tag = m.role === 'admin' || m.role === 'super_admin' ? '**主管**' : '**用户**';
+            lines.push(`- ${tag} ${m.user_name} · ${formatTs(m.ts)}:`);
+            lines.push(`  ${m.content.split('\n').join('\n  ')}`);
+          });
+          lines.push('');
+        }
+        lines.push('---');
+        lines.push('');
+      });
+      const blob = new Blob([lines.join('\n')], { type:'text/markdown;charset=utf-8' });
+      fileSave(blob, `${filenamePrefix()}.md`);
+      toast('✓ Markdown 已下载 · 可直接拖到 Claude 对话');
+    } catch (e) { alert('导出失败: ' + (e.message || e)); }
+    setExporting(false);
+  };
+
+  // ──────────────────── HTML 导出 ────────────────────
+  const buildHtml = (forPrint = false) => {
+    const css = `
+      * { box-sizing: border-box; }
+      body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; padding: 30px 40px; color: #1a1a17; background: white; line-height: 1.6; font-size: 13px; }
+      h1 { font-size: 22px; color: #7c2d12; margin: 0 0 6px 0; padding-bottom: 10px; border-bottom: 2px solid #e8e6e0; }
+      h2 { font-size: 17px; color: #1a1a17; margin: 26px 0 10px 0; padding: 6px 10px; background: linear-gradient(90deg, #fef3c7 0%, transparent 100%); border-left: 4px solid #d97706; }
+      h3 { font-size: 13px; color: #3a3a35; margin: 14px 0 6px 0; }
+      .meta { color: #7a7a72; font-size: 11px; margin-bottom: 14px; }
+      .meta strong { color: #1a1a17; }
+      .tags { display: flex; gap: 5px; flex-wrap: wrap; margin: 6px 0 10px 0; }
+      .tag { padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; }
+      .tag.cat-bug { background: #fee2e2; color: #b91c1c; }
+      .tag.cat-feature { background: #f3e8ff; color: #7c3aed; }
+      .tag.cat-improvement { background: #dbeafe; color: #0369a1; }
+      .tag.cat-question { background: #f5f5f7; color: #86868b; }
+      .tag.pri-urgent { background: #fee2e2; color: #b91c1c; }
+      .tag.pri-high { background: #fef3c7; color: #d97706; }
+      .tag.pri-normal { background: #f5f5f7; color: #86868b; }
+      .tag.pri-low { background: #fafafa; color: #a8a8a8; }
+      .tag.st-new { background: #dbeafe; color: #0369a1; }
+      .tag.st-reviewed, .tag.st-planned { background: #fef3c7; color: #d97706; }
+      .tag.st-in_progress { background: #dbeafe; color: #0369a1; }
+      .tag.st-done { background: #dcfce7; color: #15803d; }
+      .tag.st-rejected, .tag.st-duplicate { background: #f5f5f7; color: #86868b; }
+      .tag.mod { background: #f5f5f7; color: #3a3a35; }
+      .info-box { padding: 8px 12px; background: #fafaf7; border: 1px solid #e8e6e0; border-radius: 8px; font-size: 11px; color: #7a7a72; margin-bottom: 12px; }
+      .info-box code { font-family: ui-monospace, "Cascadia Code", monospace; padding: 1px 6px; background: white; border-radius: 3px; }
+      .repro { padding: 10px 12px; background: #fef3c7; border: 1px solid #fde047; border-radius: 8px; font-family: ui-monospace, monospace; font-size: 11px; white-space: pre-wrap; color: #7c2d12; }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .grid2 .col-ok { padding: 8px 10px; background: #dcfce7; border: 1px solid #86efac; border-radius: 7px; color: #15803d; white-space: pre-wrap; }
+      .grid2 .col-bad { padding: 8px 10px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 7px; color: #b91c1c; white-space: pre-wrap; }
+      .grid2 .col-ok strong, .grid2 .col-bad strong { display: block; font-size: 11px; margin-bottom: 4px; }
+      .desc { padding: 10px 12px; background: #fafaf7; border-radius: 8px; white-space: pre-wrap; color: #3a3a35; }
+      .response { padding: 10px 12px; background: #eff6ff; border: 1px solid #bae6fd; border-radius: 8px; color: #1e40af; white-space: pre-wrap; }
+      .screenshots { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin-top: 6px; }
+      .screenshots img { width: 100%; max-height: 240px; object-fit: contain; border: 1px solid #e8e6e0; border-radius: 6px; background: #fafafa; display: block; }
+      .thread { padding: 10px 12px; background: #fafaf7; border-radius: 8px; }
+      .thread-item { padding: 6px 0; border-bottom: 1px dashed #e8e6e0; font-size: 12px; }
+      .thread-item:last-child { border: none; }
+      .thread-who { color: #7a7a72; font-size: 10px; margin-bottom: 2px; }
+      .report-block { padding: 18px 20px; border: 1px solid #e8e6e0; border-radius: 10px; margin-bottom: 16px; background: white; page-break-inside: avoid; }
+      .report-title { font-size: 16px; font-weight: 600; margin: 6px 0; }
+      .footer { margin-top: 30px; padding-top: 16px; border-top: 1px solid #e8e6e0; font-size: 10px; color: #a8a8a8; text-align: center; }
+      @media print {
+        body { padding: 15px 20px; }
+        .report-block { page-break-inside: avoid; box-shadow: none; }
+        .screenshots img { max-height: 200px; }
+        h2 { page-break-after: avoid; }
+        h3 { page-break-after: avoid; }
+      }
+    `;
+    const html = [];
+    html.push('<!DOCTYPE html>');
+    html.push('<html lang="zh"><head><meta charset="UTF-8">');
+    html.push(`<title>${filenamePrefix()}</title>`);
+    html.push(`<style>${css}</style>`);
+    html.push('</head><body>');
+    html.push(`<h1>🐛 客服系统反馈摘要</h1>`);
+    html.push(`<div class="meta">`);
+    html.push(`<strong>生成时间</strong>: ${new Date().toLocaleString('zh-CN')} · `);
+    html.push(`<strong>当前版本</strong>: <code>${APP_VERSION}</code> · `);
+    html.push(`<strong>筛选范围</strong>: ${filterStatus === 'pending' ? '待修复' : filterStatus === 'done' ? '已修复' : '全部'} · `);
+    html.push(`<strong>共 ${filtered.length} 条</strong>`);
+    html.push(`</div>`);
+
+    // 统计概要
+    const byCategory = {};
+    const byPriority = {};
+    filtered.forEach(r => {
+      byCategory[r.category] = (byCategory[r.category] || 0) + 1;
+      byPriority[r.priority] = (byPriority[r.priority] || 0) + 1;
+    });
+    html.push('<div class="info-box">');
+    html.push('<strong>按类别</strong>: ');
+    html.push(BUG_CATEGORIES.filter(c => byCategory[c.id]).map(c => `${c.label} ${byCategory[c.id]}`).join(' · '));
+    html.push(' &nbsp;|&nbsp; <strong>按优先级</strong>: ');
+    html.push(BUG_PRIORITIES.filter(p => byPriority[p.id]).map(p => `${p.label} ${byPriority[p.id]}`).join(' · '));
+    html.push('</div>');
+
+    filtered.forEach((r, i) => {
+      const cat = findBug(BUG_CATEGORIES, r.category);
+      const pri = findBug(BUG_PRIORITIES, r.priority);
+      const st  = findBug(BUG_STATUSES,  r.status);
+      const mod = (BUG_MODULES.find(m => m.id === r.module) || { label: r.module || '未指定' });
+      html.push('<div class="report-block">');
+      html.push(`<h2>#${i+1} ${r.title}</h2>`);
+      html.push('<div class="tags">');
+      html.push(`<span class="tag cat-${r.category}">${cat.label}</span>`);
+      html.push(`<span class="tag pri-${r.priority}">${pri.label}</span>`);
+      html.push(`<span class="tag st-${r.status}">${st.label}</span>`);
+      html.push(`<span class="tag mod">${mod.label}</span>`);
+      if (r.version_fixed) html.push(`<span class="tag st-done">修复于 ${r.version_fixed}</span>`);
+      html.push('</div>');
+      html.push('<div class="info-box">');
+      html.push(`<strong>ID</strong>: <code>${r.id.slice(0,8)}</code> · `);
+      html.push(`<strong>报告人</strong>: ${r.created_by_name || '匿名'}${r.created_by_role === 'admin' || r.created_by_role === 'super_admin' ? ' (主管)' : r.created_by_role === 'finance' ? ' (财务)' : ''} · `);
+      html.push(`<strong>时间</strong>: ${formatTs(r.created_at_ms)}`);
+      if (r.app_version) html.push(` · <strong>版本</strong>: <code>${r.app_version}</code>`);
+      if (r.browser_info) html.push(` · <strong>环境</strong>: ${r.browser_info}`);
+      html.push('</div>');
+
+      if (r.description) {
+        html.push('<h3>📝 描述</h3>');
+        html.push(`<div class="desc">${(r.description || '').replace(/</g, '&lt;')}</div>`);
+      }
+      if (r.reproduce_steps) {
+        html.push('<h3>🔁 复现步骤</h3>');
+        html.push(`<div class="repro">${(r.reproduce_steps || '').replace(/</g, '&lt;')}</div>`);
+      }
+      if (r.expected_behavior || r.actual_behavior) {
+        html.push('<div class="grid2" style="margin-top: 10px;">');
+        if (r.expected_behavior) html.push(`<div class="col-ok"><strong>✓ 期望</strong>${(r.expected_behavior || '').replace(/</g, '&lt;')}</div>`);
+        if (r.actual_behavior) html.push(`<div class="col-bad"><strong>✗ 实际</strong>${(r.actual_behavior || '').replace(/</g, '&lt;')}</div>`);
+        html.push('</div>');
+      }
+      if (includeScreenshots && (r.screenshots || []).length > 0) {
+        html.push(`<h3>📷 截图 (${(r.screenshots || []).length} 张)</h3>`);
+        html.push('<div class="screenshots">');
+        (r.screenshots || []).forEach(s => {
+          html.push(`<img src="${s.dataUrl}" alt="${(s.name || '').replace(/"/g, '&quot;')}" />`);
+        });
+        html.push('</div>');
+      }
+      if (includeResponse && r.admin_response) {
+        html.push('<h3>💬 主管回复</h3>');
+        html.push(`<div class="response">${(r.admin_response || '').replace(/</g, '&lt;')}</div>`);
+      }
+      if (includeThread && (r.thread || []).length > 0) {
+        html.push(`<h3>💬 对话 (${(r.thread || []).length})</h3>`);
+        html.push('<div class="thread">');
+        (r.thread || []).forEach(m => {
+          const isAdminMsg = m.role === 'admin' || m.role === 'super_admin';
+          html.push('<div class="thread-item">');
+          html.push(`<div class="thread-who">${isAdminMsg ? '👑 ' : ''}${m.user_name} · ${formatTs(m.ts)}</div>`);
+          html.push(`<div>${(m.content || '').replace(/</g, '&lt;').replace(/\n/g, '<br/>')}</div>`);
+          html.push('</div>');
+        });
+        html.push('</div>');
+      }
+      html.push('</div>');  // /report-block
+    });
+
+    html.push(`<div class="footer">Dekorfine 客服系统 · ${APP_VERSION} · 共 ${filtered.length} 条反馈</div>`);
+    if (forPrint) html.push(`<script>window.addEventListener('load', () => setTimeout(() => window.print(), 400));<\/script>`);
+    html.push('</body></html>');
+    return html.join('\n');
+  };
+
+  const exportHtml = () => {
+    setExporting(true);
+    try {
+      const blob = new Blob([buildHtml(false)], { type:'text/html;charset=utf-8' });
+      fileSave(blob, `${filenamePrefix()}.html`);
+      toast('✓ HTML 已下载 · 可双击打开或用 Word 打开');
+    } catch (e) { alert('导出失败: ' + (e.message || e)); }
+    setExporting(false);
+  };
+
+  const exportPdf = () => {
+    setExporting(true);
+    try {
+      const html = buildHtml(true);
+      const w = window.open('', '_blank', 'width=900,height=900');
+      if (!w) { alert('请允许浏览器弹窗,然后重试'); setExporting(false); return; }
+      w.document.write(html);
+      w.document.close();
+      toast('✓ 已打开打印对话框 · 选"另存为 PDF"');
+    } catch (e) { alert('导出失败: ' + (e.message || e)); }
+    setExporting(false);
+  };
+
+  // ──────────────────── CSV 导出 ────────────────────
+  const exportCsv = () => {
+    setExporting(true);
+    try {
+      const headers = ['ID','标题','类别','优先级','状态','模块','报告人','报告人角色','报告时间','版本','环境','描述','复现步骤','期望','实际','截图数','主管回复','修复版本','对话数'];
+      const rows = [headers.map(csvEscape).join(',')];
+      filtered.forEach(r => {
+        const cat = findBug(BUG_CATEGORIES, r.category);
+        const pri = findBug(BUG_PRIORITIES, r.priority);
+        const st  = findBug(BUG_STATUSES,  r.status);
+        const mod = (BUG_MODULES.find(m => m.id === r.module) || { label: r.module || '' });
+        rows.push([
+          r.id.slice(0,8),
+          r.title || '',
+          cat.label,
+          pri.label,
+          st.label,
+          mod.label,
+          r.created_by_name || '',
+          r.created_by_role || '',
+          formatTs(r.created_at_ms),
+          r.app_version || '',
+          r.browser_info || '',
+          r.description || '',
+          r.reproduce_steps || '',
+          r.expected_behavior || '',
+          r.actual_behavior || '',
+          (r.screenshots || []).length,
+          r.admin_response || '',
+          r.version_fixed || '',
+          (r.thread || []).length,
+        ].map(csvEscape).join(','));
+      });
+      // BOM 让 Excel 正确识别 UTF-8 中文
+      const blob = new Blob(['\ufeff' + rows.join('\n')], { type:'text/csv;charset=utf-8' });
+      fileSave(blob, `${filenamePrefix()}.csv`);
+      toast('✓ CSV 已下载 · 用 Excel 打开');
+    } catch (e) { alert('导出失败: ' + (e.message || e)); }
+    setExporting(false);
+  };
+
+  // 估算文件大小
+  const sizeEstimate = useMemo(() => {
+    let shotsBytes = 0;
+    if (includeScreenshots) {
+      filtered.forEach(r => {
+        (r.screenshots || []).forEach(s => { shotsBytes += (s.size || 0); });
+      });
+    }
+    const textBytes = filtered.length * 500;
+    const total = textBytes + shotsBytes;
+    if (total < 1024) return `${total} B`;
+    if (total < 1024*1024) return `${(total/1024).toFixed(0)} KB`;
+    return `${(total/1024/1024).toFixed(1)} MB`;
+  }, [filtered, includeScreenshots]);
+
+  return ReactDOM.createPortal(
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:100000, display:'flex', alignItems:'flex-start', justifyContent:'center', overflow:'auto', padding:'20px'}}>
+      <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, width:'100%', maxWidth:720, boxShadow:'0 20px 60px rgba(0,0,0,.25)', display:'flex', flexDirection:'column', maxHeight:'90vh'}}>
+        {/* 头部 */}
+        <div style={{padding:'14px 20px', borderBottom:'1px solid var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0, background:'linear-gradient(90deg, #fef3c7 0%, #fde047 100%)'}}>
+          <div>
+            <div className="font-display" style={{fontSize:16, fontWeight:600, color:'#7c2d12'}}>📥 导出反馈</div>
+            <div style={{fontSize:11, color:'#92400e', marginTop:2}}>下载所有 bug 反馈 · 4 种格式 · 一次性发给 AI 修复</div>
+          </div>
+          <button onClick={onClose} style={{background:'transparent', border:'none', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+
+        <div style={{padding:'16px 20px', overflowY:'auto', flex:1}}>
+          {/* 筛选 */}
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', marginBottom:6}}>🎯 筛选范围</div>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8}}>
+              <div>
+                <div style={{fontSize:10, color:'var(--ink-4)', marginBottom:3}}>状态</div>
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                  style={{width:'100%', padding:'6px 9px', border:'1px solid var(--line)', borderRadius:7, fontSize:12, background:'white', fontFamily:'inherit'}}>
+                  <option value="pending">🔧 仅待修复</option>
+                  <option value="done">✅ 仅已修复</option>
+                  <option value="all">📥 全部</option>
+                </select>
+              </div>
+              <div>
+                <div style={{fontSize:10, color:'var(--ink-4)', marginBottom:3}}>时间</div>
+                <select value={filterDate} onChange={e => setFilterDate(e.target.value)}
+                  style={{width:'100%', padding:'6px 9px', border:'1px solid var(--line)', borderRadius:7, fontSize:12, background:'white', fontFamily:'inherit'}}>
+                  <option value="all">全部</option>
+                  <option value="7">近 7 天</option>
+                  <option value="30">近 30 天</option>
+                  <option value="90">近 90 天</option>
+                </select>
+              </div>
+              <div>
+                <div style={{fontSize:10, color:'var(--ink-4)', marginBottom:3}}>类别</div>
+                <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
+                  style={{width:'100%', padding:'6px 9px', border:'1px solid var(--line)', borderRadius:7, fontSize:12, background:'white', fontFamily:'inherit'}}>
+                  <option value="all">全部类别</option>
+                  {BUG_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* 内容选项 */}
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', marginBottom:6}}>📋 包含内容</div>
+            <div style={{display:'flex', gap:14, flexWrap:'wrap'}}>
+              {[
+                { key:'shots', label:'📷 截图', val: includeScreenshots, set: setIncludeScreenshots, hint:'(关闭可大幅减小文件)' },
+                { key:'resp',  label:'💬 主管回复', val: includeResponse, set: setIncludeResponse },
+                { key:'thread',label:'💬 对话历史', val: includeThread, set: setIncludeThread },
+              ].map(o => (
+                <label key={o.key} style={{display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--ink-2)', cursor:'pointer'}}>
+                  <input type="checkbox" checked={o.val} onChange={e => o.set(e.target.checked)} style={{cursor:'pointer'}} />
+                  {o.label} {o.hint && <span style={{fontSize:10, color:'var(--ink-4)'}}>{o.hint}</span>}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* 预览统计 */}
+          <div style={{padding:'10px 12px', background:'#fafaf7', border:'1px solid var(--line)', borderRadius:8, marginBottom:14}}>
+            <div style={{fontSize:12, color:'var(--ink-2)', display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:6}}>
+              <span>📊 命中 <strong style={{color:'var(--ink)', fontSize:14}}>{filtered.length}</strong> 条反馈</span>
+              <span style={{color:'var(--ink-3)'}}>预估大小: ~{sizeEstimate}</span>
+            </div>
+            {filtered.length === 0 && (
+              <div style={{marginTop:6, fontSize:11, color:'#b91c1c'}}>当前筛选下没有数据 · 试着放宽条件</div>
+            )}
+          </div>
+
+          {/* 格式选择 */}
+          <div>
+            <div style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', marginBottom:8}}>📁 选择格式下载</div>
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8}}>
+              {[
+                { key:'md',   icon:'📝', name:'Markdown (.md)',   desc:'最适合直接给 AI · 带截图(data URL)', action: exportMarkdown, color:'#7c3aed' },
+                { key:'pdf',  icon:'🖨', name:'PDF (打印对话框)',   desc:'浏览器打印 → 另存为 PDF · 排版好',   action: exportPdf,      color:'#dc2626' },
+                { key:'html', icon:'🌐', name:'网页 (.html)',      desc:'双击可看 · Word 也能打开 · 含截图',  action: exportHtml,     color:'#0369a1' },
+                { key:'csv',  icon:'📊', name:'CSV 表格 (.csv)',   desc:'用 Excel 打开 · 无截图 · 只文字',     action: exportCsv,      color:'#15803d' },
+              ].map(f => (
+                <button key={f.key} onClick={f.action} disabled={exporting || filtered.length === 0}
+                  style={{padding:'14px', background:'white', border:'2px solid '+(exporting||filtered.length===0?'var(--line)':f.color), borderRadius:9, cursor: (exporting||filtered.length===0)?'not-allowed':'pointer', fontFamily:'inherit', textAlign:'left', opacity: (exporting||filtered.length===0)?0.5:1, transition:'all .15s'}}
+                  onMouseEnter={e => { if (!exporting && filtered.length > 0) e.currentTarget.style.background = '#fafafa'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'white'; }}>
+                  <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:4}}>
+                    <span style={{fontSize:18}}>{f.icon}</span>
+                    <span style={{fontSize:13, fontWeight:600, color: (exporting||filtered.length===0)?'var(--ink-3)':f.color}}>{f.name}</span>
+                  </div>
+                  <div style={{fontSize:10, color:'var(--ink-3)', lineHeight:1.4}}>{f.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{marginTop:14, padding:'10px 12px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, fontSize:11, color:'#1e40af', lineHeight:1.6}}>
+            💡 <strong>推荐工作流</strong>:勾选"📷 截图" → 选 <strong>Markdown (.md)</strong> 下载 → 把 .md 文件<strong>拖到 Claude 对话窗口</strong>。<br/>
+            AI 能直接读 Markdown 文字 + 看截图,一次性分析所有反馈、给出修复方案、出新 HTML。
+          </div>
+        </div>
+      </div>
     </div>,
     document.body
   );
@@ -21112,7 +21617,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.25-fix14';
+const APP_VERSION = '2026.05.25-fix14b';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
@@ -21121,6 +21626,15 @@ const APP_VERSION = '2026.05.25-fix14';
 // type: 'feature' 新功能 / 'fix' 修复 / 'refactor' 重构 / 'perf' 性能 / 'data' 数据
 // ════════════════════════════════════════════════════════════════════
 const VERSION_HISTORY = [
+  { version: '2026.05.25-fix14b', date: '2026.05.25', title: '📥 反馈中心导出 4 种格式', changes: [
+    { type:'feature', text:'反馈中心头部新增 📥 下载导出按钮 (主管/admin 专属)' },
+    { type:'feature', text:'4 种格式:📝 Markdown · 🖨 PDF (浏览器打印) · 🌐 HTML · 📊 CSV' },
+    { type:'feature', text:'筛选导出:仅待修复 / 仅已修复 / 全部 · 时间范围 · 类别' },
+    { type:'feature', text:'内容选项:截图开关 / 主管回复 / 对话历史' },
+    { type:'feature', text:'文件名自动含范围+数量+时间戳 (如 bug反馈_待修复_7条_20260525_1430.md)' },
+    { type:'feature', text:'CSV 带 UTF-8 BOM,Excel 直接打开中文不乱码' },
+    { type:'feature', text:'PDF 通过浏览器原生打印对话框,排版优雅,带分页防截断' },
+  ]},
   { version: '2026.05.25-fix14', date: '2026.05.25', title: '🐛 内置反馈中心 + AI 自助 handoff', changes: [
     { type:'feature', text:'新增 🐛 反馈中心 模块 — 用户自助提交 bug/需求 → Supabase → 主管查阅 → AI 一键导出修复' },
     { type:'feature', text:'提交表单:类别 + 优先级 + 模块 + 描述 + 复现步骤 + 期望/实际 + 截图(粘贴/拖拽/上传 最多 8 张)' },
