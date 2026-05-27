@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + 🗑 回收站 · fix28-50
-// APP_VERSION: 2026.05.27-fix50
+// 📈 数据看板 + 🗑 回收站 · fix28-51
+// APP_VERSION: 2026.05.27-fix51
 // ════════════════════════════════════════════════════════════════════
 
 // ============================================================
@@ -1511,9 +1511,13 @@ const SiteEditorModal = ({ site, onSave, onClose }) => {
 // 内置网站代码 → 名称(从 SHOP_CONFIGS 推断)
 const getShopFromSiteCode = (code) => {
   const map = {
-    VK: 'Vakkerlight', RD: 'Radilum', DC: 'DecorAdd', MJ: 'Manjouri',
-    DF: 'Dekorfine', LS: 'LampsMore', RS: 'RusticStyle',
-    J: 'JaneDecor', PL: 'PlaceList', MO: 'Move Outlet', '海服': '海服', SH: '上海',
+    // 🆕 fix51: 网站全称统一为美工/拍摄部 SHOPS_PRESET 标准命名
+    VK: 'Vakkerlight', RD: 'Radilum', DC: 'Docos.us', MJ: 'Mooijane',
+    DF: 'Dekorfine', LS: 'Lumioshine', RS: 'Rayonshine',
+    MH: 'Mooiehome', PL: 'Pinlighting', MO: 'Mooielight',
+    '海服': '海服', SH: '上海',
+    // 旧代码兼容(数据库里可能有历史值)
+    J: 'Mooiehome',
   };
   return map[code] || code;
 };

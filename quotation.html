@@ -1249,7 +1249,17 @@ fieldset legend {
         <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" >收货信息 · Shipping Information</legend>
         <div class="form-row"><label data-lang-key="ship_to_name_address">Ship To Name & Address</label><textarea id="shipping_info" rows="5"></textarea></div>
         <div class="form-row" style="margin-top:6px;"><label data-lang-key="shipping_tel">Shipping Tel</label><input type="text" id="shipping_tel"></div>
-        <div class="form-row" style="margin-top:6px;"><label data-lang-key="freight_cost">Freight Cost (in USD)</label><input type="number" id="freight_cost" value="0" min="0" step="0.01"></div>
+        <div class="form-row" style="margin-top:6px;">
+          <label data-lang-key="freight_cost">Freight Cost (in USD)</label>
+          <div style="display:flex; gap:6px; align-items:stretch;">
+            <input type="number" id="freight_cost" value="0" min="0" step="0.01" style="flex:1;">
+            <!-- 🆕 fix48: 运费方案比较器 -->
+            <button type="button" onclick="openFreightCalc()" title="运费方案比较器 — 算超规附加费"
+              style="padding:0 14px; background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent); border-radius:var(--radius-sm); font-weight:600; font-size:13px; white-space:nowrap; cursor:pointer; font-family:inherit;">
+              💡 计算
+            </button>
+          </div>
+        </div>
       </fieldset>
     </div>
 
@@ -1669,6 +1679,70 @@ fieldset legend {
   </div>
 </div>
 
+<!-- 🆕 fix48: 运费方案比较器 Modal -->
+<div class="modal-overlay hidden" id="freight-calc-overlay" onclick="if(event.target===this)closeFreightCalc()">
+  <div class="modal" style="max-width:920px; width:96%;">
+    <h3 style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <span>💰 运费方案比较器 · Freight Calculator</span>
+      <button onclick="closeFreightCalc()" style="background:none; border:none; font-size:22px; cursor:pointer; color:var(--ink-3); line-height:1; padding:0 6px;">✕</button>
+    </h3>
+    <p style="margin:6px 0 16px; color:var(--ink-3); font-size:13px;">同一批货,装箱方式不同,运费可能差很多。填多个方案对比 → 自动推荐最便宜的。</p>
+
+    <!-- 全局参数 -->
+    <div style="background:var(--bg-elevated); border-radius:10px; padding:14px 16px; margin-bottom:16px;">
+      <div style="font-size:12px; font-weight:600; color:var(--ink-2); margin-bottom:10px;">⚙ 全局参数(物流商规则)</div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px;">
+        <div>
+          <label style="font-size:11px; color:var(--ink-3); display:block; margin-bottom:3px;">单价 ¥/kg</label>
+          <input type="number" id="fc_unit_price" value="21" step="0.1" oninput="recalcFreight()" style="font-size:13px; padding:7px 10px;">
+        </div>
+        <div>
+          <label style="font-size:11px; color:var(--ink-3); display:block; margin-bottom:3px;">超规阈值 cm <span style="color:var(--ink-4);">L+2(W+H)></span></label>
+          <input type="number" id="fc_oversize_threshold" value="265" step="1" oninput="recalcFreight()" style="font-size:13px; padding:7px 10px;">
+        </div>
+        <div>
+          <label style="font-size:11px; color:var(--ink-3); display:block; margin-bottom:3px;">超规附加费 ¥/件</label>
+          <input type="number" id="fc_surcharge" value="100" step="1" oninput="recalcFreight()" style="font-size:13px; padding:7px 10px;">
+        </div>
+        <div>
+          <label style="font-size:11px; color:var(--ink-3); display:block; margin-bottom:3px;">体积重系数 kg/m³</label>
+          <input type="number" id="fc_volume_factor" value="167" step="1" oninput="recalcFreight()" style="font-size:13px; padding:7px 10px;">
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案对比表 -->
+    <div style="overflow-x:auto; margin-bottom:16px;">
+      <table id="fc_plans_table" style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- 加方案 + 推荐结果 -->
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:14px;">
+      <button onclick="addFreightPlan()" style="padding:8px 16px; background:var(--accent-soft); color:var(--accent); border:1px dashed var(--accent); border-radius:8px; font-weight:600; cursor:pointer; font-family:inherit; font-size:13px;">
+        ➕ 加一个方案
+      </button>
+      <button onclick="resetFreightPlans()" style="padding:8px 14px; background:white; color:var(--ink-3); border:1px solid var(--line); border-radius:8px; cursor:pointer; font-family:inherit; font-size:13px;">
+        🔄 全部清空
+      </button>
+      <span style="color:var(--ink-3); font-size:11px;">(填件数和长宽高 → 自动算运费,实重为空则只看体积重)</span>
+    </div>
+
+    <div id="fc_recommendation" style="background:var(--good-soft); border:1px solid var(--good); border-radius:10px; padding:14px 18px; margin-bottom:16px; display:none;">
+      <div style="font-size:14px; font-weight:600; color:var(--good); margin-bottom:4px;" id="fc_reco_title"></div>
+      <div style="font-size:13px; color:var(--ink-2);" id="fc_reco_detail"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-modal-primary" onclick="applyFreightToQuote()">⬅ 应用最优方案到 Freight 字段</button>
+      <button class="btn-modal-cancel" onclick="closeFreightCalc()">关闭</button>
+    </div>
+    <p class="modal-note" style="margin-top:10px;">⚠ 应用按钮把 ¥(人民币)总运费数字填到 Freight Cost。如果你当前货币不是 CNY,需要按汇率自己再换算。</p>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
@@ -1866,7 +1940,7 @@ const sellerData = {
   mooijane:        { name:"Mooijane",        prefix:"MJ",  address:"1586 Sulphur Spring Rd. #113 Halethorpe, MD 21227",                   phone:"+1 800-770-1693",  website:"mooijane.com",    email:"support@mooijane.com",     theme:"theme-blue"   },
   mooiehome:       { name:"Mooiehome",       prefix:"MH",  address:"1520 Caton Center Dr. Suite L-M, Baltimore, MD 21227 USA",            phone:"+1 800-867-5009",  website:"mooiehome.com",   email:"support@mooiehome.com",    theme:"theme-green"  },
   brillilume:      { name:"Brillilume",      prefix:"BL",  address:"1520 Caton Center Dr. Suite L-M, Baltimore MD 21227 USA",             phone:"+1 800-867-5009",  website:"brillilume.com",  email:"support@brillilume.com",   theme:"theme-gray"   },
-  mooielight:      { name:"Mooielight",      prefix:"ML",  address:"1500 Caton Center Dr, Arbutus, MD 21227",                              phone:"+1 800-953-1356",  website:"mooielight.com",  email:"admin@mooielight.com",     theme:"theme-purple" },
+  mooielight:      { name:"Mooielight",      prefix:"MO",  address:"1500 Caton Center Dr, Arbutus, MD 21227",                              phone:"+1 800-953-1356",  website:"mooielight.com",  email:"admin@mooielight.com",     theme:"theme-purple" },
   pinlighting:     { name:"Pinlighting",     prefix:"PL",  address:"1833 Wind Gate Rd, Baltimore, MD 21227",                               phone:"+1 800-953-1356",  website:"pinlighting.com", email:"info@pinlighting.com",     theme:"theme-blue"   },
   rayonshine:      { name:"Rayonshine",      prefix:"RS",  address:"2435 Sulphur Spring Rd, Baltimore, MD 21227",                          phone:"+1 800-978-5754",  website:"rayonshine.com",  email:"support@rayonshine.com",   theme:"theme-green"  },
   lumioshine:      { name:"Lumioshine",      prefix:"LS",  address:"1520 Caton Center Dr. Suite L-M, Baltimore MD 21227 USA",             phone:"+1 800-978-5754",  website:"lumioshine.com",  email:"service@lumioshine.com",   theme:"theme-gray"   },
@@ -2087,6 +2161,263 @@ function setColDensity(density) {
     b.classList.toggle('active', b.dataset.density === density);
   });
   try { localStorage.setItem('col_density_pref', density); } catch(e){}
+}
+
+/* ════════════════════════════════════════════════════════════════════
+ * 🆕 fix48: 运费方案比较器 (Freight Calculator)
+ * 核心公式:
+ *   单箱体积 (m³) = L × W × H / 1,000,000
+ *   单箱体积重 (kg) = 体积 × 体积重系数 (默认 167)
+ *   单箱计费重 (kg) = max(体积重, 实际重)
+ *   超规判定:max + 2×(中+小) > 阈值 (默认 265 cm)
+ *   总运费 = 总计费重 × 单价 + 超规件数 × 附加费
+ * ════════════════════════════════════════════════════════════════════ */
+
+let fcPlans = [];  // [{id, boxes, L, W, H, realWeight}]
+let fcPlanIdSeq = 1;
+
+function getFreightParams() {
+  return {
+    unitPrice: parseFloat($('fc_unit_price')?.value) || 21,
+    oversizeThreshold: parseFloat($('fc_oversize_threshold')?.value) || 265,
+    surcharge: parseFloat($('fc_surcharge')?.value) || 100,
+    volumeFactor: parseFloat($('fc_volume_factor')?.value) || 167,
+  };
+}
+
+function calcFreightPlan(plan, params) {
+  const boxes = parseFloat(plan.boxes) || 0;
+  const L = parseFloat(plan.L) || 0;
+  const W = parseFloat(plan.W) || 0;
+  const H = parseFloat(plan.H) || 0;
+  const realWeight = parseFloat(plan.realWeight) || 0;
+  
+  if (boxes <= 0 || L <= 0 || W <= 0 || H <= 0) {
+    return null;  // 数据不全
+  }
+  
+  // 单箱体积 m³
+  const boxVolume = (L * W * H) / 1000000;
+  // 单箱体积重
+  const boxVolumeWeight = boxVolume * params.volumeFactor;
+  // 计费重 = max(体积重, 实际重)
+  const boxChargeWeight = Math.max(boxVolumeWeight, realWeight);
+  // 总计费重
+  const totalChargeWeight = boxChargeWeight * boxes;
+  
+  // 超规判定:max + 2×(中+小) > 阈值
+  const sorted = [L, W, H].sort((a,b) => b - a);
+  const longestSide = sorted[0];
+  const dim2 = sorted[1];
+  const dim3 = sorted[2];
+  const oversizeMeasure = longestSide + 2 * (dim2 + dim3);
+  const isOversize = oversizeMeasure > params.oversizeThreshold;
+  const oversizeBoxes = isOversize ? boxes : 0;
+  const oversizeFee = oversizeBoxes * params.surcharge;
+  
+  // 总运费
+  const baseFreight = totalChargeWeight * params.unitPrice;
+  const totalFreight = baseFreight + oversizeFee;
+  
+  return {
+    boxVolume, boxVolumeWeight, boxChargeWeight, totalChargeWeight,
+    oversizeMeasure, isOversize, oversizeBoxes, oversizeFee,
+    baseFreight, totalFreight,
+  };
+}
+
+function addFreightPlan(initial) {
+  const plan = initial || { id: fcPlanIdSeq++, boxes:'', L:'', W:'', H:'', realWeight:'' };
+  if (!plan.id) plan.id = fcPlanIdSeq++;
+  fcPlans.push(plan);
+  renderFreightTable();
+  saveFreightState();
+}
+
+function removeFreightPlan(id) {
+  fcPlans = fcPlans.filter(p => p.id !== id);
+  renderFreightTable();
+  saveFreightState();
+}
+
+function resetFreightPlans() {
+  if (!confirm('清空全部方案?')) return;
+  fcPlans = [];
+  fcPlanIdSeq = 1;
+  // 加 2 个空方案
+  addFreightPlan();
+  addFreightPlan();
+}
+
+function updatePlanField(id, field, value) {
+  const p = fcPlans.find(x => x.id === id);
+  if (p) {
+    p[field] = value;
+    recalcFreight();
+    saveFreightState();
+  }
+}
+
+function renderFreightTable() {
+  const params = getFreightParams();
+  const table = $('fc_plans_table');
+  if (!table) return;
+  
+  // 找最便宜的方案(全部计算完)
+  const results = fcPlans.map(p => ({ plan: p, result: calcFreightPlan(p, params) }));
+  const valid = results.filter(r => r.result);
+  const cheapest = valid.length > 0 ? valid.reduce((min, r) => r.result.totalFreight < min.result.totalFreight ? r : min, valid[0]) : null;
+  
+  // Header: 字段名 | 方案 A | 方案 B | ...
+  let thead = '<tr><th style="text-align:left; padding:10px 8px; font-weight:600; color:var(--ink-2); border-bottom:1px solid var(--line); min-width:110px; background:var(--bg-soft);">字段</th>';
+  fcPlans.forEach((p, i) => {
+    const isBest = cheapest && cheapest.plan.id === p.id;
+    thead += `<th style="text-align:center; padding:10px 8px; font-weight:600; color:${isBest ? 'var(--good)' : 'var(--ink)'}; border-bottom:2px solid ${isBest ? 'var(--good)' : 'var(--line)'}; background:${isBest ? 'var(--good-soft)' : 'var(--bg-soft)'}; min-width:120px;">
+      方案 ${String.fromCharCode(65 + i)} ${isBest ? '⭐' : ''}
+      <button onclick="removeFreightPlan(${p.id})" title="删除此方案" style="background:none; border:none; color:var(--bad); cursor:pointer; font-size:14px; margin-left:6px; padding:0;">✕</button>
+    </th>`;
+  });
+  thead += '</tr>';
+  table.querySelector('thead').innerHTML = thead;
+  
+  // Body rows
+  const rows = [
+    { label:'件数', field:'boxes', unit:'件' },
+    { label:'长 L', field:'L', unit:'cm' },
+    { label:'宽 W', field:'W', unit:'cm' },
+    { label:'高 H', field:'H', unit:'cm' },
+    { label:'单箱实重(可选)', field:'realWeight', unit:'kg' },
+  ];
+  let tbody = '';
+  rows.forEach(r => {
+    tbody += `<tr><td style="padding:6px 8px; color:var(--ink-2); border-bottom:1px solid var(--line-soft); font-size:12px;">${r.label} <span style="color:var(--ink-4);">${r.unit}</span></td>`;
+    fcPlans.forEach(p => {
+      tbody += `<td style="padding:4px 8px; border-bottom:1px solid var(--line-soft);">
+        <input type="number" value="${p[r.field] ?? ''}" oninput="updatePlanField(${p.id}, '${r.field}', this.value)" 
+          style="width:100%; padding:6px 8px; border:1px solid var(--line); border-radius:6px; font-size:13px; text-align:right; font-family:inherit;">
+      </td>`;
+    });
+    tbody += '</tr>';
+  });
+  
+  // 计算结果行
+  const calcRows = [
+    { label:'单箱体积',  fn: r => r ? r.boxVolume.toFixed(3) + ' m³' : '—' },
+    { label:'单箱计费重', fn: r => r ? r.boxChargeWeight.toFixed(1) + ' kg' : '—' },
+    { label:'总计费重',  fn: r => r ? r.totalChargeWeight.toFixed(1) + ' kg' : '—' },
+    { label:'超规判定',  fn: r => r ? (r.isOversize ? `<span style="color:var(--bad); font-weight:600;">✓ 超 (${r.oversizeMeasure.toFixed(0)}cm)</span>` : `<span style="color:var(--good);">✗ 不超 (${r.oversizeMeasure.toFixed(0)}cm)</span>`) : '—' },
+    { label:'附加费',    fn: r => r ? `¥${r.oversizeFee.toLocaleString()}` : '—' },
+  ];
+  calcRows.forEach((r, i) => {
+    const bg = i === 0 ? 'var(--bg-elevated)' : 'transparent';
+    if (i === 0) tbody += '<tr><td colspan="' + (fcPlans.length + 1) + '" style="padding:4px 0;"></td></tr>';
+    tbody += `<tr style="background:${bg};"><td style="padding:6px 8px; color:var(--ink-3); border-bottom:1px solid var(--line-soft); font-size:12px;">${r.label}</td>`;
+    fcPlans.forEach(p => {
+      const result = results.find(x => x.plan.id === p.id)?.result;
+      tbody += `<td style="padding:6px 8px; text-align:right; border-bottom:1px solid var(--line-soft); font-size:12px; color:var(--ink-2);">${r.fn(result)}</td>`;
+    });
+    tbody += '</tr>';
+  });
+  
+  // 总运费(highlight)
+  tbody += `<tr style="background:var(--accent-soft);"><td style="padding:10px 8px; font-weight:600; color:var(--ink); border-bottom:2px solid var(--accent); font-size:13px;">总运费 ¥</td>`;
+  fcPlans.forEach(p => {
+    const result = results.find(x => x.plan.id === p.id)?.result;
+    const isBest = cheapest && cheapest.plan.id === p.id;
+    const display = result ? `<strong style="font-size:15px; color:${isBest ? 'var(--good)' : 'var(--ink)'};">¥${result.totalFreight.toLocaleString(undefined, {maximumFractionDigits: 0})}${isBest ? ' ⭐' : ''}</strong>` : '—';
+    tbody += `<td style="padding:10px 8px; text-align:right; border-bottom:2px solid var(--accent);">${display}</td>`;
+  });
+  tbody += '</tr>';
+  
+  table.querySelector('tbody').innerHTML = tbody;
+  
+  // 推荐方案
+  const recoDiv = $('fc_recommendation');
+  if (cheapest && valid.length > 1) {
+    const others = valid.filter(r => r.plan.id !== cheapest.plan.id);
+    const maxOther = others.reduce((max, r) => r.result.totalFreight > max ? r.result.totalFreight : max, 0);
+    const saving = maxOther - cheapest.result.totalFreight;
+    const idx = fcPlans.findIndex(p => p.id === cheapest.plan.id);
+    $('fc_reco_title').textContent = `⭐ 推荐方案 ${String.fromCharCode(65 + idx)} — ¥${cheapest.result.totalFreight.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+    $('fc_reco_detail').textContent = `比最贵方案节省 ¥${saving.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+    recoDiv.style.display = '';
+  } else {
+    recoDiv.style.display = 'none';
+  }
+}
+
+function recalcFreight() {
+  renderFreightTable();
+}
+
+function openFreightCalc() {
+  // 第一次打开 — 加 2 个默认方案
+  if (fcPlans.length === 0) {
+    // 试着从 localStorage 恢复
+    try {
+      const saved = JSON.parse(localStorage.getItem('fc_state') || '{}');
+      if (saved.plans && saved.plans.length > 0) {
+        fcPlans = saved.plans;
+        fcPlanIdSeq = Math.max(...fcPlans.map(p => p.id)) + 1;
+        if (saved.params) {
+          $('fc_unit_price').value = saved.params.unitPrice;
+          $('fc_oversize_threshold').value = saved.params.oversizeThreshold;
+          $('fc_surcharge').value = saved.params.surcharge;
+          $('fc_volume_factor').value = saved.params.volumeFactor;
+        }
+      } else {
+        addFreightPlan();
+        addFreightPlan();
+        return;
+      }
+    } catch(e) {
+      addFreightPlan();
+      addFreightPlan();
+      return;
+    }
+  }
+  $('freight-calc-overlay').classList.remove('hidden');
+  renderFreightTable();
+}
+
+function closeFreightCalc() {
+  $('freight-calc-overlay').classList.add('hidden');
+}
+
+function saveFreightState() {
+  try {
+    localStorage.setItem('fc_state', JSON.stringify({
+      plans: fcPlans,
+      params: getFreightParams(),
+    }));
+  } catch(e){}
+}
+
+function applyFreightToQuote() {
+  const params = getFreightParams();
+  const results = fcPlans.map(p => calcFreightPlan(p, params)).filter(Boolean);
+  if (results.length === 0) {
+    alert('请先填至少 1 个完整方案(件数 + 长宽高)');
+    return;
+  }
+  const cheapest = results.reduce((min, r) => r.totalFreight < min.totalFreight ? r : min);
+  const freight = $('freight_cost');
+  if (!freight) return;
+  const cur = $('currency')?.value || 'USD';
+  if (cur === 'CNY') {
+    freight.value = cheapest.totalFreight.toFixed(2);
+    showToast(`✓ 已填入 ¥${cheapest.totalFreight.toFixed(0)} 到 Freight`, 'ok', 3000);
+  } else {
+    // 非 CNY 提示用户自己换算
+    const confirmed = confirm(`运费算出 ¥${cheapest.totalFreight.toFixed(0)} (人民币)\n\n你当前货币是 ${cur} — 需要按汇率换算\n\n是否仍然把人民币数字 ${cheapest.totalFreight.toFixed(0)} 直接填到 Freight 字段?\n(填了之后你需要手动改成 ${cur} 数字)`);
+    if (confirmed) {
+      freight.value = cheapest.totalFreight.toFixed(2);
+      showToast(`⚠ 已填入 ¥${cheapest.totalFreight.toFixed(0)},请按 ${cur} 汇率换算`, 'busy', 5000);
+    }
+  }
+  // 触发计算刷新
+  if (typeof syncAndCalculate === 'function') syncAndCalculate();
+  closeFreightCalc();
 }
 
 // 切换导出菜单显示

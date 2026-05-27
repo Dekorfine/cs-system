@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 + LoginScreen + wtkpi 默认配置(fix50) · 含 fix28-50
-// APP_VERSION: 2026.05.27-fix50
+// 🧱 核心 + LoginScreen + wtkpi 默认 + 网站名修正(fix51) · fix28-51
+// APP_VERSION: 2026.05.27-fix51
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -417,7 +417,7 @@ const CATEGORIES = [
   '取消订单','定制咨询','实拍','拒付','加急','邮件查询','价格','运费','定金',
   '库存','工厂进度','质量问题','图片提供','样品','促销活动'
 ];
-const SITES = ['MJ','DC','VK','DF','LS','RS','J','PL','MO','RD','海服'];
+const SITES = ['MJ','DC','VK','DF','LS','RS','MH','PL','MO','RD','海服'];  // 🆕 fix51: J → MH (Mooiehome 取代 JaneDecor)
 
 // 🆕 fix22 联动 3: 网站 Context — 让自定义网站出现在所有下拉里
 // 内置 SITES 永远在前,自定义网站按代码追加
@@ -1070,16 +1070,20 @@ const REFUND_STATUSES = [
 
 // ============================================================
 // 报价单 - 多公司预设 (基于历史业务配置)
+// 🆕 fix51: 公司全称按美工/拍摄部 SHOPS_PRESET 标准统一
 // ============================================================
 const SELLER_PRESETS = {
   radilum: { name:'Radilum', prefix:'RD', address:'177 Joe Routt Blvd, College Station, TX 77840', phone:'+1 800-761-1037', website:'radilum.com', email:'support@radilum.com', desc:'美国 Radilum (radilum.com) - 网站对客户报价' },
   jiangmen_radilum: { name:'Radilum Inc', prefix:'RDI', address:'Building 5, No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'radilum.com', email:'export@radilum.com', desc:'江门 Radilum Inc - 内部出口公司' },
   vakkerlight: { name:'Vakkerlight', prefix:'VK', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'vakkerlight.com', email:'support@vakkerlight.com', desc:'Vakkerlight 主品牌' },
   dekorfine: { name:'Dekorfine', prefix:'DF', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'dekorfine.com', email:'support@dekorfine.com', desc:'Dekorfine 品牌' },
-  manjouri: { name:'Manjouri', prefix:'MJ', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'manjouri.com', email:'support@manjouri.com', desc:'Manjouri 品牌' },
-  decoradd: { name:'DecorAdd', prefix:'DC', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'decoradd.com', email:'support@decoradd.com', desc:'DecorAdd 品牌' },
-  lampsmore: { name:'LampsMore', prefix:'LS', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'lampsmore.com', email:'support@lampsmore.com', desc:'LampsMore 品牌' },
-  rusticstyle: { name:'RusticStyle', prefix:'RS', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'rusticstyle.com', email:'support@rusticstyle.com', desc:'RusticStyle 品牌' },
+  mooijane: { name:'Mooijane', prefix:'MJ', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'mooijane.com', email:'support@mooijane.com', desc:'Mooijane 品牌' },
+  docos: { name:'Docos.us', prefix:'DC', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'docos.us', email:'support@docos.us', desc:'Docos.us 品牌' },
+  lumioshine: { name:'Lumioshine', prefix:'LS', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'lumioshine.com', email:'support@lumioshine.com', desc:'Lumioshine 品牌' },
+  rayonshine: { name:'Rayonshine', prefix:'RS', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'rayonshine.com', email:'support@rayonshine.com', desc:'Rayonshine 品牌' },
+  mooiehome: { name:'Mooiehome', prefix:'MH', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'mooiehome.com', email:'support@mooiehome.com', desc:'Mooiehome 品牌' },
+  pinlighting: { name:'Pinlighting', prefix:'PL', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'pinlighting.com', email:'support@pinlighting.com', desc:'Pinlighting 品牌' },
+  mooielight: { name:'Mooielight', prefix:'MO', address:'No.17, Zhongxing Avenue, Guzhen Town, Zhongshan City, Guangdong, China', phone:'+86 760-2233-1037', website:'mooielight.com', email:'support@mooielight.com', desc:'Mooielight 品牌' },
 };
 
 // 银行/买家自动填充 - 仅 Radilum 系列
