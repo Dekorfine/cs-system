@@ -99,14 +99,14 @@ select {
    TOP BAR — Apple frosted glass header
    ============================================================ */
 .topbar {
-  /* 🎨 fix41: padding 跟工作台主页对齐 */
+  /* 🎨 fix42: topbar 紧凑 14 → 10 */
   position: sticky; top: 0; z-index: 100;
   display: flex; align-items: center; justify-content: space-between;
   background: rgba(251,251,253,.85);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   color: var(--ink);
-  padding: 14px 28px;
+  padding: 10px 22px;
   border-bottom: 1px solid var(--line);
 }
 .topbar-left { display: flex; align-items: center; gap: 16px; }
@@ -158,8 +158,8 @@ select {
    LAYOUT
    ============================================================ */
 .page {
-  /* 🎨 fix41: 间距更慷慨 */
-  max-width: 1280px; margin: 0 auto; padding: 28px 24px;
+  /* 🎨 fix42: 整体紧凑 28 → 18 */
+  max-width: 1280px; margin: 0 auto; padding: 18px 22px;
 }
 .alert-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
@@ -178,23 +178,25 @@ select {
    CARD / SECTION
    ============================================================ */
 .card {
-  /* 🎨 fix41: 大圆角 + subtle 阴影,跟工作台 .paper 一致 */
+  /* 🎨 fix42: 紧凑布局 — margin 22 → 14,信息密度提高 */
   background: var(--bg-card); border: 1px solid var(--line); border-radius: var(--radius-lg);
-  margin-bottom: 22px; overflow: hidden;
+  margin-bottom: 14px; overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
 .card-header {
+  /* 🎨 fix42: padding 紧凑 18/26 → 13/20 */
   display: flex; align-items: center; justify-content: space-between;
-  padding: 18px 26px; border-bottom: 1px solid var(--line);
+  padding: 13px 20px; border-bottom: 1px solid var(--line);
   background: var(--bg-card);
 }
 .card-header h2 {
-  margin: 0; font-size: 17px; font-weight: 600; color: var(--ink);
+  /* 🎨 fix42: 字号 17 → 15,占用空间小 */
+  margin: 0; font-size: 15px; font-weight: 600; color: var(--ink);
   display: flex; align-items: center; gap: 8px;
   letter-spacing: -.022em;
 }
 .card-header .icon { font-size: 16px; }
-.card-body { padding: 22px 26px; }
+.card-body { padding: 18px 20px; }
 .card-collapsible .card-header { cursor: pointer; user-select: none; }
 .card-collapsible .card-header::after {
   content: '›'; color: var(--ink-3); font-size: 18px; transition: transform 0.2s;
@@ -208,8 +210,9 @@ select {
    FORM CONTROLS — Apple style
    ============================================================ */
 .form-grid {
+  /* 🎨 fix42: 字段更紧密 — gap 16 → 12 */
   display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  gap: 12px;
 }
 .form-grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .form-row { display: flex; flex-direction: column; gap: 6px; }
@@ -773,17 +776,27 @@ fieldset legend {
    TOAST — Apple pill
    ============================================================ */
 .toast {
-  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+  /* 🎨 fix42: Toast 位置移到顶部居中,让保存反馈始终可见 */
+  position: fixed; top: 70px; left: 50%; transform: translateX(-50%) translateY(-8px);
   background: var(--ink); color: #fff;
   padding: 12px 22px; border-radius: var(--radius-pill);
   font-size: 14px; font-weight: 500; box-shadow: var(--shadow-lg);
   opacity: 0; pointer-events: none;
-  transition: opacity 0.2s, transform 0.2s;
+  transition: opacity 0.25s, transform 0.25s;
   z-index: 1000; letter-spacing: -.003em;
+  display: inline-flex; align-items: center; gap: 8px;
+  max-width: 90%; white-space: nowrap;
 }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
-.toast.err { background: var(--bad); }
-.toast.ok { background: var(--good); color: white; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.err  { background: var(--bad); }
+.toast.ok   { background: var(--good); color: white; }
+.toast.busy { background: var(--accent); color: white; }
+.toast.busy::before {
+  content: ''; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,.3); border-top-color: white;
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ============================================================
    PRINT — preserved untouched (critical for PDF output)
@@ -1058,7 +1071,6 @@ fieldset legend {
       </div>
       <div class="cloud-action-row">
         <button class="btn-cloud-load" id="btn-cloud-load" onclick="cloudLoad()" disabled>⬇ 加载所选 · Load Selected</button>
-        <button class="btn-cloud-save" onclick="cloudSave()">⬆ 保存到云端 · Save to Cloud</button>
       </div>
       <p class="cloud-status-msg" id="cloud-status"></p>
     </div>
@@ -1867,12 +1879,20 @@ function setQuoteStatus(status) {
   });
   scheduleSync();
 }
-function showToast(msg, type) {
+function showToast(msg, type, duration) {
+  // 🎨 fix42: type='busy' 不会自动消失,直到下一次 showToast 调用
   const t = $('toast');
   t.textContent = msg;
   t.className = 'toast show' + (type ? ' ' + type : '');
   clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => t.classList.remove('show'), 2500);
+  const ttl = duration !== undefined ? duration : (type === 'busy' ? 0 : 2800);
+  if (ttl > 0) {
+    showToast._t = setTimeout(() => t.classList.remove('show'), ttl);
+  }
+}
+function hideToast() {
+  const t = $('toast');
+  if (t) t.classList.remove('show');
 }
 function showFeedback(msg) {
   const el = $('feedback_message');
@@ -3573,12 +3593,10 @@ async function cloudSave() {
   if (!username) { openSettings(); return; }
   const data = collectFormData();
   
-  // 🆕 fix26: 保存前校验 — 不让空报价单被存
+  // 🆕 fix26 + fix42: 保存前校验 — 用黄色 toast 提示(避免红色让人误以为是技术错误)
   const validationErrors = [];
-  // 客户信息(必填)
   const buyerInfo = (data.buyer_info || '').trim();
-  if (!buyerInfo) validationErrors.push('客户信息 / Buyer Info');
-  // 至少一项有效产品(SKU 或 描述 或 数量>0)
+  if (!buyerInfo) validationErrors.push('客户信息');
   const items = (data.items || []);
   const validItems = items.filter(it => {
     const sku  = (it.sku || '').trim();
@@ -3586,12 +3604,12 @@ async function cloudSave() {
     const qty  = parseFloat(it.qty) || 0;
     return sku || desc || qty > 0;
   });
-  if (validItems.length === 0) validationErrors.push('至少 1 项产品 / At least 1 product (SKU / 描述 / 数量)');
+  if (validItems.length === 0) validationErrors.push('至少 1 项产品');
   
   if (validationErrors.length > 0) {
-    const msg = '⚠ 保存前请填写以下必填项 / Please fill in before saving:\n\n• ' + validationErrors.join('\n• ');
-    alert(msg);
-    setCloudStatus('⚠ 报价单还没填完,无法保存', 'err');
+    // 🎨 fix42: 不再 alert,改用紧凑的 toast,避免阻塞 UI
+    showToast('⚠ 还差: ' + validationErrors.join(' + ') + ',填完再保存', 'err', 4500);
+    setCloudStatus('', '');  // 清空旧的状态消息
     return;
   }
   
@@ -3609,6 +3627,8 @@ async function cloudSave() {
   }
 
   setCloudStatus('<span class="loading-spinner"></span> 保存到云端… · Saving…', '');
+  // 🎨 fix42: 全局 busy toast,卡片折叠时也能看到反馈
+  showToast('保存到云端…', 'busy');
 
   // === 智能去重逻辑 ===
   // 1. 如果已经 Load 过这条记录，使用原 id
@@ -3700,7 +3720,7 @@ async function cloudSave() {
   if (saved) {
     const action = isUpdate ? '更新' : '新建';
     setCloudStatus(`✓ 已${action}: ${buyerNameDisplay || piNo} [${status}]`, 'ok');
-    showToast(`✓ 已${action}到云端`, 'ok');
+    showToast(`✓ 已${action}到云端 — ${buyerNameDisplay || piNo}`, 'ok', 3500);
     currentLoadedPath = saved.id;
     currentLoadedSha = saved.updated_at;
     loadCloudList();
@@ -3708,6 +3728,9 @@ async function cloudSave() {
     if (!isUpdate) {
       setTimeout(() => promptFollowUpReminder(buyerNameDisplay || '客户', piNo), 600);
     }
+  } else {
+    // 🎨 fix42: 失败时,关掉 busy toast(showSaveErrorModal 已经弹大对话框了)
+    hideToast();
   }
 }
 
