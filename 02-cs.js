@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进模块 (CSModule) (含 fix28-31 累积修复)
-// 拆自 workspace.html · 原始行号 2077-6183
+// 📞 客服跟进 CSModule · 含 fix28-46 全部累积修复
+// APP_VERSION: 2026.05.27-fix46 · 拆自 workspace.html 行号 2159-6263
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -4108,5 +4108,3 @@ const SiteDailyBreakdown = ({ scope, selectedEmpId, employees, live, today, last
     </div>
   );
 };
-
-

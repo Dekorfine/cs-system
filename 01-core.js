@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 (fix46: 登录密码改 Modal)
-// 拆自 workspace.html · 原始行号 467-2158
+// 🧱 核心(含 fix46 登录密码 Modal) · 含 fix28-46 全部累积修复
+// APP_VERSION: 2026.05.27-fix46 · 拆自 workspace.html 行号 467-2158
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
