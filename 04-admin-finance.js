@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// ⚙ 设置 + 🧮 财务 · fix28-54
-// APP_VERSION: 2026.05.27-fix54
+// ⚙ 设置 + 🧮 财务 · fix28-55
+// APP_VERSION: 2026.05.27-fix55
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1199,7 +1199,7 @@ const FreightModule = ({ user, toast, cloudOn }) => {
                     {pendingAttachments.map((att, i) => (
                       <div key={i} style={{position:'relative', borderRadius:'var(--radius-sm)', overflow:'hidden', background:'white', border:'1px solid var(--line)'}}>
                         {att.url && att.type?.startsWith('image/') ? (
-                          <img src={att.url} alt={att.name} style={{width:'100%', height:80, objectFit:'cover', display:'block'}} />
+                          <img src={att.url} alt={att.name} style={{width:'100%', height:80, objectFit:'contain', display:'block', background:'var(--bg-elevated)'}} />
                         ) : att.url && att.type === 'application/pdf' ? (
                           <div style={{padding:20, textAlign:'center', background:'#fef0f0', color:'#dc2626', fontSize:30}}>📄</div>
                         ) : (

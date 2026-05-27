@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付 + 💳 线下单 · fix28-54
-// APP_VERSION: 2026.05.27-fix54
+// 🚨 拒付 + 💳 线下单(contain 图) · fix28-55
+// APP_VERSION: 2026.05.27-fix55
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -277,7 +277,7 @@ const ChargebackCard = ({ cb, employees, user, isAdmin, onEdit, onDelete, onRelo
                     const info = getFileTypeInfo(a);
                     return info.kind === 'image' ? (
                       <img key={a.id} src={a.url} onClick={() => setPreviewFile(a)}
-                        style={{width:'100%', height:75, objectFit:'cover', borderRadius:5, cursor:'pointer', border:'1px solid var(--line)'}} />
+                        style={{width:'100%', height:75, objectFit:'contain', borderRadius:5, cursor:'pointer', border:'1px solid var(--line)', background:'var(--bg-elevated)'}} />
                     ) : (
                       <FileChip key={a.id} file={a} onClick={() => setPreviewFile(a)} />
                     );
@@ -1045,7 +1045,7 @@ const OfflineOrderCard = ({ order, user, isAdmin, onEdit, onDelete, onReload, to
                   {attachments.map(a => {
                     const info = getFileTypeInfo(a);
                     return info.kind === 'image' ?
-                      <img key={a.id} src={a.url} onClick={() => setPreviewFile(a)} style={{width:'100%', height:75, objectFit:'cover', borderRadius:5, cursor:'pointer', border:'1px solid var(--line)'}} /> :
+                      <img key={a.id} src={a.url} onClick={() => setPreviewFile(a)} style={{width:'100%', height:75, objectFit:'contain', borderRadius:5, cursor:'pointer', border:'1px solid var(--line)', background:'var(--bg-elevated)'}} /> :
                       <FileChip key={a.id} file={a} onClick={() => setPreviewFile(a)} />;
                   })}
                 </div>
@@ -2104,7 +2104,7 @@ const FileListSection = ({ title, files, onPreview }) => (
         const info = getFileTypeInfo(a);
         return info.kind === 'image' ?
           <img key={a.id} src={a.url} onClick={() => onPreview(a)}
-            style={{width:'100%', height:65, objectFit:'cover', borderRadius:5, cursor:'pointer', border:'1px solid var(--line)'}} /> :
+            style={{width:'100%', height:65, objectFit:'contain', borderRadius:5, cursor:'pointer', border:'1px solid var(--line)', background:'var(--bg-elevated)'}} /> :
           <FileChip key={a.id} file={a} onClick={() => onPreview(a)} />;
       })}
     </div>

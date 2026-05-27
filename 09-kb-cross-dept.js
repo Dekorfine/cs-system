@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📨 跨部门 · fix28-54
-// APP_VERSION: 2026.05.27-fix54
+// 📚 知识库 + 📨 跨部门(contain 图) · fix28-55
+// APP_VERSION: 2026.05.27-fix55
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -2121,7 +2121,7 @@ const CdmDetailModal = ({ msg, user, employees = [], shopOwners = [], cdmTimeout
                 a.mime?.startsWith('image/') ? (
                   <img key={i} src={a.dataUrl || a.url} alt={a.name}
                     onClick={() => setImgPreview(a.dataUrl || a.url)}
-                    style={{width:90, height:90, objectFit:'cover', borderRadius:8, cursor:'pointer', border:'1px solid var(--line)'}} />
+                    style={{width:90, height:90, objectFit:'contain', borderRadius:8, cursor:'pointer', border:'1px solid var(--line)', background:'var(--bg-elevated)'}} />
                 ) : (
                   <a key={i} href={a.dataUrl || a.url} download={a.name} target="_blank" rel="noreferrer"
                     style={{padding:'6px 10px', background:'#f5f5f7', borderRadius:8, fontSize:12, color:'var(--ink-2)', textDecoration:'none', display:'flex', alignItems:'center', gap:4}}>
@@ -2264,7 +2264,7 @@ const CdmDetailModal = ({ msg, user, employees = [], shopOwners = [], cdmTimeout
                             a.mime?.startsWith('image/') ? (
                               <img key={j} src={a.dataUrl || a.url} alt={a.name}
                                 onClick={() => setImgPreview(a.dataUrl || a.url)}
-                                style={{width:62, height:62, objectFit:'cover', borderRadius:5, cursor:'pointer'}} />
+                                style={{width:62, height:62, objectFit:'contain', borderRadius:5, cursor:'pointer', background:'var(--bg-elevated)'}} />
                             ) : (
                               <a key={j} href={a.dataUrl || a.url} download={a.name} target="_blank" rel="noreferrer"
                                 style={{padding:'3px 7px', background: isMine ? 'rgba(255,255,255,.2)' : '#f5f5f7', borderRadius:5, fontSize:10, color: isMine ? 'white' : 'var(--ink-2)', textDecoration:'none'}}>📄 {a.name}</a>

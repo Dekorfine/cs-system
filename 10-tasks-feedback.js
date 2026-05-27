@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄需求 v3 + 📌 任务 + 🐛 反馈 · fix28-54
-// APP_VERSION: 2026.05.27-fix54
+// 📷 拍摄需求 v3 + 📌 任务 + 🐛 反馈(全 contain 图,fix55) · fix28-55
+// APP_VERSION: 2026.05.27-fix55
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -270,7 +270,7 @@ const PhotoRequestCard = ({ item, currentUserId, onOpen, onEdit }) => {
       {/* 产品信息 */}
       <div style={{display:'flex', gap:10, marginBottom:10}}>
         {item.product_image && (
-          <img src={item.product_image} style={{width:60, height:60, objectFit:'cover', borderRadius:8, flexShrink:0, border:'1px solid var(--line)'}} alt=""/>
+          <img src={item.product_image} style={{width:80, height:80, objectFit:'contain', borderRadius:8, flexShrink:0, border:'1px solid var(--line)', background:'var(--bg-elevated)', padding:2}} alt=""/>
         )}
         <div style={{flex:1, minWidth:0}}>
           <div style={{fontWeight:600, fontSize:14, color:'var(--ink)', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
@@ -479,7 +479,7 @@ const PhotoRequestNewModal = ({ user, toast, onClose, onSuccess, prefill = {} })
             <div style={{display:'flex', gap:8, flexWrap:'wrap', marginBottom:8}}>
               {attachments.map((a, i) => (
                 <div key={i} style={{position:'relative', width:70, height:70}}>
-                  <img src={a.url} alt={a.name} style={{width:'100%', height:'100%', objectFit:'cover', borderRadius:8, border:'1px solid var(--line)'}}/>
+                  <img src={a.url} alt={a.name} style={{width:'100%', height:'100%', objectFit:'contain', borderRadius:8, border:'1px solid var(--line)', background:'var(--bg-elevated)'}}/>
                   <button onClick={() => removeAttachment(i)} style={{
                     position:'absolute', top:-6, right:-6, width:20, height:20,
                     background:'var(--bad)', color:'white', border:'none', borderRadius:'50%',
@@ -562,10 +562,10 @@ const PhotoRequestDetailModal = ({ item, onClose, onEdit }) => {
         {ext.attachments?.length > 0 && (
           <div style={{marginBottom:14}}>
             <div style={{fontSize:12, color:'var(--ink-2)', fontWeight:600, marginBottom:8}}>📎 附件 ({ext.attachments.length})</div>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(120px, 1fr))', gap:8}}>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:8}}>
               {ext.attachments.map((a, i) => (
                 <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" style={{display:'block'}}>
-                  <img src={a.url} alt={a.name} className="img-thumb" style={{width:'100%', aspectRatio:'1', objectFit:'cover', borderRadius:8, border:'1px solid var(--line)'}}/>
+                  <img src={a.url} alt={a.name} className="img-thumb" style={{width:'100%', aspectRatio:'3/4', objectFit:'contain', borderRadius:8, border:'1px solid var(--line)', background:'var(--bg-elevated)'}}/>
                 </a>
               ))}
             </div>
@@ -749,7 +749,7 @@ const PhotoRequestEditModal = ({ item, user, toast, onClose, onSuccess }) => {
             {newAttachments.length > 0 && (
               <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:6}}>
                 {newAttachments.map((a, i) => (
-                  <img key={i} src={a.url} alt={a.name} style={{width:50, height:50, objectFit:'cover', borderRadius:6, border:'1px solid var(--line)'}}/>
+                  <img key={i} src={a.url} alt={a.name} style={{width:60, height:60, objectFit:'contain', borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-elevated)', padding:2}}/>
                 ))}
               </div>
             )}
@@ -2270,7 +2270,7 @@ const BugReportSubmitModal = ({ user, onClose, onSubmitted, toast }) => {
               <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(100px, 1fr))', gap:6, marginTop:8}}>
                 {screenshots.map((s, i) => (
                   <div key={i} style={{position:'relative', border:'1px solid var(--line)', borderRadius:6, overflow:'hidden'}}>
-                    <img src={s.dataUrl} alt={s.name} style={{width:'100%', height:80, objectFit:'cover', display:'block'}} />
+                    <img src={s.dataUrl} alt={s.name} style={{width:'100%', height:80, objectFit:'contain', display:'block', background:'var(--bg-elevated)'}} />
                     <button onClick={() => setScreenshots(prev => prev.filter((_, j) => j !== i))}
                       style={{position:'absolute', top:3, right:3, width:20, height:20, borderRadius:10, background:'rgba(0,0,0,.6)', color:'white', border:'none', cursor:'pointer', fontSize:11, lineHeight:'18px', padding:0}}>×</button>
                     <div style={{padding:'2px 4px', fontSize:9, color:'var(--ink-3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', background:'white'}} title={s.name}>{s.name}</div>
@@ -2444,7 +2444,7 @@ const BugReportDetailModal = ({ report, user, employees, onClose, onChanged, toa
                 {(report.screenshots || []).map((s, i) => (
                   <div key={i} onClick={() => setImgPreview(s.dataUrl)}
                     style={{position:'relative', border:'1px solid var(--line)', borderRadius:6, overflow:'hidden', cursor:'pointer', background:'white'}}>
-                    <img src={s.dataUrl} alt={s.name} style={{width:'100%', height:90, objectFit:'cover', display:'block'}} />
+                    <img src={s.dataUrl} alt={s.name} style={{width:'100%', height:90, objectFit:'contain', display:'block', background:'var(--bg-elevated)'}} />
                   </div>
                 ))}
               </div>

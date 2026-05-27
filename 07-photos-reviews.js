@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🎨 定制&实拍 + ⭐ 产品评价 · fix28-54
-// APP_VERSION: 2026.05.27-fix54
+// 🎨 定制&实拍 + ⭐ 产品评价(contain 图) · fix28-55
+// APP_VERSION: 2026.05.27-fix55
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -400,7 +400,7 @@ const ReviewTaskCard = ({ review, user, employees, isAdmin, onEdit, onDelete, on
                     const info = getFileTypeInfo(a);
                     return info.kind === 'image' ? (
                       <img key={a.id} src={a.url} onClick={() => setPreviewFile(a)}
-                        style={{width:'100%', height:80, objectFit:'cover', borderRadius:5, cursor:'pointer', border:'1px solid var(--line)'}} />
+                        style={{width:'100%', height:80, objectFit:'contain', borderRadius:5, cursor:'pointer', border:'1px solid var(--line)', background:'var(--bg-elevated)'}} />
                     ) : (
                       <FileChip key={a.id} file={a} onClick={() => setPreviewFile(a)} />
                     );
