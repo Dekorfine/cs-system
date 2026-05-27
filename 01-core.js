@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 + LoginScreen + wtkpi(fix49) · 含 fix28-49
-// APP_VERSION: 2026.05.27-fix49 · 行号 467-2296
+// 🧱 核心 + LoginScreen + wtkpi 默认配置(fix50) · 含 fix28-50
+// APP_VERSION: 2026.05.27-fix50
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -488,14 +488,20 @@ const getCdmClient = () => {
 
 // ════════════════════════════════════════════════════════════════════
 // 🆕 fix49: WorkTrack-KPI 跨系统 client(对接拍摄部 photo_logs 表)
-// 配置从 localStorage 读取(由 ⚙ 设置中心写入)
-// URL + Anon Key 由美工部门提供
+// 默认配置已硬编码 (Martin 提供的 publishable key,安全靠 RLS)
+// ⚙ 设置中心可覆盖(若 Martin 换 key)
 // ════════════════════════════════════════════════════════════════════
+const WTKPI_DEFAULT_URL = 'https://xyhbwqugbnowfjuhqhsj.supabase.co';
+const WTKPI_DEFAULT_KEY = 'sb_publishable_Z0dXXZivG5QI-FCbwELxEA_JZBNx2Hn';
+
 let _wtkpiClient = null;
 let _wtkpiClientKey = null;  // 用于检测配置变化
 const getWtkpiClient = () => {
-  const url = (typeof localStorage !== 'undefined' && localStorage.getItem('wtkpi_url')) || '';
-  const key = (typeof localStorage !== 'undefined' && localStorage.getItem('wtkpi_key')) || '';
+  // 优先 localStorage 覆盖,否则用默认
+  const lsUrl = (typeof localStorage !== 'undefined' && localStorage.getItem('wtkpi_url')) || '';
+  const lsKey = (typeof localStorage !== 'undefined' && localStorage.getItem('wtkpi_key')) || '';
+  const url = lsUrl || WTKPI_DEFAULT_URL;
+  const key = lsKey || WTKPI_DEFAULT_KEY;
   if (!url || !key) return null;
   const cacheKey = url + '|' + key;
   if (_wtkpiClient && _wtkpiClientKey === cacheKey) return _wtkpiClient;
@@ -510,9 +516,8 @@ const getWtkpiClient = () => {
   }
 };
 const isWtkpiConfigured = () => {
-  const url = (typeof localStorage !== 'undefined' && localStorage.getItem('wtkpi_url')) || '';
-  const key = (typeof localStorage !== 'undefined' && localStorage.getItem('wtkpi_key')) || '';
-  return !!(url && key);
+  // 有默认值就永远算"已配置"
+  return !!(WTKPI_DEFAULT_URL && WTKPI_DEFAULT_KEY);
 };
 
 // 🆕 fix49: 上传图片到 WorkTrack-KPI Storage `attachments` bucket,自动压缩 < 1600px
