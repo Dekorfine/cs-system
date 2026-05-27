@@ -307,10 +307,10 @@ fieldset legend {
 .paste-area:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
 .paste-area img { max-width: 100%; max-height: var(--img-size, 48px); object-fit: contain; }
 
-/* 🆕 fix39: 图片尺寸切换按钮 */
-.img-size-btn { transition: all .15s; }
-.img-size-btn:hover { background: var(--accent-soft) !important; border-color: var(--accent) !important; }
-.img-size-btn.active {
+/* 🆕 fix39: 图片尺寸切换按钮 + 🆕 fix47: 列宽密度按钮 */
+.img-size-btn, .col-density-btn { transition: all .15s; }
+.img-size-btn:hover, .col-density-btn:hover { background: var(--accent-soft) !important; border-color: var(--accent) !important; }
+.img-size-btn.active, .col-density-btn.active {
   background: var(--accent) !important;
   border-color: var(--accent) !important;
   color: white !important;
@@ -1286,6 +1286,14 @@ fieldset legend {
           <button type="button" class="img-size-btn" data-size="L" onclick="setImgSize('L')" style="padding:3px 10px; border:1px solid var(--line); background:white; border-radius:5px; font-size:11px; cursor:pointer; font-family:inherit;">大 L</button>
           <span style="color:var(--ink-4); font-size:11px;">(影响预览 + 导出)</span>
         </div>
+        <!-- 🆕 fix47: 列宽密度切换 -->
+        <div style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2);">
+          <span>📏 列宽:</span>
+          <button type="button" class="col-density-btn" data-density="compact" onclick="setColDensity('compact')" style="padding:3px 10px; border:1px solid var(--line); background:white; border-radius:5px; font-size:11px; cursor:pointer; font-family:inherit;">紧凑</button>
+          <button type="button" class="col-density-btn active" data-density="normal" onclick="setColDensity('normal')" style="padding:3px 10px; border:1px solid var(--line); background:white; border-radius:5px; font-size:11px; cursor:pointer; font-family:inherit;">标准</button>
+          <button type="button" class="col-density-btn" data-density="roomy" onclick="setColDensity('roomy')" style="padding:3px 10px; border:1px solid var(--line); background:white; border-radius:5px; font-size:11px; cursor:pointer; font-family:inherit;">宽敞</button>
+          <span style="color:var(--ink-4); font-size:11px;">(数量/单价等输入框宽度)</span>
+        </div>
       </div>
       <div class="item-table-wrap">
         <table id="item-table">
@@ -1294,15 +1302,15 @@ fieldset legend {
               <th data-lang-key="th_sku">SKU</th>
               <th data-lang-key="th_description" style="min-width:200px;">Description</th>
               <th data-lang-key="th_image" style="width:80px;">Image</th>
-              <th data-lang-key="th_qty" style="width:60px;">Qty</th>
-              <th id="master-unit-price-header" style="width:90px;">Unit Price (USD)</th>
-              <th data-lang-key="th_carton_no" class="packing-col" style="width:80px;">Carton No.</th>
-              <th title="长 Length (cm)" class="packing-col" style="width:55px;">L (cm)</th>
-              <th title="宽 Width (cm)" class="packing-col" style="width:55px;">W (cm)</th>
-              <th title="高 Height (cm)" class="packing-col" style="width:55px;">H (cm)</th>
-              <th data-lang-key="th_nw" class="packing-col" style="width:70px;">N.W. (kgs)</th>
-              <th data-lang-key="th_gw" class="packing-col" style="width:70px;">G.W. (kgs)</th>
-              <th data-lang-key="th_meas" class="packing-col" style="width:70px;">Meas (cbm)</th>
+              <th data-lang-key="th_qty" style="width:var(--col-qty,90px);">Qty</th>
+              <th id="master-unit-price-header" style="width:var(--col-price,110px);">Unit Price (USD)</th>
+              <th data-lang-key="th_carton_no" class="packing-col" style="width:var(--col-narrow,100px);">Carton No.</th>
+              <th title="长 Length (cm)" class="packing-col" style="width:var(--col-dim,70px);">L (cm)</th>
+              <th title="宽 Width (cm)" class="packing-col" style="width:var(--col-dim,70px);">W (cm)</th>
+              <th title="高 Height (cm)" class="packing-col" style="width:var(--col-dim,70px);">H (cm)</th>
+              <th data-lang-key="th_nw" class="packing-col" style="width:var(--col-weight,85px);">N.W. (kgs)</th>
+              <th data-lang-key="th_gw" class="packing-col" style="width:var(--col-weight,85px);">G.W. (kgs)</th>
+              <th data-lang-key="th_meas" class="packing-col" style="width:var(--col-weight,85px);">Meas (cbm)</th>
               <th style="width:60px;"></th>
             </tr>
           </thead>
@@ -2059,6 +2067,26 @@ function setImgSize(size) {
     b.classList.toggle('active', b.dataset.size === size);
   });
   try { localStorage.setItem('img_size_pref', size); } catch(e){}
+}
+
+/* 🆕 fix47: 列宽密度切换 — Qty / Unit Price / 装箱列宽度可自定义 */
+const COL_DENSITY_MAP = {
+  compact: { qty: 70,  price: 90,  narrow: 80,  dim: 55, weight: 70 },
+  normal:  { qty: 90,  price: 110, narrow: 100, dim: 70, weight: 85 },
+  roomy:   { qty: 120, price: 140, narrow: 130, dim: 85, weight: 105 },
+};
+function setColDensity(density) {
+  const cfg = COL_DENSITY_MAP[density] || COL_DENSITY_MAP.normal;
+  const root = document.documentElement.style;
+  root.setProperty('--col-qty', cfg.qty + 'px');
+  root.setProperty('--col-price', cfg.price + 'px');
+  root.setProperty('--col-narrow', cfg.narrow + 'px');
+  root.setProperty('--col-dim', cfg.dim + 'px');
+  root.setProperty('--col-weight', cfg.weight + 'px');
+  document.querySelectorAll('.col-density-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.density === density);
+  });
+  try { localStorage.setItem('col_density_pref', density); } catch(e){}
 }
 
 // 切换导出菜单显示
@@ -4161,6 +4189,12 @@ document.addEventListener('DOMContentLoaded', function() {
   try {
     const savedSize = localStorage.getItem('img_size_pref');
     if (savedSize && IMG_SIZE_MAP[savedSize]) setImgSize(savedSize);
+  } catch(e){}
+  
+  // 🆕 fix47: 恢复列宽密度偏好
+  try {
+    const savedDensity = localStorage.getItem('col_density_pref');
+    if (savedDensity && COL_DENSITY_MAP[savedDensity]) setColDensity(savedDensity);
   } catch(e){}
   
   // 🆕 fix36: 如果 URL 带 #print=X (来自 iframe 触发的新窗口),自动 print
