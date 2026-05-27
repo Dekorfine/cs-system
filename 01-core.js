@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心:常量 / utils / Hooks / Contexts / 翻译 (含 fix28-31 累积修复)
-// 拆自 workspace.html · 原始行号 450-2076
+// 🧱 核心(LoginScreen fix40) (fix28-40 累积)
+// 拆自 workspace.html · 原始行号 450-2106
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -1103,7 +1103,13 @@ const LoginScreen = ({ employees, onLogin }) => {
 
   const tryLogin = () => {
     if (!sel) { setError('请选择账号'); return; }
-    if (sel.password !== password) { setError('密码不正确'); return; }
+    if (sel.password !== password) {
+      // 🆕 fix40: 详细的密码错误诊断
+      console.warn('[登录失败] 用户:', sel.name, '· 输入密码长度:', password.length, '· 期望长度:', (sel.password || '').length);
+      setError(`密码不正确 (${sel.name})。如果忘记密码请联系管理员重设。`);
+      return;
+    }
+    console.log('[登录成功] 用户:', sel.name, '· 角色:', sel.role);
     onLogin(sel);
   };
 
@@ -1147,6 +1153,30 @@ const LoginScreen = ({ employees, onLogin }) => {
               );
             })}
           </div>
+          {/* 🆕 fix40: 列表为空的诊断 + 找不到账号 链接 */}
+          {employees.filter(e => !e.hideFromList).length === 0 ? (
+            <div style={{textAlign:'center', padding:'32px 20px', background:'#fef3c7', border:'1px solid #fcd34d', borderRadius:12, color:'#78350f', fontSize:13, marginTop:18}}>
+              <div style={{fontSize:28, marginBottom:8}}>⚠</div>
+              <div style={{fontWeight:600, marginBottom:8}}>员工列表为空</div>
+              <div style={{marginBottom:12}}>可能是 localStorage 损坏或还没加载。点下面按钮重置后重试。</div>
+              <button onClick={() => { localStorage.clear(); window.location.reload(); }}
+                style={{padding:'8px 16px', background:'#0071e3', color:'white', border:'none', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:'inherit'}}>
+                🔄 清空缓存并刷新
+              </button>
+            </div>
+          ) : (
+            <div style={{textAlign:'center', marginTop:18}}>
+              <button onClick={() => {
+                const allNames = employees.map(e => '• ' + e.name + (e.alias ? ' (' + e.alias + ')' : '') + (e.hideFromList ? ' — 管理员·走右下秘密入口' : '')).join('\n');
+                const visible = employees.filter(e => !e.hideFromList).length;
+                const hidden = employees.filter(e => e.hideFromList).length;
+                alert(`📋 系统里现有 ${employees.length} 个账号 (显示 ${visible}, 隐藏 ${hidden}):\n\n${allNames}\n\n找不到你?\n• 普通员工 — 联系管理员在 ⚙ 设置中心添加\n• 管理员/老板 — 点右下角 🔐 管理员 走秘密入口`);
+              }}
+                style={{background:'none', border:'none', color:'var(--ink-3)', fontSize:12, cursor:'pointer', textDecoration:'underline', fontFamily:'inherit'}}>
+                🔍 找不到你的账号?
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Password */}
