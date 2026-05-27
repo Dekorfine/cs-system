@@ -402,6 +402,61 @@ fieldset legend {
 .cloud-filter-row {
   display: flex; gap: 8px; align-items: center; margin-bottom: 10px;
 }
+
+/* 🎨 fix43: 大搜索框 — 独占一行,圆角胶囊,搜索图标 + 清空按钮 + 实时计数 */
+.search-bar-large {
+  position: relative;
+  display: flex; align-items: center;
+  background: var(--bg-card);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 0 16px;
+  margin-bottom: 12px;
+  transition: border-color .2s, box-shadow .2s;
+  min-height: 46px;
+}
+.search-bar-large:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+.search-bar-icon {
+  font-size: 17px; color: var(--ink-3);
+  margin-right: 10px; flex-shrink: 0;
+  user-select: none;
+}
+.search-bar-large input[type="search"] {
+  flex: 1; min-width: 0;
+  border: none !important; outline: none !important;
+  background: transparent !important;
+  padding: 12px 4px !important;
+  font-size: 15px !important; font-weight: 400;
+  color: var(--ink); letter-spacing: -.003em;
+  box-shadow: none !important;
+  /* 关键:type=search 浏览器自带 ✕ 隐藏(我们自定义的) */
+  appearance: none;
+  -webkit-appearance: none;
+}
+.search-bar-large input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+.search-bar-large input[type="search"]::placeholder { color: var(--ink-4); font-weight: 400; }
+.search-bar-clear {
+  background: var(--bg-elevated); color: var(--ink-3);
+  border: none; width: 24px; height: 24px;
+  border-radius: 50%; cursor: pointer;
+  font-size: 12px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-right: 6px;
+  transition: all .15s;
+}
+.search-bar-clear:hover { background: var(--ink-3); color: white; }
+.search-bar-count {
+  font-size: 11px; font-weight: 500;
+  color: var(--ink-3); padding: 3px 10px;
+  background: var(--bg-elevated); border-radius: var(--radius-pill);
+  flex-shrink: 0; letter-spacing: -.003em;
+  white-space: nowrap;
+}
+.search-bar-count.has-match { color: var(--accent); background: var(--accent-soft); }
+.search-bar-count.no-match  { color: var(--bad); background: var(--bad-soft); }
 .cloud-filter-row select {
   flex: 1; padding: 7px 32px 7px 12px; border: 1px solid var(--line);
   border-radius: var(--radius-sm); font-size: 13px; background: var(--bg-card);
@@ -1026,10 +1081,29 @@ fieldset legend {
         <button class="status-chip" data-status="archived" onclick="setStatusFilter('archived')">归档 · Archived</button>
       </div>
 
+      <!-- 🎨 fix43: 大搜索框 — 独占一行,带图标 + 清空按钮 + 结果计数 -->
+      <div class="search-bar-large">
+        <span class="search-bar-icon">🔍</span>
+        <input
+          type="search"
+          id="cloud-search"
+          name="quote_filter_q"
+          placeholder="搜索客户 / PI / SKU / 状态(支持多关键词,空格分隔) · Search…"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          data-lpignore="true"
+          data-form-type="other"
+          aria-autocomplete="none"
+          oninput="renderCloudList()">
+        <button type="button" id="search-clear-btn" class="search-bar-clear" onclick="clearSearch()" title="清空 · Clear" style="display:none;">✕</button>
+        <span class="search-bar-count" id="search-result-count"></span>
+      </div>
+
       <div class="cloud-filter-row">
-        <input type="text" id="cloud-search" placeholder="客户 / 邮箱 / PI 号 / SKU · Customer / Email / PI / SKU" oninput="renderCloudList()">
         <select id="cloud-date-filter" onchange="renderCloudList()" title="按日期筛选 · Filter by date">
-          <option value="all">全部日期 · All dates</option>
+          <option value="all">📅 全部日期 · All dates</option>
           <optgroup label="📅 单日 · Day">
             <option value="today">今天 · Today</option>
             <option value="yesterday">昨天 · Yesterday</option>
@@ -1054,7 +1128,7 @@ fieldset legend {
           </optgroup>
         </select>
         <select id="cloud-user-filter" onchange="renderCloudList()" title="按团队成员筛选 · Filter by team member" style="display:none;">
-          <option value="">全部成员 · All members</option>
+          <option value="">👥 全部成员 · All members</option>
         </select>
         <button class="btn-refresh" onclick="loadCloudList()" title="刷新 · Refresh">↺</button>
       </div>
@@ -1893,6 +1967,13 @@ function showToast(msg, type, duration) {
 function hideToast() {
   const t = $('toast');
   if (t) t.classList.remove('show');
+}
+
+/* 🆕 fix43: 清空搜索框 */
+function clearSearch() {
+  const inp = $('cloud-search');
+  if (inp) { inp.value = ''; inp.focus(); }
+  renderCloudList();
 }
 function showFeedback(msg) {
   const el = $('feedback_message');
@@ -3509,10 +3590,17 @@ function parseCloudFile(f, user) {
   return rowToCloudRecord(f);
 }
 function renderCloudList() {
-  const search = ($('cloud-search')?.value || '').toLowerCase();
+  const searchRaw = ($('cloud-search')?.value || '').trim();
   const uf = $('cloud-user-filter')?.value || '';
   const dateFilter = $('cloud-date-filter')?.value || 'all';
   const list = $('cloud-list');
+  
+  // 🆕 fix43: 智能搜索 — 多关键词 AND 匹配,支持 SKU / 产品描述
+  // "Janedecor sent" → 客户含 Janedecor AND 状态含 sent
+  const searchTerms = searchRaw ? searchRaw.toLowerCase().split(/\s+/).filter(Boolean) : [];
+  // 清空按钮显隐
+  const clearBtn = $('search-clear-btn');
+  if (clearBtn) clearBtn.style.display = searchRaw ? 'flex' : 'none';
 
   function passesDateFilter(rec) {
     if (dateFilter === 'all') return true;
@@ -3524,18 +3612,54 @@ function renderCloudList() {
     if (!range) return true;
     return d >= range.start && d < range.end;
   }
+  
+  // 🆕 fix43: 构造可搜索的"干草堆" — 包含所有 r 字段 + SKU / 产品描述
+  function makeHaystack(r) {
+    let parts = [
+      r.buyerName || '',
+      r.buyerEmail || '',
+      r.piNo || '',
+      r.user || '',
+      r.status || '',
+      r.customerNote || ''
+    ];
+    // 把 SKU + 产品描述塞进搜索范围
+    const items = r.data?.items;
+    if (Array.isArray(items)) {
+      items.forEach(it => {
+        if (it?.sku)         parts.push(it.sku);
+        if (it?.description) parts.push(it.description);
+      });
+    }
+    return parts.join(' ').toLowerCase();
+  }
 
   const filtered = cloudRecords.filter(r => {
     if (uf && r.user !== uf) return false;
     if (!passesDateFilter(r)) return false;
     if (statusFilter && r.status !== statusFilter) return false;
-    if (search) {
-      // Search across buyerName, buyerEmail, piNo, user, status
-      const hay = `${r.buyerName} ${r.buyerEmail || ''} ${r.piNo} ${r.user} ${r.status}`.toLowerCase();
-      if (!hay.includes(search)) return false;
+    // 🆕 fix43: 多关键词 AND 匹配 — 所有关键词都得在 haystack 里出现
+    if (searchTerms.length > 0) {
+      const hay = makeHaystack(r);
+      for (const term of searchTerms) {
+        if (!hay.includes(term)) return false;
+      }
     }
     return true;
   });
+
+  // 🆕 fix43: 实时更新结果计数
+  const countEl = $('search-result-count');
+  if (countEl) {
+    if (searchTerms.length === 0 && !statusFilter && dateFilter === 'all') {
+      countEl.textContent = cloudRecords.length > 0 ? `${cloudRecords.length} 条` : '';
+      countEl.className = 'search-bar-count';
+    } else {
+      const total = cloudRecords.length;
+      countEl.textContent = `找到 ${filtered.length} / ${total} 条`;
+      countEl.className = 'search-bar-count ' + (filtered.length > 0 ? 'has-match' : 'no-match');
+    }
+  }
 
   if (!filtered.length) {
     const baseMsg = cloudRecords.length === 0
