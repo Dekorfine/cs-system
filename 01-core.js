@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心(LoginScreen fix40) (fix28-40 累积)
-// 拆自 workspace.html · 原始行号 450-2106
+// 🧱 核心(fix44: LoginScreen 自动滚到密码框 + 视觉强调)
+// 拆自 workspace.html · 原始行号 456-2140
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -1075,6 +1075,25 @@ const LoginScreen = ({ employees, onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   
+  // 🆕 fix44: 密码区 ref + 自动滚动 + 高亮
+  const passwordSectionRef = useRef(null);
+  const passwordInputRef = useRef(null);
+  
+  // 🆕 fix44: 选中员工后,平滑滚动到密码框并聚焦
+  useEffect(() => {
+    if (selectedId && passwordSectionRef.current) {
+      // 等 DOM 渲染完成
+      requestAnimationFrame(() => {
+        passwordSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+        // 再次确保聚焦(autoFocus 可能在某些浏览器里不生效)
+        setTimeout(() => passwordInputRef.current?.focus(), 350);
+      });
+    }
+  }, [selectedId]);
+  
   // 🔒 老板秘密登录入口
   const [bossLoginOpen, setBossLoginOpen] = useState(false);
   const [bossName, setBossName] = useState('');
@@ -1181,7 +1200,11 @@ const LoginScreen = ({ employees, onLogin }) => {
 
         {/* Password */}
         {sel && (
-          <div style={{padding:'0 48px 40px', borderTop:'1px solid var(--line)', paddingTop:'28px'}}>
+          <div ref={passwordSectionRef} style={{
+            padding:'0 48px 40px', borderTop:'1px solid var(--line)', paddingTop:'28px',
+            /* 🆕 fix44: 蓝色脉动光晕,引导视线 */
+            animation: 'pulse-ring 1.4s ease-out 1',
+          }}>
             <div style={{display:'flex', alignItems:'center', gap:'14px', marginBottom:'18px'}}>
               <div className="emp-avatar-lg" style={{background:colorOf(sel.id), width:48, height:48, fontSize:18, margin:0}}>
                 {(sel.name || '?').slice(-1)}
@@ -1199,7 +1222,12 @@ const LoginScreen = ({ employees, onLogin }) => {
               </div>
             </div>
 
+            {/* 🆕 fix44: 大字号提示输入密码 */}
+            <div style={{fontSize:'13px', color:'var(--accent)', fontWeight:600, marginBottom:'8px', display:'flex', alignItems:'center', gap:'6px'}}>
+              <span>👇 在下方输入密码继续</span>
+            </div>
             <input
+              ref={passwordInputRef}
               type="password"
               value={password}
               onChange={e => { setPassword(e.target.value); setError(''); }}
