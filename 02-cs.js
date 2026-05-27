@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + Customer360Modal · fix28-53
-// APP_VERSION: 2026.05.27-fix53
+// 📞 客服跟进 + Customer360Modal · fix28-54
+// APP_VERSION: 2026.05.27-fix54
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -2486,12 +2486,17 @@ const DailyGreeting = ({ user }) => {
   
   // 🆕 亲切称呼算法:
   //   1. 有英文别名(alias) → 用 alias(例如 Jane / Nicole / Aletta)
-  //   2. 无 alias → 中文姓名去掉姓,只用名(例如 "罗燕秋" → "燕秋","谭燕灵" → "燕灵")
-  //   3. 单字名 / 复姓不好判断时直接用全名
+  //   2. 无 alias 但名字含中文 → 去掉姓,只用名(例如 "罗燕秋" → "燕秋","谭燕灵" → "燕灵")
+  //   3. 无 alias 且全英文(例如 Martin / Sarah) → 直接用全名(不切第一字符)
+  //   4. 单字名 / 复姓不好判断时直接用全名
   const getFriendlyName = (u) => {
     if (u.alias && u.alias.trim()) return u.alias.trim();
     const fullName = (u.name || '').trim();
     if (!fullName) return '同事';
+    // 🆕 fix54: 不是中文名(纯英文/数字/符号)直接整个返回
+    // 例如 Martin / Sarah / Mike — 之前被切成 artin / arah / ike,大 bug
+    const hasChinese = /[\u4e00-\u9fa5]/.test(fullName);
+    if (!hasChinese) return fullName;
     // 复姓列表(常见的)
     const compoundSurnames = ['欧阳','司马','上官','令狐','诸葛','慕容','尉迟','长孙','宇文','皇甫','东方','西门','南宫','夏侯','公孙','轩辕','赫连'];
     for (const cs of compoundSurnames) {

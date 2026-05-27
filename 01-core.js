@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 + LoginScreen + wtkpi + UI 一致(fix53) · fix28-53
-// APP_VERSION: 2026.05.27-fix53
+// 🧱 核心 + LoginScreen + wtkpi + getFriendlyName 修复(fix54) · fix28-54
+// APP_VERSION: 2026.05.27-fix54
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;

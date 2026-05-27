@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄需求 v3(fix53) + 📌 任务 + 🐛 反馈 · fix28-53
-// APP_VERSION: 2026.05.27-fix53
+// 📷 拍摄需求 v3 + 📌 任务 + 🐛 反馈 · fix28-54
+// APP_VERSION: 2026.05.27-fix54
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -114,6 +114,27 @@ const PhotoRequestsModule = ({ user, toast }) => {
           </button>
         </div>
 
+        {/* 🆕 fix54: 顶部统计 hero — 即使列表少,视觉信息密度足 */}
+        <div style={{
+          display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:8, marginBottom:14,
+        }}>
+          {[
+            { label:'总工单', val:counts.all,    color:'var(--ink-2)',  bg:'var(--bg-elevated)' },
+            { label:'我提的', val:counts.mine,   color:'var(--accent)', bg:'var(--accent-soft)' },
+            { label:'🚨 加急未完', val:counts.urgent, color:'var(--bad)', bg:'var(--bad-soft)' },
+            { label:'🔄 进行中', val:counts.inProgress, color:'#0369a1', bg:'#dbeafe' },
+            { label:'✅ 已完成', val:counts.done, color:'var(--good)', bg:'var(--good-soft)' },
+            { label:'来源团队', val: new Set(list.map(r => r.external_request?.source || '自发')).size, color:'#6b21a8', bg:'#f3e8ff' },
+          ].map((s, i) => (
+            <div key={i} style={{
+              padding:'10px 12px', borderRadius:10, background:s.bg, display:'flex', flexDirection:'column', gap:2,
+            }}>
+              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500}}>{s.label}</div>
+              <div style={{fontSize:20, fontWeight:700, color:s.color, letterSpacing:'-.022em'}}>{s.val}</div>
+            </div>
+          ))}
+        </div>
+
         {/* 🆕 fix53 v3: 5 个 sub-tab,默认「全部工作动态」 */}
         <div style={{display:'flex', gap:8, marginBottom:14, flexWrap:'wrap'}}>
           {[
@@ -130,24 +151,56 @@ const PhotoRequestsModule = ({ user, toast }) => {
         </div>
 
         {visible.length === 0 ? (
-          <div style={{textAlign:'center', padding:'48px 20px', color:'var(--ink-3)', fontSize:14}}>
-            {loading ? '⏳ 加载中…' :
-              filter === 'mine' ? '你还没提过需求 — 点右上 "+ 新建" 开始' :
-              filter === 'urgent' ? '没有加急的需求 🎉' :
-              filter === 'in-progress' ? '没有进行中的工单' :
-              filter === 'done' ? '还没有已完成的需求' :
-              '系统里没有任何拍摄工单'}
+          <div style={{textAlign:'center', padding:'64px 20px', color:'var(--ink-3)', fontSize:14, background:'var(--bg-elevated)', borderRadius:12}}>
+            <div style={{fontSize:48, marginBottom:12, opacity:.4}}>📭</div>
+            <div style={{fontSize:15, fontWeight:500, marginBottom:6, color:'var(--ink-2)'}}>
+              {loading ? '⏳ 加载中…' :
+                filter === 'mine' ? '你还没提过需求' :
+                filter === 'urgent' ? '没有加急的需求' :
+                filter === 'in-progress' ? '没有进行中的工单' :
+                filter === 'done' ? '还没有已完成的需求' :
+                '系统里没有任何拍摄工单'}
+            </div>
+            {!loading && filter !== 'done' && (
+              <div style={{fontSize:13, color:'var(--ink-4)', marginBottom:14}}>
+                {filter === 'urgent' ? '🎉 一切平静' :
+                 filter === 'mine' ? '需要拍摄部协助时,点右上"+ 新建"开始' :
+                 '点右上"+ 新建"或"📥 批量"开始'}
+              </div>
+            )}
+            {!loading && (filter === 'mine' || filter === 'all-activities') && counts.all === 0 && (
+              <div style={{display:'inline-flex', gap:8, marginTop:8}}>
+                <button className="btn-pri" onClick={() => setShowNew(true)}>+ 新建第一条</button>
+                <button className="btn-sec" onClick={() => setShowBatch(true)}>📥 批量录入</button>
+              </div>
+            )}
           </div>
         ) : (
-          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(360px, 1fr))', gap:12}}>
-            {visible.map(r => (
-              <PhotoRequestCard
-                key={r.id} item={r} currentUserId={user.id}
-                onOpen={() => setDetailItem(r)}
-                onEdit={() => setEditItem(r)}
-              />
-            ))}
-          </div>
+          <>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))', gap:12}}>
+              {visible.map(r => (
+                <PhotoRequestCard
+                  key={r.id} item={r} currentUserId={user.id}
+                  onOpen={() => setDetailItem(r)}
+                  onEdit={() => setEditItem(r)}
+                />
+              ))}
+            </div>
+            {/* 🆕 fix54: footer 统计行 + 已到底部提示 */}
+            <div style={{
+              marginTop:18, padding:'12px 16px', background:'var(--bg-elevated)', borderRadius:10,
+              display:'flex', alignItems:'center', gap:14, fontSize:12, color:'var(--ink-3)', flexWrap:'wrap',
+            }}>
+              <span>📊 当前显示 <strong style={{color:'var(--ink-2)'}}>{visible.length}</strong> / 共 {list.length} 条</span>
+              {filter !== 'all-activities' && (
+                <button onClick={() => setFilter('all-activities')} style={{
+                  background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontSize:12, padding:0, fontFamily:'inherit',
+                }}>切回「全部」 →</button>
+              )}
+              <div style={{flex:1}}/>
+              <span style={{color:'var(--ink-4)'}}>—— 已到底部 ——</span>
+            </div>
+          </>
         )}
       </div>
 
