@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📨 跨部门 · fix28-52
-// APP_VERSION: 2026.05.27-fix52
+// 📚 知识库 + 📨 跨部门 · fix28-53
+// APP_VERSION: 2026.05.27-fix53
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -2944,4 +2944,38 @@ const PHOTO_STATUS_MAP = {
   edited:    { label: '✓ 已剪辑',  color: '#16a34a', bg: '#dcfce7', desc: '等上传' },
   uploading: { label: '⬆️ 上传中',  color: '#ea580c', bg: '#fed7aa', desc: '上传到店铺' },
   done:      { label: '✅ 完成',    color: '#16a34a', bg: '#dcfce7', desc: '已上线' },
+};
+
+// 🆕 fix53 v3: 来源徽章 — 5 类来源不同颜色
+const SOURCE_BADGE_MAP = {
+  '客服':  { icon: '📨', label: '客服', bg: '#dbeafe', color: '#1e40af' },  // 蓝
+  '跟单':  { icon: '📋', label: '跟单', bg: '#f3e8ff', color: '#6b21a8' },  // 紫
+  '销售':  { icon: '💰', label: '销售', bg: '#fed7aa', color: '#9a3412' },  // 橙
+  '美工':  { icon: '🎨', label: '美工', bg: '#cffafe', color: '#155e75' },  // 青
+  '自发':  { icon: '📷', label: '拍摄部', bg: '#f5f5f4', color: '#44403c' }, // 灰
+};
+
+// 🆕 fix53 v3: 渲染状态行(展开全部 sub-state)
+const renderStatusLine = (log) => {
+  const lines = [];
+  const st = PHOTO_STATUS_MAP[log.status];
+  if (st) lines.push(st.label + ' · ' + st.desc);
+  if (log.photographer_name) lines.push(`📷 摄影:${log.photographer_name}`);
+  if (log.editor_name)       lines.push(`🎬 剪辑:${log.editor_name}`);
+  if (log.uploader_name)     lines.push(`⬆️ 上传:${log.uploader_name}`);
+  if (log.pre_shoot_review?.status) {
+    const psr = { pending: '⏳ 美工预审中', approved: '✅ 美工预审通过', rejected: '⚠️ 美工反馈问题' }[log.pre_shoot_review.status];
+    if (psr) lines.push(psr + (log.pre_shoot_review.decision_by_name ? ` (${log.pre_shoot_review.decision_by_name})` : ''));
+  }
+  if (log.review?.status) {
+    const rv = { pending: '🎬 视频审核中', approved: '✅ 视频审核通过', rejected: '⚠️ 视频被反馈' }[log.review.status];
+    if (rv) lines.push(rv + (log.review.decision_by_name ? ` (${log.review.decision_by_name})` : ''));
+  }
+  if (log.pending_reason && (log.status === 'draft' || log.status === 'shooting')) {
+    lines.push(`📌 卡住:${log.pending_reason}`);
+  }
+  if (log.embed_status === 'embedded') {
+    lines.push('🌐 已嵌入独立站' + (log.url_xiaohongshu ? ' · 📕 小红书已发' : ''));
+  }
+  return lines;
 };

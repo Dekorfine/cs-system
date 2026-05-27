@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 + LoginScreen + wtkpi 默认 + UI 一致性 CSS(fix52) · fix28-52
-// APP_VERSION: 2026.05.27-fix52
+// 🧱 核心 + LoginScreen + wtkpi + UI 一致(fix53) · fix28-53
+// APP_VERSION: 2026.05.27-fix53
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -606,18 +606,96 @@ async function submitPhotoRequest({ productName, sku, productImage, applicableSh
 }
 
 // 🆕 fix49: 列出当前用户提的所有需求 / 全部需求(主管视角)
-async function listPhotoRequests({ myUserId, allRequests }) {
+// 🆕 fix53 v3: 列出全部 photo_logs(不过滤 source),客户端按 sub-tab 筛选
+async function listPhotoRequests() {
   const client = getWtkpiClient();
   if (!client) return [];
-  let q = client.from('photo_logs').select('*').order('created_at_ms', { ascending: false });
-  if (myUserId && !allRequests) {
-    q = q.eq('external_request->>from_user_id', myUserId);
-  } else if (allRequests) {
-    q = q.in('external_request->>source', ['客服', '跟单']);
-  }
-  const { data, error } = await q;
+  const { data, error } = await client.from('photo_logs')
+    .select('*')
+    .order('updated_at', { ascending: false })
+    .limit(500);
   if (error) { console.error('[WTKPI] 拉需求列表失败', error); return []; }
   return data || [];
+}
+
+// 🆕 fix53 v3: 协作编辑产品基础字段(merge,不覆盖)
+async function updatePhotoRequestBasics(logId, basics) {
+  const client = getWtkpiClient();
+  if (!client) throw new Error('拍摄部 Supabase 未配置');
+  const allowed = ['product_name', 'sku', 'product_image', 'applicable_shops', 'product_type', 'product_notes'];
+  const clean = {};
+  for (const k of allowed) {
+    if (basics[k] !== undefined) clean[k] = basics[k];
+  }
+  clean.updated_at = new Date().toISOString();
+  const { error } = await client.from('photo_logs').update(clean).eq('id', logId);
+  if (error) throw error;
+}
+
+// 🆕 fix53 v3: 追加附件/补充原因(merge external_request,不覆盖)
+async function appendToPhotoRequest(logId, additions) {
+  const client = getWtkpiClient();
+  if (!client) throw new Error('拍摄部 Supabase 未配置');
+  const { data: row, error: e1 } = await client.from('photo_logs')
+    .select('external_request').eq('id', logId).single();
+  if (e1) throw e1;
+  const current = row.external_request || {};
+  const merged = { ...current };
+  if (additions.attachments?.length) {
+    merged.attachments = [...(current.attachments || []), ...additions.attachments];
+  }
+  if (additions.reason_append) {
+    merged.reason = (current.reason || '') +
+      `\n\n--- ${new Date().toLocaleDateString('zh-CN')} 补充(${additions.editor_name || ''}) ---\n` +
+      additions.reason_append;
+  }
+  if (additions.urgency) merged.urgency = additions.urgency;
+  const { error: e2 } = await client.from('photo_logs')
+    .update({ external_request: merged, updated_at: new Date().toISOString() })
+    .eq('id', logId);
+  if (e2) throw e2;
+}
+
+// 🆕 fix53 v3: 批量录入 — 客服汇总员一次提交多条
+async function batchSubmitPhotoRequests(rows, defaults, currentUser) {
+  const client = getWtkpiClient();
+  if (!client) throw new Error('拍摄部 Supabase 未配置');
+  const now = Date.now();
+  const batchId = crypto.randomUUID();
+  const inserts = rows.map(r => ({
+    id: crypto.randomUUID(),
+    product_name: r.productName || '(未填)',
+    sku: r.sku || null,
+    product_image: null,
+    applicable_shops: r.applicableShops || defaults.applicableShops || [],
+    product_type: '客服需求',
+    status: 'draft',
+    priority: (r.urgency || defaults.urgency) === 'urgent' ? 'urgent' : 'normal',
+    external_request: {
+      source: '客服',
+      from_name: currentUser.name + (currentUser.alias ? ' ' + currentUser.alias : ''),
+      from_user_id: currentUser.id,
+      from_dept: '客服部',
+      reason: (defaults.reasonPrefix ? defaults.reasonPrefix + ' · ' : '') + (r.reason || ''),
+      urgency: r.urgency || defaults.urgency || 'normal',
+      attachments: [],
+      created_at_ms: now,
+      external_ref_id: null,
+      batch_id: batchId,
+    },
+    created_by_id: currentUser.id,
+    created_by_name: currentUser.name + (currentUser.alias ? ' ' + currentUser.alias : ''),
+    created_at_ms: now,
+    updated_at: new Date().toISOString(),
+  }));
+  const results = await Promise.allSettled(
+    inserts.map(row => client.from('photo_logs').insert(row))
+  );
+  const succeeded = results.filter(r => r.status === 'fulfilled' && !r.value.error).length;
+  const failed = results.length - succeeded;
+  const errors = results.filter(r => r.status === 'rejected' || r.value?.error)
+    .map(r => r.reason?.message || r.value?.error?.message || 'unknown');
+  return { succeeded, failed, errors, batchId };
 }
 
 // 暴露到 window,方便 React 组件调用
@@ -627,6 +705,9 @@ if (typeof window !== 'undefined') {
   window.uploadAttachmentToWtkpi = uploadAttachmentToWtkpi;
   window.submitPhotoRequest = submitPhotoRequest;
   window.listPhotoRequests = listPhotoRequests;
+  window.updatePhotoRequestBasics = updatePhotoRequestBasics;
+  window.appendToPhotoRequest = appendToPhotoRequest;
+  window.batchSubmitPhotoRequests = batchSubmitPhotoRequests;
 }
 
 // ════════════════════════════════════════════════════════════════════
