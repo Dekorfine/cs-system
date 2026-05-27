@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心(fix44: LoginScreen 自动滚到密码框 + 视觉强调)
-// 拆自 workspace.html · 原始行号 456-2140
+// 🧱 核心 (fix46: 登录密码改 Modal)
+// 拆自 workspace.html · 原始行号 467-2158
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -1075,22 +1075,15 @@ const LoginScreen = ({ employees, onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   
-  // 🆕 fix44: 密码区 ref + 自动滚动 + 高亮
+  // 🆕 fix46: 密码区改成 Modal,Modal 的 autoFocus 会自动聚焦,不需要 scrollIntoView
+  // 留 ref 给 Modal 内部元素引用
   const passwordSectionRef = useRef(null);
   const passwordInputRef = useRef(null);
-  
-  // 🆕 fix44: 选中员工后,平滑滚动到密码框并聚焦
+  // 选中员工后调试输出 + 兜底聚焦
   useEffect(() => {
-    if (selectedId && passwordSectionRef.current) {
-      // 等 DOM 渲染完成
-      requestAnimationFrame(() => {
-        passwordSectionRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        });
-        // 再次确保聚焦(autoFocus 可能在某些浏览器里不生效)
-        setTimeout(() => passwordInputRef.current?.focus(), 350);
-      });
+    if (selectedId) {
+      console.log('[fix46] 选中员工:', selectedId, '· 弹出密码 Modal');
+      setTimeout(() => passwordInputRef.current?.focus(), 100);
     }
   }, [selectedId]);
   
@@ -1198,69 +1191,83 @@ const LoginScreen = ({ employees, onLogin }) => {
           )}
         </div>
 
-        {/* Password */}
+        {/* 🆕 fix46: 密码改用居中 Modal — 无论员工列表多长都能看到,不需要滚动 */}
         {sel && (
-          <div ref={passwordSectionRef} style={{
-            padding:'0 48px 40px', borderTop:'1px solid var(--line)', paddingTop:'28px',
-            /* 🆕 fix44: 蓝色脉动光晕,引导视线 */
-            animation: 'pulse-ring 1.4s ease-out 1',
-          }}>
-            <div style={{display:'flex', alignItems:'center', gap:'14px', marginBottom:'18px'}}>
-              <div className="emp-avatar-lg" style={{background:colorOf(sel.id), width:48, height:48, fontSize:18, margin:0}}>
-                {(sel.name || '?').slice(-1)}
-              </div>
-              <div>
-                <div style={{fontSize:'17px', fontWeight:500, color:'var(--ink)', letterSpacing:'-.003em'}}>
-                  欢迎，{sel.name}{sel.alias && ` ${sel.alias}`}
+          <div
+            className="login-pwd-backdrop"
+            onClick={() => { setSelectedId(''); setPassword(''); setError(''); }}
+            style={{
+              position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:10000,
+              display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+              animation:'fade-in .2s ease-out',
+            }}
+          >
+            <div
+              className="login-pwd-modal"
+              onClick={e => e.stopPropagation()}
+              ref={passwordSectionRef}
+              style={{
+                background:'white', borderRadius:18, maxWidth:400, width:'100%',
+                padding:'28px 32px', boxShadow:'0 20px 60px rgba(0,0,0,.25)',
+                animation:'slide-up .25s ease-out',
+              }}
+            >
+              <div style={{display:'flex', alignItems:'center', gap:14, marginBottom:18}}>
+                <div className="emp-avatar-lg" style={{background:colorOf(sel.id), width:54, height:54, fontSize:20, margin:0}}>
+                  {(sel.name || '?').slice(-1)}
                 </div>
-                <div style={{fontSize:'13px', color:'var(--ink-3)'}}>
-                  {sel.role === 'super_admin' ? `👑 ${sel.title || '客服部总管 · 拥有全部权限'}` :
-                   sel.role === 'admin' ? `⭐ ${sel.title || '主管账号'}` :
-                   sel.role === 'finance' ? `💰 ${sel.title || '财务账号'}` :
-                   '员工账号'}
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{fontSize:18, fontWeight:600, color:'var(--ink)', letterSpacing:'-.022em'}}>
+                    欢迎,{sel.name}{sel.alias && ` ${sel.alias}`}
+                  </div>
+                  <div style={{fontSize:13, color:'var(--ink-3)', marginTop:2}}>
+                    {sel.role === 'super_admin' ? `👑 ${sel.title || '客服部总管'}` :
+                     sel.role === 'admin' ? `⭐ ${sel.title || '主管账号'}` :
+                     sel.role === 'finance' ? `💰 ${sel.title || '财务账号'}` :
+                     sel.title || '员工账号'}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* 🆕 fix44: 大字号提示输入密码 */}
-            <div style={{fontSize:'13px', color:'var(--accent)', fontWeight:600, marginBottom:'8px', display:'flex', alignItems:'center', gap:'6px'}}>
-              <span>👇 在下方输入密码继续</span>
-            </div>
-            <input
-              ref={passwordInputRef}
-              type="password"
-              value={password}
-              onChange={e => { setPassword(e.target.value); setError(''); }}
-              onKeyDown={e => e.key === 'Enter' && tryLogin()}
-              placeholder="输入密码"
-              autoFocus
-              className={error ? 'input-error' : ''}
-              style={{fontSize:'15px', padding:'12px 16px', borderRadius:'12px'}}
-            />
+              <label style={{display:'block', fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>密码</label>
+              <input
+                ref={passwordInputRef}
+                type="password"
+                value={password}
+                onChange={e => { setPassword(e.target.value); setError(''); }}
+                onKeyDown={e => e.key === 'Enter' && tryLogin()}
+                placeholder="输入密码"
+                autoFocus
+                className={error ? 'input-error' : ''}
+                style={{fontSize:15, padding:'12px 14px', borderRadius:10, width:'100%', border:'1px solid var(--line)', outline:'none', fontFamily:'inherit'}}
+              />
 
-            {error && (
-              <div className="fade-in" style={{
-                marginTop:'12px', padding:'10px 14px', borderRadius:'10px',
-                background:'#fef2f2', border:'1px solid #fca5a5',
-                fontSize:'13px', color:'#991b1b', fontWeight:600,
-                display:'flex', alignItems:'center', gap:8,
-              }}>
-                <span style={{fontSize:16}}>⚠️</span>
-                <span>{error}</span>
+              {error && (
+                <div className="fade-in" style={{
+                  marginTop:12, padding:'10px 14px', borderRadius:10,
+                  background:'#fef2f2', border:'1px solid #fca5a5',
+                  fontSize:13, color:'#991b1b', fontWeight:600,
+                  display:'flex', alignItems:'center', gap:8,
+                }}>
+                  <span style={{fontSize:16}}>⚠️</span>
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div style={{display:'flex', gap:10, marginTop:18}}>
+                <button className="btn-sec" onClick={() => { setSelectedId(''); setPassword(''); setError(''); }}
+                  style={{padding:'11px 18px', fontSize:14}}>
+                  取消
+                </button>
+                <button className="btn-pri" onClick={tryLogin}
+                  style={{flex:1, padding:'11px 24px', fontSize:15, fontWeight:600}}>
+                  继续 →
+                </button>
               </div>
-            )}
 
-            <div style={{display:'flex', gap:'10px', marginTop:'18px', alignItems:'center'}}>
-              <button className="btn-pri" onClick={tryLogin} style={{flex:1, padding:'12px 24px', fontSize:'15px', fontWeight:500}}>
-                继续 →
-              </button>
-              <button className="btn-sec" onClick={() => { setSelectedId(''); setPassword(''); setError(''); }}>
-                取消
-              </button>
-            </div>
-
-            <div style={{marginTop:'14px', fontSize:'12px', color:'var(--ink-4)', textAlign:'center'}}>
-              默认密码：主管 admin123 · 员工 123456
+              <div style={{marginTop:14, fontSize:11, color:'var(--ink-4)', textAlign:'center'}}>
+                默认密码:主管 admin123 · 员工 123456
+              </div>
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 使用手册 + 🎯 App 主入口 (含 fix28-31 累积修复)
-// 拆自 workspace.html · 原始行号 22770-24932
+// 📖 使用手册 + 🎯 App 主入口 (fix45 返回拦截 + fix46 版本 update)
+// 拆自 workspace.html · 行号自动
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -1438,6 +1438,26 @@ const App = () => {
     // 登录后若用户尚未做选择，温和地引导一次（不强弹，由用户主动点）
   };
 
+  // 🆕 fix45: 登录后注册"返回拦截器",防止误触浏览器返回退出工作台
+  useEffect(() => {
+    if (!user) return;
+    // 登录后,history 加一个标记 entry,这样按返回会触发我们的 popstate handler
+    if (!window.history.state || !window.history.state._wsGuard) {
+      window.history.pushState({ _wsGuard: true }, '', window.location.href);
+    }
+    const onPop = (e) => {
+      // 弹原生 confirm:留在工作台 OR 真的离开
+      const stay = !confirm('确定要离开工作台?\n\n(账号仍是登录状态,下次打开会自动恢复)');
+      if (stay) {
+        // 用户选"取消" → 再 push 一个 entry 回来,留在原页
+        window.history.pushState({ _wsGuard: true }, '', window.location.href);
+      }
+      // 用户选"确定" → 不阻止,浏览器继续导航走
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [user]);
+
   const onLogout = () => {
     if (!confirm('确认退出登录？')) return;
     setUser(null);
@@ -1922,7 +1942,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.26-fix32';
+const APP_VERSION = '2026.05.27-fix46';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
