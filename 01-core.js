@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心(含 fix46 登录密码 Modal) · 含 fix28-46 全部累积修复
-// APP_VERSION: 2026.05.27-fix46 · 拆自 workspace.html 行号 467-2158
+// 🧱 核心 + LoginScreen + wtkpi(fix49) · 含 fix28-49
+// APP_VERSION: 2026.05.27-fix49 · 行号 467-2296
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -485,6 +485,144 @@ const getCdmClient = () => {
     return _cdmClient;
   } catch (e) { console.error('[CDM] 初始化消息总线 client 失败', e); return null; }
 };
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix49: WorkTrack-KPI 跨系统 client(对接拍摄部 photo_logs 表)
+// 配置从 localStorage 读取(由 ⚙ 设置中心写入)
+// URL + Anon Key 由美工部门提供
+// ════════════════════════════════════════════════════════════════════
+let _wtkpiClient = null;
+let _wtkpiClientKey = null;  // 用于检测配置变化
+const getWtkpiClient = () => {
+  const url = (typeof localStorage !== 'undefined' && localStorage.getItem('wtkpi_url')) || '';
+  const key = (typeof localStorage !== 'undefined' && localStorage.getItem('wtkpi_key')) || '';
+  if (!url || !key) return null;
+  const cacheKey = url + '|' + key;
+  if (_wtkpiClient && _wtkpiClientKey === cacheKey) return _wtkpiClient;
+  if (typeof window === 'undefined' || !window.supabase) return null;
+  try {
+    _wtkpiClient = window.supabase.createClient(url, key);
+    _wtkpiClientKey = cacheKey;
+    return _wtkpiClient;
+  } catch (e) {
+    console.error('[WTKPI] 初始化拍摄部 client 失败', e);
+    return null;
+  }
+};
+const isWtkpiConfigured = () => {
+  const url = (typeof localStorage !== 'undefined' && localStorage.getItem('wtkpi_url')) || '';
+  const key = (typeof localStorage !== 'undefined' && localStorage.getItem('wtkpi_key')) || '';
+  return !!(url && key);
+};
+
+// 🆕 fix49: 上传图片到 WorkTrack-KPI Storage `attachments` bucket,自动压缩 < 1600px
+async function uploadAttachmentToWtkpi(file) {
+  const client = getWtkpiClient();
+  if (!client) throw new Error('拍摄部 Supabase 未配置 — 请进 ⚙ 设置中心配置');
+  // 自动压缩到 1600px 宽(节省 storage)
+  const compressed = await compressImageForUpload(file, 1600, 0.85);
+  const ext = (file.name || 'img.png').split('.').pop() || 'png';
+  const path = `cs-requests/${Date.now()}-${crypto.randomUUID().slice(0,8)}.${ext}`;
+  const { error } = await client.storage.from('attachments').upload(path, compressed, {
+    upsert: false,
+    contentType: compressed.type || file.type || 'image/jpeg',
+  });
+  if (error) throw error;
+  const { data:{ publicUrl } } = client.storage.from('attachments').getPublicUrl(path);
+  return {
+    name: file.name || 'screenshot.png',
+    url: publicUrl,
+    uploaded_at_ms: Date.now(),
+  };
+}
+
+// 🆕 fix49: 通用图片压缩(类似 quotation 的 compressImageFile,但通用)
+async function compressImageForUpload(file, maxWidth, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = h * maxWidth / w; w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(blob => {
+          if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+          else reject(new Error('压缩失败'));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => reject(new Error('图片加载失败'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('文件读取失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// 🆕 fix49: 提交一个拍摄需求 — 写入 photo_logs 表
+async function submitPhotoRequest({ productName, sku, productImage, applicableShops,
+                                     currentUser, reason, urgency, attachments, externalRefId }) {
+  const client = getWtkpiClient();
+  if (!client) throw new Error('拍摄部 Supabase 未配置');
+  const now = Date.now();
+  const row = {
+    id: crypto.randomUUID(),  // 🚨 关键:必须 UUID,不能用短串
+    product_name: productName,
+    sku: sku || null,
+    product_image: productImage || null,
+    applicable_shops: applicableShops || [],
+    product_type: '客服需求',
+    product_notes: null,
+    status: 'draft',
+    priority: urgency === 'urgent' ? 'urgent' : 'normal',
+    notes: null,
+    external_request: {
+      source: '客服',
+      from_name: currentUser.name + (currentUser.alias ? ' ' + currentUser.alias : ''),
+      from_user_id: currentUser.id,
+      from_dept: '客服部',
+      reason: reason,
+      urgency: urgency || 'normal',
+      attachments: attachments || [],
+      created_at_ms: now,
+      external_ref_id: externalRefId || null,
+    },
+    // 🚨 关键:NOT NULL 审计字段,不能漏
+    created_by_id: currentUser.id,
+    created_by_name: currentUser.name + (currentUser.alias ? ' ' + currentUser.alias : ''),
+    created_at_ms: now,
+    updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await client.from('photo_logs').insert(row).select().single();
+  if (error) throw error;
+  return data;
+}
+
+// 🆕 fix49: 列出当前用户提的所有需求 / 全部需求(主管视角)
+async function listPhotoRequests({ myUserId, allRequests }) {
+  const client = getWtkpiClient();
+  if (!client) return [];
+  let q = client.from('photo_logs').select('*').order('created_at_ms', { ascending: false });
+  if (myUserId && !allRequests) {
+    q = q.eq('external_request->>from_user_id', myUserId);
+  } else if (allRequests) {
+    q = q.in('external_request->>source', ['客服', '跟单']);
+  }
+  const { data, error } = await q;
+  if (error) { console.error('[WTKPI] 拉需求列表失败', error); return []; }
+  return data || [];
+}
+
+// 暴露到 window,方便 React 组件调用
+if (typeof window !== 'undefined') {
+  window.getWtkpiClient = getWtkpiClient;
+  window.isWtkpiConfigured = isWtkpiConfigured;
+  window.uploadAttachmentToWtkpi = uploadAttachmentToWtkpi;
+  window.submitPhotoRequest = submitPhotoRequest;
+  window.listPhotoRequests = listPhotoRequests;
+}
 
 // ════════════════════════════════════════════════════════════════════
 // 🆕 v22-CY: 公司预设网站列表 (13 个 + 其他)

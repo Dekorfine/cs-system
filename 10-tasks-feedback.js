@@ -1,26 +1,8 @@
 // ════════════════════════════════════════════════════════════════════
-// 📌 任务分派 + 🐛 反馈 · 含 fix28-46 全部累积修复
-// APP_VERSION: 2026.05.27-fix46 · 拆自 workspace.html 行号 20587-22852
+// 📌 任务 + 🐛 反馈 · 含 fix28-49
+// APP_VERSION: 2026.05.27-fix49 · 行号 21311-23558
 // ════════════════════════════════════════════════════════════════════
 
-
-// ════════════════════════════════════════════════════════════════════
-// 📌 任务分派模块 (fix19) — 临时任务派给某人,主管看是否处理
-// 工作流: 创建者 → 派给 X → X 接手/标处理中 → 完成 · 主管全局可见 · Realtime 推送
-// ════════════════════════════════════════════════════════════════════
-const TASK_PRIORITIES = [
-  { id:'urgent', label:'🚨 紧急', desc:'立刻办', color:'#dc2626', bg:'#fee2e2' },
-  { id:'high',   label:'⚡ 重要', desc:'今天搞', color:'#d97706', bg:'#fef3c7' },
-  { id:'normal', label:'· 普通', desc:'近期完成', color:'#86868b', bg:'#f5f5f7' },
-  { id:'low',    label:'· 低',   desc:'有空再办', color:'#a8a8a8', bg:'#fafafa' },
-];
-const TASK_STATUSES = [
-  { id:'pending',     label:'⏳ 待处理',  color:'#d97706', bg:'#fef3c7' },
-  { id:'in_progress', label:'🔧 处理中',  color:'#0369a1', bg:'#dbeafe' },
-  { id:'done',        label:'✅ 已完成',  color:'#15803d', bg:'#dcfce7' },
-  { id:'blocked',     label:'⛔ 卡住',    color:'#dc2626', bg:'#fee2e2' },
-  { id:'cancelled',   label:'❌ 已取消',  color:'#86868b', bg:'#f5f5f7' },
-];
 const findTask = (arr, id) => arr.find(x => x.id === id) || arr[0];
 
 const TasksModule = ({ user, employees, toast }) => {

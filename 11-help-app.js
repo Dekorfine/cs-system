@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 使用手册 + 🎯 App 主入口 · 含 fix45 + fix46
-// APP_VERSION: 2026.05.27-fix46
+// 📖 使用手册 + 🎯 App(fix49 tab) · 含 fix28-49
+// APP_VERSION: 2026.05.27-fix49 · 行号 23559-25746
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -1375,6 +1375,7 @@ const App = () => {
       // 协作
       { key:'tasks',      label:'📌 任务分派', icon:'📌', group:'collab' },  // 🆕 fix19
       { key:'cross_dept', label:'📨 跨部门协作', icon:'📨', badge: cdmUnreadCount, badgeColor: cdmUrgentUnread > 0 ? '#dc2626' : '#0071e3', group:'collab' },
+      { key:'photo_requests', label:'📷 拍摄需求', icon:'📷', group:'collab' },  // 🆕 fix49
       { key:'briefings',  label:'📢 会议纪要',   icon:'📢', group:'collab' },
       // 🆕 fix11-hotfix4: 汇报工单已被跨部门协作取代,从导航中移除 (代码保留以防需要回滚)
       // 管理
@@ -1892,6 +1893,10 @@ const App = () => {
         {activeTab === 'tasks' && (
           <TasksModule user={user} employees={employees} toast={toast} />
         )}
+        {/* 🆕 fix49: 拍摄需求中心 */}
+        {activeTab === 'photo_requests' && (
+          <PhotoRequestsModule user={user} toast={toast} />
+        )}
         {/* 🆕 fix14: bug 反馈中心 */}
         {activeTab === 'feedback' && (
           <BugReportsModule user={user} employees={employees} toast={toast} />
@@ -1942,7 +1947,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.27-fix46';
+const APP_VERSION = '2026.05.27-fix49';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

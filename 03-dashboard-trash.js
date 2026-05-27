@@ -1,9 +1,7 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + 🗑 回收站 · 含 fix28-46 全部累积修复
-// APP_VERSION: 2026.05.27-fix46 · 拆自 workspace.html 行号 6264-8106
+// 📈 数据看板 + 🗑 回收站 · 含 fix28-49
+// APP_VERSION: 2026.05.27-fix49 · 行号 6404-8394
 // ════════════════════════════════════════════════════════════════════
-
-
 
 // ============================================================
 // 数据看板 - 当天/7天/本月
@@ -1844,5 +1842,155 @@ const ProductEditorModal = ({ product, suppliers, user, categories, onClose, onS
       </div>
     </div>,
     document.body
+  );
+};
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix49: 拍摄部对接配置 — WorkTrack-KPI Supabase URL + Anon Key
+// 由 Martin 提供;只有 super_admin / admin 能配置
+// 配置成功后,客服系统就能写入 WorkTrack-KPI 的 photo_logs 表
+// ════════════════════════════════════════════════════════════════════
+const WtkpiConfigSection = ({ user, toast }) => {
+  const isAdmin = user.role === 'super_admin' || user.role === 'admin';
+  const [url, setUrl] = useState(() => localStorage.getItem('wtkpi_url') || '');
+  const [key, setKey] = useState(() => localStorage.getItem('wtkpi_key') || '');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+  const [showKey, setShowKey] = useState(false);
+
+  const save = () => {
+    if (!isAdmin) { toast('只有主管才能配置'); return; }
+    if (!url.trim() || !key.trim()) { toast('请填写完整 URL 和 Key'); return; }
+    if (!/^https:\/\/[\w-]+\.supabase\.co\/?$/.test(url.trim())) {
+      if (!confirm('URL 格式好像不对(应该像 https://xxxx.supabase.co),继续保存?')) return;
+    }
+    localStorage.setItem('wtkpi_url', url.trim());
+    localStorage.setItem('wtkpi_key', key.trim());
+    toast('✓ 已保存到本机');
+    setTestResult(null);
+  };
+
+  const testConnection = async () => {
+    if (!url.trim() || !key.trim()) { toast('请先填写 URL 和 Key'); return; }
+    // 临时存,让 getWtkpiClient 用最新的
+    localStorage.setItem('wtkpi_url', url.trim());
+    localStorage.setItem('wtkpi_key', key.trim());
+    // 清掉缓存的 client 实例,强制重建
+    if (typeof window !== 'undefined') {
+      window._wtkpiClient = null;
+    }
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const client = window.getWtkpiClient();
+      if (!client) throw new Error('client 初始化失败');
+      // 尝试读 photo_logs 表(只取 1 行)
+      const { data, error } = await client.from('photo_logs').select('id, status').limit(1);
+      if (error) throw error;
+      setTestResult({ ok: true, msg: `连接成功 ✓ 表里有 ${data?.length || 0} 条样本数据可读` });
+    } catch (e) {
+      setTestResult({ ok: false, msg: '连接失败:' + (e.message || JSON.stringify(e)) });
+    }
+    setTesting(false);
+  };
+
+  const clear = () => {
+    if (!confirm('确认清除拍摄部 Supabase 配置?')) return;
+    localStorage.removeItem('wtkpi_url');
+    localStorage.removeItem('wtkpi_key');
+    setUrl(''); setKey(''); setTestResult(null);
+    toast('已清除');
+  };
+
+  return (
+    <div className="paper rounded-2xl p-6">
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:8}}>
+        <span style={{fontSize:24}}>📨</span>
+        <div>
+          <div className="font-display" style={{fontSize:18, fontWeight:600, letterSpacing:'-.022em'}}>拍摄部对接配置</div>
+          <div style={{fontSize:13, color:'var(--ink-3)'}}>对接 WorkTrack-KPI 系统的 <code className="font-mono">photo_logs</code> 表</div>
+        </div>
+      </div>
+
+      <div className="rounded-lg p-3 mt-4" style={{background:'var(--accent-soft)', color:'var(--accent)', fontSize:13, lineHeight:1.65}}>
+        <strong>📋 配置步骤:</strong><br/>
+        1. Martin / 拍摄部主管登录 WorkTrack-KPI 的 Supabase Dashboard<br/>
+        2. Project Settings → API → 复制 <strong>URL</strong> 和 <strong>anon public key</strong><br/>
+        3. 把两个值发给你 → 粘贴到下方<br/>
+        4. 点 <strong>🔍 测试连接</strong> 验证 → 通过后 <strong>💾 保存</strong>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 mt-5">
+        <div>
+          <label className="block mb-1.5" style={{fontSize:12, fontWeight:600, color:'var(--ink-2)'}}>
+            Supabase URL <span style={{color:'var(--bad)'}}>*</span>
+          </label>
+          <input
+            type="text"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            placeholder="https://xxxxxxxxxxxx.supabase.co"
+            disabled={!isAdmin}
+            className="font-mono w-full"
+            style={{fontSize:13, padding:'10px 12px', border:'1px solid var(--line)', borderRadius:10, background: isAdmin ? 'white' : 'var(--bg-elevated)'}}
+          />
+        </div>
+        <div>
+          <label className="block mb-1.5" style={{fontSize:12, fontWeight:600, color:'var(--ink-2)'}}>
+            Anon Public Key <span style={{color:'var(--bad)'}}>*</span>
+            <button onClick={() => setShowKey(!showKey)} style={{background:'none', border:'none', color:'var(--accent)', fontSize:11, marginLeft:8, cursor:'pointer'}}>
+              {showKey ? '👁 隐藏' : '👁 显示'}
+            </button>
+          </label>
+          <textarea
+            value={key}
+            onChange={e => setKey(e.target.value)}
+            placeholder="eyJhbGc...(长 JWT 字符串,带 .eyJ. 中段的那种)"
+            disabled={!isAdmin}
+            rows={3}
+            className="font-mono w-full"
+            style={{
+              fontSize:12, padding:'10px 12px', border:'1px solid var(--line)', borderRadius:10,
+              background: isAdmin ? 'white' : 'var(--bg-elevated)',
+              fontFamily:'inherit',
+              filter: showKey ? 'none' : 'blur(4px)',
+              transition: 'filter .2s'
+            }}
+          />
+        </div>
+      </div>
+
+      {testResult && (
+        <div className="rounded-lg p-3 mt-4" style={{
+          background: testResult.ok ? 'var(--good-soft)' : 'var(--bad-soft)',
+          color: testResult.ok ? 'var(--good)' : 'var(--bad)',
+          fontSize:13, fontWeight:500,
+        }}>
+          {testResult.ok ? '✓ ' : '✗ '}{testResult.msg}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div style={{display:'flex', gap:8, marginTop:18, flexWrap:'wrap'}}>
+          <button className="btn-sec" onClick={testConnection} disabled={testing}>
+            {testing ? '⏳ 测试中…' : '🔍 测试连接'}
+          </button>
+          <button className="btn-pri" onClick={save}>💾 保存</button>
+          <button className="btn-ghost" onClick={clear} style={{color:'var(--bad)'}}>清除配置</button>
+        </div>
+      )}
+
+      {!isAdmin && (
+        <div className="rounded-lg p-3 mt-4" style={{background:'var(--bg-elevated)', fontSize:12, color:'var(--ink-3)'}}>
+          🔒 只有主管/总管能配置。如果遇到拍摄需求功能不能用,联系 Miya / Nicole 配置。
+        </div>
+      )}
+
+      <div className="rounded-lg p-3 mt-3" style={{background:'#fef3c7', fontSize:12, color:'#92400e', lineHeight:1.65}}>
+        <strong>🔐 安全说明:</strong>这个 Key 保存在你的浏览器 localStorage 里(不传到云端)。
+        <strong>每个人都要自己配一次</strong>(或者主管登录每台电脑配一次)。
+        <strong>推荐用 anon key(配合 RLS 策略)</strong>,不要用 service_role key,泄露后果严重。
+      </div>
+    </div>
   );
 };

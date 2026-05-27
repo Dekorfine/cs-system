@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// ⚙ 设置中心 + 🧮 财务计算器 · 含 fix28-46 全部累积修复
-// APP_VERSION: 2026.05.27-fix46 · 拆自 workspace.html 行号 8107-9613
+// ⚙ 设置(WtkpiConfig fix49)+ 🧮 财务 · 含 fix28-49
+// APP_VERSION: 2026.05.27-fix49 · 行号 8395-9908
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -184,6 +184,8 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
           <span style={{fontSize:10, fontWeight:700, color:'var(--ink-4)', marginRight:4, letterSpacing:'.5px'}}>系统</span>
           <button className={`tab-btn ${section==='cloud'?'active':''}`} onClick={() => setSection('cloud')}>☁ 云同步</button>
           <button className={`tab-btn ${section==='gemini'?'active':''}`} onClick={() => setSection('gemini')}>✨ Gemini AI</button>
+          {/* 🆕 fix49: 拍摄部对接配置 */}
+          <button className={`tab-btn ${section==='wtkpi'?'active':''}`} onClick={() => setSection('wtkpi')}>📨 拍摄部对接</button>
         </div>
       </div>
       
@@ -281,6 +283,11 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
             <strong>💡 谁来配置？</strong>建议**只让主管 Miya 配置一次**——配好后全团队所有人在知识库点击 "用 Gemini 改写" 都能立即使用，无需各自配置。
           </div>
         </div>
+      )}
+
+      {/* 🆕 fix49: 拍摄部对接配置 (WorkTrack-KPI Supabase) */}
+      {section === 'wtkpi' && (
+        <WtkpiConfigSection user={user} toast={toast} />
       )}
 
       {section === 'employees' && (
