@@ -65,6 +65,22 @@ function getLampType(item) {
 const DECLARE = { unitPriceEach: 500, hsCode: '9405100000', material: 'Plastic + metal', usage: 'illuminating' };
 const CHANNELS = ['美森加班海运小包', '美森普通海运小包'];
 
+// 店铺识别:优先用表字段,否则从订单号字母前缀推断
+const SHOP_PREFIX_MAP = {
+  VK: 'Vakkerlight', RD: 'Radilum', ML: 'Mooielight', MO: 'Mooielight',
+  MJ: 'Mooijane', DC: 'Docos.us', DF: 'Dekorfine', LS: 'Lumioshine',
+  RS: 'Rayonshine', MH: 'Mooiehome', PL: 'Pinlighting', K: 'Mooiehome',
+};
+function getStore(o, orderNumber) {
+  const direct = o.store_name || o.store || o.shop_name || o.shop || o.shop_domain;
+  if (direct) return String(direct).replace(/\.myshopify\.com$/, '');
+  const oid = o.shopify_order_id || '';
+  if (/^woo-/.test(oid)) { const p = oid.split('-'); if (p[1]) return p[1]; }
+  const m = (orderNumber || '').match(/^([A-Za-z]+)/);
+  if (m) { const pre = m[1].toUpperCase(); return SHOP_PREFIX_MAP[pre] || pre; }
+  return '未知';
+}
+
 function parseOrder(o) {
   let addr = o.shipping_address;
   if (typeof addr === 'string') { try { addr = JSON.parse(addr); } catch { addr = {}; } }
@@ -77,6 +93,7 @@ function parseOrder(o) {
       lampEn: lt.en, lampCn: lt.cn, spec: it.variant_title || '' };
   });
   return { orderId: o.shopify_order_id, orderNumber: o.shopify_order_number || o.shopify_order_id, platform: o.platform,
+    store: getStore(o, o.shopify_order_number || o.shopify_order_id),
     customerName: o.customer_name, customerEmail: o.customer_email, customerPhone: o.customer_phone,
     address: addr || {}, items, createdAt: o.shopify_created_at, total: o.total_price, currency: o.currency };
 }
@@ -136,6 +153,7 @@ function MakeInvoice() {
   const [conn, setConn] = useState('loading');
   const [err, setErr] = useState('');
   const [tickets, setTickets] = useState([]);
+  const [storeFilter, setStoreFilter] = useState('all');  // 🆕 店铺筛选
 
   const handleErr = (e) => {
     setConn('fail');
@@ -150,7 +168,7 @@ function MakeInvoice() {
     if (!c) { setConn('fail'); setErr('Supabase 初始化失败'); return; }
     setLoading(true); setErr('');
     try {
-      const { data, error } = await c.from('shopify_orders').select('*').order('shopify_created_at', { ascending: false }).limit(50);
+      const { data, error } = await c.from('shopify_orders').select('*').order('shopify_created_at', { ascending: false }).limit(100);
       if (error) throw error;
       setConn('ok'); setOrders((data || []).map(parseOrder));
     } catch (e) { handleErr(e); }
@@ -159,26 +177,44 @@ function MakeInvoice() {
   useEffect(() => { loadRecent(); }, []);
 
   const doSearch = async () => {
-    const nums = search.split(/[\s,;，；\n\r]+/).map(s => s.trim()).filter(Boolean);
+    const raw = search.trim();
     const c = getClient();
     if (!c) { setConn('fail'); return; }
     setLoading(true); setErr('');
     try {
       let q = c.from('shopify_orders').select('*');
-      if (nums.length > 0) {
-        q = q.or(nums.map(n => `shopify_order_number.eq.${n},shopify_order_id.eq.${n}`).join(','));
+      if (raw) {
+        const nums = raw.split(/[\s,;，；\n\r]+/).map(s => s.trim()).filter(Boolean);
+        if (nums.length > 1) {
+          // 多个 → 当订单号批量精确查
+          q = q.or(nums.map(n => `shopify_order_number.eq.${n},shopify_order_id.eq.${n}`).join(','));
+        } else {
+          // 单个 → 订单号 / 客户名 / 邮箱 模糊查
+          const k = nums[0];
+          q = q.or(`shopify_order_number.ilike.%${k}%,shopify_order_id.ilike.%${k}%,customer_name.ilike.%${k}%,customer_email.ilike.%${k}%`).limit(100);
+        }
       } else {
-        q = q.order('shopify_created_at', { ascending: false }).limit(50);
+        q = q.order('shopify_created_at', { ascending: false }).limit(100);
       }
       const { data, error } = await q;
       if (error) throw error;
       setConn('ok');
       const parsed = (data || []).map(parseOrder);
       setOrders(parsed);
-      if (nums.length > 0 && parsed.length === 0) setErr('未找到这些订单号');
+      if (raw && parsed.length === 0) setErr('未找到匹配的订单(可搜订单号 / 客户名 / 邮箱)');
     } catch (e) { handleErr(e); }
     setLoading(false);
   };
+
+  // 🆕 店铺列表(从已加载订单提取)+ 店铺筛选
+  const storeList = useMemo(() => {
+    const counts = {};
+    orders.forEach(o => { counts[o.store] = (counts[o.store] || 0) + 1; });
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  }, [orders]);
+  const visibleOrders = useMemo(() =>
+    storeFilter === 'all' ? orders : orders.filter(o => o.store === storeFilter),
+    [orders, storeFilter]);
 
   const assignedLineIds = useMemo(() => {
     const s = new Set(); tickets.forEach(t => t.items.forEach(it => s.add(it.lineId))); return s;
@@ -226,9 +262,9 @@ function MakeInvoice() {
             </select></div>
           <div><label className="muted" style={{display:'block', marginBottom:4}}>日期</label>
             <input type="date" className="inp" style={{width:150}} value={dateStr} onChange={e => setDateStr(e.target.value)} /></div>
-          <div style={{flex:1, minWidth:220}}><label className="muted" style={{display:'block', marginBottom:4}}>搜订单号(留空 = 显示最近订单)</label>
+          <div style={{flex:1, minWidth:220}}><label className="muted" style={{display:'block', marginBottom:4}}>搜索(订单号 / 客户名 / 邮箱 · 留空=最近订单)</label>
             <div style={{display:'flex', gap:6}}>
-              <input className="inp" value={search} onChange={e => setSearch(e.target.value)} placeholder="XM8T31234602 / VK116373 ..." onKeyDown={e => e.key === 'Enter' && doSearch()} />
+              <input className="inp" value={search} onChange={e => setSearch(e.target.value)} placeholder="XM8T31234602 / Karen / xxx@gmail.com" onKeyDown={e => e.key === 'Enter' && doSearch()} />
               <button className="btn-pri btn" onClick={doSearch} disabled={loading} style={{whiteSpace:'nowrap'}}>{loading ? '⏳' : '🔍 搜索'}</button>
             </div></div>
           <div style={{alignSelf:'flex-end'}}>
@@ -244,13 +280,23 @@ function MakeInvoice() {
         <div className="card">
           <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
             <strong style={{fontSize:15}}>📦 订单列表</strong>
-            <span className="muted">{orders.length} 单 · 同一订单可拆多票</span>
+            <span className="muted">{visibleOrders.length}/{orders.length} 单 · 同一订单可拆多票</span>
             <div style={{flex:1}}/>
-            <button className="btn btn-sm" onClick={loadRecent}>🔄 刷新最近</button>
+            <button className="btn btn-sm" onClick={loadRecent}>🔄 刷新(取跟单最新同步)</button>
           </div>
+          {/* 🆕 店铺筛选 */}
+          {storeList.length > 1 && (
+            <div style={{display:'flex', gap:6, marginBottom:12, flexWrap:'wrap', alignItems:'center'}}>
+              <span className="muted" style={{whiteSpace:'nowrap'}}>🏪 店铺:</span>
+              <button className="btn btn-sm" style={storeFilter === 'all' ? {background:'#0071e3', color:'white', borderColor:'#0071e3'} : {}} onClick={() => setStoreFilter('all')}>全部 ({orders.length})</button>
+              {storeList.map(([s, n]) => (
+                <button key={s} className="btn btn-sm" style={storeFilter === s ? {background:'#0071e3', color:'white', borderColor:'#0071e3'} : {}} onClick={() => setStoreFilter(s)}>{s} ({n})</button>
+              ))}
+            </div>
+          )}
           {loading && <div style={{padding:30, textAlign:'center', color:'#86868b'}}>⏳ 加载中…</div>}
-          {!loading && orders.length === 0 && <div style={{padding:30, textAlign:'center', color:'#86868b'}}>{conn === 'fail' ? '连不上订单库,见上方提示' : '暂无订单'}</div>}
-          {orders.map(o => <OrderCard key={o.orderId} order={o} assignedLineIds={assignedLineIds}
+          {!loading && visibleOrders.length === 0 && <div style={{padding:30, textAlign:'center', color:'#86868b'}}>{conn === 'fail' ? '连不上订单库,见上方提示' : '该店铺暂无订单'}</div>}
+          {visibleOrders.map(o => <OrderCard key={o.orderId} order={o} assignedLineIds={assignedLineIds}
             onWhole={() => addWholeOrder(o)} onPartial={(ids) => addPartialTicket(o, ids)} />)}
         </div>
 
@@ -322,6 +368,7 @@ function OrderCard({ order, assignedLineIds, onWhole, onPartial }) {
     <div className="order-card" style={{opacity: allAssigned ? 0.6 : 1}}>
       <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:6}}>
         <strong style={{fontSize:14}}>🧾 {order.orderNumber}</strong>
+        <span className="pill" style={{background:'#e0f2fe', color:'#075985'}}>🏪 {order.store}</span>
         <span className="pill" style={{background:'#eef2ff', color:'#4338ca'}}>{order.platform || '?'}</span>
         {multi && <span className="pill" style={{background:'#fef9c3', color:'#854d0e'}}>{order.items.length} 个产品</span>}
         {allAssigned && <span className="pill" style={{background:'#dcfce7', color:'#15803d'}}>✓ 已加入</span>}
