@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>快递发票制作</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #fafafa; color: #1d1d1f;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; font-size: 13px;
+  }
+  .topbar {
+    display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+    background: white; border-bottom: 1px solid #e5e5e7; position: sticky; top: 0; z-index: 50;
+  }
+  .topbar .title { font-weight: 600; font-size: 15px; letter-spacing: -.022em; margin-right: auto; }
+  .wrap { padding: 16px; max-width: 1400px; margin: 0 auto; }
+  .card { background: white; border: 1px solid #e5e5e7; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .btn { padding: 7px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: inherit; border: 1px solid #e5e5e7; background: white; color: #424245; font-weight: 500; }
+  .btn:hover { background: #f5f5f7; }
+  .btn-pri { background: #0071e3; color: white; border-color: #0071e3; }
+  .btn-pri:hover { background: #0066cc; }
+  .btn-pri:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-good { background: #34c759; color: white; border-color: #34c759; }
+  .btn-good:hover { filter: brightness(.95); }
+  input, select, textarea { font-family: inherit; font-size: 13px; }
+  .inp { padding: 7px 10px; border: 1px solid #d2d2d7; border-radius: 8px; width: 100%; }
+  .tab-btn { padding: 8px 16px; border-radius: 10px; border: none; background: transparent; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 500; color: #86868b; }
+  .tab-btn.active { background: #0071e3; color: white; }
+  .pill { padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; display: inline-block; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { border: 1px solid #e5e5e7; padding: 5px 7px; text-align: left; white-space: nowrap; }
+  th { background: #f5f5f7; font-weight: 600; position: sticky; top: 0; }
+  td input { border: 1px solid transparent; background: transparent; padding: 3px 5px; border-radius: 5px; width: 100%; min-width: 60px; }
+  td input:focus { border-color: #0071e3; background: white; outline: none; }
+  td.req-missing input { background: #fef2f2; border-color: #fca5a5; }
+  .scroll-x { overflow-x: auto; border: 1px solid #e5e5e7; border-radius: 10px; }
+  .muted { color: #86868b; font-size: 12px; }
+  .status-dot { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 10px; border-radius:99px; font-weight:500; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="title">📦 快递发票制作</span>
+  <span id="conn-status"></span>
+</div>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+
+// ════════════════════════════════════════════════════════════════════
+// 订单数据源:跟单系统 Supabase(Martin 的主项目)
+// ════════════════════════════════════════════════════════════════════
+const ORDERS_URL = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co';
+const ORDERS_KEY = 'sb_publishable_dFjk1WN_Hc0Te6IhXZysZg_SXvKQU4C';
+let _ordersClient = null;
+const getOrdersClient = () => {
+  if (_ordersClient) return _ordersClient;
+  try { _ordersClient = window.supabase.createClient(ORDERS_URL, ORDERS_KEY); return _ordersClient; }
+  catch (e) { return null; }
+};
+
+// ════════════════════════════════════════════════════════════════════
+// 灯具类型映射(订单品名 → 中英文申报名)
+// ════════════════════════════════════════════════════════════════════
+function getLampType(item) {
+  const t = ((item.title || '') + ' ' + (item.variant_title || '')).toLowerCase();
+  if (/wall\s*(lamp|light|sconce)|sconce/.test(t)) return { en: 'Wall Lamp', cn: '壁灯' };
+  if (/pendant|chandelier|hanging|suspend/.test(t)) return { en: 'Pendant Lamp', cn: '吊灯' };
+  if (/table\s*(lamp|light)|desk/.test(t)) return { en: 'Table Lamp', cn: '台灯' };
+  if (/floor\s*(lamp|light)/.test(t)) return { en: 'Floor Lamp', cn: '落地灯' };
+  if (/ceiling|flush/.test(t)) return { en: 'Ceiling Lamp', cn: '吸顶灯' };
+  if (/bulb|accessor|part|cable|cord/.test(t)) return { en: 'Accessories', cn: '配件' };
+  return { en: 'Wall Lamp', cn: '壁灯' };  // 兜底
+}
+
+// 固定/默认申报值(从真实昌晖模板数据确认)
+const DECLARE = {
+  unitPriceEach: 500,            // 申报单价 = 500 × 数量
+  hsCode: '9405100000',
+  material: 'Plastic + metal',
+  usage: 'illuminating',
+};
+
+// 渠道枚举(从北简收货数据看到的真实渠道)
+const CHANNELS = ['美森加班海运小包', '美森普通海运小包'];
+
+// ════════════════════════════════════════════════════════════════════
+// 昌晖 73 列模板配置
+// ════════════════════════════════════════════════════════════════════
+const CHANGHUI_HEADERS = [
+  '客户订单号（必填）','渠道必填）','目的国家（必填）','外包装件数（必填）','重量（必填）',
+  '收件人公司名','收件人姓名（必填）','收件人省州（必填）','收件人城市（必填）','收件人邮编（必填）',
+  '收件人地址（必填）','收件人门牌号','收件人电话（必填）','收件人传真','收件人邮箱','收件人证件类型',
+];
+// 产品块字段(每块11或12列):英/中/单价/数量/销售地址/HS/备注/SKU/材质/[个数]/规格/用途
+function buildProductBlockHeaders() {
+  const blocks = [];
+  for (let i = 1; i <= 5; i++) {
+    const base = [`英文申报品名${i}${i===1?'（必填）':''}`, `中文申报品名${i}${i===1?'（必填）':''}`,
+      `申报单价${i}${i===1?'（必填）':''}`, `申报数量${i}${i===1?'（必填）':''}`, `销售地址${i}`,
+      `海关货物编号${i}${i===1?'（必填）':''}`, `配货备注${i}`, `SKU${i}`, `材质${i}${i===1?'（必填）':''}`];
+    if (i === 1) base.push('个数');
+    base.push(`规格型号${i}${i===1?'（必填）':''}`, `用途${i}${i===1?'（必填）':''}`);
+    blocks.push(...base);
+  }
+  return blocks;
+}
+const CHANGHUI_ALL_HEADERS = [...CHANGHUI_HEADERS, ...buildProductBlockHeaders(), '运单备注'];
+
+const COURIER_TEMPLATES = {
+  changhui: { name: '昌晖', headers: CHANGHUI_ALL_HEADERS, productStart: 16, build: buildChanghuiRow },
+  // mingyang: { ... 后续补 },
+  // zhengshi: { ... 后续补 },
+};
+
+// 把一个 invoice 行对象转成昌晖 73 列数组
+function buildChanghuiRow(inv) {
+  const a = inv.address || {};
+  const row = new Array(CHANGHUI_ALL_HEADERS.length).fill('');
+  row[0] = inv.orderNumber;
+  row[1] = inv.channel || '';
+  row[2] = a.country_code || a.country || 'US';
+  row[3] = inv.packageCount || '';
+  row[4] = inv.weight || '';
+  row[6] = a.name || inv.customerName || '';
+  row[7] = a.province || '';
+  row[8] = a.city || '';
+  row[9] = { v: a.zip || '', t: 's' };  // 邮编当文本
+  row[10] = [a.address1, a.address2].filter(Boolean).join(' ');
+  row[12] = a.phone || inv.customerPhone || '';
+  row[14] = inv.customerEmail || '';
+  // 产品块
+  inv.items.slice(0, 5).forEach((it, bi) => {
+    const isFirst = bi === 0;
+    const start = 16 + (isFirst ? 0 : 12 + (bi - 1) * 11);
+    let c = start;
+    row[c++] = it.lampEn;
+    row[c++] = it.lampCn;
+    row[c++] = it.declarePrice;
+    row[c++] = it.quantity;
+    row[c++] = it.salesUrl || '';
+    row[c++] = DECLARE.hsCode;
+    row[c++] = '';  // 配货备注
+    row[c++] = it.sku || '';
+    row[c++] = DECLARE.material;
+    if (isFirst) row[c++] = it.quantity;  // 个数(仅块1有)
+    row[c++] = it.spec || '';
+    row[c++] = DECLARE.usage;
+  });
+  row[row.length - 1] = inv.prepNote || '';  // 运单备注
+  return row;
+}
+
+// 订单 → invoice 行对象
+function orderToInvoice(o) {
+  let addr = o.shipping_address;
+  if (typeof addr === 'string') { try { addr = JSON.parse(addr); } catch { addr = {}; } }
+  let items = o.line_items;
+  if (typeof items === 'string') { try { items = JSON.parse(items); } catch { items = []; } }
+  items = items || [];
+  return {
+    orderId: o.shopify_order_id,
+    orderNumber: o.shopify_order_number || o.shopify_order_id,
+    platform: o.platform,
+    customerName: o.customer_name,
+    customerEmail: o.customer_email,
+    customerPhone: o.customer_phone,
+    address: addr || {},
+    channel: '',
+    weight: '',
+    packageCount: 1,
+    prepNote: '',
+    items: items.map(it => {
+      const lt = getLampType(it);
+      const qty = it.quantity || 1;
+      return {
+        lampEn: lt.en, lampCn: lt.cn,
+        declarePrice: DECLARE.unitPriceEach * qty,  // 500 × 数量
+        quantity: qty, sku: it.sku || '',
+        spec: it.variant_title || '', salesUrl: '',
+      };
+    }),
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 主 App
+// ════════════════════════════════════════════════════════════════════
+function App() {
+  const [tab, setTab] = useState('make');  // make / reconcile
+  return (
+    <div className="wrap">
+      <div style={{display:'flex', gap:6, marginBottom:14}}>
+        <button className={`tab-btn ${tab==='make'?'active':''}`} onClick={() => setTab('make')}>📋 制作发票</button>
+        <button className={`tab-btn ${tab==='reconcile'?'active':''}`} onClick={() => setTab('reconcile')}>📥 收货对账</button>
+      </div>
+      {tab === 'make' ? <MakeInvoice /> : <Reconcile />}
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 节点②:制作发票
+// ────────────────────────────────────────────────────────────────────
+function MakeInvoice() {
+  const [courier, setCourier] = useState('changhui');
+  const [dateStr, setDateStr] = useState(new Date().toISOString().slice(0, 10));
+  const [searchInput, setSearchInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [invoices, setInvoices] = useState([]);   // 已套模板的 invoice 行
+  const [connState, setConnState] = useState('unknown'); // unknown/ok/fail
+  const [errMsg, setErrMsg] = useState('');
+
+  useEffect(() => {
+    const el = document.getElementById('conn-status');
+    if (el) {
+      if (connState === 'ok') el.innerHTML = '<span class="status-dot" style="background:#dcfce7;color:#15803d">● 订单库已连接</span>';
+      else if (connState === 'fail') el.innerHTML = '<span class="status-dot" style="background:#fee2e2;color:#b91c1c">● 订单库连接失败</span>';
+      else el.innerHTML = '';
+    }
+  }, [connState]);
+
+  const parseOrderNumbers = (txt) =>
+    txt.split(/[\s,;，；\n\r]+/).map(s => s.trim()).filter(Boolean);
+
+  const doSearch = async () => {
+    const nums = parseOrderNumbers(searchInput);
+    if (nums.length === 0) { alert('请输入订单号(支持逗号/空格/换行分隔)'); return; }
+    const client = getOrdersClient();
+    if (!client) { setErrMsg('Supabase client 初始化失败'); setConnState('fail'); return; }
+    setLoading(true); setErrMsg('');
+    try {
+      // 同时按 order_number 和 order_id 匹配
+      const { data, error } = await client
+        .from('shopify_orders')
+        .select('*')
+        .or(`shopify_order_number.in.(${nums.join(',')}),shopify_order_id.in.(${nums.join(',')})`);
+      if (error) throw error;
+      setConnState('ok');
+      const found = data || [];
+      const foundNums = new Set(found.map(o => o.shopify_order_number).concat(found.map(o => o.shopify_order_id)));
+      const missing = nums.filter(n => !foundNums.has(n));
+      const newInvoices = found.map(orderToInvoice);
+      // 合并(去重 by orderId)
+      setInvoices(prev => {
+        const map = new Map(prev.map(p => [p.orderId, p]));
+        newInvoices.forEach(inv => { if (!map.has(inv.orderId)) map.set(inv.orderId, inv); });
+        return Array.from(map.values());
+      });
+      if (missing.length > 0) setErrMsg(`未找到 ${missing.length} 个订单:${missing.join(', ')}`);
+    } catch (e) {
+      setConnState('fail');
+      const m = e.message || String(e);
+      if (/permission|RLS|policy|JWT|401|Bad credentials/i.test(m)) {
+        setErrMsg('读取订单被拒(RLS 权限):客服 anon key 无权读 shopify_orders。请找 Martin 给客服开只读策略,或走跟单 Edge Function 代理。原始错误:' + m);
+      } else {
+        setErrMsg('搜索失败:' + m);
+      }
+    }
+    setLoading(false);
+  };
+
+  const updateInvoice = (orderId, patch) =>
+    setInvoices(prev => prev.map(inv => inv.orderId === orderId ? { ...inv, ...patch } : inv));
+  const updateItem = (orderId, itemIdx, patch) =>
+    setInvoices(prev => prev.map(inv => inv.orderId !== orderId ? inv :
+      { ...inv, items: inv.items.map((it, i) => i === itemIdx ? { ...it, ...patch } : it) }));
+  const removeInvoice = (orderId) =>
+    setInvoices(prev => prev.filter(inv => inv.orderId !== orderId));
+
+  // 校验必填
+  const validate = (inv) => {
+    const miss = [];
+    if (!inv.channel) miss.push('渠道');
+    if (!inv.weight) miss.push('重量');
+    if (!inv.packageCount) miss.push('件数');
+    const a = inv.address || {};
+    if (!(a.name || inv.customerName)) miss.push('收件人');
+    if (!a.zip) miss.push('邮编');
+    if (!a.address1) miss.push('地址');
+    return miss;
+  };
+  const allValid = invoices.length > 0 && invoices.every(inv => validate(inv).length === 0);
+
+  const exportExcel = () => {
+    const tpl = COURIER_TEMPLATES[courier];
+    const rows = invoices.map(tpl.build);
+    const aoa = [tpl.headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    // 邮编列(9)整列文本
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const fname = `${tpl.name}发票_${dateStr}_${invoices.length}单.xlsx`;
+    XLSX.writeFile(wb, fname);
+  };
+
+  return (
+    <>
+      <div className="card">
+        <div style={{display:'flex', gap:12, alignItems:'flex-end', flexWrap:'wrap', marginBottom:12}}>
+          <div>
+            <label className="muted" style={{display:'block', marginBottom:4}}>快递公司</label>
+            <select className="inp" style={{width:140}} value={courier} onChange={e => setCourier(e.target.value)}>
+              {Object.entries(COURIER_TEMPLATES).map(([k, v]) => <option key={k} value={k}>{v.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="muted" style={{display:'block', marginBottom:4}}>日期</label>
+            <input type="date" className="inp" style={{width:150}} value={dateStr} onChange={e => setDateStr(e.target.value)} />
+          </div>
+        </div>
+        <label className="muted" style={{display:'block', marginBottom:4}}>批量搜索订单号(逗号 / 空格 / 换行分隔)</label>
+        <textarea className="inp" rows={2} value={searchInput} onChange={e => setSearchInput(e.target.value)}
+          placeholder="XM8T31234602, VK116373 ..." style={{marginBottom:10, resize:'vertical'}} />
+        <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+          <button className="btn-pri btn" onClick={doSearch} disabled={loading}>{loading ? '⏳ 搜索中…' : '🔍 批量搜索'}</button>
+          {invoices.length > 0 && <button className="btn" onClick={() => setInvoices([])}>清空</button>}
+          <span className="muted">已套模板 {invoices.length} 单</span>
+        </div>
+        {errMsg && (
+          <div style={{marginTop:10, padding:'10px 12px', background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:8, fontSize:12, color:'#92400e', lineHeight:1.6}}>
+            ⚠ {errMsg}
+          </div>
+        )}
+      </div>
+
+      {invoices.length > 0 && (
+        <div className="card">
+          <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12, flexWrap:'wrap'}}>
+            <strong style={{fontSize:15}}>在线预览编辑</strong>
+            <span className="muted">补 重量/件数/渠道 · 改品名 · 红框=必填缺失</span>
+            <div style={{flex:1}}/>
+            {!allValid && <span className="pill" style={{background:'#fee2e2', color:'#b91c1c'}}>⚠ 有必填项未填</span>}
+            {allValid && <span className="pill" style={{background:'#dcfce7', color:'#15803d'}}>✓ 必填齐全</span>}
+            <button className="btn-good btn" onClick={exportExcel} disabled={!allValid} title={allValid ? '' : '先补齐必填项'}>📤 导出 {COURIER_TEMPLATES[courier].name} Excel</button>
+          </div>
+
+          {invoices.map((inv) => {
+            const miss = validate(inv);
+            const a = inv.address || {};
+            return (
+              <div key={inv.orderId} style={{border:'1px solid #e5e5e7', borderRadius:10, padding:12, marginBottom:10, background: miss.length ? '#fffdf8' : '#fafffe'}}>
+                <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', marginBottom:8}}>
+                  <strong style={{fontSize:14}}>🧾 {inv.orderNumber}</strong>
+                  <span className="pill" style={{background:'#eef2ff', color:'#4338ca'}}>{inv.platform || '?'}</span>
+                  <span className="muted">{a.name || inv.customerName} · {a.city} {a.province} {a.country_code}</span>
+                  {miss.length > 0 && <span className="pill" style={{background:'#fee2e2', color:'#b91c1c'}}>缺:{miss.join('/')}</span>}
+                  <div style={{flex:1}}/>
+                  <button className="btn" style={{padding:'3px 10px', fontSize:11}} onClick={() => removeInvoice(inv.orderId)}>移除</button>
+                </div>
+                {/* 客服要补的字段 */}
+                <div style={{display:'flex', gap:10, flexWrap:'wrap', marginBottom:8}}>
+                  <div>
+                    <label className="muted" style={{display:'block', fontSize:11}}>渠道 *</label>
+                    <select className="inp" style={{width:170, borderColor: inv.channel ? '#d2d2d7' : '#fca5a5'}}
+                      value={inv.channel} onChange={e => updateInvoice(inv.orderId, { channel: e.target.value })}>
+                      <option value="">— 选渠道 —</option>
+                      {CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="muted" style={{display:'block', fontSize:11}}>重量 kg *</label>
+                    <input className="inp" style={{width:90, borderColor: inv.weight ? '#d2d2d7' : '#fca5a5'}} type="number" step="0.001"
+                      value={inv.weight} onChange={e => updateInvoice(inv.orderId, { weight: e.target.value })} placeholder="称重" />
+                  </div>
+                  <div>
+                    <label className="muted" style={{display:'block', fontSize:11}}>件数 *</label>
+                    <input className="inp" style={{width:70}} type="number"
+                      value={inv.packageCount} onChange={e => updateInvoice(inv.orderId, { packageCount: e.target.value })} />
+                  </div>
+                  <div style={{flex:1, minWidth:180}}>
+                    <label className="muted" style={{display:'block', fontSize:11}}>运单备注(发货前问题)</label>
+                    <input className="inp" value={inv.prepNote} onChange={e => updateInvoice(inv.orderId, { prepNote: e.target.value })}
+                      placeholder="如:实重复测 / 改加班船 / 次长控制75以内" />
+                  </div>
+                </div>
+                {/* 产品行 */}
+                <div className="scroll-x">
+                  <table>
+                    <thead><tr><th>英文品名</th><th>中文</th><th>申报单价</th><th>数量</th><th>SKU</th><th>规格</th></tr></thead>
+                    <tbody>
+                      {inv.items.map((it, ii) => (
+                        <tr key={ii}>
+                          <td><input value={it.lampEn} onChange={e => updateItem(inv.orderId, ii, { lampEn: e.target.value })} /></td>
+                          <td><input value={it.lampCn} onChange={e => updateItem(inv.orderId, ii, { lampCn: e.target.value })} style={{minWidth:50}} /></td>
+                          <td><input type="number" value={it.declarePrice} onChange={e => updateItem(inv.orderId, ii, { declarePrice: e.target.value })} style={{minWidth:70}} /></td>
+                          <td><input type="number" value={it.quantity} onChange={e => updateItem(inv.orderId, ii, { quantity: e.target.value })} style={{minWidth:50}} /></td>
+                          <td><input value={it.sku} onChange={e => updateItem(inv.orderId, ii, { sku: e.target.value })} /></td>
+                          <td><input value={it.spec} onChange={e => updateItem(inv.orderId, ii, { spec: e.target.value })} style={{minWidth:120}} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {inv.items.length > 5 && <div style={{fontSize:11, color:'#b91c1c', marginTop:4}}>⚠ 超过 5 个产品块,昌晖模板只支持 5 个,多余的需拆单</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────
+// 节点③:收货对账(导入北简表)
+// ────────────────────────────────────────────────────────────────────
+function Reconcile() {
+  const [rows, setRows] = useState([]);     // 快递回传表行
+  const [fileName, setFileName] = useState('');
+  const [internalMap, setInternalMap] = useState({}); // orderNumber → {weight, packageCount}(来自制作发票时,可选)
+  const fileRef = useRef(null);
+
+  const handleFile = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const wb = XLSX.read(e.target.result, { type: 'binary' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (aoa.length < 2) { alert('表里没有数据行'); return; }
+      const dataRows = aoa.slice(1).filter(r => r && r[1]);  // 有客户参考号的
+      setRows(dataRows.map(r => ({
+        date: r[0], orderNumber: String(r[1] || ''), waybill: r[2], dest: r[3], channel: r[4],
+        pieces: r[5], unitWeight: r[6], l: r[7], w: r[8], h: r[9], volume: r[10],
+        girth: r[11], totalPieces: r[12], recvWeight: r[13], recvVolWeight: r[14],
+        settleWeight: r[15], note: r[16] || '',
+      })));
+      setFileName(file.name);
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // 异常判定
+  const analyze = (r) => {
+    const flags = [];
+    const note = (r.note || '').toString();
+    if (/超长|超围|超重|加纸箱/.test(note)) flags.push({ type:'附加费', text: note, color:'#b45309' });
+    const mine = internalMap[r.orderNumber];
+    if (mine) {
+      if (mine.weight && Math.abs(parseFloat(mine.weight) - parseFloat(r.recvWeight)) > 0.5)
+        flags.push({ type:'重量差', text: `发${mine.weight} vs 收${r.recvWeight}`, color:'#b91c1c' });
+      if (mine.packageCount && parseInt(mine.packageCount) !== parseInt(r.totalPieces))
+        flags.push({ type:'件数差', text: `发${mine.packageCount} vs 收${r.totalPieces}`, color:'#b91c1c' });
+    }
+    return flags;
+  };
+
+  const abnormalCount = rows.filter(r => analyze(r).length > 0).length;
+
+  return (
+    <div className="card">
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12, flexWrap:'wrap'}}>
+        <strong style={{fontSize:15}}>📥 收货回传对账</strong>
+        <span className="muted">导入快递公司回传表(北简 17 列)· 按订单号匹配 · 异常标红</span>
+        <div style={{flex:1}}/>
+        <button className="btn-pri btn" onClick={() => fileRef.current?.click()}>📂 导入回传表</button>
+        <input ref={fileRef} type="file" accept=".xls,.xlsx" style={{display:'none'}}
+          onChange={e => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; }} />
+      </div>
+      {fileName && <div className="muted" style={{marginBottom:8}}>📄 {fileName} · {rows.length} 条 · {abnormalCount > 0 ? <span style={{color:'#b91c1c', fontWeight:600}}>⚠ {abnormalCount} 条异常</span> : <span style={{color:'#15803d'}}>✓ 无异常</span>}</div>}
+      {rows.length > 0 && (
+        <div className="scroll-x">
+          <table>
+            <thead><tr>
+              <th>订单号</th><th>运单号</th><th>渠道</th><th>件数</th><th>收货实重</th><th>结算重</th><th>围长</th><th>备注</th><th>对账</th>
+            </tr></thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const flags = analyze(r);
+                return (
+                  <tr key={i} style={{background: flags.length ? '#fef2f2' : 'white'}}>
+                    <td style={{fontWeight:600}}>{r.orderNumber}</td>
+                    <td>{r.waybill}</td>
+                    <td>{r.channel}</td>
+                    <td>{r.totalPieces}</td>
+                    <td>{r.recvWeight}</td>
+                    <td>{r.settleWeight}</td>
+                    <td>{r.girth}</td>
+                    <td style={{maxWidth:160, whiteSpace:'normal'}}>{r.note}</td>
+                    <td>
+                      {flags.length === 0 ? <span style={{color:'#15803d'}}>✓</span> :
+                        flags.map((f, fi) => <div key={fi} style={{color:f.color, fontSize:11, fontWeight:600}}>{f.type}: {f.text}</div>)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {rows.length === 0 && <div style={{padding:'40px', textAlign:'center', color:'#86868b'}}>导入快递公司回传的收货 Excel 开始对账</div>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

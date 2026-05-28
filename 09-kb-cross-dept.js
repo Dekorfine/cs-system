@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📨 跨部门(fix68 指派三态徽章) · fix28-68
-// APP_VERSION: 2026.05.27-fix68
+// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📦 快递发票(fix69) + 📨 跨部门 · fix28-69
+// APP_VERSION: 2026.05.27-fix69
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1508,6 +1508,44 @@ const FreightCalcModule = ({ user, toast }) => {
           display:'block',
         }}
       />
+    </div>
+  );
+};
+
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix69: 📦 快递发票制作(iframe 嵌入 express-invoice.html)
+// 节点②制作发票(搜单→套昌晖模板→在线编辑→导出73列Excel)+ 节点③收货对账(导入北简表)
+// 订单数据来自跟单系统 Supabase · 整套逻辑在独立 express-invoice.html
+// 固定高度 + iframe 内部滚动(规避无限下滑)
+// ════════════════════════════════════════════════════════════════════
+const ExpressInvoiceModule = ({ user, toast }) => {
+  const [loadStatus, setLoadStatus] = useState('loading');
+  const [iframeUrl, setIframeUrl] = useState(() => `express-invoice.html?t=${Date.now().toString(36)}`);
+  useEffect(() => {
+    const timer = setTimeout(() => setLoadStatus(s => s === 'loading' ? 'timeout' : s), 8000);
+    return () => clearTimeout(timer);
+  }, [iframeUrl]);
+  const reload = () => { setLoadStatus('loading'); setIframeUrl(`express-invoice.html?t=${Date.now().toString(36)}`); };
+  return (
+    <div className="paper rounded-2xl" style={{padding:'14px', overflow:'hidden'}}>
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:10, padding:'0 4px'}}>
+        <div className="font-display" style={{fontSize:20, fontWeight:600, letterSpacing:'-.022em', flex:1}}>
+          📦 快递发票制作
+          <span style={{fontSize:12, fontWeight:400, color:'var(--ink-3)', marginLeft:8}}>搜订单 → 套模板 → 导出 Excel · 收货对账</span>
+        </div>
+        <button onClick={reload} className="btn-sec" style={{padding:'5px 12px', fontSize:12}}>🔄 重载</button>
+        <a href={iframeUrl} target="_blank" rel="noopener noreferrer" className="btn-sec" style={{padding:'5px 12px', fontSize:12, textDecoration:'none', display:'inline-block'}}>↗ 新窗口打开</a>
+      </div>
+      {loadStatus === 'timeout' && (
+        <div style={{background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:10, padding:'12px 14px', marginBottom:10, fontSize:13, color:'#92400e', lineHeight:1.6}}>
+          ⚠ <strong>加载超时</strong> — 确认 express-invoice.html 已跟 index.html 一起部署到 GitHub Pages 根目录。
+          <button onClick={reload} style={{marginLeft:8, padding:'4px 10px', fontSize:12, background:'#f59e0b', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit'}}>🔄 再试</button>
+        </div>
+      )}
+      <iframe key={iframeUrl} src={iframeUrl} title="快递发票制作"
+        onLoad={() => setLoadStatus('loaded')}
+        style={{width:'100%', height:'calc(100vh - 220px)', minHeight:560, border:'none', borderRadius:12, background:'#fafafa', display:'block'}} />
     </div>
   );
 };

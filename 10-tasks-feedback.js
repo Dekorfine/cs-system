@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄需求 v4 + 📌 任务 + 🐛 反馈 · fix28-68
-// APP_VERSION: 2026.05.27-fix68
+// 📷 拍摄需求 v4 + 📌 任务 + 🐛 反馈 · fix28-69
+// APP_VERSION: 2026.05.27-fix69
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1891,6 +1891,7 @@ const BUG_MODULES = [
   { id:'finance',          label:'🧮 财务计算器' },
   { id:'freight',          label:'🚚 运费支付' },
   { id:'freight_calc',     label:'🚚 运费精算器' },
+  { id:'express_invoice',  label:'📦 快递发票' },
   { id:'cross_dept',       label:'📨 跨部门协作' },
   { id:'briefings',        label:'📢 会议纪要' },
   { id:'dashboard',        label:'📈 数据看板' },

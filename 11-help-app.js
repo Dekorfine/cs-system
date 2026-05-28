@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 使用手册 + 🎯 App(fix68) · fix28-68
-// APP_VERSION: 2026.05.27-fix68
+// 📖 使用手册 + 🎯 App(fix69) · fix28-69
+// APP_VERSION: 2026.05.27-fix69
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1375,6 +1375,7 @@ const App = () => {
       // 🆕 fix11-hotfix2: ai_reviews 不再作为独立 tab — 已合并进 ⭐ 产品评价 内部
       ...(isFinanceVisible ? [{ key:'freight', label:'🚚 运费支付', icon:'🚚', group:'resources' }] : []),
       { key:'freight_calc', label:'🚚 运费精算器', icon:'🚚', group:'resources' },
+      { key:'express_invoice', label:'📦 快递发票', icon:'📦', group:'resources' },
       // 协作
       { key:'tasks',      label:'📌 任务分派', icon:'📌', group:'collab' },  // 🆕 fix19
       { key:'cross_dept', label:'📨 跨部门协作', icon:'📨', badge: cdmUnreadCount, badgeColor: cdmUrgentUnread > 0 ? '#dc2626' : '#0071e3', group:'collab' },
@@ -1896,6 +1897,10 @@ const App = () => {
         {activeTab === 'freight_calc' && (
           <FreightCalcModule user={user} toast={toast} />
         )}
+        {/* 🆕 fix69: 快递发票制作 */}
+        {activeTab === 'express_invoice' && (
+          <ExpressInvoiceModule user={user} toast={toast} />
+        )}
         {/* 🆕 fix13: 帮助中心 */}
         {activeTab === 'help' && (
           <HelpCenterModule user={user} />
@@ -1958,7 +1963,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.27-fix68';
+const APP_VERSION = '2026.05.27-fix69';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
