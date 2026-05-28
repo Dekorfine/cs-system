@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 排序 + Customer360 · fix28-72
-// APP_VERSION: 2026.05.27-fix72
+// 📞 客服跟进 + 排序 + Customer360 · fix28-73
+// APP_VERSION: 2026.05.27-fix73
 // ════════════════════════════════════════════════════════════════════
 
 const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) => {

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 运费 + 快递发票 + 跨部门 · fix28-72
-// APP_VERSION: 2026.05.27-fix72
+// 📚 知识库 + 新建条目图片上传(fix73) + 运费 + 快递发票 + 跨部门 · fix28-73
+// APP_VERSION: 2026.05.27-fix73
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -232,7 +232,38 @@ const KBNewEntryModal = ({ user, toast, onClose, onSaved }) => {
   const [aCn, setACn] = useState('');
   const [qEn, setQEn] = useState('');
   const [aEn, setAEn] = useState('');
+  const [images, setImages] = useState([]);  // 🆕 fix73: base64 图片数组
   const [saving, setSaving] = useState(false);
+  const fileInputRef = React.useRef(null);
+
+  // 🆕 压缩成 base64(约 50-150KB/张)
+  const fileToBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > 1000) { h = h * 1000 / w; w = 1000; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = reject; img.src = e.target.result;
+    };
+    reader.onerror = reject; reader.readAsDataURL(file);
+  });
+  const addFiles = async (fileList) => {
+    const files = Array.from(fileList || []).filter(f => f.type.startsWith('image/'));
+    for (const f of files) {
+      try { const b64 = await fileToBase64(f); setImages(prev => prev.length >= 6 ? prev : [...prev, b64]); }
+      catch(e) { toast('图片处理失败'); }
+    }
+  };
+  const onPaste = (e) => {
+    const items = Array.from(e.clipboardData?.items || []).filter(it => it.type.startsWith('image/'));
+    if (items.length) { e.preventDefault(); addFiles(items.map(it => it.getAsFile()).filter(Boolean)); }
+  };
   
   const KB_CATEGORIES = [
     { cn:'售前问题', en:'Pre-sales' },
@@ -261,6 +292,7 @@ const KBNewEntryModal = ({ user, toast, onClose, onSaved }) => {
         q_en: qEn.trim() || qCn.trim(),
         a_cn: aCn.trim(),
         a_en: aEn.trim() || aCn.trim(),
+        images: images,  // 🆕 fix73: base64 图片数组
       };
       const { error } = await CLOUD.client.from('workspace_kb').insert(payload);
       if (error) throw error;
@@ -332,6 +364,28 @@ const KBNewEntryModal = ({ user, toast, onClose, onSaved }) => {
           
           <div style={{padding:'8px 12px', background:'#fef9c3', border:'1px solid #fde047', borderRadius:6, fontSize:11, color:'#713f12'}}>
             💡 占位符可以用 <code>[客户姓名]</code> · <code>[订单号]</code> · <code>[Customer Name]</code> 等,客服在用时直接替换
+          </div>
+
+          {/* 🆕 fix73: 场景图片上传 */}
+          <div style={{marginTop:12}} onPaste={onPaste} tabIndex={0}>
+            <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:4}}>🖼 场景图片(选填 · 最多 6 张 · 自动压缩)</label>
+            <div onClick={() => fileInputRef.current?.click()}
+              style={{border:'2px dashed var(--line)', borderRadius:8, padding:'14px', textAlign:'center', cursor:'pointer', background:'#fafafa', fontSize:12, color:'var(--ink-3)'}}>
+              📎 点击选图片 / 聚焦此区后 Ctrl+V 粘贴截图 / 拖入图片
+            </div>
+            <input ref={fileInputRef} type="file" accept="image/*" multiple style={{display:'none'}}
+              onChange={e => { addFiles(e.target.files); e.target.value=''; }} />
+            {images.length > 0 && (
+              <div style={{display:'flex', gap:8, flexWrap:'wrap', marginTop:10}}>
+                {images.map((src, i) => (
+                  <div key={i} style={{position:'relative', width:72, height:72}}>
+                    <img src={src} alt="" style={{width:'100%', height:'100%', objectFit:'cover', borderRadius:8, border:'1px solid var(--line)'}} />
+                    <button onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                      style={{position:'absolute', top:-7, right:-7, width:20, height:20, borderRadius:'50%', background:'var(--bad)', color:'white', border:'2px solid white', cursor:'pointer', fontSize:11, lineHeight:1, padding:0}}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         

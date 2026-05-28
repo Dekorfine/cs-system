@@ -13880,7 +13880,7 @@ function renderScenarioImages(id) {
     : `${images.length} ${images.length > 1 ? 'photos' : 'photo'} · click to enlarge`;
   $('#scenario-images-grid').innerHTML = images.map((src, i) => `
     <div class="scenario-image" data-img-idx="${i}">
-      <img src="${src}" alt="场景图 ${i + 1}" loading="lazy" onerror="this.parentElement.style.display='none';" />
+      <img src="${src}" alt="场景图 ${i + 1}" loading="lazy" onerror="this.closest('.scenario-image').remove(); if(!document.querySelector('#scenario-images-grid .scenario-image')){document.getElementById('scenario-images').style.display='none';}" />
     </div>
   `).join('');
   // 把 images 数组挂到 entry 上方便 lightbox 用
