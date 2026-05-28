@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-71
-// APP_VERSION: 2026.05.27-fix71
+// 🧱 核心 + 附件 mime(fix72) · fix28-72
+// APP_VERSION: 2026.05.27-fix72
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -582,6 +582,8 @@ async function uploadAttachmentToWtkpi(file) {
   return {
     name: file.name || 'screenshot.png',
     url: publicUrl,
+    mime: compressed.type || file.type || 'image/jpeg',  // 🆕 fix72: 三方统一附件结构需要 mime
+    size: compressed.size || file.size || 0,
     uploaded_at_ms: Date.now(),
   };
 }
