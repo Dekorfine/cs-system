@@ -2061,23 +2061,9 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
         
-        // 🆕 fix58: iframe 嵌入工作台时 — postMessage 通知父框架高度,避免内部滚动条
-        (function setupIframeResize() {
-            if (window.parent === window) return;  // 不在 iframe 时跳过
-            let lastHeight = 0;
-            const send = () => {
-                const h = document.documentElement.scrollHeight;
-                if (Math.abs(h - lastHeight) < 20) return;
-                lastHeight = h;
-                window.parent.postMessage({ type: 'iframe-resize', source: 'freight-calc', height: h }, '*');
-            };
-            const ro = new ResizeObserver(send);
-            ro.observe(document.body);
-            // 初次 + 防御性 1 秒后再发一次(React 异步渲染完后)
-            setTimeout(send, 100);
-            setTimeout(send, 800);
-            setTimeout(send, 2000);
-        })();
+        // 🆕 fix63: 移除了 iframe-resize 高度上报。
+        // 工作台改用固定高度 + iframe 内部滚动,不再需要高度同步。
+        // (之前的 ResizeObserver 上报 + 父反向设高度 = 无限下滑死循环,已彻底废弃)
     </script>
 </body>
 </html>

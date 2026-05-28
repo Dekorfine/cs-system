@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📨 跨部门(fix62 选人) · fix28-62
-// APP_VERSION: 2026.05.27-fix62
+// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算(fix63 固定高度修无限下滑)+ 📨 跨部门 · fix28-63
+// APP_VERSION: 2026.05.27-fix63
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1429,52 +1429,38 @@ const EmailTemplateEditModal = ({ item, user, toast, onClose, onSave }) => {
 // 🆕 fix58: 🚚 运费精算器(iframe 嵌入新版 freight-calc.html)
 // 支持渠道:昌晖加班船/小货 · 明扬加班船/小货 · 正石 · 澳洲海派 · 阿联酋海运/空运
 //          沙特海运/空运 · 加拿大信源/河池/正石海运 · 云鼎超大件
-// 自带:邮编自动判区 · 体积重 vs 实重 · 附加费 · 合箱推演 · 候选尺寸对比 · 自动保存
 // 整套逻辑在独立 freight-calc.html 内,改公式 / 规则只动那个文件
+//
+// 🆕 fix63 根因修复:彻底放弃"iframe 高度自适应内容"模式!
+// 之前 bug:iframe 内有 min-h-screen(=100vh),父根据内容高度反向设 iframe 高度
+//   → iframe 视口变高 → 100vh 元素跟着变高 → body 更高 → 上报更大 → 父再设更高
+//   → 正反馈死循环 → 无限下滑 / 滚动条无限拉长
+// 解法:iframe 固定高度(撑满工作台可视区)+ iframe 内部自己滚动
+//   完全不监听 resize 消息、不动态改高度 → 没有反馈源 → 数学上不可能循环
 // ════════════════════════════════════════════════════════════════════
 const FreightCalcModule = ({ user, toast }) => {
   const iframeRef = React.useRef(null);
-  const [iframeHeight, setIframeHeight] = useState('calc(100vh - 140px)');
   const [loadStatus, setLoadStatus] = useState('loading'); // loading / loaded / timeout
   
-  // 🆕 fix60 关键修复:iframeUrl 只在 mount 时生成一次(用 useState 惰性初始化)
-  // 之前写成 const iframeUrl = `...${Date.now()}` 会在每次 re-render 重新生成,
-  // 导致 iframe src 变 → 重新加载白屏 → resize 消息 → setState → re-render → 死循环闪屏
+  // iframeUrl 只在 mount 时生成一次(惰性初始化,避免每次 render 变)
   const [iframeUrl, setIframeUrl] = useState(() => `freight-calc.html?t=${Date.now().toString(36)}`);
   
-  // 检测 iframe 是否加载成功(8 秒未收到 resize 信号 = 部署可能失败)
+  // 加载检测:用 iframe 的 onLoad 事件(不再依赖 resize 消息)
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoadStatus(s => s === 'loading' ? 'timeout' : s);
     }, 8000);
     return () => clearTimeout(timer);
-  }, [iframeUrl]);  // 只在 url 变(重载)时重新计时,不依赖 loadStatus 避免重复
-  
-  // 监听 iframe-resize 消息(handler 内用函数式 setState,不依赖 loadStatus,避免重新绑定)
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.data?.type === 'iframe-resize' && e.data?.source === 'freight-calc') {
-        if (typeof e.data.height === 'number' && e.data.height > 200) {
-          setIframeHeight(prev => {
-            const next = e.data.height + 'px';
-            return prev === next ? prev : next;  // 高度没变就不触发 re-render
-          });
-          setLoadStatus(s => s !== 'loaded' ? 'loaded' : s);
-        }
-      }
-    };
-    window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
-  }, []);  // 🆕 fix60: 只绑定一次,不随 loadStatus 重新绑定
+  }, [iframeUrl]);
 
-  // 重载 = 换一个新 timestamp(强制 iframe 重新拉)
+  // 重载 = 换新 timestamp
   const reload = () => {
     setLoadStatus('loading');
     setIframeUrl(`freight-calc.html?t=${Date.now().toString(36)}`);
   };
   
   return (
-    <div className="paper rounded-2xl" style={{padding:'14px 14px 0', overflow:'hidden'}}>
+    <div className="paper rounded-2xl" style={{padding:'14px 14px 14px', overflow:'hidden'}}>
       <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:10, padding:'0 4px'}}>
         <div className="font-display" style={{fontSize:20, fontWeight:600, letterSpacing:'-.022em', flex:1}}>
           🚚 运费精算器
@@ -1508,13 +1494,16 @@ const FreightCalcModule = ({ user, toast }) => {
         </div>
       )}
       
+      {/* 🆕 fix63: 固定高度 + iframe 内部滚动 — 永不循环
+          高度 = 视口高 - 顶部导航/工具栏占用(约 220px),不够时内部滚 */}
       <iframe
         key={iframeUrl}
         ref={iframeRef}
         src={iframeUrl}
         title="运费精算器"
+        onLoad={() => setLoadStatus('loaded')}
         style={{
-          width:'100%', height: iframeHeight, minHeight:600,
+          width:'100%', height:'calc(100vh - 220px)', minHeight:560,
           border:'none', borderRadius:12, background:'#fafafa',
           display:'block',
         }}
