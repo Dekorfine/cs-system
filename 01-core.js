@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 + LoginScreen + 邮件模板预置 + wtkpi · fix28-60
-// APP_VERSION: 2026.05.27-fix60
+// 🧱 核心 + LoginScreen + 邮件模板预置 + wtkpi · fix28-61
+// APP_VERSION: 2026.05.27-fix61
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -2216,4 +2216,13 @@ const EventActionDropdown = ({ record, onAftersale, onRefill, onRefund, onCharge
       )}
     </>
   );
+};
+
+
+// 🆕 fix61: 客服跟进 — 网格视图卡片(紧凑只读概览)
+// 优先展示:邮箱地址 → 订单编号 → 店铺;有图自适应;点卡片切回列表编辑
+const CS_DIFFICULTY_META = {
+  easy: { label: '易', bg: '#dcfce7', color: '#15803d' },
+  mid:  { label: '中', bg: '#fef3c7', color: '#854d0e' },
+  hard: { label: '复', bg: '#fee2e2', color: '#b91c1c' },
 };

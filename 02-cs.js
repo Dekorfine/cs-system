@@ -1,8 +1,118 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + Customer360Modal · fix28-60
-// APP_VERSION: 2026.05.27-fix60
+// 📞 客服跟进 + CSGridCard 网格视图(fix61)+ Customer360 · fix28-61
+// APP_VERSION: 2026.05.27-fix61
 // ════════════════════════════════════════════════════════════════════
 
+const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) => {
+  const dispStatus = getDisplayStatus(r);
+  const cur = STATUSES.find(s => s.key === dispStatus) || STATUSES[0];
+  const statusStyleMap = {
+    pending:     { bg:'#f5f5f7', color:'#525252', stripe:'#86868b' },
+    following:   { bg:'#fff7ed', color:'#9a3412', stripe:'#ff9500' },
+    waiting:     { bg:'#e0f2fe', color:'#075985', stripe:'#0071e3' },
+    resolved:    { bg:'#dcfce7', color:'#14532d', stripe:'#34c759' },
+    transferred: { bg:'#fef3c7', color:'#854d0e', stripe:'#d97706' },
+  };
+  const ss = statusStyleMap[cur.key] || statusStyleMap.pending;
+  const ownerName = employees.find(e => e.id === r.ownerId)?.name || '—';
+  const diff = CS_DIFFICULTY_META[r.difficulty];
+  const shots = (r.screenshots || []).filter(s => s && s.data);
+  const email = (r.customer || '').trim();
+  const shopName = (r.site || '').trim();
+  const orderRef = (r.orderRef || '').trim();
+  const note = (r.note || '').trim();
+
+  return (
+    <div onClick={onClickCard} title="点击切回列表视图编辑这条"
+      style={{
+        background:'white', border:'1px solid var(--line)', borderLeft:`3px solid ${ss.stripe}`,
+        borderRadius:14, padding:14, cursor:'pointer', boxShadow:'var(--shadow-sm)',
+        transition:'transform .15s, box-shadow .15s', display:'flex', flexDirection:'column', gap:8,
+      }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}>
+      {/* 顶部:状态 + 难度 + 负责人 */}
+      <div style={{display:'flex', alignItems:'center', gap:6, flexWrap:'wrap'}}>
+        <span style={{fontSize:11, padding:'2px 10px', borderRadius:'var(--radius-pill)', background:ss.bg, color:ss.color, fontWeight:600}}>
+          {cur.label}
+        </span>
+        {diff && (
+          <span style={{fontSize:11, padding:'2px 8px', borderRadius:'var(--radius-pill)', background:diff.bg, color:diff.color, fontWeight:600}}>
+            {diff.label}
+          </span>
+        )}
+        {r.category && (
+          <span style={{fontSize:10, padding:'2px 7px', borderRadius:'var(--radius-pill)', background:'var(--bg-elevated)', color:'var(--ink-3)'}}>
+            {r.category}
+          </span>
+        )}
+        <div style={{flex:1}}/>
+        <span style={{fontSize:11, color:'var(--ink-4)'}}>👤 {ownerName}</span>
+      </div>
+
+      {/* 优先 1:邮箱 */}
+      <div style={{display:'flex', alignItems:'center', gap:6}}>
+        <div style={{flex:1, minWidth:0, fontSize:14, fontWeight:600, color: email ? 'var(--ink)' : 'var(--ink-4)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+          📧 {email || '(未填邮箱)'}
+        </div>
+        {email && (
+          <button onClick={(e) => { e.stopPropagation(); onOpen360(email); }}
+            title="客户档案 360°"
+            style={{
+              padding:'2px 7px', fontSize:10, fontWeight:600, background:'var(--accent-soft)', color:'var(--accent)',
+              border:'1px solid var(--accent)', borderRadius:6, cursor:'pointer', fontFamily:'inherit', flexShrink:0,
+            }}>🔍 360°</button>
+        )}
+      </div>
+
+      {/* 优先 2 & 3:订单号 + 店铺 */}
+      <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', fontSize:12}}>
+        {orderRef && (
+          <span style={{padding:'2px 8px', background:'var(--bg-elevated)', borderRadius:6, fontFamily:'SF Mono,monospace', color:'var(--ink-2)'}}>
+            🧾 {orderRef.length > 28 ? orderRef.slice(0, 28) + '…' : orderRef}
+          </span>
+        )}
+        {shopName && (
+          <span style={{padding:'2px 8px', background:'#eef2ff', color:'#4338ca', borderRadius:6, fontWeight:500}}>
+            🏪 {shopName}
+          </span>
+        )}
+        {(r.startTime || r.endTime) && (
+          <span style={{color:'var(--ink-4)'}}>🕐 {r.startTime || '?'}{r.endTime ? ' → ' + r.endTime : ''}</span>
+        )}
+      </div>
+
+      {/* 备注 */}
+      {note && (
+        <div style={{fontSize:12, color:'var(--ink-3)', lineHeight:1.5, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden'}}>
+          {note}
+        </div>
+      )}
+
+      {/* 图片自适应(有图才显示) */}
+      {shots.length > 0 && (
+        <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+          {shots.slice(0, 4).map((s, i) => (
+            <img key={s.id || i} src={s.data} alt={s.name || ''}
+              style={{width:56, height:56, objectFit:'contain', borderRadius:8, border:'1px solid var(--line)', background:'var(--bg-elevated)'}}/>
+          ))}
+          {shots.length > 4 && (
+            <div style={{width:56, height:56, borderRadius:8, background:'var(--bg-elevated)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, color:'var(--ink-3)', fontWeight:600}}>
+              +{shots.length - 4}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 底部:下次跟进 + 提示 */}
+      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:'auto', paddingTop:6, borderTop:'1px solid var(--line-soft)', fontSize:11, color:'var(--ink-4)'}}>
+        {r.nextFollowUp && <span>📅 下次 {r.nextFollowUp}</span>}
+        <div style={{flex:1}}/>
+        <span style={{color:'var(--accent)'}}>点击编辑 →</span>
+      </div>
+    </div>
+  );
+};
 
 
 const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudOn }) => {
@@ -30,6 +140,14 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
   
   // 🆕 fix52: 客户档案 360° Modal 状态
   const [customer360Email, setCustomer360Email] = useState(null);
+  // 🆕 fix61: 列表 / 网格 视图切换(默认列表,存 localStorage)
+  const [cardView, setCardView] = useState(() => {
+    try { return localStorage.getItem('cs_card_view') || 'list'; } catch { return 'list'; }
+  });
+  const setCardViewPersist = (v) => {
+    setCardView(v);
+    try { localStorage.setItem('cs_card_view', v); } catch {}
+  };
   // 🆕 视图模式：'day' 按当日 | 'all' 跨日期所有记录（分页显示）
   const [viewMode, setViewMode] = useState('day');
   
@@ -1250,6 +1368,31 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
             }}>
             📋 全部记录 ({visibleRecords.filter(isRecordMeaningful).length})
           </button>
+          {/* 🆕 fix61: 列表 / 网格 视图切换 */}
+          <span style={{width:1, height:18, background:'var(--line)', margin:'0 4px'}}/>
+          <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>展示：</span>
+          <button onClick={() => setCardViewPersist('list')}
+            title="列表视图(可内联编辑)"
+            style={{
+              padding:'4px 12px', borderRadius:14, fontSize:12, cursor:'pointer', fontFamily:'inherit',
+              border:'1px solid ' + (cardView === 'list' ? 'var(--accent)' : 'var(--line)'),
+              background: cardView === 'list' ? 'var(--accent)' : 'white',
+              color: cardView === 'list' ? 'white' : 'var(--ink-2)',
+              fontWeight: cardView === 'list' ? 600 : 400,
+            }}>
+            ☰ 列表
+          </button>
+          <button onClick={() => setCardViewPersist('grid')}
+            title="网格视图(紧凑概览,点卡片回列表编辑)"
+            style={{
+              padding:'4px 12px', borderRadius:14, fontSize:12, cursor:'pointer', fontFamily:'inherit',
+              border:'1px solid ' + (cardView === 'grid' ? 'var(--accent)' : 'var(--line)'),
+              background: cardView === 'grid' ? 'var(--accent)' : 'white',
+              color: cardView === 'grid' ? 'white' : 'var(--ink-2)',
+              fontWeight: cardView === 'grid' ? 600 : 400,
+            }}>
+            ▦ 网格
+          </button>
         </div>
         {viewMode === 'all' && tableRecords.length > pageSize && (
           <div style={{fontSize:11, color:'var(--ink-3)'}}>
@@ -1371,6 +1514,20 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
             {sourceRecords.length === 0
               ? <>暂无记录 · 点击下方 <strong style={{color:'var(--accent)'}}>+ 添加一行</strong> 开始</>
               : `无匹配记录(共 ${sourceRecords.length} 条,被筛选条件过滤)`}
+          </div>
+        ) : cardView === 'grid' ? (
+          /* 🆕 fix61: 网格视图 — 紧凑只读卡片,点击切回列表编辑 */
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:12}}>
+            {pagedRecords.map((r) => (
+              <CSGridCard
+                key={r.id}
+                r={r}
+                employees={employees}
+                getDisplayStatus={getDisplayStatus}
+                onOpen360={(email) => setCustomer360Email(email)}
+                onClickCard={() => setCardViewPersist('list')}
+              />
+            ))}
           </div>
         ) : (
           <div style={{display:'flex', flexDirection:'column', gap:10}}>
