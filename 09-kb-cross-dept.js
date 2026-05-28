@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📧 邮件模板(fix57)+ 📨 跨部门 · fix28-57
-// APP_VERSION: 2026.05.27-fix57
+// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算(fix58)+ 📨 跨部门 · fix28-58
+// APP_VERSION: 2026.05.27-fix58
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1421,6 +1421,99 @@ const EmailTemplateEditModal = ({ item, user, toast, onClose, onSave }) => {
       </div>
     </div>,
     document.body
+  );
+};
+
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix58: 🚚 运费精算器(iframe 嵌入新版 freight-calc.html)
+// 支持渠道:昌晖加班船/小货 · 明扬加班船/小货 · 正石 · 澳洲海派 · 阿联酋海运/空运
+//          沙特海运/空运 · 加拿大信源/河池/正石海运 · 云鼎超大件
+// 自带:邮编自动判区 · 体积重 vs 实重 · 附加费 · 合箱推演 · 候选尺寸对比 · 自动保存
+// 整套逻辑在独立 freight-calc.html 内,改公式 / 规则只动那个文件
+// ════════════════════════════════════════════════════════════════════
+const FreightCalcModule = ({ user, toast }) => {
+  const iframeRef = React.useRef(null);
+  const [iframeHeight, setIframeHeight] = useState('calc(100vh - 140px)');
+  const [loaded, setLoaded] = useState(false);
+  const [loadStatus, setLoadStatus] = useState('loading'); // loading / loaded / timeout
+  
+  // 加 timestamp 防缓存
+  const iframeUrl = `freight-calc.html?t=${Date.now().toString(36)}`;
+  
+  // 检测 iframe 是否加载成功(8 秒未收到 resize 信号 = 部署可能失败)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loadStatus === 'loading') {
+        setLoadStatus('timeout');
+      }
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [loadStatus]);
+  
+  // 监听 iframe-resize 消息
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === 'iframe-resize' && e.data?.source === 'freight-calc') {
+        if (typeof e.data.height === 'number' && e.data.height > 200) {
+          setIframeHeight(e.data.height + 'px');
+          if (loadStatus !== 'loaded') {
+            setLoadStatus('loaded');
+            setLoaded(true);
+          }
+        }
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [loadStatus]);
+  
+  return (
+    <div className="paper rounded-2xl" style={{padding:'14px 14px 0', overflow:'hidden'}}>
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:10, padding:'0 4px'}}>
+        <div className="font-display" style={{fontSize:20, fontWeight:600, letterSpacing:'-.022em', flex:1}}>
+          🚚 运费精算器
+          <span style={{fontSize:12, fontWeight:400, color:'var(--ink-3)', marginLeft:8}}>
+            14 条渠道 · 自动判区 · 合箱推演 · 候选对比
+          </span>
+        </div>
+        <button onClick={() => iframeRef.current && (iframeRef.current.src = iframeUrl)}
+          className="btn-sec" style={{padding:'5px 12px', fontSize:12}}>
+          🔄 重载
+        </button>
+        <a href={iframeUrl} target="_blank" rel="noopener noreferrer"
+          className="btn-sec" style={{padding:'5px 12px', fontSize:12, textDecoration:'none', display:'inline-block'}}>
+          ↗ 新窗口打开
+        </a>
+      </div>
+      
+      {loadStatus === 'timeout' && (
+        <div style={{
+          background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:10, padding:'12px 14px', marginBottom:10,
+          fontSize:13, color:'#92400e', lineHeight:1.6,
+        }}>
+          ⚠ <strong>运费计算器加载超时</strong>(8 秒内未响应)
+          <div style={{marginTop:6, fontSize:12}}>
+            可能原因:freight-calc.html 没有跟 index.html 一起部署。请确认 GitHub Pages 仓库根目录有 freight-calc.html 这个文件。
+          </div>
+          <button onClick={() => { setLoadStatus('loading'); iframeRef.current && (iframeRef.current.src = iframeUrl); }}
+            style={{marginTop:8, padding:'5px 12px', fontSize:12, background:'#f59e0b', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit'}}>
+            🔄 再试一次
+          </button>
+        </div>
+      )}
+      
+      <iframe
+        ref={iframeRef}
+        src={iframeUrl}
+        title="运费精算器"
+        style={{
+          width:'100%', height: iframeHeight, minHeight:600,
+          border:'none', borderRadius:12, background:'#fafafa',
+          display:'block',
+        }}
+      />
+    </div>
   );
 };
 
