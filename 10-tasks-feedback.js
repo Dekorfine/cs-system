@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄需求 v4 + 📌 任务 + 🐛 反馈 · fix28-63
-// APP_VERSION: 2026.05.27-fix63
+// 📷 拍摄需求 v4 + RowAttachments 粘贴预览(fix64)+ 📌 任务 + 🐛 反馈 · fix28-64
+// APP_VERSION: 2026.05.27-fix64
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -931,6 +931,8 @@ const PhotoRequestEditModal = ({ item, user, toast, onClose, onSuccess }) => {
 const RowAttachments = ({ items, onChange, toast }) => {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [focused, setFocused] = useState(false);     // 🆕 fix64: 聚焦提示
+  const [preview, setPreview] = useState(null);       // 🆕 fix64: 放大预览 lightbox
   const fileInputRef = useRef(null);
 
   const handleFiles = async (files) => {
@@ -946,7 +948,10 @@ const RowAttachments = ({ items, onChange, toast }) => {
         toast('上传 ' + f.name + ' 失败:' + (e.message || ''));
       }
     }
-    if (news.length > 0) onChange([...items, ...news]);
+    if (news.length > 0) {
+      onChange([...items, ...news]);
+      toast(`✓ 已添加 ${news.length} 张图`);
+    }
     setUploading(false);
   };
 
@@ -956,6 +961,8 @@ const RowAttachments = ({ items, onChange, toast }) => {
     if (imageFiles.length > 0) {
       e.preventDefault();
       await handleFiles(imageFiles);
+    } else {
+      toast('剪贴板里没有图片 — 先截图/复制图片再粘贴');
     }
   };
 
@@ -968,50 +975,78 @@ const RowAttachments = ({ items, onChange, toast }) => {
   const removeAt = (idx) => onChange(items.filter((_, i) => i !== idx));
 
   return (
-    <div
-      tabIndex={0}
-      onPaste={handlePaste}
-      onDrop={handleDrop}
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-      onDragLeave={() => setDragOver(false)}
-      style={{
-        display:'flex', flexWrap:'wrap', gap:4, alignItems:'center', minHeight:46,
-        padding:4, borderRadius:6,
-        background: dragOver ? 'var(--accent-soft)' : 'transparent',
-        border: dragOver ? '1px dashed var(--accent)' : '1px dashed transparent',
-        outline:'none',
-      }}
-      title="点击图标添加 / 粘贴 Ctrl+V / 拖拽上传"
-    >
-      {items.map((a, i) => (
-        <div key={i} style={{position:'relative', width:42, height:42}}>
-          <img src={a.url} alt={a.name}
-            style={{width:'100%', height:'100%', objectFit:'contain', borderRadius:5, border:'1px solid var(--line)', background:'var(--bg-elevated)'}}/>
-          <button onClick={() => removeAt(i)} title="删除"
-            style={{
-              position:'absolute', top:-5, right:-5, width:16, height:16,
-              background:'var(--bad)', color:'white', border:'none', borderRadius:'50%',
-              cursor:'pointer', fontSize:9, lineHeight:1, fontFamily:'inherit', padding:0,
-            }}>✕</button>
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploading}
-        title="选图 / 也可粘贴 Ctrl+V / 拖拽进来"
+    <>
+      <div
+        tabIndex={0}
+        onPaste={handlePaste}
+        onDrop={handleDrop}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         style={{
-          width:42, height:42, border:'1px dashed var(--line)', borderRadius:5,
-          background:'white', cursor: uploading ? 'wait' : 'pointer', fontSize:14, color:'var(--ink-3)',
-          display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'inherit', padding:0,
+          display:'flex', flexWrap:'wrap', gap:5, alignItems:'center', minHeight:48,
+          padding:5, borderRadius:8, cursor:'text',
+          background: dragOver ? 'var(--accent-soft)' : (focused ? '#f0f9ff' : 'transparent'),
+          border: dragOver ? '1px dashed var(--accent)' : (focused ? '1px solid var(--accent)' : '1px dashed var(--line)'),
+          outline:'none', transition:'all .12s', position:'relative',
         }}
+        title="点这里激活 → 然后 Ctrl+V 粘贴 / 拖拽 / 点 📎 选图"
       >
-        {uploading ? '⏳' : '📎+'}
-      </button>
-      <input ref={fileInputRef} type="file" accept="image/*" multiple
-        onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
-        style={{display:'none'}}/>
-    </div>
+        {items.map((a, i) => (
+          <div key={i} style={{position:'relative', width:48, height:48}}>
+            <img src={a.url} alt={a.name}
+              onClick={(e) => { e.stopPropagation(); setPreview(a); }}
+              title="点击放大预览"
+              style={{width:'100%', height:'100%', objectFit:'contain', borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-elevated)', cursor:'zoom-in'}}/>
+            <button onClick={(e) => { e.stopPropagation(); removeAt(i); }} title="删除"
+              style={{
+                position:'absolute', top:-6, right:-6, width:17, height:17,
+                background:'var(--bad)', color:'white', border:'2px solid white', borderRadius:'50%',
+                cursor:'pointer', fontSize:9, lineHeight:1, fontFamily:'inherit', padding:0,
+              }}>✕</button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="选图 / 也可粘贴 Ctrl+V / 拖拽进来"
+          style={{
+            width:48, height:48, border:'1px dashed var(--line)', borderRadius:6,
+            background:'white', cursor: uploading ? 'wait' : 'pointer', fontSize:14, color:'var(--ink-3)',
+            display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'inherit', padding:0, flexShrink:0,
+          }}
+        >
+          {uploading ? '⏳' : '📎+'}
+        </button>
+        {/* 🆕 fix64: 聚焦时明确提示可粘贴 */}
+        {focused && items.length === 0 && !uploading && (
+          <span style={{fontSize:11, color:'var(--accent)', fontWeight:500, whiteSpace:'nowrap'}}>
+            📋 现在可 Ctrl+V 粘贴
+          </span>
+        )}
+        <input ref={fileInputRef} type="file" accept="image/*" multiple
+          onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
+          style={{display:'none'}}/>
+      </div>
+
+      {/* 🆕 fix64: 放大预览 lightbox */}
+      {preview && ReactDOM.createPortal(
+        <div onClick={() => setPreview(null)} style={{
+          position:'fixed', inset:0, background:'rgba(0,0,0,.8)', zIndex:100001,
+          display:'flex', alignItems:'center', justifyContent:'center', padding:30, cursor:'zoom-out',
+        }}>
+          <img src={preview.url} alt={preview.name}
+            style={{maxWidth:'90vw', maxHeight:'90vh', objectFit:'contain', borderRadius:10, boxShadow:'0 20px 60px rgba(0,0,0,.5)'}}/>
+          <button onClick={() => setPreview(null)} style={{
+            position:'fixed', top:24, right:30, width:40, height:40, borderRadius:'50%',
+            background:'rgba(255,255,255,.15)', color:'white', border:'none', fontSize:22, cursor:'pointer',
+          }}>✕</button>
+        </div>,
+        document.body
+      )}
+    </>
   );
 };
 
