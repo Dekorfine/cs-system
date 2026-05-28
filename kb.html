@@ -2222,6 +2222,16 @@ input, textarea { font-family: inherit; color: var(--ink); }
       </div>
       <div class="scenario-images-grid" id="scenario-images-grid"></div>
     </div>
+    <div class="scenario-images" id="edit-images-panel" style="display:none;">
+      <div class="scenario-images-head">
+        <i class="ti ti-photo"></i>
+        <span>编辑场景图片</span>
+        <span class="hint">点击上传 / 聚焦后 Ctrl+V 粘贴 / 拖入 · 最多 6 张</span>
+      </div>
+      <div id="edit-images-drop" tabindex="0" style="border:2px dashed var(--border,#d8d8dc);border-radius:8px;padding:14px;text-align:center;cursor:pointer;background:var(--bg-soft,#fafafa);font-size:13px;color:var(--text-soft,#86868b);outline:none;">📎 点击选图片 / 粘贴截图 / 拖入图片</div>
+      <input type="file" id="edit-images-file" accept="image/*" multiple style="display:none;">
+      <div class="scenario-images-grid" id="edit-images-grid" style="margin-top:10px;"></div>
+    </div>
     <div class="modal-body" id="modal-body">
       <div class="answer-pane cn">
         <div class="answer-lang-label">中文</div>
@@ -12640,17 +12650,26 @@ const KB_DAO = {
     const { data } = await sb.from('kb_edits').select('*');
     const map = {};
     (data || []).forEach(r => {
-      map[r.entry_id] = { a_cn: r.a_cn, a_en: r.a_en, edited_by: r.edited_by, edit_note: r.edit_note, updated_at: r.updated_at };
+      map[r.entry_id] = { a_cn: r.a_cn, a_en: r.a_en, images: Array.isArray(r.images) ? r.images : undefined, edited_by: r.edited_by, edit_note: r.edit_note, updated_at: r.updated_at };
     });
     return map;
   },
-  async saveEdit(user, entryId, aCn, aEn, note) {
+  async saveEdit(user, entryId, aCn, aEn, note, images) {
     if (!sb || !user) return false;
-    const { error } = await sb.from('kb_edits').upsert({
+    const payload = {
       entry_id: entryId, a_cn: aCn, a_en: aEn,
       edited_by: user, edit_note: note || null,
       updated_at: new Date().toISOString(),
-    });
+    };
+    if (images !== undefined) payload.images = images;  // 🆕 fix74
+    let { error } = await sb.from('kb_edits').upsert(payload);
+    if (error && /images/i.test(error.message || '')) {
+      // 容错:kb_edits 还没加 images 列 → 去掉重试(图片仅存本地)
+      console.warn('[KB] kb_edits.images 列不存在,图片仅本地保存。请跑 ALTER TABLE');
+      delete payload.images;
+      const retry = await sb.from('kb_edits').upsert(payload);
+      error = retry.error;
+    }
     return !error;
   },
   async revertEdit(entryId) {
@@ -12900,7 +12919,10 @@ function getEntry(id) {
   const e = ENTRIES.find(x => x.id === id);
   if (!e) return null;
   const ed = state.edits[id];
-  return ed ? {...e, a_cn: ed.a_cn ?? e.a_cn, a_en: ed.a_en ?? e.a_en} : e;
+  if (!ed) return e;
+  const merged = {...e, a_cn: ed.a_cn ?? e.a_cn, a_en: ed.a_en ?? e.a_en};
+  if (Array.isArray(ed.images)) merged.images = ed.images;  // 🆕 fix74: 编辑后的图片覆盖
+  return merged;
 }
 
 // ===== Synonyms for fuzzy matching =====
@@ -13654,6 +13676,62 @@ function renderModalAnswers() {
 }
 
 // ===== Edit Mode =====
+// 🆕 fix74: 编辑模式的图片编辑
+let editImagesArr = [];
+function _kbFileToB64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > 1000) { h = h * 1000 / w; w = 1000; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = reject; img.src = e.target.result;
+    };
+    reader.onerror = reject; reader.readAsDataURL(file);
+  });
+}
+function renderEditImages() {
+  const grid = $('#edit-images-grid');
+  if (!grid) return;
+  grid.innerHTML = editImagesArr.map((src, i) => `
+    <div class="scenario-image" style="position:relative;">
+      <img src="${src}" alt="图 ${i+1}" style="width:100%;height:100%;object-fit:cover;" />
+      <button data-rm="${i}" title="删除" style="position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;border:2px solid #fff;cursor:pointer;font-size:11px;line-height:1;padding:0;">×</button>
+    </div>`).join('');
+  grid.querySelectorAll('[data-rm]').forEach(btn => btn.addEventListener('click', () => {
+    editImagesArr.splice(parseInt(btn.dataset.rm), 1); renderEditImages();
+  }));
+}
+async function addEditImages(fileList) {
+  const files = Array.from(fileList || []).filter(f => f.type && f.type.startsWith('image/'));
+  for (const f of files) {
+    if (editImagesArr.length >= 6) { showToast('最多 6 张', 'warn'); break; }
+    try { editImagesArr.push(await _kbFileToB64(f)); } catch(e) { showToast('图片处理失败', 'warn'); }
+  }
+  renderEditImages();
+}
+let _editImgBound = false;
+function bindEditImageEvents() {
+  if (_editImgBound) return; _editImgBound = true;
+  const drop = $('#edit-images-drop'), file = $('#edit-images-file');
+  if (drop && file) {
+    drop.addEventListener('click', () => file.click());
+    file.addEventListener('change', e => { addEditImages(e.target.files); e.target.value = ''; });
+    drop.addEventListener('paste', e => {
+      const imgs = Array.from(e.clipboardData?.items || []).filter(it => it.type.startsWith('image/'));
+      if (imgs.length) { e.preventDefault(); addEditImages(imgs.map(it => it.getAsFile()).filter(Boolean)); }
+    });
+    drop.addEventListener('dragover', e => { e.preventDefault(); });
+    drop.addEventListener('drop', e => { e.preventDefault(); addEditImages(e.dataTransfer.files); });
+  }
+}
+
 function enterEditMode() {
   const id = state.currentModal;
   if (!id) return;
@@ -13687,6 +13765,14 @@ function enterEditMode() {
   $('#quickfill-panel').classList.remove('show');
   $('#confusion-banner').classList.remove('show');
   $('#edit-mode-tip').style.display = 'flex';
+  // 🆕 fix74: 显示图片编辑区,载入当前图片
+  const curEd = state.edits[id];
+  if (curEd && Array.isArray(curEd.images)) editImagesArr = curEd.images.slice();
+  else if (e && e._custom && Array.isArray(e.images)) editImagesArr = e.images.filter(s => /^data:image\//i.test(s));
+  else editImagesArr = getEntryImages(id).slice();  // 内置条目的映射图(可在此基础上增改)
+  bindEditImageEvents();
+  renderEditImages();
+  const eip = $('#edit-images-panel'); if (eip) eip.style.display = '';
   // Focus the CN textarea
   setTimeout(() => $('#answer-cn-edit').focus(), 50);
 }
@@ -13711,6 +13797,7 @@ function exitEditMode(rerender = true) {
   // Restore panels
   $('#ai-actions').style.display = '';
   $('#edit-mode-tip').style.display = 'none';
+  const eip = $('#edit-images-panel'); if (eip) eip.style.display = 'none';  // 🆕 fix74
   if (rerender) {
     renderModalAnswers();
     renderScenarioImages(state.currentModal);
@@ -13741,14 +13828,18 @@ async function saveEdit() {
   const en = $('#answer-en-edit').value;
   const user = KB_DAO.getUser() || state.settings?.name || 'Admin';
   const original = ENTRIES.find(x => x.id === id);
-  if (cn === original.a_cn && en === original.a_en) {
+  const imgs = editImagesArr.slice();  // 🆕 fix74
+  const origImgs = (original && original._custom && Array.isArray(original.images)) ? original.images : getEntryImages(id);
+  const sameText = cn === original.a_cn && en === original.a_en;
+  const sameImgs = JSON.stringify(imgs) === JSON.stringify(origImgs);
+  if (sameText && sameImgs) {
     // 还原为原始
     delete state.edits[id];
     await KB_DAO.revertEdit(id);
     showToast('✓ 已还原为原版');
   } else {
-    state.edits[id] = { a_cn: cn, a_en: en, ts: Date.now(), by: user };
-    const ok = await KB_DAO.saveEdit(user, id, cn, en, '');
+    state.edits[id] = { a_cn: cn, a_en: en, images: imgs, ts: Date.now(), by: user };
+    const ok = await KB_DAO.saveEdit(user, id, cn, en, '', imgs);
     if (ok) showToast('✓ 已保存并同步全团队');
     else showToast('已保存本地（云端同步失败）', 'warn');
   }
@@ -13867,8 +13958,16 @@ function getEntryImages(entryId) {
 function renderScenarioImages(id) {
   const e = getEntry(id);
   const panel = $('#scenario-images');
-  // 从 Storage 映射获取，覆盖原 entry.images 里的 svg placeholder
-  const images = getEntryImages(id);
+  // 🆕 fix74: 优先编辑后的图 > 自定义条目自带图 > 内置映射图
+  let images;
+  const ed = state.edits[id];
+  if (ed && Array.isArray(ed.images) && ed.images.length) {
+    images = ed.images.filter(s => s && (/^data:image\//i.test(s) || /^https?:/i.test(s)));
+  } else if (e && e._custom && Array.isArray(e.images)) {
+    images = e.images.filter(s => s && /^data:image\/(png|jpe?g|webp|gif|bmp)/i.test(s));
+  } else {
+    images = getEntryImages(id);
+  }
   if (!e || images.length === 0) {
     panel.style.display = 'none';
     return;
@@ -15345,6 +15444,28 @@ function attachEvents() {
 }
 
 // ===== Init =====
+// 🆕 fix73: 加载工作台新建的条目(workspace_kb 表)→ 合并进知识库
+async function loadCustomKbEntries() {
+  if (!sb) return [];
+  try {
+    const { data, error } = await sb.from('workspace_kb').select('*');
+    if (error) { console.warn('[KB] workspace_kb load failed:', error.message); return []; }
+    return (data || []).map(row => ({
+      id: 100000 + Number(row.id),           // 偏移避免与内置条目 id 冲突
+      cat_cn: row.cat_cn || row.category || '其他',
+      cat_en: row.cat_en || 'Other',
+      q_cn: row.q_cn || '',
+      q_en: row.q_en || row.q_cn || '',
+      a_cn: row.a_cn || '',
+      a_en: row.a_en || row.a_cn || '',
+      tags: Array.isArray(row.tags) ? row.tags : [],
+      scenarios: Array.isArray(row.scenarios) ? row.scenarios : [],
+      images: Array.isArray(row.images) ? row.images : [],
+      _custom: true,
+    }));
+  } catch(e) { console.warn('[KB] workspace_kb error:', e); return []; }
+}
+
 async function init() {
   try { applyTheme(); } catch(e) { console.error('applyTheme:', e); }
   try { renderUI(); } catch(e) { console.error('renderUI:', e); }
@@ -15361,18 +15482,26 @@ async function init() {
     try {
       // 设置用户标记
       document.documentElement.dataset.kbUser = user;
-      // 并行加载 favorites + ratings + edits + Gemini key
-      const [favs, ratings, edits] = await Promise.all([
+      // 并行加载 favorites + ratings + edits + 自定义条目
+      const [favs, ratings, edits, customEntries] = await Promise.all([
         KB_DAO.loadFavorites(user).catch(() => []),
         KB_DAO.loadRatings().catch(() => ({})),
         KB_DAO.loadEdits().catch(() => ({})),
+        loadCustomKbEntries().catch(() => []),
       ]);
+      // 🆕 fix73: 合并工作台新建条目进 ENTRIES,并重渲染导航/列表
+      if (customEntries.length) {
+        const existing = new Set(ENTRIES.map(e => e.id));
+        customEntries.forEach(ce => { if (!existing.has(ce.id)) ENTRIES.push(ce); });
+        try { renderCategoryNav(); renderTagNav(); renderScenarios(); } catch(e) { console.warn('[KB] re-render nav:', e); }
+        console.log('[KB] merged', customEntries.length, 'custom entries from workspace_kb');
+      }
       // 合并到 state
       state.favorites = new Set(favs);
       state.ratings = ratings;
       // edits 合并：云端覆盖本地
       Object.keys(edits).forEach(eid => {
-        state.edits[eid] = { a_cn: edits[eid].a_cn, a_en: edits[eid].a_en, by: edits[eid].edited_by, ts: new Date(edits[eid].updated_at).getTime() };
+        state.edits[eid] = { a_cn: edits[eid].a_cn, a_en: edits[eid].a_en, images: edits[eid].images, by: edits[eid].edited_by, ts: new Date(edits[eid].updated_at).getTime() };
       });
       persistFavs(); persistRatings(); persistEdits();
       updateFavBadge();
