@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄需求 v3 + 📌 任务 + 🐛 反馈(全 contain 图,fix55) · fix28-55
-// APP_VERSION: 2026.05.27-fix55
+// 📷 拍摄需求 v3 + 批量录入含图(fix56)+ 任务 + 反馈 · fix28-56
+// APP_VERSION: 2026.05.27-fix56
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -782,18 +782,106 @@ const PhotoRequestEditModal = ({ item, user, toast, onClose, onSuccess }) => {
 // 🆕 fix53 v3: 批量录入 Modal — 一次提交多条拍摄需求
 // 适合客服汇总员场景:周末整理一批待拍产品
 // ════════════════════════════════════════════════════════════════════
+// 🆕 fix56: 批量录入单行的附件组件 — 支持点击 / 粘贴 / 拖拽上传 + 缩略图预览
+const RowAttachments = ({ items, onChange, toast }) => {
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFiles = async (files) => {
+    const list = Array.from(files || []).filter(f => f.type.startsWith('image/'));
+    if (list.length === 0) return;
+    setUploading(true);
+    const news = [];
+    for (const f of list) {
+      try {
+        const a = await window.uploadAttachmentToWtkpi(f);
+        news.push(a);
+      } catch (e) {
+        toast('上传 ' + f.name + ' 失败:' + (e.message || ''));
+      }
+    }
+    if (news.length > 0) onChange([...items, ...news]);
+    setUploading(false);
+  };
+
+  const handlePaste = async (e) => {
+    const clipItems = Array.from(e.clipboardData?.items || []);
+    const imageFiles = clipItems.filter(it => it.type && it.type.startsWith('image/')).map(it => it.getAsFile()).filter(Boolean);
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      await handleFiles(imageFiles);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    await handleFiles(e.dataTransfer?.files);
+  };
+
+  const removeAt = (idx) => onChange(items.filter((_, i) => i !== idx));
+
+  return (
+    <div
+      tabIndex={0}
+      onPaste={handlePaste}
+      onDrop={handleDrop}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      style={{
+        display:'flex', flexWrap:'wrap', gap:4, alignItems:'center', minHeight:46,
+        padding:4, borderRadius:6,
+        background: dragOver ? 'var(--accent-soft)' : 'transparent',
+        border: dragOver ? '1px dashed var(--accent)' : '1px dashed transparent',
+        outline:'none',
+      }}
+      title="点击图标添加 / 粘贴 Ctrl+V / 拖拽上传"
+    >
+      {items.map((a, i) => (
+        <div key={i} style={{position:'relative', width:42, height:42}}>
+          <img src={a.url} alt={a.name}
+            style={{width:'100%', height:'100%', objectFit:'contain', borderRadius:5, border:'1px solid var(--line)', background:'var(--bg-elevated)'}}/>
+          <button onClick={() => removeAt(i)} title="删除"
+            style={{
+              position:'absolute', top:-5, right:-5, width:16, height:16,
+              background:'var(--bad)', color:'white', border:'none', borderRadius:'50%',
+              cursor:'pointer', fontSize:9, lineHeight:1, fontFamily:'inherit', padding:0,
+            }}>✕</button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        title="选图 / 也可粘贴 Ctrl+V / 拖拽进来"
+        style={{
+          width:42, height:42, border:'1px dashed var(--line)', borderRadius:5,
+          background:'white', cursor: uploading ? 'wait' : 'pointer', fontSize:14, color:'var(--ink-3)',
+          display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'inherit', padding:0,
+        }}
+      >
+        {uploading ? '⏳' : '📎+'}
+      </button>
+      <input ref={fileInputRef} type="file" accept="image/*" multiple
+        onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
+        style={{display:'none'}}/>
+    </div>
+  );
+};
+
 const PhotoRequestBatchModal = ({ user, toast, onClose, onSuccess }) => {
   const [rows, setRows] = useState([
-    { productName:'', sku:'', urgency:'normal', reason:'' },
-    { productName:'', sku:'', urgency:'normal', reason:'' },
-    { productName:'', sku:'', urgency:'normal', reason:'' },
+    { productName:'', sku:'', urgency:'normal', reason:'', attachments:[] },
+    { productName:'', sku:'', urgency:'normal', reason:'', attachments:[] },
+    { productName:'', sku:'', urgency:'normal', reason:'', attachments:[] },
   ]);
   const [defaultShops, setDefaultShops] = useState([]);
   const [defaultUrgency, setDefaultUrgency] = useState('normal');
   const [reasonPrefix, setReasonPrefix] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const addRow = () => setRows([...rows, { productName:'', sku:'', urgency:'normal', reason:'' }]);
+  const addRow = () => setRows([...rows, { productName:'', sku:'', urgency:'normal', reason:'', attachments:[] }]);
   const removeRow = (i) => setRows(rows.filter((_, idx) => idx !== i));
   const updateRow = (i, field, val) => setRows(rows.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
   const toggleDefaultShop = (label) => {
@@ -801,10 +889,11 @@ const PhotoRequestBatchModal = ({ user, toast, onClose, onSuccess }) => {
   };
 
   const valid = rows.filter(r => r.productName.trim());
+  const totalImages = rows.reduce((sum, r) => sum + (r.attachments?.length || 0), 0);
 
   const submit = async () => {
     if (valid.length === 0) { toast('至少要填 1 条产品名'); return; }
-    if (!confirm(`确认批量提交 ${valid.length} 条需求?`)) return;
+    if (!confirm(`确认批量提交 ${valid.length} 条需求?\n\n${totalImages > 0 ? `(包含 ${totalImages} 张图片)` : '(无图片)'}`)) return;
     setSubmitting(true);
     try {
       const result = await window.batchSubmitPhotoRequests(valid, {
@@ -831,14 +920,16 @@ const PhotoRequestBatchModal = ({ user, toast, onClose, onSuccess }) => {
       display:'flex', alignItems:'center', justifyContent:'center', padding:20,
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        background:'white', borderRadius:18, maxWidth:920, width:'100%', maxHeight:'92vh', overflow:'auto',
+        background:'white', borderRadius:18, maxWidth:1100, width:'100%', maxHeight:'92vh', overflow:'auto',
         padding:'24px 28px',
       }}>
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6}}>
           <div className="font-display" style={{fontSize:20, fontWeight:600, letterSpacing:'-.022em'}}>📥 批量录入待拍产品</div>
           <button onClick={onClose} style={{background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-3)'}}>✕</button>
         </div>
-        <div style={{fontSize:12, color:'var(--ink-3)', marginBottom:16}}>一行一个产品 · 共有字段(店铺 / 紧急度 / 前缀)在下方统一设置</div>
+        <div style={{fontSize:12, color:'var(--ink-3)', marginBottom:16}}>
+          一行一个产品 · 共有字段(店铺 / 紧急度 / 前缀)在下方统一设置 · <strong>每行支持点 📎+ / 粘贴 Ctrl+V / 拖拽 上传图片</strong>
+        </div>
 
         {/* 统一设置 */}
         <div style={{background:'var(--bg-elevated)', padding:14, borderRadius:10, marginBottom:14}}>
@@ -877,38 +968,46 @@ const PhotoRequestBatchModal = ({ user, toast, onClose, onSuccess }) => {
             <thead>
               <tr style={{background:'var(--bg-soft)'}}>
                 <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, width:30}}>#</th>
-                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:160}}>产品名 *</th>
-                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:130}}>SKU</th>
-                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, width:90}}>紧急度</th>
-                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:200}}>原因 / 备注</th>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:150}}>产品名 *</th>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:120}}>SKU</th>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, width:85}}>紧急度</th>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:170}}>原因 / 备注</th>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:180}}>📎 附件</th>
                 <th style={{padding:'8px 6px', width:30}}></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={i}>
-                  <td style={{padding:'4px 6px', color:'var(--ink-3)'}}>{i + 1}</td>
-                  <td style={{padding:'4px 6px'}}>
+                <tr key={i} style={{borderBottom:'1px solid var(--line-soft)'}}>
+                  <td style={{padding:'6px 6px', color:'var(--ink-3)', verticalAlign:'middle'}}>{i + 1}</td>
+                  <td style={{padding:'6px 6px', verticalAlign:'middle'}}>
                     <input value={r.productName} onChange={e => updateRow(i, 'productName', e.target.value)}
                       placeholder="必填"
                       style={{width:'100%', padding:'5px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'inherit'}}/>
                   </td>
-                  <td style={{padding:'4px 6px'}}>
+                  <td style={{padding:'6px 6px', verticalAlign:'middle'}}>
                     <input value={r.sku} onChange={e => updateRow(i, 'sku', e.target.value)}
                       style={{width:'100%', padding:'5px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'SF Mono,monospace'}}/>
                   </td>
-                  <td style={{padding:'4px 6px'}}>
+                  <td style={{padding:'6px 6px', verticalAlign:'middle'}}>
                     <select value={r.urgency} onChange={e => updateRow(i, 'urgency', e.target.value)}
                       style={{width:'100%', padding:'5px 6px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'inherit'}}>
                       <option value="normal">普通</option>
                       <option value="urgent">🚨 加急</option>
                     </select>
                   </td>
-                  <td style={{padding:'4px 6px'}}>
+                  <td style={{padding:'6px 6px', verticalAlign:'middle'}}>
                     <input value={r.reason} onChange={e => updateRow(i, 'reason', e.target.value)}
                       style={{width:'100%', padding:'5px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'inherit'}}/>
                   </td>
-                  <td style={{padding:'4px 6px', textAlign:'center'}}>
+                  <td style={{padding:'6px 6px', verticalAlign:'middle'}}>
+                    <RowAttachments
+                      items={r.attachments || []}
+                      onChange={(news) => updateRow(i, 'attachments', news)}
+                      toast={toast}
+                    />
+                  </td>
+                  <td style={{padding:'6px 6px', textAlign:'center', verticalAlign:'middle'}}>
                     {rows.length > 1 && (
                       <button onClick={() => removeRow(i)} style={{
                         background:'none', border:'none', color:'var(--bad)', cursor:'pointer', fontSize:14, padding:0,
@@ -930,7 +1029,7 @@ const PhotoRequestBatchModal = ({ user, toast, onClose, onSuccess }) => {
         <div className="modal-actions">
           <button className="btn-modal-cancel" onClick={onClose}>取消</button>
           <button className="btn-modal-primary" onClick={submit} disabled={submitting || valid.length === 0}>
-            {submitting ? '⏳ 提交中…' : `💾 批量提交 ${valid.length} 条`}
+            {submitting ? '⏳ 提交中…' : `💾 批量提交 ${valid.length} 条${totalImages > 0 ? ` (含 ${totalImages} 图)` : ''}`}
           </button>
         </div>
       </div>

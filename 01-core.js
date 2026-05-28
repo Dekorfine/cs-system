@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 + LoginScreen + wtkpi + 英文名修复 · fix28-55
-// APP_VERSION: 2026.05.27-fix55
+// 🧱 核心 + LoginScreen + wtkpi(batchSubmit 含图) · fix28-56
+// APP_VERSION: 2026.05.27-fix56
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -662,32 +662,37 @@ async function batchSubmitPhotoRequests(rows, defaults, currentUser) {
   if (!client) throw new Error('拍摄部 Supabase 未配置');
   const now = Date.now();
   const batchId = crypto.randomUUID();
-  const inserts = rows.map(r => ({
-    id: crypto.randomUUID(),
-    product_name: r.productName || '(未填)',
-    sku: r.sku || null,
-    product_image: null,
-    applicable_shops: r.applicableShops || defaults.applicableShops || [],
-    product_type: '客服需求',
-    status: 'draft',
-    priority: (r.urgency || defaults.urgency) === 'urgent' ? 'urgent' : 'normal',
-    external_request: {
-      source: '客服',
-      from_name: currentUser.name + (currentUser.alias ? ' ' + currentUser.alias : ''),
-      from_user_id: currentUser.id,
-      from_dept: '客服部',
-      reason: (defaults.reasonPrefix ? defaults.reasonPrefix + ' · ' : '') + (r.reason || ''),
-      urgency: r.urgency || defaults.urgency || 'normal',
-      attachments: [],
+  const inserts = rows.map(r => {
+    const rowAttachments = Array.isArray(r.attachments) ? r.attachments : [];
+    return {
+      id: crypto.randomUUID(),
+      product_name: r.productName || '(未填)',
+      sku: r.sku || null,
+      // 🆕 fix56: 如果该行有图,第一张作为 product_image 缩略图(便于列表显示)
+      product_image: rowAttachments[0]?.url || null,
+      applicable_shops: r.applicableShops || defaults.applicableShops || [],
+      product_type: '客服需求',
+      status: 'draft',
+      priority: (r.urgency || defaults.urgency) === 'urgent' ? 'urgent' : 'normal',
+      external_request: {
+        source: '客服',
+        from_name: currentUser.name + (currentUser.alias ? ' ' + currentUser.alias : ''),
+        from_user_id: currentUser.id,
+        from_dept: '客服部',
+        reason: (defaults.reasonPrefix ? defaults.reasonPrefix + ' · ' : '') + (r.reason || ''),
+        urgency: r.urgency || defaults.urgency || 'normal',
+        // 🆕 fix56: 把该行所有附件传过去
+        attachments: rowAttachments,
+        created_at_ms: now,
+        external_ref_id: null,
+        batch_id: batchId,
+      },
+      created_by_id: currentUser.id,
+      created_by_name: currentUser.name + (currentUser.alias ? ' ' + currentUser.alias : ''),
       created_at_ms: now,
-      external_ref_id: null,
-      batch_id: batchId,
-    },
-    created_by_id: currentUser.id,
-    created_by_name: currentUser.name + (currentUser.alias ? ' ' + currentUser.alias : ''),
-    created_at_ms: now,
-    updated_at: new Date().toISOString(),
-  }));
+      updated_at: new Date().toISOString(),
+    };
+  });
   const results = await Promise.allSettled(
     inserts.map(row => client.from('photo_logs').insert(row))
   );
