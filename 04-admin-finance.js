@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// ⚙ 设置 + 🧮 财务 · fix28-61
-// APP_VERSION: 2026.05.27-fix61
+// ⚙ 设置(fix62 同步按钮)+ 🧮 财务 · fix28-62
+// APP_VERSION: 2026.05.27-fix62
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -457,10 +457,24 @@ const AdminModule = ({ user, employees, setEmployees, toast, cloudCfg, setCloudC
             <span className="font-display text-base font-bold">员工管理</span>
             <span className="tag tag-neutral">{employees.length} 人</span>
           </div>
-          <button className="btn-pri" onClick={() => setShowNew(!showNew)}>
-            <Icon name="plus" className="w-4 h-4 inline mr-1" />
-            添加员工
-          </button>
+          <div className="flex items-center gap-2">
+            {/* 🆕 fix62 v5: 同步到共享人员目录 */}
+            <button className="btn-sec" title="把客服部人员发布到三系统共享目录(美工/客服/跟单互相可见,发工单能选到具体人)"
+              onClick={async () => {
+                try {
+                  const n = await window.publishMyStaff(employees, user.name + (user.alias ? ' ' + user.alias : ''));
+                  toast(`✓ 已同步 ${n} 名客服人员到共享目录`);
+                } catch (e) {
+                  toast('❌ 同步失败:' + (e.message || e));
+                }
+              }}>
+              🔄 同步到共享目录
+            </button>
+            <button className="btn-pri" onClick={() => setShowNew(!showNew)}>
+              <Icon name="plus" className="w-4 h-4 inline mr-1" />
+              添加员工
+            </button>
+          </div>
         </div>
       </div>
 

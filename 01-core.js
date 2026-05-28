@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 + LoginScreen + 邮件模板预置 + wtkpi · fix28-61
-// APP_VERSION: 2026.05.27-fix61
+// 🧱 核心 + 共享目录函数(fix62)+ 邮件模板 + wtkpi · fix28-62
+// APP_VERSION: 2026.05.27-fix62
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -485,6 +485,51 @@ const getCdmClient = () => {
     return _cdmClient;
   } catch (e) { console.error('[CDM] 初始化消息总线 client 失败', e); return null; }
 };
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix62 v5: 三系统共享人员目录 org_directory(跟 cross_dept_messages 同库)
+// 客服系统 system='cs' · 发布本系统人员 + 读全部门人员做接收人下拉
+// ════════════════════════════════════════════════════════════════════
+const ORG_SYSTEM = 'cs';  // 客服系统标识(跟单系统改 'po')
+
+// 发布本系统人员到共享目录(upsert,不删人用 active=false)
+async function publishMyStaff(staffList, updatedBy) {
+  const client = getCdmClient();
+  if (!client) throw new Error('消息总线未初始化');
+  const rows = staffList.map((s, i) => ({
+    id: `${ORG_SYSTEM}_${s.id}`,
+    staff_id: s.id,
+    name: s.name + (s.alias ? ' ' + s.alias : ''),
+    system: ORG_SYSTEM,
+    role: s.title || (s.role === 'super_admin' ? '客服部主管' : s.role === 'admin' ? '客服主管' : s.role === 'finance' ? '财务' : '客服'),
+    department: s.team || (s.sites || null),
+    active: s.active !== false && !s.disabled,
+    sort_order: i,
+    updated_at: new Date().toISOString(),
+    updated_by: updatedBy || 'system',
+  }));
+  const { error } = await client.from('org_directory').upsert(rows, { onConflict: 'id' });
+  if (error) throw error;
+  return rows.length;
+}
+
+// 读共享目录(全部门所有人)
+async function loadOrgDirectory() {
+  const client = getCdmClient();
+  if (!client) return [];
+  const { data, error } = await client.from('org_directory').select('*').order('sort_order', { ascending: true });
+  if (error) { console.error('[org_directory] 读取失败', error); return []; }
+  return (data || []).map(r => ({
+    id: r.id, staffId: r.staff_id, name: r.name, system: r.system,
+    role: r.role, department: r.department, active: r.active !== false,
+    sortOrder: r.sort_order,
+  }));
+}
+
+if (typeof window !== 'undefined') {
+  window.publishMyStaff = publishMyStaff;
+  window.loadOrgDirectory = loadOrgDirectory;
+}
 
 // ════════════════════════════════════════════════════════════════════
 // 🆕 fix49: WorkTrack-KPI 跨系统 client(对接拍摄部 photo_logs 表)

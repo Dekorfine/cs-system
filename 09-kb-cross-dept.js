@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📨 跨部门 · fix28-61
-// APP_VERSION: 2026.05.27-fix61
+// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📨 跨部门(fix62 选人) · fix28-62
+// APP_VERSION: 2026.05.27-fix62
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1882,6 +1882,8 @@ const CdmMessageCard = ({ msg, user, tab, onOpen, cdmTimeoutConfig }) => {
   const peerSystem = tab === 'inbox' ? msg.from_system : msg.to_system;
   const peer = findCdm(CDM_SYSTEMS, peerSystem);
   const peerName = tab === 'inbox' ? (msg.from_user_name || '?') : (msg.to_user_name || '整个部门');
+  // 🆕 fix62 v5: 发件箱明确区分"具体人 vs 整个部门"
+  const peerIcon = tab === 'inbox' ? '👤' : (msg.to_user_id || msg.to_user_name ? '👤' : '📢');
   const isUnread = tab === 'inbox' && !(msg.read_by || []).includes(user.id) && msg.from_user_id !== user.id;
   const threadCount = (msg.thread || []).length;
   const attCount = (msg.attachments || []).length + (msg.thread || []).reduce((s, t) => s + (t.attachments || []).length, 0);
@@ -1918,7 +1920,7 @@ const CdmMessageCard = ({ msg, user, tab, onOpen, cdmTimeoutConfig }) => {
         <div style={{fontSize:11, color:'var(--ink-3)', display:'flex', gap:4, alignItems:'center'}}>
           <span>{tab === 'inbox' ? '来自' : '发给'}</span>
           <span style={{padding:'1px 7px', background:'#f5f5f7', borderRadius:8, fontWeight:600, color:'var(--ink)'}}>{peer.label}</span>
-          <span style={{color:'var(--ink-2)'}}>· {peerName}</span>
+          <span style={{color:'var(--ink-2)'}}>· {peerIcon} {peerName}</span>
         </div>
       </div>
       <div style={{fontSize:14, fontWeight: isUnread ? 700 : 600, color:'var(--ink)', marginBottom:3, lineHeight:1.4}}>
@@ -1964,6 +1966,17 @@ const CdmNewMessageModal = ({ user, employees, shopOwners = [], onClose, onSent,
   const [attachments, setAttachments] = useState([]);
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef(null);
+  // 🆕 fix62 v5: 共享人员目录(发工单选具体人)
+  const [orgDir, setOrgDir] = useState([]);
+  useEffect(() => {
+    (async () => {
+      try { setOrgDir(await window.loadOrgDirectory()); } catch (e) { console.error('[org] 加载失败', e); }
+    })();
+  }, []);
+  // 目标部门的人(active)
+  const recipientOptions = useMemo(() =>
+    orgDir.filter(p => p.system === toSystem && p.active).sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0)),
+    [orgDir, toSystem]);
 
   // 🆕 v22-CY: 可选网站列表直接用预设(不再从 shopOwners 提取 — 避免拼写不一致)
   const availableShops = SHOPS_SELECTABLE;
@@ -2103,9 +2116,27 @@ const CdmNewMessageModal = ({ user, employees, shopOwners = [], onClose, onSent,
             </div>
             <div>
               <label style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:4}}>指定接收人 (选填)</label>
-              <input value={toUserName} onChange={e => { setToUserName(e.target.value); setToUserId(''); }}
-                placeholder="留空 = 整个部门可见"
-                style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit'}} />
+              {/* 🆕 fix62 v5: 从共享目录选具体人 */}
+              {recipientOptions.length > 0 ? (
+                <select
+                  value={toUserId}
+                  onChange={e => {
+                    const sid = e.target.value;
+                    setToUserId(sid);
+                    const p = recipientOptions.find(x => x.staffId === sid);
+                    setToUserName(p ? p.name : '');
+                  }}
+                  style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, background:'white', fontFamily:'inherit'}}>
+                  <option value="">— 整个部门(不指定)—</option>
+                  {recipientOptions.map(p => (
+                    <option key={p.id} value={p.staffId}>{p.name}{p.role ? ' · ' + p.role : ''}</option>
+                  ))}
+                </select>
+              ) : (
+                <input value={toUserName} onChange={e => { setToUserName(e.target.value); setToUserId(''); }}
+                  placeholder="对方部门未发布名单 · 可手填"
+                  style={{width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:7, fontSize:13, fontFamily:'inherit'}} />
+              )}
             </div>
           </div>
           {/* 🆕 v22-CW + v22-CY: 关联网站(预设下拉) + 自动建议负责人 */}
@@ -2499,7 +2530,7 @@ const CdmDetailModal = ({ msg, user, employees = [], shopOwners = [], cdmTimeout
           <div style={{fontSize:12, color:'var(--ink-3)', display:'flex', flexWrap:'wrap', gap:10, alignItems:'center', marginBottom:10}}>
             <span><strong style={{color:'var(--ink)'}}>{fromSys.label}</strong> · {msg.from_user_name}</span>
             <span style={{color:'var(--ink-4)'}}>→</span>
-            <span><strong style={{color:'var(--ink)'}}>{toSys.label}</strong>{msg.to_user_name ? ' · ' + msg.to_user_name : ' (整个部门)'}</span>
+            <span><strong style={{color:'var(--ink)'}}>{toSys.label}</strong>{msg.to_user_id || msg.to_user_name ? ' · 👤 ' + msg.to_user_name : ' · 📢 整个部门'}</span>
             <span style={{marginLeft:'auto', color:'var(--ink-4)'}}>{formatTs(msg.created_at_ms)}</span>
           </div>
           {/* 🆕 v22-CV/CW: 头部信息块 — 关联网站 / 已分派给 / 超时状态 */}
