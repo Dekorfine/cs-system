@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 + 共享目录 + 邮件模板 + wtkpi · fix28-67
-// APP_VERSION: 2026.05.27-fix67
+// 🧱 核心 + 共享目录 + 邮件模板 + wtkpi · fix28-68
+// APP_VERSION: 2026.05.27-fix68
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;

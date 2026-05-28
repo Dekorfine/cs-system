@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📨 跨部门 + 店铺负责人三方诊断(fix67) · fix28-67
-// APP_VERSION: 2026.05.27-fix67
+// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📨 跨部门(fix68 指派三态徽章) · fix28-68
+// APP_VERSION: 2026.05.27-fix68
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1905,6 +1905,16 @@ const CdmMessageCard = ({ msg, user, tab, onOpen, cdmTimeoutConfig }) => {
           <span style={{padding:'2px 8px', background: st.bg, color: st.color, borderRadius:10, fontSize:10, fontWeight:600}}>{st.label}</span>
           {msg.related_shop && <span style={{padding:'2px 8px', background:'#d1fae5', color:'#065f46', borderRadius:10, fontSize:10, fontWeight:600}}>🌐 {msg.related_shop}</span>}
           {msg.assigned_to_name && <span style={{padding:'2px 8px', background:'#dbeafe', color:'#1e40af', borderRadius:10, fontSize:10, fontWeight:600}}>📌 {msg.assigned_to_name}</span>}
+          {/* 🆕 fix68: 指派三态徽章(对齐美工)— 收件箱显示这条工单指派给谁 */}
+          {tab === 'inbox' && (
+            msg.to_user_id === user.id ? (
+              <span style={{padding:'2px 8px', background:'#16a34a', color:'white', borderRadius:10, fontSize:10, fontWeight:700, animation:'pulse 1.8s ease-in-out infinite'}}>👤 指派给你</span>
+            ) : (msg.to_user_id || msg.to_user_name) ? (
+              <span style={{padding:'2px 8px', background:'#f3e8ff', color:'#6b21a8', borderRadius:10, fontSize:10, fontWeight:600}}>👤 {msg.to_user_name}</span>
+            ) : (
+              <span style={{padding:'2px 8px', background:'#f5f5f7', color:'#86868b', borderRadius:10, fontSize:10, fontWeight:600}}>📢 整个部门</span>
+            )
+          )}
         </div>
         <div style={{fontSize:11, color:'var(--ink-3)', display:'flex', gap:4, alignItems:'center'}}>
           <span>{tab === 'inbox' ? '来自' : '发给'}</span>
