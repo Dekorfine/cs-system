@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 + LoginScreen + wtkpi(batchSubmit 含图) · fix28-56
-// APP_VERSION: 2026.05.27-fix56
+// 🧱 核心 + LoginScreen + wtkpi + 邮件模板预置(fix57) · fix28-57
+// APP_VERSION: 2026.05.27-fix57
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -737,6 +737,295 @@ const SHOPS_PRESET = [
 ];
 // 给主管/admin 用的可选网站(去掉"其他"那行 - "其他"是 sentinel 值)
 const SHOPS_SELECTABLE = SHOPS_PRESET.filter(s => s.id !== 'other');
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix57: 邮件模板预置库 — 跨境电商灯具客服 15 个高频场景
+// 占位符约定:{{customer_name}} {{order_no}} {{tracking_no}} {{product_name}}
+//             {{ship_date}} {{est_delivery}} {{refund_amount}} {{store_name}} {{my_name}}
+// ════════════════════════════════════════════════════════════════════
+const EMAIL_TEMPLATE_CATEGORIES = [
+  { id:'shipping',  label:'📦 发货 / 物流',    color:'#0369a1', bg:'#dbeafe' },
+  { id:'delay',     label:'⏰ 延迟 / 缺货',    color:'#d97706', bg:'#fef3c7' },
+  { id:'return',    label:'↩️ 退货 / 退款',    color:'#a855f7', bg:'#f3e8ff' },
+  { id:'damage',    label:'📦 损坏 / 丢失',    color:'#dc2626', bg:'#fee2e2' },
+  { id:'inquiry',   label:'💬 咨询 / 售前',    color:'#0284c7', bg:'#e0f2fe' },
+  { id:'thanks',    label:'❤️ 感谢 / 复购',    color:'#16a34a', bg:'#dcfce7' },
+  { id:'review',    label:'⭐ 评价邀请',       color:'#ca8a04', bg:'#fef9c3' },
+  { id:'custom',    label:'🎨 自定义',         color:'#86868b', bg:'#f5f5f7' },
+];
+const EMAIL_TEMPLATE_PRESETS = [
+  {
+    id:'tpl_order_confirm', category:'shipping', title:'订单确认 · Order Confirmation',
+    subject:'Order #{{order_no}} confirmed — Thanks for choosing {{store_name}}!',
+    body:`Hi {{customer_name}},
+
+Thanks so much for your order from {{store_name}}! We've received your order #{{order_no}} and our team is preparing it for shipment.
+
+Order details:
+- {{product_name}}
+- Estimated shipping: within 3-5 business days
+
+You'll get another email with tracking information as soon as your package ships. If you have any questions in the meantime, just reply to this email — I'm happy to help.
+
+Warm regards,
+{{my_name}}
+{{store_name}} Customer Care`,
+  },
+  {
+    id:'tpl_shipped', category:'shipping', title:'已发货通知 · Shipped Notification',
+    subject:'Good news — Your order #{{order_no}} is on its way 📦',
+    body:`Hi {{customer_name}},
+
+Great news! Your order #{{order_no}} from {{store_name}} has shipped today ({{ship_date}}).
+
+Tracking number: {{tracking_no}}
+Estimated delivery: {{est_delivery}}
+
+You can track your package here:
+[Tracking link]
+
+Please allow 24-48 hours for the tracking information to update. If you don't see movement after that, just reply to this email and I'll look into it right away.
+
+Thanks for choosing {{store_name}}!
+
+{{my_name}}`,
+  },
+  {
+    id:'tpl_delay_apology', category:'delay', title:'物流延迟道歉 · Shipping Delay',
+    subject:'A quick update on your order #{{order_no}}',
+    body:`Hi {{customer_name}},
+
+I want to personally apologize — your order #{{order_no}} is experiencing an unexpected delay in shipping. I know how frustrating this is, especially when you've been looking forward to receiving your {{product_name}}.
+
+Here's what's happening:
+[Briefly explain the cause — carrier delay / customs / warehouse]
+
+Updated estimated delivery: {{est_delivery}}
+
+As a small thank-you for your patience, I'd like to offer you [discount code / partial refund / free upgrade]. Please let me know if there's anything else I can do to make this right.
+
+Sincerely,
+{{my_name}}
+{{store_name}} Customer Care`,
+  },
+  {
+    id:'tpl_out_of_stock', category:'delay', title:'缺货通知 · Out of Stock',
+    subject:'Important update on your order #{{order_no}}',
+    body:`Hi {{customer_name}},
+
+Thanks so much for your order #{{order_no}}. I'm reaching out because the {{product_name}} you ordered is currently out of stock, and our next shipment isn't expected until {{est_delivery}}.
+
+I want to give you a few options:
+1. Wait for restock — we'll prioritize your order as soon as inventory arrives
+2. Switch to a similar item — I can recommend a few alternatives
+3. Full refund — no questions asked, processed within 24 hours
+
+Whatever works best for you, just let me know and I'll handle it right away.
+
+I'm really sorry for the inconvenience.
+
+{{my_name}}`,
+  },
+  {
+    id:'tpl_return_approved', category:'return', title:'退货已批准 · Return Approved',
+    subject:'Your return request for order #{{order_no}} is approved',
+    body:`Hi {{customer_name}},
+
+Your return request for order #{{order_no}} has been approved. Here's what to do next:
+
+1. Pack the {{product_name}} in its original packaging (if available)
+2. Use the prepaid return label attached to this email
+3. Drop off at any [carrier] location
+
+Once we receive and inspect the item (usually 2-3 business days), your refund of {{refund_amount}} will be processed to your original payment method. Refunds typically appear within 5-10 business days.
+
+If you have any questions, just reply here.
+
+Thanks for being patient,
+{{my_name}}`,
+  },
+  {
+    id:'tpl_refund_processed', category:'return', title:'退款已处理 · Refund Processed',
+    subject:'Your refund of {{refund_amount}} has been processed',
+    body:`Hi {{customer_name}},
+
+I'm following up to confirm that your refund of {{refund_amount}} for order #{{order_no}} has been processed today.
+
+Depending on your bank, the funds typically appear in 5-10 business days. If you don't see them after 10 days, please let me know — sometimes a quick check with your bank helps locate the deposit.
+
+We really appreciate your patience throughout this process, and I'm sorry the {{product_name}} didn't work out. We hope to have another chance to serve you in the future.
+
+Best,
+{{my_name}}
+{{store_name}}`,
+  },
+  {
+    id:'tpl_damaged', category:'damage', title:'包裹损坏处理 · Damaged Package',
+    subject:'So sorry about your damaged package — let me fix this',
+    body:`Hi {{customer_name}},
+
+I'm really sorry to hear that your {{product_name}} arrived damaged. That's definitely not the experience we want for you.
+
+To resolve this quickly, could you please send a few photos showing:
+1. The outer packaging (if you still have it)
+2. The damaged area on the product
+3. The shipping label
+
+Once I have those, I can offer you either:
+- A free replacement (we'll ship within 24 hours)
+- A full refund of {{refund_amount}}
+
+Whichever you prefer is fine — just let me know.
+
+Again, my sincere apologies,
+{{my_name}}`,
+  },
+  {
+    id:'tpl_lost_package', category:'damage', title:'包裹丢失 · Lost Package',
+    subject:'Looking into your missing package — order #{{order_no}}',
+    body:`Hi {{customer_name}},
+
+Thanks for letting me know that your package (order #{{order_no}}) hasn't arrived. I checked the tracking and I can see it shows {{tracking_no}} stuck at [last scan location] since [date].
+
+I've opened an investigation with the carrier — they'll typically respond within 5-7 business days. In the meantime, I want to make sure you're not left waiting, so I'm going to:
+
+[Option A — ship replacement now]
+Ship a replacement of your {{product_name}} today. If the original turns up, you can keep it as a thank-you for your patience.
+
+[Option B — refund]
+Process a full refund of {{refund_amount}} now while we investigate.
+
+Just reply with which one you'd prefer.
+
+Truly sorry for the trouble,
+{{my_name}}`,
+  },
+  {
+    id:'tpl_product_inquiry', category:'inquiry', title:'产品咨询回复 · Product Inquiry',
+    subject:'Re: Your question about {{product_name}}',
+    body:`Hi {{customer_name}},
+
+Thanks so much for reaching out about the {{product_name}}! I'd love to help you decide if it's the right fit.
+
+Here are the key specs:
+- Dimensions: [W × H × D]
+- Material: [brass / iron / glass / fabric]
+- Bulb: [E26 / E12 / included or not]
+- Voltage: 110V (US/Canada)
+- Dimmable: [yes/no — works with standard dimmers]
+
+A few customer favorites:
+- [most common use case]
+- [popular pairing or matching item]
+
+If you have any other questions — about installation, dimensions, or matching pieces — I'm here to help. Just hit reply.
+
+Warm regards,
+{{my_name}}`,
+  },
+  {
+    id:'tpl_shipping_cost', category:'inquiry', title:'运费咨询 · Shipping Cost Question',
+    subject:'Re: Shipping to your address',
+    body:`Hi {{customer_name}},
+
+Thanks for your question! Here's a quick breakdown of shipping for your area:
+
+- Standard shipping (5-8 business days): Free on orders over $99 (or $9.99 below that)
+- Expedited shipping (2-3 business days): $24.99
+- Priority shipping (1-2 business days): $39.99
+
+All orders ship from our [California / fulfillment center] and include full tracking. We'll send you the tracking number as soon as your order leaves the warehouse.
+
+If you're shopping for a specific date — like a housewarming or move-in — let me know and I can recommend the best option.
+
+Best,
+{{my_name}}`,
+  },
+  {
+    id:'tpl_customs', category:'inquiry', title:'关税说明 · Customs / Duties',
+    subject:'About customs and duties for your order',
+    body:`Hi {{customer_name}},
+
+Great question about customs! Here's what you need to know:
+
+For shipments to [Canada / EU / UK / Australia]:
+- Most orders under [threshold] are duty-free
+- Above that, the carrier (UPS/FedEx/DHL) collects duties on delivery
+- We unfortunately can't prepay these on your behalf
+
+The good news: duty amounts are typically small — usually under [X%] of the order value. The carrier will let you know the exact amount before delivery.
+
+If you have any other questions about international shipping, I'm happy to help.
+
+Cheers,
+{{my_name}}`,
+  },
+  {
+    id:'tpl_thank_you', category:'thanks', title:'购买感谢 · Thank You',
+    subject:'Just wanted to say thank you 💛',
+    body:`Hi {{customer_name}},
+
+I just wanted to take a moment to say thanks for choosing {{store_name}}. As a [small / family-owned] business, every order really does mean a lot to us.
+
+Your {{product_name}} should be arriving soon — and we hope it brings you years of warm light and good memories.
+
+If you ever need anything — installation tips, matching pieces, or just have a question — feel free to reply here directly. I personally read every message.
+
+Warmly,
+{{my_name}}
+{{store_name}}`,
+  },
+  {
+    id:'tpl_review_request', category:'review', title:'邀请评价 · Review Request',
+    subject:'How are you liking your {{product_name}}?',
+    body:`Hi {{customer_name}},
+
+It's been about a week since your {{product_name}} arrived, and I wanted to check in — how is it working out for you?
+
+If you're loving it, I'd be so grateful if you could share a quick review — even one sentence and a photo helps other shoppers a lot. Here's where to leave one:
+
+[Review link]
+
+And if there's anything that's not quite right, please let me know and I'll personally make sure we fix it.
+
+Thanks so much,
+{{my_name}}
+{{store_name}}`,
+  },
+  {
+    id:'tpl_repurchase_discount', category:'thanks', title:'老客户回购折扣 · Repurchase Discount',
+    subject:'A little thank-you from {{store_name}} 💝',
+    body:`Hi {{customer_name}},
+
+I noticed you ordered from us a while back, and I just wanted to reach out personally to say thanks for supporting our shop.
+
+As a small thank-you, I'd love to offer you 15% off your next order with code: WELCOME15
+
+It's good on anything in the store — no minimum, no expiration on items already in your cart.
+
+If there's something specific you've been eyeing, just hit reply and I can help you with sizing, finishes, or matching pieces.
+
+Cheers,
+{{my_name}}`,
+  },
+  {
+    id:'tpl_dispute_response', category:'return', title:'PayPal Dispute 回复 · Dispute Response',
+    subject:'Re: PayPal case for order #{{order_no}}',
+    body:`Hi {{customer_name}},
+
+I noticed you opened a PayPal case for order #{{order_no}}. I want to make sure we resolve this directly — no need to wait for the PayPal process.
+
+Could you let me know specifically what went wrong? Was it a delivery issue, a product issue, or something else? Once I understand what happened, I can typically resolve it within 24 hours — usually with a refund, replacement, or partial credit.
+
+If you can close the PayPal case and just reply to this email, that's the fastest path. Otherwise, I'll respond directly through PayPal — but the process there usually takes 2-3 weeks longer.
+
+Either way, I'm here to fix this.
+
+Best,
+{{my_name}}
+{{store_name}}`,
+  },
+];
 
 // ════════════════════════════════════════════════════════════════════
 // 🆕 v22-CV/CW: 11 类分类 + 默认超时阈值

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📨 跨部门 · fix28-56
-// APP_VERSION: 2026.05.27-fix56
+// 📚 知识库 + 📧 邮件模板(fix57)+ 📨 跨部门 · fix28-57
+// APP_VERSION: 2026.05.27-fix57
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1098,6 +1098,332 @@ const AiReviewsIframeModule = ({ user }) => {
     </div>
   );
 };
+
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix57: 📧 邮件模板库
+// 15 个跨境电商灯具高频场景预置 + 自定义模板 + 一键复制
+// 占位符:{{customer_name}} {{order_no}} {{product_name}} {{tracking_no}} 等
+// ════════════════════════════════════════════════════════════════════
+const EmailTemplatesModule = ({ user, toast }) => {
+  const [customTpls, setCustomTpls] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('email_templates_custom') || '[]'); }
+    catch { return []; }
+  });
+  const [search, setSearch] = useState('');
+  const [filterCat, setFilterCat] = useState('all');
+  const [detailItem, setDetailItem] = useState(null);
+  const [editItem, setEditItem] = useState(null);
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  
+  const allTemplates = useMemo(() => [
+    ...EMAIL_TEMPLATE_PRESETS.map(t => ({ ...t, isBuiltin: true })),
+    ...customTpls.map(t => ({ ...t, isBuiltin: false })),
+  ], [customTpls]);
+  
+  const visible = allTemplates.filter(t => {
+    if (filterCat !== 'all' && t.category !== filterCat) return false;
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return (t.title + ' ' + t.subject + ' ' + t.body).toLowerCase().includes(q);
+  });
+  
+  const saveCustomTpls = (tpls) => {
+    setCustomTpls(tpls);
+    localStorage.setItem('email_templates_custom', JSON.stringify(tpls));
+  };
+  
+  const handleDelete = (id) => {
+    if (!confirm('确定删除这个模板?(预置模板不能删,只能改自定义)')) return;
+    saveCustomTpls(customTpls.filter(t => t.id !== id));
+    toast('✓ 已删除');
+  };
+  
+  const handleSave = (tpl) => {
+    if (tpl.isBuiltin && !tpl.id.startsWith('user_')) {
+      const newTpl = { ...tpl, id: 'user_' + Date.now().toString(36), isBuiltin: false, basedOn: tpl.id };
+      saveCustomTpls([...customTpls, newTpl]);
+      toast('✓ 已保存为自定义模板(预置版未变)');
+    } else if (tpl.id) {
+      const idx = customTpls.findIndex(t => t.id === tpl.id);
+      if (idx >= 0) {
+        const next = [...customTpls];
+        next[idx] = tpl;
+        saveCustomTpls(next);
+      } else {
+        saveCustomTpls([...customTpls, tpl]);
+      }
+      toast('✓ 已保存');
+    } else {
+      saveCustomTpls([...customTpls, { ...tpl, id: 'user_' + Date.now().toString(36) }]);
+      toast('✓ 已添加');
+    }
+    setEditItem(null);
+  };
+  
+  const counts = {
+    all: allTemplates.length,
+    builtin: EMAIL_TEMPLATE_PRESETS.length,
+    custom: customTpls.length,
+  };
+  
+  return (
+    <>
+      <div className="paper rounded-2xl p-4">
+        <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14, flexWrap:'wrap'}}>
+          <div className="font-display" style={{fontSize:20, fontWeight:600, letterSpacing:'-.022em', flex:1}}>
+            📧 邮件模板库
+            <span style={{fontSize:12, fontWeight:400, color:'var(--ink-3)', marginLeft:8}}>
+              {counts.all} 个 · 预置 {counts.builtin} + 自定义 {counts.custom}
+            </span>
+          </div>
+          {isAdmin && (
+            <button className="btn-pri" onClick={() => setEditItem({})}>+ 新建模板</button>
+          )}
+        </div>
+        
+        <div style={{
+          background:'var(--accent-soft)', padding:'10px 14px', borderRadius:10, marginBottom:14,
+          fontSize:12, lineHeight:1.6, color:'var(--ink-2)',
+        }}>
+          💡 <strong>用法</strong>:点 [📋 复制] → 邮箱粘贴 → 替换 <code style={{background:'white', padding:'1px 4px', borderRadius:3}}>{'{{customer_name}}'}</code> 等占位符 → 发送。常用:
+          <code style={{background:'white', padding:'1px 4px', borderRadius:3, marginLeft:4}}>{'{{order_no}}'}</code>
+          <code style={{background:'white', padding:'1px 4px', borderRadius:3, marginLeft:4}}>{'{{tracking_no}}'}</code>
+          <code style={{background:'white', padding:'1px 4px', borderRadius:3, marginLeft:4}}>{'{{product_name}}'}</code>
+          <code style={{background:'white', padding:'1px 4px', borderRadius:3, marginLeft:4}}>{'{{refund_amount}}'}</code>
+          <code style={{background:'white', padding:'1px 4px', borderRadius:3, marginLeft:4}}>{'{{my_name}}'}</code>
+        </div>
+        
+        <div style={{display:'flex', gap:10, marginBottom:12, flexWrap:'wrap', alignItems:'center'}}>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="🔍 搜索标题 / 主题 / 内容"
+            style={{flex:'1 1 240px', padding:'7px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit'}}/>
+        </div>
+        <div style={{display:'flex', gap:6, marginBottom:14, flexWrap:'wrap'}}>
+          <button className={`tab-btn ${filterCat === 'all' ? 'active' : ''}`} onClick={() => setFilterCat('all')}>
+            全部 ({allTemplates.length})
+          </button>
+          {EMAIL_TEMPLATE_CATEGORIES.map(c => {
+            const n = allTemplates.filter(t => t.category === c.id).length;
+            if (n === 0) return null;
+            return (
+              <button key={c.id} className={`tab-btn ${filterCat === c.id ? 'active' : ''}`} onClick={() => setFilterCat(c.id)}>
+                {c.label} ({n})
+              </button>
+            );
+          })}
+        </div>
+        
+        {visible.length === 0 ? (
+          <div style={{textAlign:'center', padding:'48px 20px', color:'var(--ink-3)', fontSize:14, background:'var(--bg-elevated)', borderRadius:12}}>
+            <div style={{fontSize:42, marginBottom:8, opacity:.4}}>📭</div>
+            没有匹配的模板
+          </div>
+        ) : (
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))', gap:12}}>
+            {visible.map(t => (
+              <EmailTemplateCard key={t.id} item={t} isAdmin={isAdmin}
+                onView={() => setDetailItem(t)}
+                onCopy={() => {
+                  const full = `Subject: ${t.subject}\n\n${t.body}`;
+                  navigator.clipboard.writeText(full).then(() => toast(`✓ 已复制「${t.title}」`));
+                }}
+                onEdit={() => setEditItem(t)}
+                onDelete={() => handleDelete(t.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {detailItem && (
+        <EmailTemplateDetailModal item={detailItem} onClose={() => setDetailItem(null)}
+          onCopy={(body) => { navigator.clipboard.writeText(body).then(() => toast('✓ 已复制内容')); }}/>
+      )}
+      
+      {editItem && (
+        <EmailTemplateEditModal item={editItem} user={user} toast={toast}
+          onClose={() => setEditItem(null)}
+          onSave={handleSave}/>
+      )}
+    </>
+  );
+};
+
+const EmailTemplateCard = ({ item, isAdmin, onView, onCopy, onEdit, onDelete }) => {
+  const cat = EMAIL_TEMPLATE_CATEGORIES.find(c => c.id === item.category) || EMAIL_TEMPLATE_CATEGORIES[7];
+  return (
+    <div onClick={onView} style={{
+      background:'white', border:'1px solid var(--line)', borderRadius:14, padding:14, cursor:'pointer',
+      boxShadow:'var(--shadow-sm)', transition:'transform .15s, box-shadow .15s',
+      display:'flex', flexDirection:'column', gap:8,
+    }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}>
+      <div style={{display:'flex', gap:6, alignItems:'center', flexWrap:'wrap'}}>
+        <span style={{fontSize:11, padding:'2px 8px', borderRadius:'var(--radius-pill)', background:cat.bg, color:cat.color, fontWeight:600}}>
+          {cat.label}
+        </span>
+        {!item.isBuiltin && (
+          <span style={{fontSize:10, padding:'2px 6px', background:'var(--accent-soft)', color:'var(--accent)', borderRadius:'var(--radius-pill)', fontWeight:600}}>自定义</span>
+        )}
+      </div>
+      <div style={{fontSize:14, fontWeight:600, color:'var(--ink)', letterSpacing:'-.012em', lineHeight:1.35}}>
+        {item.title}
+      </div>
+      <div style={{fontSize:12, color:'var(--ink-3)', fontStyle:'italic', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+        {item.subject}
+      </div>
+      <div style={{fontSize:12, color:'var(--ink-3)', lineHeight:1.5, display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden'}}>
+        {item.body.slice(0, 180)}…
+      </div>
+      <div style={{display:'flex', gap:6, marginTop:'auto', paddingTop:6, borderTop:'1px solid var(--line-soft)'}}>
+        <button onClick={(e) => { e.stopPropagation(); onCopy(); }} className="btn-pri" style={{padding:'5px 12px', fontSize:12}}>
+          📋 复制
+        </button>
+        <div style={{flex:1}}/>
+        {isAdmin && (
+          <>
+            <button onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              style={{padding:'5px 10px', fontSize:11, background:'var(--bg-elevated)', border:'1px solid var(--line)', borderRadius:'var(--radius-pill)', cursor:'pointer', color:'var(--ink-2)', fontFamily:'inherit'}}>
+              ✏️ {item.isBuiltin ? '改' : '编辑'}
+            </button>
+            {!item.isBuiltin && (
+              <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                style={{padding:'5px 10px', fontSize:11, background:'var(--bad-soft)', border:'1px solid var(--bad)', borderRadius:'var(--radius-pill)', cursor:'pointer', color:'var(--bad)', fontFamily:'inherit'}}>
+                🗑
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const EmailTemplateDetailModal = ({ item, onClose, onCopy }) => {
+  const cat = EMAIL_TEMPLATE_CATEGORIES.find(c => c.id === item.category) || EMAIL_TEMPLATE_CATEGORIES[7];
+  return ReactDOM.createPortal(
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:10000,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'white', borderRadius:18, maxWidth:680, width:'100%', maxHeight:'92vh', overflow:'auto', padding:'24px 28px',
+      }}>
+        <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14}}>
+          <div style={{flex:1, paddingRight:10}}>
+            <div style={{display:'flex', gap:6, alignItems:'center', marginBottom:6, flexWrap:'wrap'}}>
+              <span style={{fontSize:11, padding:'2px 8px', borderRadius:'var(--radius-pill)', background:cat.bg, color:cat.color, fontWeight:600}}>
+                {cat.label}
+              </span>
+            </div>
+            <div className="font-display" style={{fontSize:19, fontWeight:600, letterSpacing:'-.022em', lineHeight:1.3}}>
+              {item.title}
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-3)'}}>✕</button>
+        </div>
+        <div style={{background:'var(--bg-elevated)', padding:'12px 14px', borderRadius:10, marginBottom:12}}>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginBottom:4, fontWeight:600}}>主题 Subject</div>
+          <div style={{fontSize:14, color:'var(--ink)', fontWeight:500}}>{item.subject}</div>
+        </div>
+        <div style={{background:'var(--bg-elevated)', padding:'14px 16px', borderRadius:10, marginBottom:14}}>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginBottom:6, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+            <span>正文 Body</span>
+            <button onClick={() => onCopy(item.body)} style={{
+              fontSize:11, padding:'3px 10px', background:'var(--accent)', color:'white',
+              border:'none', borderRadius:'var(--radius-pill)', cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+            }}>📋 只复制正文</button>
+          </div>
+          <pre style={{fontSize:13, color:'var(--ink)', lineHeight:1.65, whiteSpace:'pre-wrap', fontFamily:'inherit', margin:0}}>{item.body}</pre>
+        </div>
+        <div className="modal-actions">
+          <button className="btn-modal-cancel" onClick={onClose}>关闭</button>
+          <button className="btn-modal-primary" onClick={() => onCopy(`Subject: ${item.subject}\n\n${item.body}`)}>
+            📋 复制全部(主题 + 正文)
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+const EmailTemplateEditModal = ({ item, user, toast, onClose, onSave }) => {
+  const isNew = !item.id;
+  const [title, setTitle] = useState(item.title || '');
+  const [category, setCategory] = useState(item.category || 'custom');
+  const [subject, setSubject] = useState(item.subject || '');
+  const [body, setBody] = useState(item.body || '');
+  
+  const save = () => {
+    if (!title.trim()) { toast('标题不能空'); return; }
+    if (!body.trim()) { toast('正文不能空'); return; }
+    onSave({
+      ...item,
+      title: title.trim(), category, subject: subject.trim(), body: body.trim(),
+      updated_at: new Date().toISOString(),
+      updated_by: user.name + (user.alias ? ' ' + user.alias : ''),
+    });
+  };
+  
+  return ReactDOM.createPortal(
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:10000,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'white', borderRadius:18, maxWidth:720, width:'100%', maxHeight:'92vh', overflow:'auto', padding:'24px 28px',
+      }}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6}}>
+          <div className="font-display" style={{fontSize:19, fontWeight:600, letterSpacing:'-.022em'}}>
+            {isNew ? '+ 新建模板' : '✏️ 编辑模板'}
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-3)'}}>✕</button>
+        </div>
+        {item.isBuiltin && (
+          <div style={{background:'#fffbeb', border:'1px solid #fbbf24', borderRadius:8, padding:'8px 12px', fontSize:12, color:'#92400e', marginBottom:14}}>
+            ⚠ 这是预置模板,你的修改会另存为<strong>自定义模板</strong>,原版不变。
+          </div>
+        )}
+        <div style={{marginBottom:12}}>
+          <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>标题 *</label>
+          <input value={title} onChange={e => setTitle(e.target.value)}
+            placeholder="例:订单确认 · Order Confirmation"
+            style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit'}}/>
+        </div>
+        <div style={{marginBottom:12}}>
+          <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>分类</label>
+          <select value={category} onChange={e => setCategory(e.target.value)}
+            style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit'}}>
+            {EMAIL_TEMPLATE_CATEGORIES.map(c => (<option key={c.id} value={c.id}>{c.label}</option>))}
+          </select>
+        </div>
+        <div style={{marginBottom:12}}>
+          <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>主题 Subject</label>
+          <input value={subject} onChange={e => setSubject(e.target.value)}
+            placeholder="例:Order #{{order_no}} confirmed"
+            style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit'}}/>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>
+            正文 Body * <span style={{fontWeight:400, color:'var(--ink-4)'}}>(支持占位符 {'{{customer_name}}'} 等)</span>
+          </label>
+          <textarea value={body} onChange={e => setBody(e.target.value)} rows={14}
+            placeholder="Hi {{customer_name}},&#10;&#10;..."
+            style={{width:'100%', padding:'10px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit', resize:'vertical', lineHeight:1.6}}/>
+        </div>
+        <div className="modal-actions">
+          <button className="btn-modal-cancel" onClick={onClose}>取消</button>
+          <button className="btn-modal-primary" onClick={save}>💾 保存</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 
 // ============================================================
 // 📨 fix9c: 跨部门协作模块 (CrossDeptModule)

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 使用手册 + 🎯 App(fix56) · fix28-56
-// APP_VERSION: 2026.05.27-fix56
+// 📖 使用手册 + 🎯 App(fix57) · fix28-57
+// APP_VERSION: 2026.05.27-fix57
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1367,6 +1367,7 @@ const App = () => {
       // 资源工具
       { key:'suppliers',  label:'🏭 供应商',         icon:'🏭', group:'resources' },
       { key:'kb',         label:'📚 知识库',         icon:'📚', group:'resources' },
+      { key:'email_templates', label:'📧 邮件模板',  icon:'📧', group:'resources' },
       { key:'quote',      label:'📝 报价单',         icon:'📝', group:'resources' },
       { key:'finance',    label:'🧮 财务计算器',     icon:'🧮', group:'resources' },
       { key:'help',       label:'📖 使用手册',       icon:'📖', group:'resources' },  // 🆕 fix13: 帮助中心
@@ -1882,6 +1883,10 @@ const App = () => {
             <KbModule user={user} toast={toast} cloudOn={cloudOn} />
           </div>
         )}
+        {/* 🆕 fix57: 邮件模板库 */}
+        {activeTab === 'email_templates' && (
+          <EmailTemplatesModule user={user} toast={toast} />
+        )}
         {/* 🆕 fix11-hotfix2: AI 评价生成已并入 ⭐ 产品评价 内部 — 不再作为独立 tab */}
         {activeTab === 'freight' && (
           <FreightModule user={user} toast={toast} cloudOn={cloudOn} />
@@ -1948,7 +1953,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.27-fix56';
+const APP_VERSION = '2026.05.27-fix57';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
