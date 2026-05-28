@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📨 跨部门 · fix28-59
-// APP_VERSION: 2026.05.27-fix59
+// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算(fix60 修复闪屏)+ 📨 跨部门 · fix28-60
+// APP_VERSION: 2026.05.27-fix60
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1435,38 +1435,43 @@ const EmailTemplateEditModal = ({ item, user, toast, onClose, onSave }) => {
 const FreightCalcModule = ({ user, toast }) => {
   const iframeRef = React.useRef(null);
   const [iframeHeight, setIframeHeight] = useState('calc(100vh - 140px)');
-  const [loaded, setLoaded] = useState(false);
   const [loadStatus, setLoadStatus] = useState('loading'); // loading / loaded / timeout
   
-  // 加 timestamp 防缓存
-  const iframeUrl = `freight-calc.html?t=${Date.now().toString(36)}`;
+  // 🆕 fix60 关键修复:iframeUrl 只在 mount 时生成一次(用 useState 惰性初始化)
+  // 之前写成 const iframeUrl = `...${Date.now()}` 会在每次 re-render 重新生成,
+  // 导致 iframe src 变 → 重新加载白屏 → resize 消息 → setState → re-render → 死循环闪屏
+  const [iframeUrl, setIframeUrl] = useState(() => `freight-calc.html?t=${Date.now().toString(36)}`);
   
   // 检测 iframe 是否加载成功(8 秒未收到 resize 信号 = 部署可能失败)
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (loadStatus === 'loading') {
-        setLoadStatus('timeout');
-      }
+      setLoadStatus(s => s === 'loading' ? 'timeout' : s);
     }, 8000);
     return () => clearTimeout(timer);
-  }, [loadStatus]);
+  }, [iframeUrl]);  // 只在 url 变(重载)时重新计时,不依赖 loadStatus 避免重复
   
-  // 监听 iframe-resize 消息
+  // 监听 iframe-resize 消息(handler 内用函数式 setState,不依赖 loadStatus,避免重新绑定)
   useEffect(() => {
     const handler = (e) => {
       if (e.data?.type === 'iframe-resize' && e.data?.source === 'freight-calc') {
         if (typeof e.data.height === 'number' && e.data.height > 200) {
-          setIframeHeight(e.data.height + 'px');
-          if (loadStatus !== 'loaded') {
-            setLoadStatus('loaded');
-            setLoaded(true);
-          }
+          setIframeHeight(prev => {
+            const next = e.data.height + 'px';
+            return prev === next ? prev : next;  // 高度没变就不触发 re-render
+          });
+          setLoadStatus(s => s !== 'loaded' ? 'loaded' : s);
         }
       }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [loadStatus]);
+  }, []);  // 🆕 fix60: 只绑定一次,不随 loadStatus 重新绑定
+
+  // 重载 = 换一个新 timestamp(强制 iframe 重新拉)
+  const reload = () => {
+    setLoadStatus('loading');
+    setIframeUrl(`freight-calc.html?t=${Date.now().toString(36)}`);
+  };
   
   return (
     <div className="paper rounded-2xl" style={{padding:'14px 14px 0', overflow:'hidden'}}>
@@ -1477,7 +1482,7 @@ const FreightCalcModule = ({ user, toast }) => {
             14 条渠道 · 自动判区 · 合箱推演 · 候选对比
           </span>
         </div>
-        <button onClick={() => iframeRef.current && (iframeRef.current.src = iframeUrl)}
+        <button onClick={reload}
           className="btn-sec" style={{padding:'5px 12px', fontSize:12}}>
           🔄 重载
         </button>
@@ -1496,7 +1501,7 @@ const FreightCalcModule = ({ user, toast }) => {
           <div style={{marginTop:6, fontSize:12}}>
             可能原因:freight-calc.html 没有跟 index.html 一起部署。请确认 GitHub Pages 仓库根目录有 freight-calc.html 这个文件。
           </div>
-          <button onClick={() => { setLoadStatus('loading'); iframeRef.current && (iframeRef.current.src = iframeUrl); }}
+          <button onClick={reload}
             style={{marginTop:8, padding:'5px 12px', fontSize:12, background:'#f59e0b', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontFamily:'inherit'}}>
             🔄 再试一次
           </button>
@@ -1504,6 +1509,7 @@ const FreightCalcModule = ({ user, toast }) => {
       )}
       
       <iframe
+        key={iframeUrl}
         ref={iframeRef}
         src={iframeUrl}
         title="运费精算器"
