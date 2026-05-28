@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算(fix58)+ 📨 跨部门 · fix28-58
-// APP_VERSION: 2026.05.27-fix58
+// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📨 跨部门 · fix28-59
+// APP_VERSION: 2026.05.27-fix59
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -3363,6 +3363,47 @@ const PHOTO_STATUS_MAP = {
   edited:    { label: '✓ 已剪辑',  color: '#16a34a', bg: '#dcfce7', desc: '等上传' },
   uploading: { label: '⬆️ 上传中',  color: '#ea580c', bg: '#fed7aa', desc: '上传到店铺' },
   done:      { label: '✅ 完成',    color: '#16a34a', bg: '#dcfce7', desc: '已上线' },
+};
+
+// 🆕 fix59 v4: 拍摄仓库 — 入库原因 + helper 工具函数
+const WAREHOUSE_REASON_META = {
+  '无货':       { icon: '📦', notify: true },
+  '供应商缺料': { icon: '🏭', notify: true },
+  '维修中':     { icon: '🔧', notify: false },
+  '客户取消':   { icon: '❌', notify: false },
+  '等下批货':   { icon: '🚚', notify: true },
+  '样品丢失':   { icon: '❓', notify: true },
+  '质量问题':   { icon: '⚠️', notify: true },
+  '其他':       { icon: '📋', notify: false },
+};
+const getWarehouseInfo = (log) => log.warehouse_info || log.warehouseInfo || null;
+const isWarehoused = (log) => !!getWarehouseInfo(log);
+const getWarehouseAge = (log) => {
+  const w = getWarehouseInfo(log);
+  if (!w) return null;
+  return Math.floor((Date.now() - w.at_ms) / (24 * 3600 * 1000));
+};
+const daysAgoText = (ms) => {
+  const days = Math.floor((Date.now() - ms) / (24 * 3600 * 1000));
+  if (days === 0) return '今天';
+  if (days === 1) return '昨天';
+  if (days < 7) return `${days} 天前`;
+  if (days < 30) return `${Math.floor(days / 7)} 周前`;
+  return `${Math.floor(days / 30)} 月前`;
+};
+const shouldNotifyCustomer = (reason) => WAREHOUSE_REASON_META[reason]?.notify === true;
+// 客户通知话术(入库)
+const buildWarehouseCustomerScript = (log) => {
+  const w = getWarehouseInfo(log);
+  if (!w) return '';
+  const detail = w.reason_detail ? w.reason_detail : '等我们这边确认时间后';
+  return `Hi,
+
+关于您之前咨询的「${log.product_name || '该产品'}」,我们目前遇到「${w.reason}」的情况。
+
+预计 ${detail} 可以重新安排拍摄/发货。我们会持续跟进,一有进展会第一时间告诉您。
+
+非常抱歉给您带来不便,感谢您的耐心等待。`;
 };
 
 // 🆕 fix53 v3: 来源徽章 — 5 类来源不同颜色

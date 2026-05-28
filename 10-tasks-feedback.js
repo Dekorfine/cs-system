@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄需求 v3 + 📌 任务 + 🐛 反馈 · fix28-58
-// APP_VERSION: 2026.05.27-fix58
+// 📷 拍摄需求 v4 拍摄仓库(fix59)+ 📌 任务 + 🐛 反馈 · fix28-59
+// APP_VERSION: 2026.05.27-fix59
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -34,7 +34,7 @@ const PhotoRequestsModule = ({ user, toast }) => {
 
   useEffect(() => { refresh(); }, []);
 
-  // 🆕 fix53 v3 (Q3-C): 实时订阅 — 只弹"自己提的状态变化",不弹别人新建
+  // 🆕 fix53 v3 (Q3-C) + fix59 v4: 实时订阅 — 状态变化 + 入库/唤醒事件
   useEffect(() => {
     if (!configured) return;
     const client = window.getWtkpiClient?.();
@@ -44,8 +44,20 @@ const PhotoRequestsModule = ({ user, toast }) => {
         const { eventType, new: newRow, old: oldRow } = payload;
         // 列表自动刷新(节流:1 秒内最多 1 次)
         if (Date.now() - lastRefreshRef.current > 1000) refresh();
-        // 只对"我提的状态变化"弹 toast
-        if (eventType === 'UPDATE' && newRow?.external_request?.from_user_id === user.id) {
+        const isMine = newRow?.external_request?.from_user_id === user.id;
+        if (eventType === 'UPDATE' && isMine) {
+          // 🆕 fix59 v4: 入库通知(原来没 warehouse_info,现在有了)
+          if (!oldRow?.warehouse_info && newRow?.warehouse_info) {
+            const w = newRow.warehouse_info;
+            toast(`📦 你提的「${newRow.product_name}」已入库 — 原因:${w.reason}(${w.by_name || '拍摄部'})`);
+            return;
+          }
+          // 🆕 fix59 v4: 唤醒通知(原来有,现在没了)
+          if (oldRow?.warehouse_info && !newRow?.warehouse_info) {
+            toast(`✨ 你提的「${newRow.product_name}」已唤醒出库 — 货到位了,拍摄部继续跟进`);
+            return;
+          }
+          // 状态变化
           if (oldRow?.status !== newRow?.status) {
             const labels = { shooting: '📷 拍摄部已接', shot: '✓ 已拍完', editing: '🎬 剪辑中', done: '✅ 完成 · 已上线' };
             if (labels[newRow.status]) {
@@ -58,8 +70,13 @@ const PhotoRequestsModule = ({ user, toast }) => {
     return () => { client.removeChannel(channel); };
   }, [configured, user.id]);
 
-  // 客户端筛选
+  // 🆕 fix59 v4: 客户端筛选(默认排除在仓库的)
   const visible = list.filter(r => {
+    const warehoused = isWarehoused(r);
+    if (filter === 'warehouse') return warehoused;       // 仓库 tab:只看在仓库的
+    if (filter === 'all-with-warehouse') return true;    // 全部含仓库:都显示
+    // 其他所有 tab 默认排除仓库中的
+    if (warehoused) return false;
     if (filter === 'all-activities') return true;
     if (filter === 'mine') return r.external_request?.from_user_id === user.id;
     if (filter === 'urgent') return (r.priority === 'urgent' || r.external_request?.urgency === 'urgent') && r.status !== 'done';
@@ -67,6 +84,11 @@ const PhotoRequestsModule = ({ user, toast }) => {
     if (filter === 'done') return r.status === 'done';
     return true;
   });
+
+  // 🆕 fix59 v4: 我提的且在仓库的(用于顶部横幅)
+  const myWarehoused = list.filter(r =>
+    r.external_request?.from_user_id === user.id && isWarehoused(r)
+  );
 
   if (!configured) {
     return (
@@ -86,13 +108,16 @@ const PhotoRequestsModule = ({ user, toast }) => {
     );
   }
 
-  // 各 sub-tab 计数
+  // 各 sub-tab 计数(🆕 fix59 v4: 活跃统计排除仓库中的)
+  const activeList = list.filter(r => !isWarehoused(r));
   const counts = {
-    all: list.length,
-    mine: list.filter(r => r.external_request?.from_user_id === user.id).length,
-    urgent: list.filter(r => (r.priority === 'urgent' || r.external_request?.urgency === 'urgent') && r.status !== 'done').length,
-    inProgress: list.filter(r => ['shooting', 'shot', 'editing', 'edited', 'uploading'].includes(r.status)).length,
-    done: list.filter(r => r.status === 'done').length,
+    all: activeList.length,
+    allWithWarehouse: list.length,
+    mine: activeList.filter(r => r.external_request?.from_user_id === user.id).length,
+    urgent: activeList.filter(r => (r.priority === 'urgent' || r.external_request?.urgency === 'urgent') && r.status !== 'done').length,
+    inProgress: activeList.filter(r => ['shooting', 'shot', 'editing', 'edited', 'uploading'].includes(r.status)).length,
+    done: activeList.filter(r => r.status === 'done').length,
+    warehouse: list.filter(r => isWarehoused(r)).length,
   };
 
   return (
@@ -101,7 +126,7 @@ const PhotoRequestsModule = ({ user, toast }) => {
         <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14, flexWrap:'wrap'}}>
           <div className="font-display" style={{fontSize:20, fontWeight:600, letterSpacing:'-.022em', flex:1}}>
             📨 拍摄需求中心
-            <span style={{fontSize:12, fontWeight:400, color:'var(--ink-3)', marginLeft:8}}>v3 · 全量可见 + 协作编辑</span>
+            <span style={{fontSize:12, fontWeight:400, color:'var(--ink-3)', marginLeft:8}}>v4 · 全量可见 + 协作编辑 + 拍摄仓库</span>
           </div>
           <button className="btn-sec" onClick={refresh} disabled={loading} title="刷新列表">
             {loading ? '⏳' : '🔄'} 刷新
@@ -114,17 +139,44 @@ const PhotoRequestsModule = ({ user, toast }) => {
           </button>
         </div>
 
+        {/* 🆕 fix59 v4: "我提的入库中"横幅 */}
+        {myWarehoused.length > 0 && (
+          <div style={{
+            background:'#fffbeb', border:'1px solid #fbbf24', borderRadius:12, padding:'12px 16px', marginBottom:14,
+          }}>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6, flexWrap:'wrap'}}>
+              <span style={{fontSize:14, fontWeight:600, color:'#92400e'}}>
+                📦 你提的 {myWarehoused.length} 条需求当前在拍摄仓库 · 等货回来
+              </span>
+              <div style={{flex:1}}/>
+              <button onClick={() => setFilter('warehouse')} style={{
+                fontSize:12, padding:'4px 12px', background:'#f59e0b', color:'white',
+                border:'none', borderRadius:'var(--radius-pill)', cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+              }}>查看仓库 →</button>
+            </div>
+            <div style={{fontSize:12, color:'#78350f', lineHeight:1.7}}>
+              {myWarehoused.slice(0, 3).map((r, i) => {
+                const w = getWarehouseInfo(r);
+                return (
+                  <div key={i}>· {r.product_name}({w.reason} · {daysAgoText(w.at_ms)})</div>
+                );
+              })}
+              {myWarehoused.length > 3 && <div style={{color:'#a16207'}}>… 还有 {myWarehoused.length - 3} 条</div>}
+            </div>
+          </div>
+        )}
+
         {/* 🆕 fix54: 顶部统计 hero — 即使列表少,视觉信息密度足 */}
         <div style={{
-          display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:8, marginBottom:14,
+          display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:8, marginBottom:14,
         }}>
           {[
-            { label:'总工单', val:counts.all,    color:'var(--ink-2)',  bg:'var(--bg-elevated)' },
+            { label:'活跃工单', val:counts.all,    color:'var(--ink-2)',  bg:'var(--bg-elevated)' },
             { label:'我提的', val:counts.mine,   color:'var(--accent)', bg:'var(--accent-soft)' },
             { label:'🚨 加急未完', val:counts.urgent, color:'var(--bad)', bg:'var(--bad-soft)' },
             { label:'🔄 进行中', val:counts.inProgress, color:'#0369a1', bg:'#dbeafe' },
             { label:'✅ 已完成', val:counts.done, color:'var(--good)', bg:'var(--good-soft)' },
-            { label:'来源团队', val: new Set(list.map(r => r.external_request?.source || '自发')).size, color:'#6b21a8', bg:'#f3e8ff' },
+            { label:'📦 在仓库', val:counts.warehouse, color:'#92400e', bg:'#fef3c7' },
           ].map((s, i) => (
             <div key={i} style={{
               padding:'10px 12px', borderRadius:10, background:s.bg, display:'flex', flexDirection:'column', gap:2,
@@ -135,14 +187,16 @@ const PhotoRequestsModule = ({ user, toast }) => {
           ))}
         </div>
 
-        {/* 🆕 fix53 v3: 5 个 sub-tab,默认「全部工作动态」 */}
+        {/* 🆕 fix53 v3 + fix59 v4: sub-tab(默认「全部工作动态」,加 全部含仓库 + 📦 仓库) */}
         <div style={{display:'flex', gap:8, marginBottom:14, flexWrap:'wrap'}}>
           {[
-            { id:'all-activities', label:`全部工作动态 (${counts.all})` },
+            { id:'all-activities', label:`全部活动 (${counts.all})` },
             { id:'mine',           label:`我提的 (${counts.mine})` },
             { id:'urgent',         label:`🚨 加急 (${counts.urgent})` },
             { id:'in-progress',    label:`🔄 进行中 (${counts.inProgress})` },
             { id:'done',           label:`✅ 完成 (${counts.done})` },
+            { id:'all-with-warehouse', label:`全部含仓库 (${counts.allWithWarehouse})` },
+            { id:'warehouse',      label:`📦 仓库 (${counts.warehouse})` },
           ].map(t => (
             <button key={t.id} className={`tab-btn ${filter === t.id ? 'active' : ''}`} onClick={() => setFilter(t.id)}>
               {t.label}
@@ -183,6 +237,7 @@ const PhotoRequestsModule = ({ user, toast }) => {
                   key={r.id} item={r} currentUserId={user.id}
                   onOpen={() => setDetailItem(r)}
                   onEdit={() => setEditItem(r)}
+                  toast={toast}
                 />
               ))}
             </div>
@@ -230,7 +285,7 @@ const PhotoRequestsModule = ({ user, toast }) => {
   );
 };
 
-const PhotoRequestCard = ({ item, currentUserId, onOpen, onEdit }) => {
+const PhotoRequestCard = ({ item, currentUserId, onOpen, onEdit, toast }) => {
   const st = PHOTO_STATUS_MAP[item.status] || { label: item.status, color:'#999', bg:'#eee' };
   const isUrgent = item.priority === 'urgent';
   const ext = item.external_request || {};
@@ -243,17 +298,31 @@ const PhotoRequestCard = ({ item, currentUserId, onOpen, onEdit }) => {
   const sourceBadge = SOURCE_BADGE_MAP[sourceKey] || SOURCE_BADGE_MAP['自发'];
   // 🆕 fix53 v3: 状态行展开
   const statusLines = renderStatusLine(item);
+  // 🆕 fix59 v4: 仓库判定
+  const wh = getWarehouseInfo(item);
+  const inWarehouse = !!wh;
+  const whReasonMeta = wh ? (WAREHOUSE_REASON_META[wh.reason] || WAREHOUSE_REASON_META['其他']) : null;
+  const canNotify = wh && shouldNotifyCustomer(wh.reason);
+
+  const copyCustomerScript = (e) => {
+    e.stopPropagation();
+    const script = buildWarehouseCustomerScript(item);
+    navigator.clipboard.writeText(script).then(() => toast && toast('✓ 已复制客户通知话术'));
+  };
+
   return (
     <div onClick={onOpen} style={{
-      background:'white', border:`1px solid ${isUrgent ? 'var(--bad)' : 'var(--line)'}`,
+      background: inWarehouse ? 'var(--bg-soft)' : 'white',
+      border: `1px solid ${inWarehouse ? '#fbbf24' : (isUrgent ? 'var(--bad)' : 'var(--line)')}`,
       borderRadius:14, padding:14, cursor:'pointer', boxShadow:'var(--shadow-sm)',
       transition:'transform .15s, box-shadow .15s',
+      opacity: inWarehouse ? 0.92 : 1,
     }}
       onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}>
       {/* 顶部徽章行 */}
       <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:8, flexWrap:'wrap'}}>
-        {isUrgent && <span style={{fontSize:11, padding:'2px 8px', background:'var(--bad)', color:'white', borderRadius:'var(--radius-pill)', fontWeight:600}}>🚨 加急</span>}
+        {isUrgent && !inWarehouse && <span style={{fontSize:11, padding:'2px 8px', background:'var(--bad)', color:'white', borderRadius:'var(--radius-pill)', fontWeight:600}}>🚨 加急</span>}
         {/* 🆕 fix53 v3: 来源徽章 */}
         <span style={{
           fontSize:11, padding:'2px 8px', borderRadius:'var(--radius-pill)', fontWeight:600,
@@ -264,13 +333,20 @@ const PhotoRequestCard = ({ item, currentUserId, onOpen, onEdit }) => {
         {isMine && (
           <span style={{fontSize:10, padding:'2px 6px', background:'var(--accent-soft)', color:'var(--accent)', borderRadius:'var(--radius-pill)', fontWeight:600}}>我提的</span>
         )}
+        {/* 🆕 fix59 v4: 仓库徽章 */}
+        {inWarehouse && (
+          <span style={{
+            fontSize:10, padding:'2px 8px', background:'#fef3c7', color:'#92400e',
+            border:'1px solid #fbbf24', borderRadius:'var(--radius-pill)', fontWeight:700,
+          }}>📦 仓库 {daysAgoText(wh.at_ms)}</span>
+        )}
         <div style={{flex:1}}/>
         <span style={{fontSize:11, color:'var(--ink-4)'}}>{ago}</span>
       </div>
       {/* 产品信息 */}
       <div style={{display:'flex', gap:10, marginBottom:10}}>
         {item.product_image && (
-          <img src={item.product_image} style={{width:80, height:80, objectFit:'contain', borderRadius:8, flexShrink:0, border:'1px solid var(--line)', background:'var(--bg-elevated)', padding:2}} alt=""/>
+          <img src={item.product_image} style={{width:80, height:80, objectFit:'contain', borderRadius:8, flexShrink:0, border:'1px solid var(--line)', background:'var(--bg-elevated)', padding:2, filter: inWarehouse ? 'grayscale(.4)' : 'none'}} alt=""/>
         )}
         <div style={{flex:1, minWidth:0}}>
           <div style={{fontWeight:600, fontSize:14, color:'var(--ink)', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
@@ -292,27 +368,59 @@ const PhotoRequestCard = ({ item, currentUserId, onOpen, onEdit }) => {
           </div>
         </div>
       </div>
-      {/* 🆕 fix53 v3: 状态行展开 */}
-      <div style={{borderTop:'1px solid var(--line-soft)', paddingTop:8, marginTop:4}}>
-        {statusLines.map((line, i) => (
-          <div key={i} style={{fontSize:11, color:i === 0 ? 'var(--ink-2)' : 'var(--ink-3)', lineHeight:1.5, marginBottom:2}}>
-            {line}
+      {/* 🆕 fix59 v4: 仓库信息块(在仓库时显示)*/}
+      {inWarehouse ? (
+        <div style={{background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:'8px 10px', marginTop:4}}>
+          <div style={{fontSize:12, color:'#92400e', fontWeight:600, marginBottom:2}}>
+            {whReasonMeta?.icon} 入库 {daysAgoText(wh.at_ms)} · {wh.by_name || '拍摄部'} · {wh.reason}
           </div>
-        ))}
-      </div>
-      {/* 底部:附件数 + 编辑按钮 */}
-      <div style={{display:'flex', alignItems:'center', gap:10, marginTop:10, fontSize:11, color:'var(--ink-4)'}}>
+          {wh.reason_detail && (
+            <div style={{fontSize:11, color:'#78350f', lineHeight:1.5}}>💬 {wh.reason_detail}</div>
+          )}
+          <div style={{fontSize:10, color:'#a16207', marginTop:3}}>
+            ⏸️ 入库前状态:{PHOTO_STATUS_MAP[wh.prev_status]?.label || wh.prev_status || 'draft'} · 唤醒后恢复
+          </div>
+        </div>
+      ) : (
+        /* 🆕 fix53 v3: 状态行展开 */
+        <div style={{borderTop:'1px solid var(--line-soft)', paddingTop:8, marginTop:4}}>
+          {statusLines.map((line, i) => (
+            <div key={i} style={{fontSize:11, color:i === 0 ? 'var(--ink-2)' : 'var(--ink-3)', lineHeight:1.5, marginBottom:2}}>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+      {/* 底部:附件数 + 编辑按钮 / 仓库话术 */}
+      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:10, fontSize:11, color:'var(--ink-4)', flexWrap:'wrap'}}>
         {attachCount > 0 && <span>📎 {attachCount} 图</span>}
         <div style={{flex:1}}/>
-        {onEdit && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            title="协作编辑产品基础字段"
+        {/* 🆕 fix59 v4: 仓库 — 客户通知话术(仅需通知客户的原因) */}
+        {inWarehouse && canNotify && (
+          <button onClick={copyCustomerScript} title="复制通知客户的话术"
             style={{
-              background:'var(--bg-elevated)', border:'1px solid var(--line)', color:'var(--ink-2)',
+              background:'#fef2f2', border:'1px solid #fecaca', color:'#b91c1c',
               padding:'3px 10px', fontSize:11, borderRadius:'var(--radius-pill)', cursor:'pointer', fontFamily:'inherit', fontWeight:500,
-            }}
-          >✏️ 编辑</button>
+            }}>💬 通知客户</button>
+        )}
+        {/* 🆕 fix59 v4: 编辑按钮 — 在仓库时 disable */}
+        {onEdit && (
+          inWarehouse ? (
+            <button disabled title="在仓库中暂停 · 等拍摄部唤醒后才能改"
+              style={{
+                background:'var(--bg-elevated)', border:'1px solid var(--line)', color:'var(--ink-4)',
+                padding:'3px 10px', fontSize:11, borderRadius:'var(--radius-pill)', cursor:'not-allowed', fontFamily:'inherit', fontWeight:500,
+              }}>🔒 仓库中</button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              title="协作编辑产品基础字段"
+              style={{
+                background:'var(--bg-elevated)', border:'1px solid var(--line)', color:'var(--ink-2)',
+                padding:'3px 10px', fontSize:11, borderRadius:'var(--radius-pill)', cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+              }}
+            >✏️ 编辑</button>
+          )
         )}
       </div>
     </div>
@@ -511,6 +619,10 @@ const PhotoRequestDetailModal = ({ item, onClose, onEdit }) => {
   const statusLines = renderStatusLine(item);
   const sourceKey = ext.source || '自发';
   const sourceBadge = SOURCE_BADGE_MAP[sourceKey] || SOURCE_BADGE_MAP['自发'];
+  // 🆕 fix59 v4: 仓库信息
+  const wh = getWarehouseInfo(item);
+  const inWarehouse = !!wh;
+  const whMeta = wh ? (WAREHOUSE_REASON_META[wh.reason] || WAREHOUSE_REASON_META['其他']) : null;
   return ReactDOM.createPortal(
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
       position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:10000,
@@ -540,15 +652,43 @@ const PhotoRequestDetailModal = ({ item, onClose, onEdit }) => {
             ))}
           </div>
         )}
-        {/* 🆕 fix53 v3: 完整状态展开 */}
-        <div style={{background:'var(--accent-soft)', padding:12, borderRadius:10, marginBottom:14}}>
-          <div style={{fontSize:11, color:'var(--accent)', marginBottom:6, fontWeight:600}}>当前进度</div>
-          {statusLines.map((line, i) => (
-            <div key={i} style={{fontSize:13, color: i === 0 ? 'var(--ink)' : 'var(--ink-2)', lineHeight:1.6, marginBottom:2, fontWeight: i === 0 ? 600 : 400}}>
-              {line}
+        {/* 🆕 fix59 v4: 仓库信息块 */}
+        {inWarehouse && (
+          <div style={{background:'#fffbeb', border:'1px solid #fbbf24', padding:14, borderRadius:10, marginBottom:14}}>
+            <div style={{fontSize:13, fontWeight:700, color:'#92400e', marginBottom:6}}>
+              {whMeta?.icon} 在拍摄仓库 · 已入库 {getWarehouseAge(item)} 天
             </div>
-          ))}
-        </div>
+            <div style={{fontSize:13, color:'#78350f', lineHeight:1.7}}>
+              <div>📦 入库原因:{wh.reason}</div>
+              {wh.reason_detail && <div>💬 详细:{wh.reason_detail}</div>}
+              <div>👤 操作人:{wh.by_name || '拍摄部'}</div>
+              <div>🕐 入库时间:{new Date(wh.at_ms).toLocaleString('zh-CN')}</div>
+              <div>⏸️ 入库前状态:{PHOTO_STATUS_MAP[wh.prev_status]?.label || wh.prev_status || 'draft'}(唤醒后恢复)</div>
+            </div>
+            {shouldNotifyCustomer(wh.reason) && (
+              <button onClick={() => {
+                navigator.clipboard.writeText(buildWarehouseCustomerScript(item));
+              }} style={{
+                marginTop:10, padding:'6px 14px', fontSize:12, background:'#fef2f2', color:'#b91c1c',
+                border:'1px solid #fecaca', borderRadius:'var(--radius-pill)', cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+              }}>💬 复制话术 → 通知客户</button>
+            )}
+            <div style={{fontSize:11, color:'#a16207', marginTop:10, paddingTop:8, borderTop:'1px dashed #fde68a'}}>
+              ℹ️ 在仓库期间这条记录暂停 · 只有拍摄部能唤醒出库 · 客服/跟单暂不能编辑
+            </div>
+          </div>
+        )}
+        {/* 🆕 fix53 v3: 完整状态展开(仓库中时显示入库前状态) */}
+        {!inWarehouse && (
+          <div style={{background:'var(--accent-soft)', padding:12, borderRadius:10, marginBottom:14}}>
+            <div style={{fontSize:11, color:'var(--accent)', marginBottom:6, fontWeight:600}}>当前进度</div>
+            {statusLines.map((line, i) => (
+              <div key={i} style={{fontSize:13, color: i === 0 ? 'var(--ink)' : 'var(--ink-2)', lineHeight:1.6, marginBottom:2, fontWeight: i === 0 ? 600 : 400}}>
+                {line}
+              </div>
+            ))}
+          </div>
+        )}
         <div style={{background:'var(--bg-elevated)', padding:14, borderRadius:10, marginBottom:14}}>
           <div style={{fontSize:11, color:'var(--ink-3)', marginBottom:6, fontWeight:600}}>原因 / 拍摄要求</div>
           <div style={{fontSize:14, lineHeight:1.65, whiteSpace:'pre-wrap', color:'var(--ink)'}}>{ext.reason || '(无)'}</div>
@@ -575,11 +715,16 @@ const PhotoRequestDetailModal = ({ item, onClose, onEdit }) => {
           <span>👤 提交人:{ext.from_name || item.created_by_name}</span>
           {item.created_at_ms && <span>🕐 {new Date(item.created_at_ms).toLocaleString('zh-CN')}</span>}
         </div>
-        {/* 🆕 fix53 v3: 编辑按钮(任何人可改基础字段) */}
+        {/* 🆕 fix53 v3 + fix59 v4: 编辑按钮(仓库中 disable) */}
         {onEdit && (
           <div className="modal-actions">
             <button className="btn-modal-cancel" onClick={onClose}>关闭</button>
-            <button className="btn-modal-primary" onClick={onEdit}>✏️ 协作编辑</button>
+            {inWarehouse ? (
+              <button className="btn-modal-primary" disabled style={{opacity:.4, cursor:'not-allowed'}}
+                title="在仓库中暂停 · 等拍摄部唤醒后才能改">🔒 仓库中暂停编辑</button>
+            ) : (
+              <button className="btn-modal-primary" onClick={onEdit}>✏️ 协作编辑</button>
+            )}
           </div>
         )}
       </div>
