@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + CSGridCard + 逾期标记 + Customer360 · fix28-69
-// APP_VERSION: 2026.05.27-fix69
+// 📞 客服跟进 + CSGridCard + 列表卡片紧凑化(fix70) + Customer360 · fix28-70
+// APP_VERSION: 2026.05.27-fix70
 // ════════════════════════════════════════════════════════════════════
 
 const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) => {
@@ -1596,7 +1596,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
             ))}
           </div>
         ) : (
-          <div style={{display:'flex', flexDirection:'column', gap:10}}>
+          <div style={{display:'flex', flexDirection:'column', gap:7}}>
             {pagedRecords.map((r, localIdx) => {
               const idx = viewMode === 'all' ? (safePage - 1) * pageSize + localIdx : localIdx;
               const dispStatus = getDisplayStatus(r);
@@ -1624,17 +1624,17 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                 <div key={r.id}
                   style={{
                     background:'white',
-                    border:'1px solid ' + (editable ? 'var(--line)' : '#e5e5e7'),
-                    borderLeft: '4px solid ' + curStyle.stripe,
-                    borderRadius:12,
-                    padding:'14px 16px',
+                    border:'1px solid ' + (editable ? '#eeeef0' : '#e5e5e7'),
+                    borderLeft: '3px solid ' + curStyle.stripe,
+                    borderRadius:11,
+                    padding:'10px 14px',
                     opacity: editable ? 1 : 0.85,
                     transition:'all .15s',
                     position:'relative',
                   }}>
                   
                   {/* Header: 序号 + 状态 + 客户 + 员工 + 删除 */}
-                  <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12, flexWrap:'wrap'}}>
+                  <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:8, flexWrap:'wrap'}}>
                     <span style={{fontSize:11, color:'var(--ink-4)', fontFamily:'monospace', fontWeight:600, minWidth:24}}>#{idx+1}</span>
                     
                     {/* 状态选择 - 显眼 */}
@@ -1722,7 +1722,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                   </div>
                   
                   {/* 字段网格 - 响应式 */}
-                  <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:10, marginBottom:10}}>
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:8, marginBottom:8}}>
                     {/* 网站 */}
                     <div>
                       <label style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>🌐 网站</label>
@@ -1788,7 +1788,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                   </div>
                   
                   {/* 订单号/备注 - 整行 */}
-                  <div style={{marginBottom:10}}>
+                  <div style={{marginBottom:8}}>
                     <label style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>📝 订单号 / 备注</label>
                     <input disabled={!editable} value={r.orderRef || ''}
                       onChange={e => updateRow(r.id, {orderRef:e.target.value})}
@@ -1797,7 +1797,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                   </div>
                   
                   {/* Footer: 第一行 - 截图/跟进 + 事件徽章 */}
-                  <div style={{display:'flex', alignItems:'center', gap:8, paddingTop:10, borderTop:'1px dashed var(--line)', flexWrap:'wrap', marginBottom: editable ? 8 : 0}}>
+                  <div style={{display:'flex', alignItems:'center', gap:8, paddingTop:8, borderTop:'1px dashed var(--line)', flexWrap:'wrap', marginBottom: editable ? 8 : 0}}>
                     <button className="btn-sec" onClick={() => setFollowUpModal(r.id)}
                       title={editable ? '打开跟进/截图窗口' : '只读查看'}
                       style={{padding:'5px 12px', display:'inline-flex', alignItems:'center', gap:5, fontSize:12}}>
