@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付 + 线下单 · fix28-73
-// APP_VERSION: 2026.05.27-fix73
+// 🚨 拒付 + 💳 线下单 + 🎨 定制咨询/实拍 全部客服筛选+排序(fix75/76) · fix28-76
+// APP_VERSION: 2026.05.27-fix76
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -11,6 +11,9 @@ const ChargebacksModule = ({ user, employees, toast }) => {
   const [editing, setEditing] = useState(null);
   const [filterStatus, setFilterStatus] = useState('active');
   const [search, setSearch] = useState('');
+  const [filterOwner, setFilterOwner] = useState('all');   // 🆕 fix75: 客服筛选
+  const [cbSortBy, setCbSortBy] = useState('updated');      // 🆕 排序
+  const [cbSortDir, setCbSortDir] = useState('desc');
   // 🆕 时间筛选
   const [timeFilter, setTimeFilter] = useState('all');
   const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
@@ -60,8 +63,30 @@ const ChargebacksModule = ({ user, employees, toast }) => {
     // 🆕 fix15: 日期范围筛选(创建在范围内)
     l = filterByDateRange(l, dateFilter, 'created_at');
     
+    // 🆕 fix75: 客服筛选(负责人=created_by 或 assigned_to 含该人)
+    if (filterOwner !== 'all') l = l.filter(c => c.created_by === filterOwner || (c.assigned_to || []).includes(filterOwner));
+    
+    // 🆕 fix75: 排序(模仿电脑文件管理器)
+    const CB_STATUS_ORDER = { pending:0, evidence:1, submitted:2, won:3, lost:4, closed:5 };
+    const ckey = (c) => {
+      switch (cbSortBy) {
+        case 'updated':  return c.updated_at || c.created_at || '';
+        case 'created':  return c.created_at || '';
+        case 'customer': return (c.customer_name || c.customer_email || '').toLowerCase();
+        case 'order':    return (c.order_no || '').toLowerCase();
+        case 'status':   return CB_STATUS_ORDER[c.status] ?? 9;
+        case 'amount':   return parseFloat(c.amount) || 0;
+        default:         return c.updated_at || c.created_at || '';
+      }
+    };
+    l = [...l].sort((a, b) => {
+      const ka = ckey(a), kb = ckey(b);
+      let cmp = (typeof ka === 'number' && typeof kb === 'number') ? ka - kb : String(ka).localeCompare(String(kb));
+      return cbSortDir === 'desc' ? -cmp : cmp;
+    });
+    
     return l;
-  }, [list, filterStatus, search, user.id, timeFilter, timeCustom, dateFilter]);
+  }, [list, filterStatus, search, user.id, timeFilter, timeCustom, dateFilter, filterOwner, cbSortBy, cbSortDir]);
   
   const stats = useMemo(() => {
     const active = list.filter(c => c.status !== 'won' && c.status !== 'lost' && c.status !== 'closed');
@@ -117,6 +142,33 @@ const ChargebacksModule = ({ user, employees, toast }) => {
         <input value={search} onChange={e => setSearch(e.target.value)}
           placeholder="🔍 搜索订单号 / 客户邮箱 / 备注..."
           style={{width:'100%', marginTop:10, padding:'6px 12px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+        
+        {/* 🆕 fix75: 客服筛选 + 排序(所有人可用) */}
+        <div style={{marginTop:8, display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
+          <div style={{display:'flex', alignItems:'center', gap:6}}>
+            <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>👤 客服</span>
+            <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)} style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+              <option value="all">全部</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.name}{e.alias?` (${e.alias})`:''}</option>)}
+            </select>
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:6}}>
+            <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>↕ 排序</span>
+            <select value={cbSortBy} onChange={e => setCbSortBy(e.target.value)} style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+              <option value="updated">修改日期</option>
+              <option value="created">创建日期</option>
+              <option value="customer">客户名</option>
+              <option value="order">订单号</option>
+              <option value="status">状态</option>
+              <option value="amount">金额</option>
+            </select>
+            <button onClick={() => setCbSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+              title={cbSortDir === 'desc' ? '降序' : '升序'}
+              style={{padding:'4px 9px', fontSize:12, border:'1px solid var(--line)', borderRadius:6, background:'white', cursor:'pointer', fontWeight:600}}>
+              {cbSortDir === 'desc' ? '↓' : '↑'}
+            </button>
+          </div>
+        </div>
         
         {/* 🆕 时间筛选 */}
         <div style={{marginTop:10, paddingTop:10, borderTop:'1px dashed var(--line)'}}>
@@ -629,6 +681,9 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
   const [filterStatus, setFilterStatus] = useState('active');
   const [filterSite, setFilterSite] = useState('all');
   const [search, setSearch] = useState('');
+  const [filterOwner, setFilterOwner] = useState('all');   // 🆕 fix75: 客服筛选
+  const [ooSortBy, setOoSortBy] = useState('updated');      // 🆕 排序
+  const [ooSortDir, setOoSortDir] = useState('desc');
   // 🆕 时间筛选
   const [timeFilter, setTimeFilter] = useState('all');
   const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
@@ -672,8 +727,29 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
     l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
     // 🆕 fix15: 日期范围筛选(创建在范围内)
     l = filterByDateRange(l, dateFilter, 'created_at');
+    // 🆕 fix75: 客服筛选
+    if (filterOwner !== 'all') l = l.filter(o => o.created_by === filterOwner);
+    // 🆕 fix75: 排序
+    const OO_STATUS_ORDER = { pending_payment:0, paid:1, dispatched:2, completed:3, cancelled:4 };
+    const okey = (o) => {
+      switch (ooSortBy) {
+        case 'updated':  return o.updated_at || o.created_at || '';
+        case 'created':  return o.created_at || '';
+        case 'customer': return (o.customer_name || o.customer_email || '').toLowerCase();
+        case 'order':    return (o.order_no || '').toLowerCase();
+        case 'site':     return (o.site || '').toLowerCase();
+        case 'status':   return OO_STATUS_ORDER[o.status] ?? 9;
+        case 'amount':   return parseFloat(o.payment_amount) || 0;
+        default:         return o.updated_at || o.created_at || '';
+      }
+    };
+    l = [...l].sort((a, b) => {
+      const ka = okey(a), kb = okey(b);
+      let cmp = (typeof ka === 'number' && typeof kb === 'number') ? ka - kb : String(ka).localeCompare(String(kb));
+      return ooSortDir === 'desc' ? -cmp : cmp;
+    });
     return l;
-  }, [list, filterStatus, filterSite, search, user.id, timeFilter, timeCustom, dateFilter]);
+  }, [list, filterStatus, filterSite, search, user.id, timeFilter, timeCustom, dateFilter, filterOwner, ooSortBy, ooSortDir]);
 
   const stats = useMemo(() => {
     const totalAmount = list.filter(o => ['paid','dispatched','completed'].includes(o.status))
@@ -718,6 +794,34 @@ const OfflineOrdersModule = ({ user, employees, toast }) => {
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 订单号 / 客户邮箱 / 姓名..."
           style={{width:'100%', marginTop:10, padding:'6px 12px', border:'1px solid var(--line)', borderRadius:6, fontSize:13}} />
+        
+        {/* 🆕 fix75: 客服筛选 + 排序 */}
+        <div style={{marginTop:8, display:'flex', alignItems:'center', gap:12, flexWrap:'wrap'}}>
+          <div style={{display:'flex', alignItems:'center', gap:6}}>
+            <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>👤 客服</span>
+            <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)} style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+              <option value="all">全部</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.name}{e.alias?` (${e.alias})`:''}</option>)}
+            </select>
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:6}}>
+            <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>↕ 排序</span>
+            <select value={ooSortBy} onChange={e => setOoSortBy(e.target.value)} style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+              <option value="updated">修改日期</option>
+              <option value="created">创建日期</option>
+              <option value="customer">客户名</option>
+              <option value="order">订单号</option>
+              <option value="site">网站</option>
+              <option value="status">状态</option>
+              <option value="amount">金额</option>
+            </select>
+            <button onClick={() => setOoSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+              title={ooSortDir === 'desc' ? '降序' : '升序'}
+              style={{padding:'4px 9px', fontSize:12, border:'1px solid var(--line)', borderRadius:6, background:'white', cursor:'pointer', fontWeight:600}}>
+              {ooSortDir === 'desc' ? '↓' : '↑'}
+            </button>
+          </div>
+        </div>
         
         {/* 🆕 时间筛选 */}
         <div style={{marginTop:10, paddingTop:10, borderTop:'1px dashed var(--line)'}}>
@@ -1947,6 +2051,10 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
   const [editing, setEditing] = useState(null);
   const [filterStage, setFilterStage] = useState('active');
   const [search, setSearch] = useState('');
+  const [filterOwner, setFilterOwner] = useState('all');   // 🆕 fix76
+  const [filterSite, setFilterSite] = useState('all');
+  const [ciSortBy, setCiSortBy] = useState('updated');
+  const [ciSortDir, setCiSortDir] = useState('desc');
   // 🆕 时间筛选
   const [timeFilter, setTimeFilter] = useState('all');
   const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
@@ -1977,14 +2085,37 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
       const q = search.trim().toLowerCase();
       l = l.filter(c => (c.customer_name || '').toLowerCase().includes(q) ||
         (c.customer_email || '').toLowerCase().includes(q) ||
+        (c.order_no || '').toLowerCase().includes(q) ||
+        (c.quote_no || '').toLowerCase().includes(q) ||
         (c.requirement || '').toLowerCase().includes(q));
     }
+    if (filterOwner !== 'all') l = l.filter(c => c.created_by === filterOwner);   // 🆕 fix76
+    if (filterSite !== 'all') l = l.filter(c => c.site === filterSite);
     // 🆕 时间筛选
     l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
     // 🆕 fix15: 日期范围筛选
     l = filterByDateRange(l, dateFilter, 'created_at');
+    // 🆕 fix76: 排序
+    const CI_STAGE_ORDER = { new:0, quoted:1, confirmed:2, producing:3, completed:4, cancelled:5 };
+    const ckey = (c) => {
+      switch (ciSortBy) {
+        case 'updated':  return c.updated_at || c.created_at || '';
+        case 'created':  return c.created_at || '';
+        case 'customer': return (c.customer_name || c.customer_email || '').toLowerCase();
+        case 'order':    return (c.order_no || c.quote_no || '').toLowerCase();
+        case 'site':     return (c.site || '').toLowerCase();
+        case 'stage':    return CI_STAGE_ORDER[c.stage] ?? 9;
+        default:         return c.updated_at || c.created_at || '';
+      }
+    };
+    l = [...l].sort((a, b) => {
+      const ka = ckey(a), kb = ckey(b);
+      let cmp = (typeof ka === 'number' && typeof kb === 'number') ? ka - kb : String(ka).localeCompare(String(kb));
+      return ciSortDir === 'desc' ? -cmp : cmp;
+    });
     return l;
-  }, [list, filterStage, search, user.id, timeFilter, timeCustom, dateFilter]);
+  }, [list, filterStage, search, user.id, timeFilter, timeCustom, dateFilter, filterOwner, filterSite, ciSortBy, ciSortDir]);
+  const ciSites = useMemo(() => [...new Set(list.map(c => c.site).filter(Boolean))].sort(), [list]);
 
   return (
     <div className="space-y-3">
@@ -2005,8 +2136,42 @@ const CustomInquiriesSubModule = ({ user, employees, toast }) => {
                 background: filterStage === t.key ? 'var(--accent)' : 'white',
                 color: filterStage === t.key ? 'white' : 'var(--ink-2)'}}>{t.label}</button>))}
         </div>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 客户 / 需求..."
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 客户 / 订单号 / 需求..."
           style={{width:'100%', marginTop:8, padding:'5px 10px', border:'1px solid var(--line)', borderRadius:5, fontSize:12}} />
+        {/* 🆕 fix76: 客服 + 网站 + 排序 */}
+        <div style={{marginTop:8, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>
+          <div style={{display:'flex', alignItems:'center', gap:5}}>
+            <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>👤 客服</span>
+            <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)} style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+              <option value="all">全部</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.name}{e.alias?` (${e.alias})`:''}</option>)}
+            </select>
+          </div>
+          {ciSites.length > 0 && (
+            <div style={{display:'flex', alignItems:'center', gap:5}}>
+              <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>🌐 网站</span>
+              <select value={filterSite} onChange={e => setFilterSite(e.target.value)} style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+                <option value="all">全部</option>
+                {ciSites.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
+          <div style={{display:'flex', alignItems:'center', gap:5}}>
+            <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>↕ 排序</span>
+            <select value={ciSortBy} onChange={e => setCiSortBy(e.target.value)} style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+              <option value="updated">修改日期</option>
+              <option value="created">创建日期</option>
+              <option value="customer">客户名</option>
+              <option value="order">订单/报价号</option>
+              <option value="site">网站</option>
+              <option value="stage">阶段</option>
+            </select>
+            <button onClick={() => setCiSortDir(d => d === 'desc' ? 'asc' : 'desc')} title={ciSortDir === 'desc' ? '降序' : '升序'}
+              style={{padding:'4px 9px', fontSize:12, border:'1px solid var(--line)', borderRadius:6, background:'white', cursor:'pointer', fontWeight:600}}>
+              {ciSortDir === 'desc' ? '↓' : '↑'}
+            </button>
+          </div>
+        </div>
         {/* 🆕 时间筛选 */}
         <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed var(--line)'}}>
           <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
@@ -2245,6 +2410,9 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
   const [editing, setEditing] = useState(null);
   const [filterStatus, setFilterStatus] = useState('active');
   const [search, setSearch] = useState('');
+  const [filterOwner, setFilterOwner] = useState('all');   // 🆕 fix76
+  const [pvSortBy, setPvSortBy] = useState('updated');
+  const [pvSortDir, setPvSortDir] = useState('desc');
   // 🆕 时间筛选
   const [timeFilter, setTimeFilter] = useState('all');
   const [timeCustom, setTimeCustom] = useState({ start: '', end: '' });
@@ -2277,12 +2445,31 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
         (p.supplier_name || '').toLowerCase().includes(q) ||
         (p.difference_detail || '').toLowerCase().includes(q));
     }
+    if (filterOwner !== 'all') l = l.filter(p => p.created_by === filterOwner);   // 🆕 fix76
     // 🆕 时间筛选
     l = filterByTimeRange(l, timeFilter, timeCustom.start, timeCustom.end, 'created_at');
     // 🆕 fix15: 日期范围筛选
     l = filterByDateRange(l, dateFilter, 'created_at');
+    // 🆕 fix76: 排序
+    const PV_STATUS_ORDER = { pending:0, sent:1, accepted:2, rejected:3, replaced:4 };
+    const pkey = (p) => {
+      switch (pvSortBy) {
+        case 'updated':  return p.updated_at || p.created_at || '';
+        case 'created':  return p.created_at || '';
+        case 'sku':      return (p.sku || '').toLowerCase();
+        case 'product':  return (p.product_name || '').toLowerCase();
+        case 'supplier': return (p.supplier_name || '').toLowerCase();
+        case 'status':   return PV_STATUS_ORDER[p.status] ?? 9;
+        default:         return p.updated_at || p.created_at || '';
+      }
+    };
+    l = [...l].sort((a, b) => {
+      const ka = pkey(a), kb = pkey(b);
+      let cmp = (typeof ka === 'number' && typeof kb === 'number') ? ka - kb : String(ka).localeCompare(String(kb));
+      return pvSortDir === 'desc' ? -cmp : cmp;
+    });
     return l;
-  }, [list, filterStatus, search, timeFilter, timeCustom, dateFilter]);
+  }, [list, filterStatus, search, timeFilter, timeCustom, dateFilter, filterOwner, pvSortBy, pvSortDir]);
 
   return (
     <div className="space-y-3">
@@ -2304,6 +2491,31 @@ const PhotoVerificationsSubModule = ({ user, employees, toast }) => {
         </div>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 SKU / 产品 / 供应商..."
           style={{width:'100%', marginTop:8, padding:'5px 10px', border:'1px solid var(--line)', borderRadius:5, fontSize:12}} />
+        {/* 🆕 fix76: 客服 + 排序 */}
+        <div style={{marginTop:8, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>
+          <div style={{display:'flex', alignItems:'center', gap:5}}>
+            <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>👤 客服</span>
+            <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)} style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+              <option value="all">全部</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.name}{e.alias?` (${e.alias})`:''}</option>)}
+            </select>
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:5}}>
+            <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>↕ 排序</span>
+            <select value={pvSortBy} onChange={e => setPvSortBy(e.target.value)} style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+              <option value="updated">修改日期</option>
+              <option value="created">创建日期</option>
+              <option value="sku">SKU</option>
+              <option value="product">产品名</option>
+              <option value="supplier">供应商</option>
+              <option value="status">状态</option>
+            </select>
+            <button onClick={() => setPvSortDir(d => d === 'desc' ? 'asc' : 'desc')} title={pvSortDir === 'desc' ? '降序' : '升序'}
+              style={{padding:'4px 9px', fontSize:12, border:'1px solid var(--line)', borderRadius:6, background:'white', cursor:'pointer', fontWeight:600}}>
+              {pvSortDir === 'desc' ? '↓' : '↑'}
+            </button>
+          </div>
+        </div>
         {/* 🆕 时间筛选 */}
         <div style={{marginTop:8, paddingTop:8, borderTop:'1px dashed var(--line)'}}>
           <TimeRangeFilter value={timeFilter} onChange={setTimeFilter}
