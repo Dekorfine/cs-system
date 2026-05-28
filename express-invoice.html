@@ -76,21 +76,26 @@ function getLampInfo(item) {
 const DECLARE = { unitPriceEach:500, usage:'illuminating' };
 const CHANNELS = ['美森加班海运小包','美森普通海运小包'];
 
-// 店铺字段探测 + 规范名映射
-// ⚠️ 跟单库原始 store 值是乱名(vakkerlighting/janedecor/docolight…),需映射到规范 10 店铺名。
-// 优先读跟单提供的规范字段(store_label/store_code);没有则用下方映射表(原始值→规范名)。
-// 映射表待跟单确认补全 —— 见交付的「给跟单AI-店铺映射需求.md」
-const STORE_LABEL_FIELDS = ['store_label','store_code','store_canonical','store_name_cn'];  // 跟单若加规范字段,优先用
+// 店铺字段探测 + 规范名映射(跟单已确认:店铺字段=shop_domain,方案A加 store_label/store_code)
+// 双保险:① Martin 跑 SQL 后读 store_label(规范名)② 没跑也能用 shop_domain + 下方映射转规范名
+const STORE_LABEL_FIELDS = ['store_label','store_code','store_canonical'];  // 优先读规范字段
 const STORE_NAME_MAP = {
-  // 原始值(小写) : 规范名  ← 待跟单/用户确认补全
-  // 'vakkerlighting': 'vakkerlight',
-  // 'janedecor': 'Mooijane',
-  // 'mooielight.com': 'Mooielight',
-  // 'dekorfine': 'dekorfine',
+  // 原始 shop_domain(去 .myshopify.com 后缀, 小写) → 规范名(跟单确认)
+  'vakkerlighting': 'vakkerlight',
+  'dekorfine':      'dekorfine',
+  'docolight':      'Docos',
+  'vkfrench':       'Pinlighting',
+  'vakkerge':       'Radium',
+  'vkwholesale':    'Mooiehome',
+  'docolamp':       'Lumioshine',
+  'decormote':      'Rayonshine',
+  'janedecor':      'Mooijane',
+  'mooijane':       'Mooijane',
+  'mooielight.com': 'Mooielight',
 };
-const STORE_FIELDS = ['store_name','store','shop_name','shop','shop_domain','site_name','site'];
+const STORE_FIELDS = ['shop_domain','store_name','store','shop_name','shop','site_name','site'];
 function detectStoreField(row){ if(!row) return null; for(const f of STORE_LABEL_FIELDS){ if(row[f]) return f; } for(const f of STORE_FIELDS){ if(row[f]) return f; } return null; }
-const SHOP_PREFIX_MAP = { VK:'Vakkerlight', RD:'Radilum', ML:'Mooielight', MO:'Mooielight', MJ:'Mooijane', DC:'Docos.us', DF:'Dekorfine', LS:'Lumioshine', RS:'Rayonshine', MH:'Mooiehome', PL:'Pinlighting', K:'Mooiehome' };
+const SHOP_PREFIX_MAP = { VK:'vakkerlight', RD:'Radium', ML:'Mooielight', MO:'Mooielight', MJ:'Mooijane', JD:'Mooijane', DC:'Docos', DF:'dekorfine', LS:'Lumioshine', RS:'Rayonshine', MH:'Mooiehome', PL:'Pinlighting' };
 function normalizeStore(raw){ if(!raw) return '未知'; const v=String(raw).replace(/\.myshopify\.com$/,''); return STORE_NAME_MAP[v.toLowerCase()] || v; }
 function storeFromOrder(o, field) {
   if (field && o[field]) return normalizeStore(o[field]);
