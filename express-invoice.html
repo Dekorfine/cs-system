@@ -76,13 +76,25 @@ function getLampInfo(item) {
 const DECLARE = { unitPriceEach:500, usage:'illuminating' };
 const CHANNELS = ['美森加班海运小包','美森普通海运小包'];
 
-// 店铺字段探测
+// 店铺字段探测 + 规范名映射
+// ⚠️ 跟单库原始 store 值是乱名(vakkerlighting/janedecor/docolight…),需映射到规范 10 店铺名。
+// 优先读跟单提供的规范字段(store_label/store_code);没有则用下方映射表(原始值→规范名)。
+// 映射表待跟单确认补全 —— 见交付的「给跟单AI-店铺映射需求.md」
+const STORE_LABEL_FIELDS = ['store_label','store_code','store_canonical','store_name_cn'];  // 跟单若加规范字段,优先用
+const STORE_NAME_MAP = {
+  // 原始值(小写) : 规范名  ← 待跟单/用户确认补全
+  // 'vakkerlighting': 'vakkerlight',
+  // 'janedecor': 'Mooijane',
+  // 'mooielight.com': 'Mooielight',
+  // 'dekorfine': 'dekorfine',
+};
 const STORE_FIELDS = ['store_name','store','shop_name','shop','shop_domain','site_name','site'];
-function detectStoreField(row){ if(!row) return null; for(const f of STORE_FIELDS){ if(row[f]) return f; } return null; }
+function detectStoreField(row){ if(!row) return null; for(const f of STORE_LABEL_FIELDS){ if(row[f]) return f; } for(const f of STORE_FIELDS){ if(row[f]) return f; } return null; }
 const SHOP_PREFIX_MAP = { VK:'Vakkerlight', RD:'Radilum', ML:'Mooielight', MO:'Mooielight', MJ:'Mooijane', DC:'Docos.us', DF:'Dekorfine', LS:'Lumioshine', RS:'Rayonshine', MH:'Mooiehome', PL:'Pinlighting', K:'Mooiehome' };
+function normalizeStore(raw){ if(!raw) return '未知'; const v=String(raw).replace(/\.myshopify\.com$/,''); return STORE_NAME_MAP[v.toLowerCase()] || v; }
 function storeFromOrder(o, field) {
-  if (field && o[field]) return String(o[field]).replace(/\.myshopify\.com$/,'');
-  const oid = o.shopify_order_id||''; if(/^woo-/.test(oid)){const p=oid.split('-'); if(p[1]) return p[1];}
+  if (field && o[field]) return normalizeStore(o[field]);
+  const oid = o.shopify_order_id||''; if(/^woo-/.test(oid)){const p=oid.split('-'); if(p[1]) return normalizeStore(p[1]);}
   const m = (o.shopify_order_number||'').match(/^([A-Za-z]+)/);
   if(m){const pre=m[1].toUpperCase(); return SHOP_PREFIX_MAP[pre]||pre;}
   return '未知';
@@ -106,7 +118,7 @@ function buildChanghuiRow(t){
   row[9]={v:a.zip||'',t:'s'}; row[10]=[a.address1,a.address2].filter(Boolean).join(' ');
   row[12]=a.phone||t.customerPhone||''; row[14]=t.customerEmail||'';
   t.items.slice(0,5).forEach((it,bi)=>{ const first=bi===0; const start=16+(first?0:12+(bi-1)*11); let c=start; const qty=parseInt(it.quantity)||1;
-    row[c++]=it.lampEn; row[c++]=it.lampCn; row[c++]=DECLARE.unitPriceEach*qty; row[c++]=qty; row[c++]=''; row[c++]=it.hs||'9405100000'; row[c++]=''; row[c++]=it.sku||''; row[c++]=it.material||'Plastic + metal'; if(first)row[c++]=qty; row[c++]=it.spec||''; row[c++]=DECLARE.usage; });
+    row[c++]=it.lampEn; row[c++]=it.lampCn; row[c++]=DECLARE.unitPriceEach*qty; row[c++]=qty; row[c++]=''; row[c++]=it.hs||'9405100000'; row[c++]=''; row[c++]=''; row[c++]=it.material||'Plastic + metal'; if(first)row[c++]=qty; row[c++]=''; row[c++]=DECLARE.usage; });
   row[row.length-1]=t.prepNote||''; return row;
 }
 const COURIERS={ changhui:{name:'昌晖',headers:CH_HEADERS,build:buildChanghuiRow} };
@@ -138,6 +150,7 @@ function MakeInvoice(){
   const [stores,setStores]=useState([]);      // [{name,count}] 全部店铺
   const [activeStore,setActiveStore]=useState('all');
   const [page,setPage]=useState(1);
+  const [showPreview,setShowPreview]=useState(false);  // 🆕 导出前预览全部
 
   const handleErr=(e)=>{ setConn('fail'); const m=e.message||String(e);
     if(/permission|RLS|policy|JWT|401|Bad cred/i.test(m)) setErr('读取订单被拒(RLS 权限)— 让 Martin 跑 cs-readonly-orders.sql 给客服 anon 开只读。原始:'+m);
@@ -149,7 +162,7 @@ function MakeInvoice(){
     try{
       const {data,error}=await c.from('shopify_orders').select(field).limit(5000);
       if(error) throw error;
-      const cnt={}; (data||[]).forEach(r=>{ const s=String(r[field]||'未知').replace(/\.myshopify\.com$/,''); cnt[s]=(cnt[s]||0)+1; });
+      const cnt={}; (data||[]).forEach(r=>{ const s=normalizeStore(r[field]); cnt[s]=(cnt[s]||0)+1; });
       setStores(Object.entries(cnt).map(([name,count])=>({name,count})).sort((a,b)=>b.count-a.count));
     }catch(e){ /* 扫描失败不阻塞,用已加载订单提取 */ }
   };
@@ -262,6 +275,7 @@ function MakeInvoice(){
             {allValid?<span className="pill" style={{background:'#dcfce7',color:'#15803d'}}>✓ 必填齐全</span>:<span className="pill" style={{background:'#fee2e2',color:'#b91c1c'}}>⚠ 有必填未填</span>}
             <div style={{flex:1}}/>
             <button className="btn btn-sm" onClick={()=>setTickets([])}>清空</button>
+            <button className="btn" onClick={()=>setShowPreview(true)}>👁 预览全部</button>
             <button className="btn-good btn" onClick={exportExcel} disabled={!allValid}>📤 导出 {COURIERS[courier].name} Excel</button>
           </div>
           {tickets.map(t=>{const miss=validate(t);const a=t.address||{};const same=tickets.filter(x=>x.sourceOrderId===t.sourceOrderId);const idx=same.indexOf(t)+1;
@@ -275,7 +289,19 @@ function MakeInvoice(){
                   {miss.length>0&&<span className="pill" style={{background:'#fee2e2',color:'#b91c1c'}}>缺:{miss.join('/')}</span>}
                   <div style={{flex:1}}/><button className="btn btn-sm" onClick={()=>rmTicket(t.id)}>移除</button>
                 </div>
-                <div className="muted" style={{marginBottom:8,fontSize:11}}>📍 {[a.address1,a.address2].filter(Boolean).join(' ')} {a.zip} · 📞 {a.phone||t.customerPhone||'-'}</div>
+                <div style={{background:'#f8fafc',borderRadius:9,padding:'9px 11px',marginBottom:8}}>
+                  <div className="muted" style={{fontSize:11,marginBottom:6,fontWeight:600}}>📍 收件地址(客户改过地址可在此手动修正)</div>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    <div style={{flex:'1 1 140px'}}><span className="lbl">收件人 *</span><input className="inp" value={a.name||t.customerName||''} onChange={e=>upTicket(t.id,{address:{...a,name:e.target.value}})}/></div>
+                    <div style={{flex:'2 1 220px'}}><span className="lbl">街道地址 *</span><input className="inp" value={a.address1||''} onChange={e=>upTicket(t.id,{address:{...a,address1:e.target.value}})}/></div>
+                    <div style={{flex:'1 1 120px'}}><span className="lbl">门牌/单元(address2)</span><input className="inp" value={a.address2||''} onChange={e=>upTicket(t.id,{address:{...a,address2:e.target.value}})}/></div>
+                    <div style={{flex:'1 1 110px'}}><span className="lbl">城市 *</span><input className="inp" value={a.city||''} onChange={e=>upTicket(t.id,{address:{...a,city:e.target.value}})}/></div>
+                    <div style={{flex:'0 1 70px'}}><span className="lbl">州</span><input className="inp" value={a.province||''} onChange={e=>upTicket(t.id,{address:{...a,province:e.target.value}})}/></div>
+                    <div style={{flex:'0 1 100px'}}><span className="lbl">邮编 *</span><input className="inp" style={{borderColor:a.zip?'#d8d8dc':'#fca5a5'}} value={a.zip||''} onChange={e=>upTicket(t.id,{address:{...a,zip:e.target.value}})}/></div>
+                    <div style={{flex:'0 1 70px'}}><span className="lbl">国家</span><input className="inp" value={a.country_code||a.country||'US'} onChange={e=>upTicket(t.id,{address:{...a,country_code:e.target.value}})}/></div>
+                    <div style={{flex:'1 1 130px'}}><span className="lbl">电话</span><input className="inp" value={a.phone||t.customerPhone||''} onChange={e=>upTicket(t.id,{address:{...a,phone:e.target.value}})}/></div>
+                  </div>
+                </div>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
                   <div><span className="lbl">渠道 *</span><select className="inp" style={{width:160,borderColor:t.channel?'#d8d8dc':'#fca5a5'}} value={t.channel} onChange={e=>upTicket(t.id,{channel:e.target.value})}><option value="">— 选 —</option>{CHANNELS.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                   <div><span className="lbl">重量 kg *</span><input className="inp" style={{width:90,borderColor:t.weight?'#d8d8dc':'#fca5a5'}} type="number" step="0.001" value={t.weight} onChange={e=>upTicket(t.id,{weight:e.target.value})}/></div>
@@ -283,15 +309,13 @@ function MakeInvoice(){
                   <div style={{flex:1,minWidth:150}}><span className="lbl">运单备注</span><input className="inp" value={t.prepNote} onChange={e=>upTicket(t.id,{prepNote:e.target.value})} placeholder="实重复测/改加班船…"/></div>
                 </div>
                 <div className="scroll-x">
-                  <table><thead><tr><th>英文</th><th>中文</th><th>HS编码</th><th>数量</th><th>材质</th><th>SKU</th><th>规格</th></tr></thead>
+                  <table><thead><tr><th>英文</th><th>中文</th><th>HS编码</th><th>数量</th><th>材质</th></tr></thead>
                   <tbody>{t.items.map((it,ii)=>(<tr key={ii}>
                     <td><input value={it.lampEn} onChange={e=>upItem(t.id,ii,{lampEn:e.target.value})}/></td>
                     <td><input value={it.lampCn} onChange={e=>upItem(t.id,ii,{lampCn:e.target.value})} style={{minWidth:55}}/></td>
                     <td><input value={it.hs} onChange={e=>upItem(t.id,ii,{hs:e.target.value})} style={{minWidth:90}}/></td>
                     <td><input type="number" value={it.quantity} onChange={e=>upItem(t.id,ii,{quantity:e.target.value})} style={{minWidth:45}}/></td>
                     <td><input value={it.material} onChange={e=>upItem(t.id,ii,{material:e.target.value})} style={{minWidth:90}}/></td>
-                    <td><input value={it.sku} onChange={e=>upItem(t.id,ii,{sku:e.target.value})}/></td>
-                    <td><input value={it.spec} onChange={e=>upItem(t.id,ii,{spec:e.target.value})} style={{minWidth:100}}/></td>
                   </tr>))}</tbody></table>
                 </div>
                 <div className="muted" style={{fontSize:11,marginTop:5}}>💰 申报单价 = 500 × 数量(导出时算)· 用途 illuminating</div>
@@ -330,6 +354,38 @@ function MakeInvoice(){
           </div>
         )}
       </div>
+
+      {/* 🆕 导出前预览全部 */}
+      {showPreview&&(
+        <div onClick={()=>setShowPreview(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:1000,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'4vh 16px',overflow:'auto'}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:'white',borderRadius:16,maxWidth:1200,width:'100%',padding:18,maxHeight:'90vh',display:'flex',flexDirection:'column'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+              <strong style={{fontSize:16}}>👁 全部发票预览</strong>
+              <span className="pill" style={{background:'#dbeafe',color:'#1e40af'}}>{tickets.length} 票</span>
+              {allValid?<span className="pill" style={{background:'#dcfce7',color:'#15803d'}}>✓ 必填齐全</span>:<span className="pill" style={{background:'#fee2e2',color:'#b91c1c'}}>⚠ 有必填未填,补齐后再导出</span>}
+              <div style={{flex:1}}/>
+              <button className="btn-good btn" onClick={()=>{setShowPreview(false);exportExcel();}} disabled={!allValid}>📤 确认导出</button>
+              <button className="btn" onClick={()=>setShowPreview(false)}>关闭</button>
+            </div>
+            <div className="scroll-x" style={{overflow:'auto',flex:1}}>
+              <table>
+                <thead><tr><th>#</th><th>订单号</th><th>店铺</th><th>渠道</th><th>重量</th><th>件数</th><th>收件人</th><th>地址</th><th>邮编</th><th>电话</th><th>产品(中文)</th><th>HS</th><th>申报价</th><th>缺</th></tr></thead>
+                <tbody>{tickets.map((t,i)=>{const a=t.address||{};const miss=validate(t);const prod=t.items.map(it=>`${it.lampCn}×${it.quantity}`).join(', ');const hs=[...new Set(t.items.map(it=>it.hs))].join('/');const price=t.items.reduce((s,it)=>s+500*(parseInt(it.quantity)||1),0);return(
+                  <tr key={t.id} style={{background:miss.length?'#fff7ed':'white'}}>
+                    <td>{i+1}</td><td style={{fontWeight:600}}>{t.orderNumber}</td><td>{t.store}</td>
+                    <td style={{color:t.channel?'inherit':'#dc2626'}}>{t.channel||'缺'}</td>
+                    <td style={{color:t.weight?'inherit':'#dc2626'}}>{t.weight||'缺'}</td><td>{t.packageCount}</td>
+                    <td>{a.name||t.customerName}</td>
+                    <td style={{maxWidth:200,whiteSpace:'normal'}}>{[a.address1,a.address2,a.city,a.province].filter(Boolean).join(' ')}</td>
+                    <td>{a.zip}</td><td>{a.phone||t.customerPhone}</td>
+                    <td style={{maxWidth:160,whiteSpace:'normal'}}>{prod}</td><td>{hs}</td><td>{price}</td>
+                    <td style={{color:'#b91c1c',fontWeight:600}}>{miss.join('/')}</td>
+                  </tr>);})}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
