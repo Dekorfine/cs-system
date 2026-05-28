@@ -11,17 +11,10 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   * { box-sizing: border-box; }
-  body {
-    margin: 0; background: #fafafa; color: #1d1d1f;
+  body { margin: 0; background: #fafafa; color: #1d1d1f;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased; font-size: 13px;
-  }
-  .topbar {
-    display: flex; align-items: center; gap: 12px; padding: 10px 16px;
-    background: white; border-bottom: 1px solid #e5e5e7; position: sticky; top: 0; z-index: 50;
-  }
-  .topbar .title { font-weight: 600; font-size: 15px; letter-spacing: -.022em; margin-right: auto; }
-  .wrap { padding: 16px; max-width: 1400px; margin: 0 auto; }
+    -webkit-font-smoothing: antialiased; font-size: 13px; }
+  .wrap { padding: 16px; max-width: 1500px; margin: 0 auto; }
   .card { background: white; border: 1px solid #e5e5e7; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
   .btn { padding: 7px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: inherit; border: 1px solid #e5e5e7; background: white; color: #424245; font-weight: 500; }
   .btn:hover { background: #f5f5f7; }
@@ -29,48 +22,36 @@
   .btn-pri:hover { background: #0066cc; }
   .btn-pri:disabled { opacity: .4; cursor: not-allowed; }
   .btn-good { background: #34c759; color: white; border-color: #34c759; }
-  .btn-good:hover { filter: brightness(.95); }
-  input, select, textarea { font-family: inherit; font-size: 13px; }
-  .inp { padding: 7px 10px; border: 1px solid #d2d2d7; border-radius: 8px; width: 100%; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 7px; }
+  .inp { padding: 7px 10px; border: 1px solid #d2d2d7; border-radius: 8px; width: 100%; font-family: inherit; font-size: 13px; }
   .tab-btn { padding: 8px 16px; border-radius: 10px; border: none; background: transparent; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 500; color: #86868b; }
   .tab-btn.active { background: #0071e3; color: white; }
   .pill { padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; display: inline-block; }
-  table { border-collapse: collapse; width: 100%; font-size: 12px; }
-  th, td { border: 1px solid #e5e5e7; padding: 5px 7px; text-align: left; white-space: nowrap; }
-  th { background: #f5f5f7; font-weight: 600; position: sticky; top: 0; }
-  td input { border: 1px solid transparent; background: transparent; padding: 3px 5px; border-radius: 5px; width: 100%; min-width: 60px; }
-  td input:focus { border-color: #0071e3; background: white; outline: none; }
-  td.req-missing input { background: #fef2f2; border-color: #fca5a5; }
-  .scroll-x { overflow-x: auto; border: 1px solid #e5e5e7; border-radius: 10px; }
   .muted { color: #86868b; font-size: 12px; }
   .status-dot { display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:3px 10px; border-radius:99px; font-weight:500; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { border: 1px solid #e5e5e7; padding: 5px 7px; text-align: left; white-space: nowrap; }
+  th { background: #f5f5f7; font-weight: 600; }
+  td input { border: 1px solid transparent; background: transparent; padding: 3px 5px; border-radius: 5px; width: 100%; min-width: 60px; font-family: inherit; }
+  td input:focus { border-color: #0071e3; background: white; outline: none; }
+  .scroll-x { overflow-x: auto; border: 1px solid #e5e5e7; border-radius: 10px; }
+  .order-card { border: 1px solid #e5e5e7; border-radius: 12px; padding: 12px; margin-bottom: 10px; background: white; }
+  .prod-row { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 7px; }
+  .prod-row:hover { background: #f8fafc; }
+  .thumb { width: 40px; height: 40px; object-fit: contain; border-radius: 6px; border: 1px solid #e5e5e7; background: #f5f5f7; flex-shrink: 0; }
 </style>
 </head>
 <body>
-<div class="topbar">
-  <span class="title">📦 快递发票制作</span>
-  <span id="conn-status"></span>
-</div>
 <div id="root"></div>
 
 <script type="text/babel" data-presets="react">
 const { useState, useEffect, useMemo, useRef } = React;
 
-// ════════════════════════════════════════════════════════════════════
-// 订单数据源:跟单系统 Supabase(Martin 的主项目)
-// ════════════════════════════════════════════════════════════════════
 const ORDERS_URL = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co';
 const ORDERS_KEY = 'sb_publishable_dFjk1WN_Hc0Te6IhXZysZg_SXvKQU4C';
-let _ordersClient = null;
-const getOrdersClient = () => {
-  if (_ordersClient) return _ordersClient;
-  try { _ordersClient = window.supabase.createClient(ORDERS_URL, ORDERS_KEY); return _ordersClient; }
-  catch (e) { return null; }
-};
+let _client = null;
+const getClient = () => { if (_client) return _client; try { _client = window.supabase.createClient(ORDERS_URL, ORDERS_KEY); return _client; } catch { return null; } };
 
-// ════════════════════════════════════════════════════════════════════
-// 灯具类型映射(订单品名 → 中英文申报名)
-// ════════════════════════════════════════════════════════════════════
 function getLampType(item) {
   const t = ((item.title || '') + ' ' + (item.variant_title || '')).toLowerCase();
   if (/wall\s*(lamp|light|sconce)|sconce/.test(t)) return { en: 'Wall Lamp', cn: '壁灯' };
@@ -79,124 +60,62 @@ function getLampType(item) {
   if (/floor\s*(lamp|light)/.test(t)) return { en: 'Floor Lamp', cn: '落地灯' };
   if (/ceiling|flush/.test(t)) return { en: 'Ceiling Lamp', cn: '吸顶灯' };
   if (/bulb|accessor|part|cable|cord/.test(t)) return { en: 'Accessories', cn: '配件' };
-  return { en: 'Wall Lamp', cn: '壁灯' };  // 兜底
+  return { en: 'Wall Lamp', cn: '壁灯' };
 }
-
-// 固定/默认申报值(从真实昌晖模板数据确认)
-const DECLARE = {
-  unitPriceEach: 500,            // 申报单价 = 500 × 数量
-  hsCode: '9405100000',
-  material: 'Plastic + metal',
-  usage: 'illuminating',
-};
-
-// 渠道枚举(从北简收货数据看到的真实渠道)
+const DECLARE = { unitPriceEach: 500, hsCode: '9405100000', material: 'Plastic + metal', usage: 'illuminating' };
 const CHANNELS = ['美森加班海运小包', '美森普通海运小包'];
 
-// ════════════════════════════════════════════════════════════════════
-// 昌晖 73 列模板配置
-// ════════════════════════════════════════════════════════════════════
-const CHANGHUI_HEADERS = [
-  '客户订单号（必填）','渠道必填）','目的国家（必填）','外包装件数（必填）','重量（必填）',
-  '收件人公司名','收件人姓名（必填）','收件人省州（必填）','收件人城市（必填）','收件人邮编（必填）',
-  '收件人地址（必填）','收件人门牌号','收件人电话（必填）','收件人传真','收件人邮箱','收件人证件类型',
-];
-// 产品块字段(每块11或12列):英/中/单价/数量/销售地址/HS/备注/SKU/材质/[个数]/规格/用途
-function buildProductBlockHeaders() {
-  const blocks = [];
-  for (let i = 1; i <= 5; i++) {
-    const base = [`英文申报品名${i}${i===1?'（必填）':''}`, `中文申报品名${i}${i===1?'（必填）':''}`,
-      `申报单价${i}${i===1?'（必填）':''}`, `申报数量${i}${i===1?'（必填）':''}`, `销售地址${i}`,
-      `海关货物编号${i}${i===1?'（必填）':''}`, `配货备注${i}`, `SKU${i}`, `材质${i}${i===1?'（必填）':''}`];
-    if (i === 1) base.push('个数');
-    base.push(`规格型号${i}${i===1?'（必填）':''}`, `用途${i}${i===1?'（必填）':''}`);
-    blocks.push(...base);
-  }
-  return blocks;
-}
-const CHANGHUI_ALL_HEADERS = [...CHANGHUI_HEADERS, ...buildProductBlockHeaders(), '运单备注'];
-
-const COURIER_TEMPLATES = {
-  changhui: { name: '昌晖', headers: CHANGHUI_ALL_HEADERS, productStart: 16, build: buildChanghuiRow },
-  // mingyang: { ... 后续补 },
-  // zhengshi: { ... 后续补 },
-};
-
-// 把一个 invoice 行对象转成昌晖 73 列数组
-function buildChanghuiRow(inv) {
-  const a = inv.address || {};
-  const row = new Array(CHANGHUI_ALL_HEADERS.length).fill('');
-  row[0] = inv.orderNumber;
-  row[1] = inv.channel || '';
-  row[2] = a.country_code || a.country || 'US';
-  row[3] = inv.packageCount || '';
-  row[4] = inv.weight || '';
-  row[6] = a.name || inv.customerName || '';
-  row[7] = a.province || '';
-  row[8] = a.city || '';
-  row[9] = { v: a.zip || '', t: 's' };  // 邮编当文本
-  row[10] = [a.address1, a.address2].filter(Boolean).join(' ');
-  row[12] = a.phone || inv.customerPhone || '';
-  row[14] = inv.customerEmail || '';
-  // 产品块
-  inv.items.slice(0, 5).forEach((it, bi) => {
-    const isFirst = bi === 0;
-    const start = 16 + (isFirst ? 0 : 12 + (bi - 1) * 11);
-    let c = start;
-    row[c++] = it.lampEn;
-    row[c++] = it.lampCn;
-    row[c++] = it.declarePrice;
-    row[c++] = it.quantity;
-    row[c++] = it.salesUrl || '';
-    row[c++] = DECLARE.hsCode;
-    row[c++] = '';  // 配货备注
-    row[c++] = it.sku || '';
-    row[c++] = DECLARE.material;
-    if (isFirst) row[c++] = it.quantity;  // 个数(仅块1有)
-    row[c++] = it.spec || '';
-    row[c++] = DECLARE.usage;
-  });
-  row[row.length - 1] = inv.prepNote || '';  // 运单备注
-  return row;
-}
-
-// 订单 → invoice 行对象
-function orderToInvoice(o) {
+function parseOrder(o) {
   let addr = o.shipping_address;
   if (typeof addr === 'string') { try { addr = JSON.parse(addr); } catch { addr = {}; } }
   let items = o.line_items;
   if (typeof items === 'string') { try { items = JSON.parse(items); } catch { items = []; } }
-  items = items || [];
-  return {
-    orderId: o.shopify_order_id,
-    orderNumber: o.shopify_order_number || o.shopify_order_id,
-    platform: o.platform,
-    customerName: o.customer_name,
-    customerEmail: o.customer_email,
-    customerPhone: o.customer_phone,
-    address: addr || {},
-    channel: '',
-    weight: '',
-    packageCount: 1,
-    prepNote: '',
-    items: items.map(it => {
-      const lt = getLampType(it);
-      const qty = it.quantity || 1;
-      return {
-        lampEn: lt.en, lampCn: lt.cn,
-        declarePrice: DECLARE.unitPriceEach * qty,  // 500 × 数量
-        quantity: qty, sku: it.sku || '',
-        spec: it.variant_title || '', salesUrl: '',
-      };
-    }),
-  };
+  items = (items || []).map((it, i) => {
+    const lt = getLampType(it);
+    return { lineId: o.shopify_order_id + '_' + i, title: it.title || '', variant_title: it.variant_title || '',
+      sku: it.sku || '', quantity: it.quantity || 1, image_url: it.image_url || '',
+      lampEn: lt.en, lampCn: lt.cn, spec: it.variant_title || '' };
+  });
+  return { orderId: o.shopify_order_id, orderNumber: o.shopify_order_number || o.shopify_order_id, platform: o.platform,
+    customerName: o.customer_name, customerEmail: o.customer_email, customerPhone: o.customer_phone,
+    address: addr || {}, items, createdAt: o.shopify_created_at, total: o.total_price, currency: o.currency };
 }
 
-// ════════════════════════════════════════════════════════════════════
-// 主 App
-// ════════════════════════════════════════════════════════════════════
+const CH_BASE = ['客户订单号（必填）','渠道必填）','目的国家（必填）','外包装件数（必填）','重量（必填）','收件人公司名','收件人姓名（必填）','收件人省州（必填）','收件人城市（必填）','收件人邮编（必填）','收件人地址（必填）','收件人门牌号','收件人电话（必填）','收件人传真','收件人邮箱','收件人证件类型'];
+function chProdHeaders() {
+  const arr = [];
+  for (let i = 1; i <= 5; i++) {
+    arr.push(`英文申报品名${i}${i===1?'（必填）':''}`, `中文申报品名${i}${i===1?'（必填）':''}`, `申报单价${i}${i===1?'（必填）':''}`, `申报数量${i}${i===1?'（必填）':''}`, `销售地址${i}`, `海关货物编号${i}${i===1?'（必填）':''}`, `配货备注${i}`, `SKU${i}`, `材质${i}${i===1?'（必填）':''}`);
+    if (i === 1) arr.push('个数');
+    arr.push(`规格型号${i}${i===1?'（必填）':''}`, `用途${i}${i===1?'（必填）':''}`);
+  }
+  return arr;
+}
+const CH_HEADERS = [...CH_BASE, ...chProdHeaders(), '运单备注'];
+function buildChanghuiRow(t) {
+  const a = t.address || {};
+  const row = new Array(CH_HEADERS.length).fill('');
+  row[0] = t.orderNumber; row[1] = t.channel || ''; row[2] = a.country_code || a.country || 'US';
+  row[3] = t.packageCount || ''; row[4] = t.weight || '';
+  row[6] = a.name || t.customerName || ''; row[7] = a.province || ''; row[8] = a.city || '';
+  row[9] = { v: a.zip || '', t: 's' };
+  row[10] = [a.address1, a.address2].filter(Boolean).join(' ');
+  row[12] = a.phone || t.customerPhone || ''; row[14] = t.customerEmail || '';
+  t.items.slice(0, 5).forEach((it, bi) => {
+    const first = bi === 0;
+    const start = 16 + (first ? 0 : 12 + (bi - 1) * 11);
+    let c = start; const qty = parseInt(it.quantity) || 1;
+    row[c++] = it.lampEn; row[c++] = it.lampCn; row[c++] = DECLARE.unitPriceEach * qty;
+    row[c++] = qty; row[c++] = ''; row[c++] = DECLARE.hsCode; row[c++] = ''; row[c++] = it.sku || '';
+    row[c++] = DECLARE.material; if (first) row[c++] = qty; row[c++] = it.spec || ''; row[c++] = DECLARE.usage;
+  });
+  row[row.length - 1] = t.prepNote || '';
+  return row;
+}
+const COURIERS = { changhui: { name: '昌晖', headers: CH_HEADERS, build: buildChanghuiRow } };
+
 function App() {
-  const [tab, setTab] = useState('make');  // make / reconcile
+  const [tab, setTab] = useState('make');
   return (
     <div className="wrap">
       <div style={{display:'flex', gap:6, marginBottom:14}}>
@@ -208,296 +127,274 @@ function App() {
   );
 }
 
-// ────────────────────────────────────────────────────────────────────
-// 节点②:制作发票
-// ────────────────────────────────────────────────────────────────────
 function MakeInvoice() {
   const [courier, setCourier] = useState('changhui');
   const [dateStr, setDateStr] = useState(new Date().toISOString().slice(0, 10));
-  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [invoices, setInvoices] = useState([]);   // 已套模板的 invoice 行
-  const [connState, setConnState] = useState('unknown'); // unknown/ok/fail
-  const [errMsg, setErrMsg] = useState('');
+  const [conn, setConn] = useState('loading');
+  const [err, setErr] = useState('');
+  const [tickets, setTickets] = useState([]);
 
-  useEffect(() => {
-    const el = document.getElementById('conn-status');
-    if (el) {
-      if (connState === 'ok') el.innerHTML = '<span class="status-dot" style="background:#dcfce7;color:#15803d">● 订单库已连接</span>';
-      else if (connState === 'fail') el.innerHTML = '<span class="status-dot" style="background:#fee2e2;color:#b91c1c">● 订单库连接失败</span>';
-      else el.innerHTML = '';
-    }
-  }, [connState]);
+  const handleErr = (e) => {
+    setConn('fail');
+    const m = e.message || String(e);
+    if (/permission|RLS|policy|JWT|401|Bad cred/i.test(m))
+      setErr('读取订单被拒(RLS 权限)— 请让 Martin 跑 cs-readonly-orders.sql 给客服 anon 开只读策略。原始:' + m);
+    else setErr('加载失败:' + m);
+  };
 
-  const parseOrderNumbers = (txt) =>
-    txt.split(/[\s,;，；\n\r]+/).map(s => s.trim()).filter(Boolean);
+  const loadRecent = async () => {
+    const c = getClient();
+    if (!c) { setConn('fail'); setErr('Supabase 初始化失败'); return; }
+    setLoading(true); setErr('');
+    try {
+      const { data, error } = await c.from('shopify_orders').select('*').order('shopify_created_at', { ascending: false }).limit(50);
+      if (error) throw error;
+      setConn('ok'); setOrders((data || []).map(parseOrder));
+    } catch (e) { handleErr(e); }
+    setLoading(false);
+  };
+  useEffect(() => { loadRecent(); }, []);
 
   const doSearch = async () => {
-    const nums = parseOrderNumbers(searchInput);
-    if (nums.length === 0) { alert('请输入订单号(支持逗号/空格/换行分隔)'); return; }
-    const client = getOrdersClient();
-    if (!client) { setErrMsg('Supabase client 初始化失败'); setConnState('fail'); return; }
-    setLoading(true); setErrMsg('');
+    const nums = search.split(/[\s,;，；\n\r]+/).map(s => s.trim()).filter(Boolean);
+    const c = getClient();
+    if (!c) { setConn('fail'); return; }
+    setLoading(true); setErr('');
     try {
-      // 同时按 order_number 和 order_id 匹配
-      const { data, error } = await client
-        .from('shopify_orders')
-        .select('*')
-        .or(`shopify_order_number.in.(${nums.join(',')}),shopify_order_id.in.(${nums.join(',')})`);
-      if (error) throw error;
-      setConnState('ok');
-      const found = data || [];
-      const foundNums = new Set(found.map(o => o.shopify_order_number).concat(found.map(o => o.shopify_order_id)));
-      const missing = nums.filter(n => !foundNums.has(n));
-      const newInvoices = found.map(orderToInvoice);
-      // 合并(去重 by orderId)
-      setInvoices(prev => {
-        const map = new Map(prev.map(p => [p.orderId, p]));
-        newInvoices.forEach(inv => { if (!map.has(inv.orderId)) map.set(inv.orderId, inv); });
-        return Array.from(map.values());
-      });
-      if (missing.length > 0) setErrMsg(`未找到 ${missing.length} 个订单:${missing.join(', ')}`);
-    } catch (e) {
-      setConnState('fail');
-      const m = e.message || String(e);
-      if (/permission|RLS|policy|JWT|401|Bad credentials/i.test(m)) {
-        setErrMsg('读取订单被拒(RLS 权限):客服 anon key 无权读 shopify_orders。请找 Martin 给客服开只读策略,或走跟单 Edge Function 代理。原始错误:' + m);
+      let q = c.from('shopify_orders').select('*');
+      if (nums.length > 0) {
+        q = q.or(nums.map(n => `shopify_order_number.eq.${n},shopify_order_id.eq.${n}`).join(','));
       } else {
-        setErrMsg('搜索失败:' + m);
+        q = q.order('shopify_created_at', { ascending: false }).limit(50);
       }
-    }
+      const { data, error } = await q;
+      if (error) throw error;
+      setConn('ok');
+      const parsed = (data || []).map(parseOrder);
+      setOrders(parsed);
+      if (nums.length > 0 && parsed.length === 0) setErr('未找到这些订单号');
+    } catch (e) { handleErr(e); }
     setLoading(false);
   };
 
-  const updateInvoice = (orderId, patch) =>
-    setInvoices(prev => prev.map(inv => inv.orderId === orderId ? { ...inv, ...patch } : inv));
-  const updateItem = (orderId, itemIdx, patch) =>
-    setInvoices(prev => prev.map(inv => inv.orderId !== orderId ? inv :
-      { ...inv, items: inv.items.map((it, i) => i === itemIdx ? { ...it, ...patch } : it) }));
-  const removeInvoice = (orderId) =>
-    setInvoices(prev => prev.filter(inv => inv.orderId !== orderId));
+  const assignedLineIds = useMemo(() => {
+    const s = new Set(); tickets.forEach(t => t.items.forEach(it => s.add(it.lineId))); return s;
+  }, [tickets]);
 
-  // 校验必填
-  const validate = (inv) => {
-    const miss = [];
-    if (!inv.channel) miss.push('渠道');
-    if (!inv.weight) miss.push('重量');
-    if (!inv.packageCount) miss.push('件数');
-    const a = inv.address || {};
-    if (!(a.name || inv.customerName)) miss.push('收件人');
-    if (!a.zip) miss.push('邮编');
-    if (!a.address1) miss.push('地址');
-    return miss;
+  const makeTicket = (order, items) => ({
+    id: 'tk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    sourceOrderId: order.orderId, orderNumber: order.orderNumber, platform: order.platform,
+    customerName: order.customerName, customerEmail: order.customerEmail, customerPhone: order.customerPhone,
+    address: order.address, items, channel: '', weight: '', packageCount: 1, prepNote: '',
+  });
+  const addWholeOrder = (order) => setTickets(prev => [...prev, makeTicket(order, order.items.map(it => ({ ...it })))]);
+  const addPartialTicket = (order, ids) => {
+    const items = order.items.filter(it => ids.has(it.lineId)).map(it => ({ ...it }));
+    if (items.length) setTickets(prev => [...prev, makeTicket(order, items)]);
   };
-  const allValid = invoices.length > 0 && invoices.every(inv => validate(inv).length === 0);
+  const updateTicket = (id, patch) => setTickets(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
+  const updateTicketItem = (id, idx, patch) => setTickets(prev => prev.map(t => t.id !== id ? t : { ...t, items: t.items.map((it, i) => i === idx ? { ...it, ...patch } : it) }));
+  const removeTicket = (id) => setTickets(prev => prev.filter(t => t.id !== id));
+
+  const validate = (t) => {
+    const m = [];
+    if (!t.channel) m.push('渠道'); if (!t.weight) m.push('重量'); if (!t.packageCount) m.push('件数');
+    const a = t.address || {};
+    if (!(a.name || t.customerName)) m.push('收件人'); if (!a.zip) m.push('邮编'); if (!a.address1) m.push('地址');
+    return m;
+  };
+  const allValid = tickets.length > 0 && tickets.every(t => validate(t).length === 0);
 
   const exportExcel = () => {
-    const tpl = COURIER_TEMPLATES[courier];
-    const rows = invoices.map(tpl.build);
-    const aoa = [tpl.headers, ...rows];
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-    // 邮编列(9)整列文本
+    const tpl = COURIERS[courier];
+    const ws = XLSX.utils.aoa_to_sheet([tpl.headers, ...tickets.map(tpl.build)]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-    const fname = `${tpl.name}发票_${dateStr}_${invoices.length}单.xlsx`;
-    XLSX.writeFile(wb, fname);
+    XLSX.writeFile(wb, `${tpl.name}发票_${dateStr}_${tickets.length}票.xlsx`);
   };
 
   return (
     <>
       <div className="card">
-        <div style={{display:'flex', gap:12, alignItems:'flex-end', flexWrap:'wrap', marginBottom:12}}>
-          <div>
-            <label className="muted" style={{display:'block', marginBottom:4}}>快递公司</label>
-            <select className="inp" style={{width:140}} value={courier} onChange={e => setCourier(e.target.value)}>
-              {Object.entries(COURIER_TEMPLATES).map(([k, v]) => <option key={k} value={k}>{v.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="muted" style={{display:'block', marginBottom:4}}>日期</label>
-            <input type="date" className="inp" style={{width:150}} value={dateStr} onChange={e => setDateStr(e.target.value)} />
+        <div style={{display:'flex', gap:12, alignItems:'center', flexWrap:'wrap', marginBottom:12}}>
+          <div><label className="muted" style={{display:'block', marginBottom:4}}>快递公司</label>
+            <select className="inp" style={{width:130}} value={courier} onChange={e => setCourier(e.target.value)}>
+              {Object.entries(COURIERS).map(([k, v]) => <option key={k} value={k}>{v.name}</option>)}
+            </select></div>
+          <div><label className="muted" style={{display:'block', marginBottom:4}}>日期</label>
+            <input type="date" className="inp" style={{width:150}} value={dateStr} onChange={e => setDateStr(e.target.value)} /></div>
+          <div style={{flex:1, minWidth:220}}><label className="muted" style={{display:'block', marginBottom:4}}>搜订单号(留空 = 显示最近订单)</label>
+            <div style={{display:'flex', gap:6}}>
+              <input className="inp" value={search} onChange={e => setSearch(e.target.value)} placeholder="XM8T31234602 / VK116373 ..." onKeyDown={e => e.key === 'Enter' && doSearch()} />
+              <button className="btn-pri btn" onClick={doSearch} disabled={loading} style={{whiteSpace:'nowrap'}}>{loading ? '⏳' : '🔍 搜索'}</button>
+            </div></div>
+          <div style={{alignSelf:'flex-end'}}>
+            {conn === 'ok' && <span className="status-dot" style={{background:'#dcfce7', color:'#15803d'}}>● 订单库已连接</span>}
+            {conn === 'fail' && <span className="status-dot" style={{background:'#fee2e2', color:'#b91c1c'}}>● 连接失败</span>}
+            {conn === 'loading' && <span className="status-dot" style={{background:'#f5f5f7', color:'#86868b'}}>● 连接中…</span>}
           </div>
         </div>
-        <label className="muted" style={{display:'block', marginBottom:4}}>批量搜索订单号(逗号 / 空格 / 换行分隔)</label>
-        <textarea className="inp" rows={2} value={searchInput} onChange={e => setSearchInput(e.target.value)}
-          placeholder="XM8T31234602, VK116373 ..." style={{marginBottom:10, resize:'vertical'}} />
-        <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
-          <button className="btn-pri btn" onClick={doSearch} disabled={loading}>{loading ? '⏳ 搜索中…' : '🔍 批量搜索'}</button>
-          {invoices.length > 0 && <button className="btn" onClick={() => setInvoices([])}>清空</button>}
-          <span className="muted">已套模板 {invoices.length} 单</span>
+        {err && <div style={{padding:'10px 12px', background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:8, fontSize:12, color:'#92400e', lineHeight:1.6}}>⚠ {err}</div>}
+      </div>
+
+      <div style={{display:'grid', gridTemplateColumns: tickets.length > 0 ? '1fr 1fr' : '1fr', gap:14}}>
+        <div className="card">
+          <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
+            <strong style={{fontSize:15}}>📦 订单列表</strong>
+            <span className="muted">{orders.length} 单 · 同一订单可拆多票</span>
+            <div style={{flex:1}}/>
+            <button className="btn btn-sm" onClick={loadRecent}>🔄 刷新最近</button>
+          </div>
+          {loading && <div style={{padding:30, textAlign:'center', color:'#86868b'}}>⏳ 加载中…</div>}
+          {!loading && orders.length === 0 && <div style={{padding:30, textAlign:'center', color:'#86868b'}}>{conn === 'fail' ? '连不上订单库,见上方提示' : '暂无订单'}</div>}
+          {orders.map(o => <OrderCard key={o.orderId} order={o} assignedLineIds={assignedLineIds}
+            onWhole={() => addWholeOrder(o)} onPartial={(ids) => addPartialTicket(o, ids)} />)}
         </div>
-        {errMsg && (
-          <div style={{marginTop:10, padding:'10px 12px', background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:8, fontSize:12, color:'#92400e', lineHeight:1.6}}>
-            ⚠ {errMsg}
+
+        {tickets.length > 0 && (
+          <div className="card">
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
+              <strong style={{fontSize:15}}>🧾 待导出发票</strong>
+              <span className="muted">{tickets.length} 票</span>
+              <div style={{flex:1}}/>
+              {allValid ? <span className="pill" style={{background:'#dcfce7', color:'#15803d'}}>✓ 必填齐全</span> : <span className="pill" style={{background:'#fee2e2', color:'#b91c1c'}}>⚠ 有必填未填</span>}
+              <button className="btn-good btn" onClick={exportExcel} disabled={!allValid}>📤 导出 {COURIERS[courier].name} Excel</button>
+            </div>
+            {tickets.map((t) => {
+              const miss = validate(t); const a = t.address || {};
+              const same = tickets.filter(x => x.sourceOrderId === t.sourceOrderId);
+              const idxInOrder = same.indexOf(t) + 1;
+              return (
+                <div key={t.id} style={{border:'1px solid #e5e5e7', borderRadius:10, padding:11, marginBottom:9, background: miss.length ? '#fffdf8' : '#fafffe'}}>
+                  <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', marginBottom:7}}>
+                    <strong style={{fontSize:13}}>🧾 {t.orderNumber}</strong>
+                    {same.length > 1 && <span className="pill" style={{background:'#fef9c3', color:'#854d0e'}}>第 {idxInOrder}/{same.length} 票</span>}
+                    <span className="muted">{a.name || t.customerName} · {a.city} {a.province} {a.zip}</span>
+                    {miss.length > 0 && <span className="pill" style={{background:'#fee2e2', color:'#b91c1c'}}>缺:{miss.join('/')}</span>}
+                    <div style={{flex:1}}/>
+                    <button className="btn btn-sm" onClick={() => removeTicket(t.id)}>移除</button>
+                  </div>
+                  <div className="muted" style={{marginBottom:7, fontSize:11}}>📍 {[a.address1, a.address2].filter(Boolean).join(' ')} {a.zip} · 📞 {a.phone || t.customerPhone || '-'}</div>
+                  <div style={{display:'flex', gap:8, flexWrap:'wrap', marginBottom:7}}>
+                    <div><label className="muted" style={{display:'block', fontSize:11}}>渠道 *</label>
+                      <select className="inp" style={{width:160, borderColor: t.channel ? '#d2d2d7' : '#fca5a5'}} value={t.channel} onChange={e => updateTicket(t.id, { channel: e.target.value })}>
+                        <option value="">— 选 —</option>{CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select></div>
+                    <div><label className="muted" style={{display:'block', fontSize:11}}>重量 kg *</label>
+                      <input className="inp" style={{width:85, borderColor: t.weight ? '#d2d2d7' : '#fca5a5'}} type="number" step="0.001" value={t.weight} onChange={e => updateTicket(t.id, { weight: e.target.value })} /></div>
+                    <div><label className="muted" style={{display:'block', fontSize:11}}>件数 *</label>
+                      <input className="inp" style={{width:65}} type="number" value={t.packageCount} onChange={e => updateTicket(t.id, { packageCount: e.target.value })} /></div>
+                    <div style={{flex:1, minWidth:140}}><label className="muted" style={{display:'block', fontSize:11}}>运单备注</label>
+                      <input className="inp" value={t.prepNote} onChange={e => updateTicket(t.id, { prepNote: e.target.value })} placeholder="实重复测/改加班船…" /></div>
+                  </div>
+                  <div className="scroll-x">
+                    <table><thead><tr><th>英文</th><th>中文</th><th>数量</th><th>SKU</th><th>规格</th></tr></thead>
+                      <tbody>{t.items.map((it, ii) => (
+                        <tr key={ii}>
+                          <td><input value={it.lampEn} onChange={e => updateTicketItem(t.id, ii, { lampEn: e.target.value })} /></td>
+                          <td><input value={it.lampCn} onChange={e => updateTicketItem(t.id, ii, { lampCn: e.target.value })} style={{minWidth:45}} /></td>
+                          <td><input type="number" value={it.quantity} onChange={e => updateTicketItem(t.id, ii, { quantity: e.target.value })} style={{minWidth:45}} /></td>
+                          <td><input value={it.sku} onChange={e => updateTicketItem(t.id, ii, { sku: e.target.value })} /></td>
+                          <td><input value={it.spec} onChange={e => updateTicketItem(t.id, ii, { spec: e.target.value })} style={{minWidth:110}} /></td>
+                        </tr>))}</tbody></table>
+                  </div>
+                  {t.items.length > 5 && <div style={{fontSize:11, color:'#b91c1c', marginTop:4}}>⚠ 超 5 个产品,昌晖只支持 5 个/票,请拆票</div>}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
-
-      {invoices.length > 0 && (
-        <div className="card">
-          <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12, flexWrap:'wrap'}}>
-            <strong style={{fontSize:15}}>在线预览编辑</strong>
-            <span className="muted">补 重量/件数/渠道 · 改品名 · 红框=必填缺失</span>
-            <div style={{flex:1}}/>
-            {!allValid && <span className="pill" style={{background:'#fee2e2', color:'#b91c1c'}}>⚠ 有必填项未填</span>}
-            {allValid && <span className="pill" style={{background:'#dcfce7', color:'#15803d'}}>✓ 必填齐全</span>}
-            <button className="btn-good btn" onClick={exportExcel} disabled={!allValid} title={allValid ? '' : '先补齐必填项'}>📤 导出 {COURIER_TEMPLATES[courier].name} Excel</button>
-          </div>
-
-          {invoices.map((inv) => {
-            const miss = validate(inv);
-            const a = inv.address || {};
-            return (
-              <div key={inv.orderId} style={{border:'1px solid #e5e5e7', borderRadius:10, padding:12, marginBottom:10, background: miss.length ? '#fffdf8' : '#fafffe'}}>
-                <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap', marginBottom:8}}>
-                  <strong style={{fontSize:14}}>🧾 {inv.orderNumber}</strong>
-                  <span className="pill" style={{background:'#eef2ff', color:'#4338ca'}}>{inv.platform || '?'}</span>
-                  <span className="muted">{a.name || inv.customerName} · {a.city} {a.province} {a.country_code}</span>
-                  {miss.length > 0 && <span className="pill" style={{background:'#fee2e2', color:'#b91c1c'}}>缺:{miss.join('/')}</span>}
-                  <div style={{flex:1}}/>
-                  <button className="btn" style={{padding:'3px 10px', fontSize:11}} onClick={() => removeInvoice(inv.orderId)}>移除</button>
-                </div>
-                {/* 客服要补的字段 */}
-                <div style={{display:'flex', gap:10, flexWrap:'wrap', marginBottom:8}}>
-                  <div>
-                    <label className="muted" style={{display:'block', fontSize:11}}>渠道 *</label>
-                    <select className="inp" style={{width:170, borderColor: inv.channel ? '#d2d2d7' : '#fca5a5'}}
-                      value={inv.channel} onChange={e => updateInvoice(inv.orderId, { channel: e.target.value })}>
-                      <option value="">— 选渠道 —</option>
-                      {CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="muted" style={{display:'block', fontSize:11}}>重量 kg *</label>
-                    <input className="inp" style={{width:90, borderColor: inv.weight ? '#d2d2d7' : '#fca5a5'}} type="number" step="0.001"
-                      value={inv.weight} onChange={e => updateInvoice(inv.orderId, { weight: e.target.value })} placeholder="称重" />
-                  </div>
-                  <div>
-                    <label className="muted" style={{display:'block', fontSize:11}}>件数 *</label>
-                    <input className="inp" style={{width:70}} type="number"
-                      value={inv.packageCount} onChange={e => updateInvoice(inv.orderId, { packageCount: e.target.value })} />
-                  </div>
-                  <div style={{flex:1, minWidth:180}}>
-                    <label className="muted" style={{display:'block', fontSize:11}}>运单备注(发货前问题)</label>
-                    <input className="inp" value={inv.prepNote} onChange={e => updateInvoice(inv.orderId, { prepNote: e.target.value })}
-                      placeholder="如:实重复测 / 改加班船 / 次长控制75以内" />
-                  </div>
-                </div>
-                {/* 产品行 */}
-                <div className="scroll-x">
-                  <table>
-                    <thead><tr><th>英文品名</th><th>中文</th><th>申报单价</th><th>数量</th><th>SKU</th><th>规格</th></tr></thead>
-                    <tbody>
-                      {inv.items.map((it, ii) => (
-                        <tr key={ii}>
-                          <td><input value={it.lampEn} onChange={e => updateItem(inv.orderId, ii, { lampEn: e.target.value })} /></td>
-                          <td><input value={it.lampCn} onChange={e => updateItem(inv.orderId, ii, { lampCn: e.target.value })} style={{minWidth:50}} /></td>
-                          <td><input type="number" value={it.declarePrice} onChange={e => updateItem(inv.orderId, ii, { declarePrice: e.target.value })} style={{minWidth:70}} /></td>
-                          <td><input type="number" value={it.quantity} onChange={e => updateItem(inv.orderId, ii, { quantity: e.target.value })} style={{minWidth:50}} /></td>
-                          <td><input value={it.sku} onChange={e => updateItem(inv.orderId, ii, { sku: e.target.value })} /></td>
-                          <td><input value={it.spec} onChange={e => updateItem(inv.orderId, ii, { spec: e.target.value })} style={{minWidth:120}} /></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {inv.items.length > 5 && <div style={{fontSize:11, color:'#b91c1c', marginTop:4}}>⚠ 超过 5 个产品块,昌晖模板只支持 5 个,多余的需拆单</div>}
-              </div>
-            );
-          })}
-        </div>
-      )}
     </>
   );
 }
 
-// ────────────────────────────────────────────────────────────────────
-// 节点③:收货对账(导入北简表)
-// ────────────────────────────────────────────────────────────────────
-function Reconcile() {
-  const [rows, setRows] = useState([]);     // 快递回传表行
-  const [fileName, setFileName] = useState('');
-  const [internalMap, setInternalMap] = useState({}); // orderNumber → {weight, packageCount}(来自制作发票时,可选)
-  const fileRef = useRef(null);
+function OrderCard({ order, assignedLineIds, onWhole, onPartial }) {
+  const [chosen, setChosen] = useState(new Set());
+  const a = order.address || {};
+  const multi = order.items.length > 1;
+  const allAssigned = order.items.every(it => assignedLineIds.has(it.lineId));
+  const toggle = (id) => setChosen(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  return (
+    <div className="order-card" style={{opacity: allAssigned ? 0.6 : 1}}>
+      <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:6}}>
+        <strong style={{fontSize:14}}>🧾 {order.orderNumber}</strong>
+        <span className="pill" style={{background:'#eef2ff', color:'#4338ca'}}>{order.platform || '?'}</span>
+        {multi && <span className="pill" style={{background:'#fef9c3', color:'#854d0e'}}>{order.items.length} 个产品</span>}
+        {allAssigned && <span className="pill" style={{background:'#dcfce7', color:'#15803d'}}>✓ 已加入</span>}
+        <div style={{flex:1}}/>
+        <span className="muted">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('zh-CN') : ''}</span>
+      </div>
+      <div style={{background:'#f8fafc', borderRadius:8, padding:'7px 10px', marginBottom:8, fontSize:12, lineHeight:1.6}}>
+        <div><strong>📍 {a.name || order.customerName}</strong></div>
+        <div className="muted">{[a.address1, a.address2].filter(Boolean).join(' ')}</div>
+        <div className="muted">{a.city} {a.province} {a.zip} · {a.country_code || a.country} · 📞 {a.phone || order.customerPhone || '-'}</div>
+      </div>
+      <div style={{marginBottom:8}}>
+        {order.items.map(it => {
+          const assigned = assignedLineIds.has(it.lineId);
+          return (
+            <div key={it.lineId} className="prod-row">
+              {multi && <input type="checkbox" checked={chosen.has(it.lineId)} disabled={assigned} onChange={() => toggle(it.lineId)} />}
+              {it.image_url ? <img className="thumb" src={it.image_url} alt="" /> : <div className="thumb" style={{display:'flex', alignItems:'center', justifyContent:'center', fontSize:16}}>💡</div>}
+              <div style={{flex:1, minWidth:0}}>
+                <div style={{fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{it.lampCn} · {it.title}</div>
+                <div className="muted">{it.sku} {it.spec ? '· ' + it.spec : ''} · ×{it.quantity}</div>
+              </div>
+              {assigned && <span className="pill" style={{background:'#dcfce7', color:'#15803d'}}>已分票</span>}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+        <button className="btn-pri btn btn-sm" onClick={() => { onWhole(); setChosen(new Set()); }} disabled={allAssigned}>整单做 1 票</button>
+        {multi && <button className="btn btn-sm" onClick={() => { onPartial(chosen); setChosen(new Set()); }} disabled={chosen.size === 0}>➕ 勾选 {chosen.size} 个做 1 票(拆票)</button>}
+      </div>
+    </div>
+  );
+}
 
+function Reconcile() {
+  const [rows, setRows] = useState([]); const [fileName, setFileName] = useState('');
+  const fileRef = useRef(null);
   const handleFile = (file) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
+    const r = new FileReader();
+    r.onload = (e) => {
       const wb = XLSX.read(e.target.result, { type: 'binary' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const aoa = XLSX.utils.sheet_to_json(ws, { header: 1 });
-      if (aoa.length < 2) { alert('表里没有数据行'); return; }
-      const dataRows = aoa.slice(1).filter(r => r && r[1]);  // 有客户参考号的
-      setRows(dataRows.map(r => ({
-        date: r[0], orderNumber: String(r[1] || ''), waybill: r[2], dest: r[3], channel: r[4],
-        pieces: r[5], unitWeight: r[6], l: r[7], w: r[8], h: r[9], volume: r[10],
-        girth: r[11], totalPieces: r[12], recvWeight: r[13], recvVolWeight: r[14],
-        settleWeight: r[15], note: r[16] || '',
-      })));
+      const dataRows = aoa.slice(1).filter(rr => rr && rr[1]);
+      setRows(dataRows.map(rr => ({ date:rr[0], orderNumber:String(rr[1]||''), waybill:rr[2], channel:rr[4], totalPieces:rr[12], recvWeight:rr[13], settleWeight:rr[15], girth:rr[11], note:rr[16]||'' })));
       setFileName(file.name);
     };
-    reader.readAsBinaryString(file);
+    r.readAsBinaryString(file);
   };
-
-  // 异常判定
-  const analyze = (r) => {
-    const flags = [];
-    const note = (r.note || '').toString();
-    if (/超长|超围|超重|加纸箱/.test(note)) flags.push({ type:'附加费', text: note, color:'#b45309' });
-    const mine = internalMap[r.orderNumber];
-    if (mine) {
-      if (mine.weight && Math.abs(parseFloat(mine.weight) - parseFloat(r.recvWeight)) > 0.5)
-        flags.push({ type:'重量差', text: `发${mine.weight} vs 收${r.recvWeight}`, color:'#b91c1c' });
-      if (mine.packageCount && parseInt(mine.packageCount) !== parseInt(r.totalPieces))
-        flags.push({ type:'件数差', text: `发${mine.packageCount} vs 收${r.totalPieces}`, color:'#b91c1c' });
-    }
-    return flags;
-  };
-
-  const abnormalCount = rows.filter(r => analyze(r).length > 0).length;
-
+  const flag = (r) => /超长|超围|超重|加纸箱/.test((r.note||'').toString());
+  const abn = rows.filter(flag).length;
   return (
     <div className="card">
       <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12, flexWrap:'wrap'}}>
         <strong style={{fontSize:15}}>📥 收货回传对账</strong>
-        <span className="muted">导入快递公司回传表(北简 17 列)· 按订单号匹配 · 异常标红</span>
+        <span className="muted">导入快递回传表(北简 17 列)· 附加费标红</span>
         <div style={{flex:1}}/>
         <button className="btn-pri btn" onClick={() => fileRef.current?.click()}>📂 导入回传表</button>
-        <input ref={fileRef} type="file" accept=".xls,.xlsx" style={{display:'none'}}
-          onChange={e => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; }} />
+        <input ref={fileRef} type="file" accept=".xls,.xlsx" style={{display:'none'}} onChange={e => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value=''; }} />
       </div>
-      {fileName && <div className="muted" style={{marginBottom:8}}>📄 {fileName} · {rows.length} 条 · {abnormalCount > 0 ? <span style={{color:'#b91c1c', fontWeight:600}}>⚠ {abnormalCount} 条异常</span> : <span style={{color:'#15803d'}}>✓ 无异常</span>}</div>}
-      {rows.length > 0 && (
-        <div className="scroll-x">
-          <table>
-            <thead><tr>
-              <th>订单号</th><th>运单号</th><th>渠道</th><th>件数</th><th>收货实重</th><th>结算重</th><th>围长</th><th>备注</th><th>对账</th>
-            </tr></thead>
-            <tbody>
-              {rows.map((r, i) => {
-                const flags = analyze(r);
-                return (
-                  <tr key={i} style={{background: flags.length ? '#fef2f2' : 'white'}}>
-                    <td style={{fontWeight:600}}>{r.orderNumber}</td>
-                    <td>{r.waybill}</td>
-                    <td>{r.channel}</td>
-                    <td>{r.totalPieces}</td>
-                    <td>{r.recvWeight}</td>
-                    <td>{r.settleWeight}</td>
-                    <td>{r.girth}</td>
-                    <td style={{maxWidth:160, whiteSpace:'normal'}}>{r.note}</td>
-                    <td>
-                      {flags.length === 0 ? <span style={{color:'#15803d'}}>✓</span> :
-                        flags.map((f, fi) => <div key={fi} style={{color:f.color, fontSize:11, fontWeight:600}}>{f.type}: {f.text}</div>)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {rows.length === 0 && <div style={{padding:'40px', textAlign:'center', color:'#86868b'}}>导入快递公司回传的收货 Excel 开始对账</div>}
+      {fileName && <div className="muted" style={{marginBottom:8}}>📄 {fileName} · {rows.length} 条 · {abn > 0 ? <span style={{color:'#b91c1c', fontWeight:600}}>⚠ {abn} 条有附加费</span> : <span style={{color:'#15803d'}}>✓ 无异常</span>}</div>}
+      {rows.length > 0 ? (
+        <div className="scroll-x"><table>
+          <thead><tr><th>订单号</th><th>运单号</th><th>渠道</th><th>件数</th><th>收货实重</th><th>结算重</th><th>围长</th><th>备注</th></tr></thead>
+          <tbody>{rows.map((r, i) => { const f = flag(r); return (
+            <tr key={i} style={{background: f ? '#fef2f2' : 'white'}}>
+              <td style={{fontWeight:600}}>{r.orderNumber}</td><td>{r.waybill}</td><td>{r.channel}</td><td>{r.totalPieces}</td>
+              <td>{r.recvWeight}</td><td>{r.settleWeight}</td><td>{r.girth}</td>
+              <td style={{maxWidth:160, whiteSpace:'normal', color: f ? '#b91c1c' : 'inherit', fontWeight: f ? 600 : 400}}>{r.note}</td>
+            </tr>); })}</tbody>
+        </table></div>
+      ) : <div style={{padding:40, textAlign:'center', color:'#86868b'}}>导入快递回传的收货 Excel 开始对账</div>}
     </div>
   );
 }
