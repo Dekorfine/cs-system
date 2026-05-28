@@ -52,17 +52,25 @@ const ORDERS_KEY = 'sb_publishable_dFjk1WN_Hc0Te6IhXZysZg_SXvKQU4C';
 let _client = null;
 const getClient = () => { if (_client) return _client; try { _client = window.supabase.createClient(ORDERS_URL, ORDERS_KEY); return _client; } catch { return null; } };
 
-function getLampType(item) {
+// 灯具类型识别 → 中英文 + HS编码(从昌晖真实模板 178 行 100% 反推)
+// HS:壁灯/吊灯/枝形吊灯=9405100000 · 台灯=9405409000 · 落地灯=9405200090 · 配件=3917400000
+const LAMP_TYPES = [
+  { re: /chandelier/,                          en: 'Chandelier',    cn: '枝形吊灯', hs: '9405100000' },
+  { re: /wall\s*(lamp|light|sconce)|sconce/,   en: 'Wall Lamp',     cn: '壁灯',     hs: '9405100000' },
+  { re: /pendant|hanging|suspend/,             en: 'Pendant Lamp',  cn: '吊灯',     hs: '9405100000' },
+  { re: /table\s*(lamp|light)|desk\s*lamp/,    en: 'Table Lamp',    cn: '台灯',     hs: '9405409000' },
+  { re: /floor\s*(lamp|light)/,                en: 'Floor Lamp',    cn: '落地灯',   hs: '9405200090' },
+  { re: /ceiling|flush\s*mount/,               en: 'Ceiling Lamp',  cn: '吸顶灯',   hs: '9405100000' },
+  { re: /bulb|accessor|spare|part|cable|cord|shade|bracket|adapter|driver/, en: 'Accessories', cn: '配件', hs: '3917400000' },
+];
+function getLampInfo(item) {
   const t = ((item.title || '') + ' ' + (item.variant_title || '')).toLowerCase();
-  if (/wall\s*(lamp|light|sconce)|sconce/.test(t)) return { en: 'Wall Lamp', cn: '壁灯' };
-  if (/pendant|chandelier|hanging|suspend/.test(t)) return { en: 'Pendant Lamp', cn: '吊灯' };
-  if (/table\s*(lamp|light)|desk/.test(t)) return { en: 'Table Lamp', cn: '台灯' };
-  if (/floor\s*(lamp|light)/.test(t)) return { en: 'Floor Lamp', cn: '落地灯' };
-  if (/ceiling|flush/.test(t)) return { en: 'Ceiling Lamp', cn: '吸顶灯' };
-  if (/bulb|accessor|part|cable|cord/.test(t)) return { en: 'Accessories', cn: '配件' };
-  return { en: 'Wall Lamp', cn: '壁灯' };
+  const found = LAMP_TYPES.find(lt => lt.re.test(t)) || LAMP_TYPES[1]; // 兜底壁灯
+  // 材质:含 brass/黄铜/铜 → Brass,否则 Plastic + metal(从模板看默认 Plastic + metal,少数 Brass)
+  const material = /brass|黄铜|纯铜|red copper/.test(t) ? 'Brass' : 'Plastic + metal';
+  return { en: found.en, cn: found.cn, hs: found.hs, material };
 }
-const DECLARE = { unitPriceEach: 500, hsCode: '9405100000', material: 'Plastic + metal', usage: 'illuminating' };
+const DECLARE = { unitPriceEach: 500, usage: 'illuminating' };  // 申报单价 = 500 × 数量 · 用途固定
 const CHANNELS = ['美森加班海运小包', '美森普通海运小包'];
 
 // 店铺识别:优先用表字段,否则从订单号字母前缀推断
@@ -87,10 +95,10 @@ function parseOrder(o) {
   let items = o.line_items;
   if (typeof items === 'string') { try { items = JSON.parse(items); } catch { items = []; } }
   items = (items || []).map((it, i) => {
-    const lt = getLampType(it);
+    const lt = getLampInfo(it);
     return { lineId: o.shopify_order_id + '_' + i, title: it.title || '', variant_title: it.variant_title || '',
       sku: it.sku || '', quantity: it.quantity || 1, image_url: it.image_url || '',
-      lampEn: lt.en, lampCn: lt.cn, spec: it.variant_title || '' };
+      lampEn: lt.en, lampCn: lt.cn, hs: lt.hs, material: lt.material, spec: it.variant_title || '' };
   });
   return { orderId: o.shopify_order_id, orderNumber: o.shopify_order_number || o.shopify_order_id, platform: o.platform,
     store: getStore(o, o.shopify_order_number || o.shopify_order_id),
@@ -123,8 +131,8 @@ function buildChanghuiRow(t) {
     const start = 16 + (first ? 0 : 12 + (bi - 1) * 11);
     let c = start; const qty = parseInt(it.quantity) || 1;
     row[c++] = it.lampEn; row[c++] = it.lampCn; row[c++] = DECLARE.unitPriceEach * qty;
-    row[c++] = qty; row[c++] = ''; row[c++] = DECLARE.hsCode; row[c++] = ''; row[c++] = it.sku || '';
-    row[c++] = DECLARE.material; if (first) row[c++] = qty; row[c++] = it.spec || ''; row[c++] = DECLARE.usage;
+    row[c++] = qty; row[c++] = ''; row[c++] = it.hs || '9405100000'; row[c++] = ''; row[c++] = it.sku || '';
+    row[c++] = it.material || 'Plastic + metal'; if (first) row[c++] = qty; row[c++] = it.spec || ''; row[c++] = DECLARE.usage;
   });
   row[row.length - 1] = t.prepNote || '';
   return row;
@@ -276,83 +284,86 @@ function MakeInvoice() {
         {err && <div style={{padding:'10px 12px', background:'#fef3c7', border:'1px solid #f59e0b', borderRadius:8, fontSize:12, color:'#92400e', lineHeight:1.6}}>⚠ {err}</div>}
       </div>
 
-      <div style={{display:'grid', gridTemplateColumns: tickets.length > 0 ? '1fr 1fr' : '1fr', gap:14}}>
-        <div className="card">
+      {/* 🆕 待导出发票篮 — 放订单列表上方,加入后立刻可见 */}
+      {tickets.length > 0 && (
+        <div className="card" style={{border:'2px solid #34c759', background:'#f0fdf4'}}>
           <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
-            <strong style={{fontSize:15}}>📦 订单列表</strong>
-            <span className="muted">{visibleOrders.length}/{orders.length} 单 · 同一订单可拆多票</span>
+            <strong style={{fontSize:15}}>🧾 待导出发票篮</strong>
+            <span className="pill" style={{background:'#34c759', color:'white'}}>{tickets.length} 票</span>
+            <span className="muted">补 渠道/重量/件数 → 导出</span>
             <div style={{flex:1}}/>
-            <button className="btn btn-sm" onClick={loadRecent}>🔄 刷新(取跟单最新同步)</button>
+            {allValid ? <span className="pill" style={{background:'#dcfce7', color:'#15803d'}}>✓ 必填齐全</span> : <span className="pill" style={{background:'#fee2e2', color:'#b91c1c'}}>⚠ 有必填未填</span>}
+            <button className="btn" onClick={() => setTickets([])}>清空</button>
+            <button className="btn-good btn" onClick={exportExcel} disabled={!allValid}>📤 导出 {COURIERS[courier].name} Excel</button>
           </div>
-          {/* 🆕 店铺筛选 */}
-          {storeList.length > 1 && (
-            <div style={{display:'flex', gap:6, marginBottom:12, flexWrap:'wrap', alignItems:'center'}}>
-              <span className="muted" style={{whiteSpace:'nowrap'}}>🏪 店铺:</span>
-              <button className="btn btn-sm" style={storeFilter === 'all' ? {background:'#0071e3', color:'white', borderColor:'#0071e3'} : {}} onClick={() => setStoreFilter('all')}>全部 ({orders.length})</button>
-              {storeList.map(([s, n]) => (
-                <button key={s} className="btn btn-sm" style={storeFilter === s ? {background:'#0071e3', color:'white', borderColor:'#0071e3'} : {}} onClick={() => setStoreFilter(s)}>{s} ({n})</button>
-              ))}
-            </div>
-          )}
-          {loading && <div style={{padding:30, textAlign:'center', color:'#86868b'}}>⏳ 加载中…</div>}
-          {!loading && visibleOrders.length === 0 && <div style={{padding:30, textAlign:'center', color:'#86868b'}}>{conn === 'fail' ? '连不上订单库,见上方提示' : '该店铺暂无订单'}</div>}
-          {visibleOrders.map(o => <OrderCard key={o.orderId} order={o} assignedLineIds={assignedLineIds}
-            onWhole={() => addWholeOrder(o)} onPartial={(ids) => addPartialTicket(o, ids)} />)}
-        </div>
-
-        {tickets.length > 0 && (
-          <div className="card">
-            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
-              <strong style={{fontSize:15}}>🧾 待导出发票</strong>
-              <span className="muted">{tickets.length} 票</span>
-              <div style={{flex:1}}/>
-              {allValid ? <span className="pill" style={{background:'#dcfce7', color:'#15803d'}}>✓ 必填齐全</span> : <span className="pill" style={{background:'#fee2e2', color:'#b91c1c'}}>⚠ 有必填未填</span>}
-              <button className="btn-good btn" onClick={exportExcel} disabled={!allValid}>📤 导出 {COURIERS[courier].name} Excel</button>
-            </div>
-            {tickets.map((t) => {
-              const miss = validate(t); const a = t.address || {};
-              const same = tickets.filter(x => x.sourceOrderId === t.sourceOrderId);
-              const idxInOrder = same.indexOf(t) + 1;
-              return (
-                <div key={t.id} style={{border:'1px solid #e5e5e7', borderRadius:10, padding:11, marginBottom:9, background: miss.length ? '#fffdf8' : '#fafffe'}}>
-                  <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', marginBottom:7}}>
-                    <strong style={{fontSize:13}}>🧾 {t.orderNumber}</strong>
-                    {same.length > 1 && <span className="pill" style={{background:'#fef9c3', color:'#854d0e'}}>第 {idxInOrder}/{same.length} 票</span>}
-                    <span className="muted">{a.name || t.customerName} · {a.city} {a.province} {a.zip}</span>
-                    {miss.length > 0 && <span className="pill" style={{background:'#fee2e2', color:'#b91c1c'}}>缺:{miss.join('/')}</span>}
-                    <div style={{flex:1}}/>
-                    <button className="btn btn-sm" onClick={() => removeTicket(t.id)}>移除</button>
-                  </div>
-                  <div className="muted" style={{marginBottom:7, fontSize:11}}>📍 {[a.address1, a.address2].filter(Boolean).join(' ')} {a.zip} · 📞 {a.phone || t.customerPhone || '-'}</div>
-                  <div style={{display:'flex', gap:8, flexWrap:'wrap', marginBottom:7}}>
-                    <div><label className="muted" style={{display:'block', fontSize:11}}>渠道 *</label>
-                      <select className="inp" style={{width:160, borderColor: t.channel ? '#d2d2d7' : '#fca5a5'}} value={t.channel} onChange={e => updateTicket(t.id, { channel: e.target.value })}>
-                        <option value="">— 选 —</option>{CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select></div>
-                    <div><label className="muted" style={{display:'block', fontSize:11}}>重量 kg *</label>
-                      <input className="inp" style={{width:85, borderColor: t.weight ? '#d2d2d7' : '#fca5a5'}} type="number" step="0.001" value={t.weight} onChange={e => updateTicket(t.id, { weight: e.target.value })} /></div>
-                    <div><label className="muted" style={{display:'block', fontSize:11}}>件数 *</label>
-                      <input className="inp" style={{width:65}} type="number" value={t.packageCount} onChange={e => updateTicket(t.id, { packageCount: e.target.value })} /></div>
-                    <div style={{flex:1, minWidth:140}}><label className="muted" style={{display:'block', fontSize:11}}>运单备注</label>
-                      <input className="inp" value={t.prepNote} onChange={e => updateTicket(t.id, { prepNote: e.target.value })} placeholder="实重复测/改加班船…" /></div>
-                  </div>
-                  <div className="scroll-x">
-                    <table><thead><tr><th>英文</th><th>中文</th><th>数量</th><th>SKU</th><th>规格</th></tr></thead>
-                      <tbody>{t.items.map((it, ii) => (
-                        <tr key={ii}>
-                          <td><input value={it.lampEn} onChange={e => updateTicketItem(t.id, ii, { lampEn: e.target.value })} /></td>
-                          <td><input value={it.lampCn} onChange={e => updateTicketItem(t.id, ii, { lampCn: e.target.value })} style={{minWidth:45}} /></td>
-                          <td><input type="number" value={it.quantity} onChange={e => updateTicketItem(t.id, ii, { quantity: e.target.value })} style={{minWidth:45}} /></td>
-                          <td><input value={it.sku} onChange={e => updateTicketItem(t.id, ii, { sku: e.target.value })} /></td>
-                          <td><input value={it.spec} onChange={e => updateTicketItem(t.id, ii, { spec: e.target.value })} style={{minWidth:110}} /></td>
-                        </tr>))}</tbody></table>
-                  </div>
-                  {t.items.length > 5 && <div style={{fontSize:11, color:'#b91c1c', marginTop:4}}>⚠ 超 5 个产品,昌晖只支持 5 个/票,请拆票</div>}
+          {tickets.map((t) => {
+            const miss = validate(t); const a = t.address || {};
+            const same = tickets.filter(x => x.sourceOrderId === t.sourceOrderId);
+            const idxInOrder = same.indexOf(t) + 1;
+            return (
+              <div key={t.id} style={{border:'1px solid #e5e5e7', borderRadius:10, padding:11, marginBottom:9, background: miss.length ? '#fffdf8' : 'white'}}>
+                <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', marginBottom:7}}>
+                  <strong style={{fontSize:13}}>🧾 {t.orderNumber}</strong>
+                  {same.length > 1 && <span className="pill" style={{background:'#fef9c3', color:'#854d0e'}}>第 {idxInOrder}/{same.length} 票</span>}
+                  <span className="muted">{a.name || t.customerName} · {a.city} {a.province} {a.zip}</span>
+                  {miss.length > 0 && <span className="pill" style={{background:'#fee2e2', color:'#b91c1c'}}>缺:{miss.join('/')}</span>}
+                  <div style={{flex:1}}/>
+                  <button className="btn btn-sm" onClick={() => removeTicket(t.id)}>移除</button>
                 </div>
-              );
-            })}
+                <div className="muted" style={{marginBottom:7, fontSize:11}}>📍 {[a.address1, a.address2].filter(Boolean).join(' ')} {a.zip} · 📞 {a.phone || t.customerPhone || '-'}</div>
+                <div style={{display:'flex', gap:8, flexWrap:'wrap', marginBottom:7}}>
+                  <div><label className="muted" style={{display:'block', fontSize:11}}>渠道 *</label>
+                    <select className="inp" style={{width:160, borderColor: t.channel ? '#d2d2d7' : '#fca5a5'}} value={t.channel} onChange={e => updateTicket(t.id, { channel: e.target.value })}>
+                      <option value="">— 选 —</option>{CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select></div>
+                  <div><label className="muted" style={{display:'block', fontSize:11}}>重量 kg *</label>
+                    <input className="inp" style={{width:85, borderColor: t.weight ? '#d2d2d7' : '#fca5a5'}} type="number" step="0.001" value={t.weight} onChange={e => updateTicket(t.id, { weight: e.target.value })} /></div>
+                  <div><label className="muted" style={{display:'block', fontSize:11}}>件数 *</label>
+                    <input className="inp" style={{width:65}} type="number" value={t.packageCount} onChange={e => updateTicket(t.id, { packageCount: e.target.value })} /></div>
+                  <div style={{flex:1, minWidth:140}}><label className="muted" style={{display:'block', fontSize:11}}>运单备注</label>
+                    <input className="inp" value={t.prepNote} onChange={e => updateTicket(t.id, { prepNote: e.target.value })} placeholder="实重复测/改加班船…" /></div>
+                </div>
+                <div className="scroll-x">
+                  <table><thead><tr><th>英文</th><th>中文</th><th>HS编码</th><th>数量</th><th>材质</th><th>SKU</th><th>规格</th></tr></thead>
+                    <tbody>{t.items.map((it, ii) => (
+                      <tr key={ii}>
+                        <td><input value={it.lampEn} onChange={e => updateTicketItem(t.id, ii, { lampEn: e.target.value })} /></td>
+                        <td><input value={it.lampCn} onChange={e => updateTicketItem(t.id, ii, { lampCn: e.target.value })} style={{minWidth:55}} /></td>
+                        <td><input value={it.hs} onChange={e => updateTicketItem(t.id, ii, { hs: e.target.value })} style={{minWidth:90}} /></td>
+                        <td><input type="number" value={it.quantity} onChange={e => updateTicketItem(t.id, ii, { quantity: e.target.value })} style={{minWidth:45}} /></td>
+                        <td><input value={it.material} onChange={e => updateTicketItem(t.id, ii, { material: e.target.value })} style={{minWidth:90}} /></td>
+                        <td><input value={it.sku} onChange={e => updateTicketItem(t.id, ii, { sku: e.target.value })} /></td>
+                        <td><input value={it.spec} onChange={e => updateTicketItem(t.id, ii, { spec: e.target.value })} style={{minWidth:100}} /></td>
+                      </tr>))}</tbody></table>
+                </div>
+                <div className="muted" style={{fontSize:11, marginTop:5}}>💰 申报单价自动 = 500 × 数量(导出时算)· 用途 illuminating</div>
+                {t.items.length > 5 && <div style={{fontSize:11, color:'#b91c1c', marginTop:4}}>⚠ 超 5 个产品,昌晖只支持 5 个/票,请拆票</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="card">
+        <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap'}}>
+          <strong style={{fontSize:15}}>📦 订单列表</strong>
+          <span className="muted">{visibleOrders.length}/{orders.length} 单 · 同一订单可拆多票</span>
+          <div style={{flex:1}}/>
+          <button className="btn btn-sm" onClick={loadRecent}>🔄 刷新(取跟单最新同步)</button>
+        </div>
+        {storeList.length > 1 && (
+          <div style={{display:'flex', gap:6, marginBottom:12, flexWrap:'wrap', alignItems:'center'}}>
+            <span className="muted" style={{whiteSpace:'nowrap'}}>🏪 店铺:</span>
+            <button className="btn btn-sm" style={storeFilter === 'all' ? {background:'#0071e3', color:'white', borderColor:'#0071e3'} : {}} onClick={() => setStoreFilter('all')}>全部 ({orders.length})</button>
+            {storeList.map(([s, n]) => (
+              <button key={s} className="btn btn-sm" style={storeFilter === s ? {background:'#0071e3', color:'white', borderColor:'#0071e3'} : {}} onClick={() => setStoreFilter(s)}>{s} ({n})</button>
+            ))}
           </div>
         )}
+        {loading && <div style={{padding:30, textAlign:'center', color:'#86868b'}}>⏳ 加载中…</div>}
+        {!loading && visibleOrders.length === 0 && <div style={{padding:30, textAlign:'center', color:'#86868b'}}>{conn === 'fail' ? '连不上订单库,见上方提示' : '该店铺暂无订单'}</div>}
+        {visibleOrders.map(o => <OrderCard key={o.orderId} order={o} assignedLineIds={assignedLineIds}
+          onWhole={() => addWholeOrder(o)} onPartial={(ids) => addPartialTicket(o, ids)} />)}
       </div>
     </>
   );
