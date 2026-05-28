@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + CSGridCard + Customer360 · fix28-64
-// APP_VERSION: 2026.05.27-fix64
+// 📞 客服跟进 + CSGridCard + 逾期标记 + Customer360 · fix28-67
+// APP_VERSION: 2026.05.27-fix67
 // ════════════════════════════════════════════════════════════════════
 
 const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) => {
@@ -21,6 +21,7 @@ const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) 
   const shopName = (r.site || '').trim();
   const orderRef = (r.orderRef || '').trim();
   const note = (r.note || '').trim();
+  const fu = getFollowUpInfo(r);  // 🆕 fix65: 跟进逾期信息
 
   return (
     <div onClick={onClickCard} title="点击切回列表视图编辑这条"
@@ -104,9 +105,18 @@ const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) 
         </div>
       )}
 
-      {/* 底部:下次跟进 + 提示 */}
-      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:'auto', paddingTop:6, borderTop:'1px solid var(--line-soft)', fontSize:11, color:'var(--ink-4)'}}>
-        {r.nextFollowUp && <span>📅 下次 {r.nextFollowUp}</span>}
+      {/* 底部:跟进逾期标记 + 提示 */}
+      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:'auto', paddingTop:6, borderTop:'1px solid var(--line-soft)', fontSize:11, color:'var(--ink-4)', flexWrap:'wrap'}}>
+        {fu ? (
+          <span style={{
+            padding:'2px 9px', borderRadius:'var(--radius-pill)', fontWeight:700, fontSize:11,
+            background: fu.bg, color: fu.color,
+          }}>
+            {fu.label}{fu.state !== 'today' && fu.state !== 'upcoming' ? '' : ''} · {r.nextFollowUp}
+          </span>
+        ) : r.nextFollowUp ? (
+          <span>📅 下次 {r.nextFollowUp}</span>
+        ) : null}
         <div style={{flex:1}}/>
         <span style={{color:'var(--accent)'}}>点击编辑 →</span>
       </div>
@@ -162,6 +172,8 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
   // 🆕 fix15: 日期范围筛选(本周/本月/任意月第N周)
   const [dateFilter, setDateFilter] = useState({ kind:'all' });
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  // 🆕 fix65: 跟进逾期筛选 — all / 1(已逾期) / 3 / 5 / 7 / 10 / 14 / 30(≥N 天逾期)
+  const [followUpFilter, setFollowUpFilter] = useState('all');
   
   // 🆕 状态下拉菜单当前打开的行 ID（null = 全部关闭）
   const [statusMenuOpen, setStatusMenuOpen] = useState(null);
@@ -244,8 +256,17 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
       list = list.filter(r => r.status !== 'resolved' && r.status !== 'transferred');
     }
     
+    // 🆕 fix65: 跟进逾期筛选(≥N 天逾期)
+    if (followUpFilter !== 'all') {
+      const minDays = parseInt(followUpFilter, 10);
+      list = list.filter(r => {
+        const fi = getFollowUpInfo(r);
+        return fi && fi.state === 'overdue' && fi.days >= minDays;
+      });
+    }
+    
     return list;
-  }, [sourceRecords, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, isAdmin, showAll, viewMode, timeFilter, customRangeStart, customRangeEnd, dateFilter, showUnresolvedOnly]);
+  }, [sourceRecords, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, isAdmin, showAll, viewMode, timeFilter, customRangeStart, customRangeEnd, dateFilter, showUnresolvedOnly, followUpFilter]);
   
   // 🆕 分页后的数据（在全部模式下分页,当日模式直接显示）
   const totalPages = Math.max(1, Math.ceil(tableRecords.length / pageSize));
@@ -1473,6 +1494,51 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
             <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', paddingTop:6, borderTop:'1px dashed var(--line)'}}>
               <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>📅 按月/周筛选:</span>
               <AdvancedDateFilter value={dateFilter} onChange={setDateFilter} size="sm" />
+            </div>
+
+            {/* 🆕 fix65: 跟进逾期筛选 — 按 nextFollowUp 逾期天数 */}
+            <div style={{display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', paddingTop:6, borderTop:'1px dashed var(--line)'}}>
+              <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, whiteSpace:'nowrap'}}>⏰ 跟进逾期:</span>
+              {(() => {
+                const overdueRecords = sourceForTime.filter(r => { const fi = getFollowUpInfo(r); return fi && fi.state === 'overdue'; });
+                const countAtLeast = (n) => overdueRecords.filter(r => getFollowUpInfo(r).days >= n).length;
+                const opts = [
+                  { v:'all', label:'全部', n:null },
+                  { v:'1',  label:'已逾期', n:1 },
+                  { v:'3',  label:'≥3天', n:3 },
+                  { v:'5',  label:'≥5天', n:5 },
+                  { v:'7',  label:'≥7天', n:7 },
+                  { v:'10', label:'≥10天', n:10 },
+                  { v:'14', label:'≥14天', n:14 },
+                  { v:'30', label:'≥30天', n:30 },
+                ];
+                return opts.map(o => {
+                  const cnt = o.n == null ? null : countAtLeast(o.n);
+                  const active = followUpFilter === o.v;
+                  // 逾期档位用对应警示色
+                  const dangerColor = o.n >= 14 ? '#dc2626' : o.n >= 7 ? '#c2410c' : o.n >= 3 ? '#a16207' : o.n >= 1 ? '#854d0e' : 'var(--accent)';
+                  return (
+                    <button key={o.v} onClick={() => setFollowUpFilter(o.v)}
+                      style={{
+                        padding:'4px 11px', borderRadius:14, fontSize:11, cursor:'pointer', fontFamily:'inherit',
+                        border:'1px solid ' + (active ? dangerColor : 'var(--line)'),
+                        background: active ? dangerColor : 'white',
+                        color: active ? 'white' : 'var(--ink-2)',
+                        fontWeight: active ? 600 : 400, whiteSpace:'nowrap',
+                        display:'inline-flex', alignItems:'center', gap:4,
+                      }}>
+                      {o.label}
+                      {cnt != null && cnt > 0 && (
+                        <span style={{
+                          padding:'0 5px', borderRadius:8, fontSize:10, fontWeight:700,
+                          background: active ? 'rgba(255,255,255,.25)' : (o.n >= 7 ? '#fee2e2' : '#fef3c7'),
+                          color: active ? 'white' : dangerColor,
+                        }}>{cnt}</span>
+                      )}
+                    </button>
+                  );
+                });
+              })()}
             </div>
             
             {/* 🆕 筛选反馈条 */}

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 + 共享目录 + 邮件模板 + wtkpi · fix28-64
-// APP_VERSION: 2026.05.27-fix64
+// 🧱 核心 + 共享目录 + 邮件模板 + wtkpi · fix28-67
+// APP_VERSION: 2026.05.27-fix67
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -2263,6 +2263,28 @@ const EventActionDropdown = ({ record, onAftersale, onRefill, onRefund, onCharge
   );
 };
 
+
+// 🆕 fix65: 跟进逾期分级(基于 nextFollowUp 距今天数)
+// 用于卡片彩色标记 + 逾期筛选。已解决/已转交的不算逾期。
+const FOLLOWUP_DUE_LEVELS = [
+  { min: 30, bg:'#7f1d1d', color:'#ffffff', tag:'🔴 严重逾期' },
+  { min: 14, bg:'#dc2626', color:'#ffffff', tag:'🔴 逾期' },
+  { min: 10, bg:'#fecaca', color:'#991b1b', tag:'⚠ 逾期' },
+  { min: 7,  bg:'#ffedd5', color:'#c2410c', tag:'⚠ 逾期' },
+  { min: 3,  bg:'#fef3c7', color:'#a16207', tag:'⏰ 逾期' },
+  { min: 1,  bg:'#fefce8', color:'#854d0e', tag:'⏰ 逾期' },
+];
+const getFollowUpInfo = (r) => {
+  if (!r || !r.nextFollowUp) return null;
+  if (r.status === 'resolved' || r.status === 'transferred') return null;
+  const today = todayISO();
+  const overdue = Math.round((new Date(today) - new Date(r.nextFollowUp)) / 86400000);
+  if (isNaN(overdue)) return null;
+  if (overdue < 0) return { state:'upcoming', days:-overdue, label:`📅 ${-overdue} 天后跟进`, bg:'#f0fdf4', color:'#15803d' };
+  if (overdue === 0) return { state:'today', days:0, label:'📅 今天跟进', bg:'#dbeafe', color:'#1e40af' };
+  const lv = FOLLOWUP_DUE_LEVELS.find(l => overdue >= l.min) || FOLLOWUP_DUE_LEVELS[FOLLOWUP_DUE_LEVELS.length - 1];
+  return { state:'overdue', days:overdue, label:`${lv.tag} ${overdue} 天`, bg:lv.bg, color:lv.color };
+};
 
 // 🆕 fix61: 客服跟进 — 网格视图卡片(紧凑只读概览)
 // 优先展示:邮箱地址 → 订单编号 → 店铺;有图自适应;点卡片切回列表编辑

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📨 跨部门 · fix28-64
-// APP_VERSION: 2026.05.27-fix64
+// 📚 知识库 + 📧 邮件模板 + 🚚 运费精算 + 📨 跨部门 + 店铺负责人三方诊断(fix67) · fix28-67
+// APP_VERSION: 2026.05.27-fix67
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -2786,6 +2786,25 @@ const ShopOwnersManager = ({ user, employees, shopOwners = [], onClose, toast })
   const [editing, setEditing] = useState(null);  // { shopName, userId, userName, role, notes, id? }
   const [showNew, setShowNew] = useState(false);
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  // 🆕 fix67: 三方数据对齐诊断 — 加载 org_directory 统计
+  const [orgDir, setOrgDir] = useState(null);
+  useEffect(() => {
+    (async () => {
+      try { setOrgDir(await window.loadOrgDirectory()); } catch (e) { setOrgDir([]); }
+    })();
+  }, []);
+  // shop_owners 三方分布(从 prop,已含全部门)
+  const ownerStats = useMemo(() => {
+    const s = { cs: 0, design: 0, po: 0 };
+    (shopOwners || []).forEach(o => { if (s[o.system] != null) s[o.system]++; });
+    return s;
+  }, [shopOwners]);
+  const dirStats = useMemo(() => {
+    if (!orgDir) return null;
+    const s = { cs: 0, design: 0, po: 0 };
+    orgDir.forEach(d => { if (s[d.system] != null && d.active) s[d.system]++; });
+    return s;
+  }, [orgDir]);
 
   // 按店铺分组
   const grouped = useMemo(() => {
@@ -2903,6 +2922,62 @@ const ShopOwnersManager = ({ user, employees, shopOwners = [], onClose, toast })
             )}
             <button onClick={onClose} style={{padding:'4px 12px', background:'white', border:'1px solid var(--line)', borderRadius:6, cursor:'pointer', fontSize:13}}>×</button>
           </div>
+        </div>
+
+        {/* 🆕 fix67: 三方数据对齐诊断 */}
+        <div style={{padding:'12px 20px', borderBottom:'1px solid var(--line)', background:'#f8fafc', flexShrink:0}}>
+          <div style={{fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:8}}>📊 三方数据对齐检查</div>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+            {[
+              { title:'店铺负责人 (shop_owners)', stats: ownerStats },
+              { title:'人员目录 (org_directory)', stats: dirStats },
+            ].map((blk, bi) => (
+              <div key={bi} style={{background:'white', border:'1px solid var(--line)', borderRadius:8, padding:'8px 10px'}}>
+                <div style={{fontSize:10, color:'var(--ink-3)', marginBottom:6}}>{blk.title}</div>
+                {blk.stats === null ? (
+                  <div style={{fontSize:11, color:'var(--ink-4)'}}>加载中…</div>
+                ) : (
+                  <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+                    {[
+                      { sys:'cs', label:'客服', bg:'#dbeafe', color:'#1e40af' },
+                      { sys:'design', label:'美工', bg:'#fce7f3', color:'#9d174d' },
+                      { sys:'po', label:'跟单', bg:'#fef3c7', color:'#92400e' },
+                    ].map(d => {
+                      const n = blk.stats[d.sys] || 0;
+                      const zero = n === 0;
+                      return (
+                        <span key={d.sys} style={{
+                          padding:'3px 9px', borderRadius:8, fontSize:11, fontWeight:600,
+                          background: zero ? '#fef2f2' : d.bg,
+                          color: zero ? '#dc2626' : d.color,
+                          border: zero ? '1px solid #fca5a5' : '1px solid transparent',
+                        }}>
+                          {zero ? '⚠ ' : ''}{d.label} {n}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          {/* 缺失提示 */}
+          {(() => {
+            const missing = [];
+            if (ownerStats.cs === 0) missing.push('客服未录入店铺负责人(点右上"+新增映射")');
+            if (ownerStats.po === 0) missing.push('跟单未录入店铺负责人(让 Martin 在跟单系统补)');
+            if (ownerStats.design === 0) missing.push('美工未录入店铺负责人');
+            if (dirStats && dirStats.cs === 0) missing.push('客服未发布人员目录(去 ⚙设置→员工管理→🔄同步)');
+            if (dirStats && dirStats.po === 0) missing.push('跟单未发布人员目录');
+            if (missing.length === 0) return (
+              <div style={{marginTop:8, fontSize:11, color:'#15803d'}}>✓ 三方数据齐全</div>
+            );
+            return (
+              <div style={{marginTop:8, fontSize:11, color:'#b45309', lineHeight:1.6}}>
+                {missing.map((m, i) => <div key={i}>⚠ {m}</div>)}
+              </div>
+            );
+          })()}
         </div>
 
         {/* 列表 */}
