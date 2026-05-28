@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + CSGridCard + 列表卡片紧凑化(fix70) + Customer360 · fix28-70
-// APP_VERSION: 2026.05.27-fix70
+// 📞 客服跟进 + 排序/客服筛选(fix71) + Customer360 · fix28-71
+// APP_VERSION: 2026.05.27-fix71
 // ════════════════════════════════════════════════════════════════════
 
 const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) => {
@@ -140,6 +140,9 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterDifficulty, setFilterDifficulty] = useState('all');
   const [filterOwner, setFilterOwner] = useState('all'); // 仅 admin 用
+  // 🆕 fix71: 排序(模仿电脑文件管理器)— updated/created/date/customer/site/status/difficulty/followup
+  const [sortBy, setSortBy] = useState('updated');
+  const [sortDir, setSortDir] = useState('desc');
   const [showFilters, setShowFilters] = useState(true);  // 默认展开,方便快速查询
   const [dateRange, setDateRange] = useState('day'); // day | 7d | 30d | range | all
   const [rangeStart, setRangeStart] = useState(todayISO());
@@ -242,7 +245,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
     if (filterSite !== 'all') list = list.filter(r => r.site === filterSite);
     if (filterCategory !== 'all') list = list.filter(r => r.category === filterCategory);
     if (filterDifficulty !== 'all') list = list.filter(r => r.difficulty === filterDifficulty);
-    if (isAdmin && showAll && filterOwner !== 'all') list = list.filter(r => r.ownerId === filterOwner);
+    if (showAll && filterOwner !== 'all') list = list.filter(r => r.ownerId === filterOwner);
     
     // 🆕 时间范围筛选(仅在全部模式生效) - 改用统一函数
     if (viewMode === 'all') {
@@ -265,8 +268,30 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
       });
     }
     
+    // 🆕 fix71: 排序(模仿电脑文件管理器)
+    const STATUS_ORDER = { pending:0, following:1, waiting:2, transferred:3, resolved:4 };
+    const DIFF_ORDER = { easy:0, mid:1, hard:2 };
+    const sortKey = (r) => {
+      switch (sortBy) {
+        case 'updated':   return r.updatedAt || r.createdAt || r.date || '';
+        case 'created':   return r.createdAt || r.date || '';
+        case 'date':      return (r.date || '') + ' ' + (r.startTime || '');
+        case 'customer':  return (r.customer || '').toLowerCase();
+        case 'site':      return (r.site || '').toLowerCase();
+        case 'status':    return STATUS_ORDER[r.status] ?? 9;
+        case 'difficulty':return DIFF_ORDER[r.difficulty] ?? 9;
+        case 'followup':  return r.nextFollowUp || '9999';  // 无跟进排最后
+        default:          return r.updatedAt || '';
+      }
+    };
+    list = [...list].sort((a, b) => {
+      const ka = sortKey(a), kb = sortKey(b);
+      let cmp = (typeof ka === 'number' && typeof kb === 'number') ? ka - kb : String(ka).localeCompare(String(kb));
+      return sortDir === 'desc' ? -cmp : cmp;
+    });
+    
     return list;
-  }, [sourceRecords, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, isAdmin, showAll, viewMode, timeFilter, customRangeStart, customRangeEnd, dateFilter, showUnresolvedOnly, followUpFilter]);
+  }, [sourceRecords, search, filterStatus, filterSite, filterCategory, filterDifficulty, filterOwner, isAdmin, showAll, viewMode, timeFilter, customRangeStart, customRangeEnd, dateFilter, showUnresolvedOnly, followUpFilter, sortBy, sortDir]);
   
   // 🆕 分页后的数据（在全部模式下分页,当日模式直接显示）
   const totalPages = Math.max(1, Math.ceil(tableRecords.length / pageSize));
@@ -1289,15 +1314,34 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                 <option value="hard">复杂</option>
               </select>
             </div>
-            {isAdmin && showAll && (
+            {showAll && (
               <div className="flex items-center gap-1.5">
-                <span className="text-[11px]" style={{color:'var(--ink-3)'}}>员工</span>
+                <span className="text-[11px]" style={{color:'var(--ink-3)'}}>👤 客服</span>
                 <select value={filterOwner} onChange={e => setFilterOwner(e.target.value)} style={{padding:'4px 8px', fontSize:'11px'}}>
                   <option value="all">全部</option>
                   {employees.map(e => <option key={e.id} value={e.id}>{e.name}{e.alias?` (${e.alias})`:''}</option>)}
                 </select>
               </div>
             )}
+            {/* 🆕 fix71: 排序(模仿电脑文件管理器)— 所有人可用 */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px]" style={{color:'var(--ink-3)'}}>↕ 排序</span>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{padding:'4px 8px', fontSize:'11px'}}>
+                <option value="updated">修改日期</option>
+                <option value="created">创建日期</option>
+                <option value="date">记录日期</option>
+                <option value="customer">客户名</option>
+                <option value="site">网站</option>
+                <option value="status">状态</option>
+                <option value="difficulty">难度</option>
+                <option value="followup">下次跟进</option>
+              </select>
+              <button onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+                title={sortDir === 'desc' ? '降序(新→旧 / 大→小)' : '升序(旧→新 / 小→大)'}
+                style={{padding:'4px 9px', fontSize:'12px', border:'1px solid var(--line)', borderRadius:6, background:'white', cursor:'pointer', fontFamily:'inherit', fontWeight:600}}>
+                {sortDir === 'desc' ? '↓' : '↑'}
+              </button>
+            </div>
           </div>
         )}
       </div>
