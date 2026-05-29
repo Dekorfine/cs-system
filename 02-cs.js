@@ -1,9 +1,9 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-83
-// APP_VERSION: 2026.05.29-fix83
+// 📞 客服跟进 + 视频上传 · fix28-84
+// APP_VERSION: 2026.05.29-fix84
 // ════════════════════════════════════════════════════════════════════
 
-const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) => {
+const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard, onViewImg }) => {
   const dispStatus = getDisplayStatus(r);
   const cur = STATUSES.find(s => s.key === dispStatus) || STATUSES[0];
   const statusStyleMap = {
@@ -94,7 +94,8 @@ const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) 
       {shots.length > 0 && (
         <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
           {shots.slice(0, 4).map((s, i) => (
-            <img key={s.id || i} src={s.data} alt={s.name || ''}
+            <img key={s.id || i} src={s.data} alt={s.name || ''} className="img-thumb"
+              onClick={e => { e.stopPropagation(); onViewImg && onViewImg(s.data); }}
               style={{width:56, height:56, objectFit:'contain', borderRadius:8, border:'1px solid var(--line)', background:'var(--bg-elevated)'}}/>
           ))}
           {shots.length > 4 && (
@@ -153,6 +154,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
   
   // 🆕 fix52: 客户档案 360° Modal 状态
   const [customer360Email, setCustomer360Email] = useState(null);
+  const [lightboxImg, setLightboxImg] = useState(null);  // 🆕 fix84: 截图大图预览(网格+列表共用)
   // 🆕 fix61: 列表 / 网格 视图切换(默认列表,存 localStorage)
   const [cardView, setCardView] = useState(() => {
     try { return localStorage.getItem('cs_card_view') || 'list'; } catch { return 'list'; }
@@ -1652,6 +1654,7 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                 getDisplayStatus={getDisplayStatus}
                 onOpen360={(email) => setCustomer360Email(email)}
                 onClickCard={() => setCardViewPersist('list')}
+                onViewImg={setLightboxImg}
               />
             ))}
           </div>
@@ -1887,6 +1890,17 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                     )}
                   </div>
                   
+                  {/* 🆕 fix84: 列表内联缩略图 — 点击看大图 */}
+                  {r.screenshots?.filter(s => s && s.data).length > 0 && (
+                    <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom: editable ? 8 : 0}}>
+                      {r.screenshots.filter(s => s && s.data).slice(0, 8).map((s, i) => (
+                        <img key={s.id || i} src={s.data} alt={s.name || ''} className="img-thumb"
+                          onClick={() => setLightboxImg(s.data)}
+                          style={{width:44, height:44, objectFit:'cover', borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-elevated)'}} />
+                      ))}
+                    </div>
+                  )}
+                  
                   {/* Footer: 第二行 - 6 个事件按钮 (默认折叠 — 大部分跟进不涉及事件,有打标 category 的自动展开) */}
                   {editable && (() => {
                     const hasHighlight = r.category === '拒付' || r.category === '定制咨询' || r.category === '实拍';
@@ -2031,6 +2045,17 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
           />
         );
       })()}
+      
+      {/* 🆕 fix84: 截图大图预览(网格 + 列表共用) */}
+      {lightboxImg && (
+        <div onClick={() => setLightboxImg(null)}
+          style={{position:'fixed', inset:0, background:'rgba(0,0,0,.85)', zIndex:100001, display:'flex', alignItems:'center', justifyContent:'center', padding:20, cursor:'zoom-out'}}>
+          <img src={lightboxImg} alt="" onClick={e => e.stopPropagation()}
+            style={{maxWidth:'92vw', maxHeight:'92vh', borderRadius:8, boxShadow:'0 10px 40px rgba(0,0,0,.5)'}} />
+          <button onClick={() => setLightboxImg(null)}
+            style={{position:'fixed', top:20, right:24, width:40, height:40, borderRadius:'50%', background:'rgba(255,255,255,.15)', color:'white', border:'none', fontSize:22, cursor:'pointer', lineHeight:1}}>✕</button>
+        </div>
+      )}
       
       {/* 🆕 事件编辑器 modal (售后/补件/退款) */}
       {eventEditor && (
