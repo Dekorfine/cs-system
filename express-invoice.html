@@ -71,11 +71,30 @@ const LAMP_TYPES = [
   { re:/ceiling|flush\s*mount/, en:'Ceiling Lamp', cn:'吸顶灯', hs:'9405100000' },
   { re:/bulb|accessor|spare|part|cable|cord|shade|bracket|adapter|driver/, en:'Accessories', cn:'配件', hs:'3917400000' },
 ];
+// 🆕 fix91: 材质按标题关键词 — 有黄铜→Brass;否则 铁 + 玻璃/塑料/亚克力(看标题)
+function detectMaterial(t){
+  const brass=/brass|黄铜|纯铜|红铜|red copper|bronze/i.test(t);
+  const glass=/glass|玻璃|crystal|水晶|murano/i.test(t);
+  const acrylic=/acrylic|亚克力|perspex/i.test(t);
+  const plastic=/plastic|塑料|resin|树脂/i.test(t);
+  const sec=[]; if(glass)sec.push('Glass'); if(acrylic)sec.push('Acrylic'); if(plastic)sec.push('Plastic');
+  const metal=brass?'Brass':'Iron';
+  if(sec.length) return metal+' + '+sec.join(' + ');
+  return brass?'Brass':'Iron + Glass';   // 无副材料默认:黄铜→Brass;否则铁+玻璃(可在票里手改)
+}
+// 🆕 fix91: HS 优先取订单数据里自带的 HS 字段(产品简单,直接拉),没有再按灯具类型兜底
+function getItemHs(item){
+  for(const k of ['hs_code','hs','hsCode','harmonized_code','harmonized_system_code','customs_hs','tariff_code','hts_code']){
+    const v=item&&item[k]; if(v){ const d=String(v).replace(/\D/g,''); if(d.length>=6) return d; }
+  }
+  return null;
+}
 function getLampInfo(item) {
   const t = ((item.title||'')+' '+(item.variant_title||'')).toLowerCase();
   const f = LAMP_TYPES.find(l => l.re.test(t)) || LAMP_TYPES[1];
-  const material = /brass|黄铜|纯铜|red copper/.test(t) ? 'Brass' : 'Plastic + metal';
-  return { en:f.en, cn:f.cn, hs:f.hs, material };
+  const material = detectMaterial(t);
+  const hs = getItemHs(item) || f.hs;   // 有库里的 HS 就用库里的,否则按灯具类型
+  return { en:f.en, cn:f.cn, hs, material };
 }
 const DECLARE = { unitPriceEach:500, usage:'illuminating' };
 const CHANNELS = ['美森加班海运小包','美森普通海运小包'];
@@ -173,6 +192,7 @@ function MakeInvoice(){
   const [importing,setImporting]=useState(false);          // 🆕 fix86: 批量建票中
   const [importReport,setImportReport]=useState(null);     // 🆕 fix86: {total,matched,unmatched[]}
   const importRef=useRef(null);                            // 🆕 fix86
+  const [lightboxImg,setLightboxImg]=useState(null);       // 🆕 fix90: 点缩略图看大图
   const [storeField,setStoreField]=useState(null);
   const [stores,setStores]=useState([]);      // [{name,count}] 全部店铺
   const [activeStore,setActiveStore]=useState('all');
@@ -481,7 +501,7 @@ function MakeInvoice(){
         )}
         {loading&&<div style={{padding:36,textAlign:'center',color:'#86868b'}}>⏳ 加载中…</div>}
         {!loading&&filtered.length===0&&<div style={{padding:36,textAlign:'center',color:'#86868b'}}>{conn==='fail'?'连不上订单库,见上方提示':'暂无订单'}</div>}
-        {!loading&&pageOrders.map(o=><OrderCard key={o.orderId} order={o} assignedLineIds={assignedLineIds} selected={selectedOrders.has(o.orderId)} onToggleSelect={()=>toggleSelect(o.orderId)} onWhole={()=>addWhole(o)} onPartial={ids=>addPartial(o,ids)}/>)}
+        {!loading&&pageOrders.map(o=><OrderCard key={o.orderId} order={o} assignedLineIds={assignedLineIds} selected={selectedOrders.has(o.orderId)} onToggleSelect={()=>toggleSelect(o.orderId)} onWhole={()=>addWhole(o)} onPartial={ids=>addPartial(o,ids)} onPreview={setLightboxImg}/>)}
         {totalPages>1&&(
           <div className="pager">
             <button className="btn btn-sm" disabled={page<=1} onClick={()=>setPage(1)}>« 首页</button>
@@ -494,6 +514,12 @@ function MakeInvoice(){
       </div>
 
       {/* 🆕 导出前预览全部 */}
+      {lightboxImg&&(
+        <div onClick={()=>setLightboxImg(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.8)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center',padding:'4vh 4vw',cursor:'zoom-out'}}>
+          <img src={lightboxImg} alt="" style={{maxWidth:'100%',maxHeight:'92vh',objectFit:'contain',borderRadius:8,boxShadow:'0 8px 40px rgba(0,0,0,.5)'}}/>
+          <div style={{position:'fixed',top:16,right:20,color:'white',fontSize:28,cursor:'pointer',lineHeight:1}} onClick={()=>setLightboxImg(null)}>✕</div>
+        </div>
+      )}
       {showPreview&&(
         <div onClick={()=>setShowPreview(false)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',zIndex:1000,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'4vh 16px',overflow:'auto'}}>
           <div onClick={e=>e.stopPropagation()} style={{background:'white',borderRadius:16,maxWidth:1200,width:'100%',padding:18,maxHeight:'90vh',display:'flex',flexDirection:'column'}}>
@@ -528,7 +554,7 @@ function MakeInvoice(){
   );
 }
 
-function OrderCard({order,assignedLineIds,onWhole,onPartial,selected,onToggleSelect}){
+function OrderCard({order,assignedLineIds,onWhole,onPartial,selected,onToggleSelect,onPreview}){
   const [chosen,setChosen]=useState(new Set());
   const a=order.address||{}; const multi=order.items.length>1;
   const allAssigned=order.items.every(it=>assignedLineIds.has(it.lineId));
@@ -558,7 +584,7 @@ function OrderCard({order,assignedLineIds,onWhole,onPartial,selected,onToggleSel
           {order.items.map(it=>{const assigned=assignedLineIds.has(it.lineId);return(
             <div key={it.lineId} className="prow">
               {multi&&<input type="checkbox" checked={chosen.has(it.lineId)} disabled={assigned} onChange={()=>toggle(it.lineId)}/>}
-              {it.image_url?<img className="thumb" src={it.image_url} alt=""/>:<div className="thumb" style={{display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>💡</div>}
+              {it.image_url?<img className="thumb" src={it.image_url} alt="" style={{cursor:'zoom-in'}} onClick={()=>onPreview&&onPreview(it.image_url)} title="点击看大图"/>:<div className="thumb" style={{display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>💡</div>}
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}><span className="pill" style={{background:'#f0f0f2',color:'#6e6e73',marginRight:5}}>{it.lampCn}</span>{it.title}</div>
                 <div className="muted">{it.sku}{it.spec?' · '+it.spec:''} · ×{it.quantity}</div>
