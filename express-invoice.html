@@ -112,7 +112,11 @@ function parseOrder(o, field) {
   let addr=o.shipping_address; if(typeof addr==='string'){try{addr=JSON.parse(addr);}catch{addr={};}}
   let items=o.line_items; if(typeof items==='string'){try{items=JSON.parse(items);}catch{items=[];}}
   items=(items||[]).map((it,i)=>{ const lt=getLampInfo(it); return { lineId:o.shopify_order_id+'_'+i, title:it.title||'', sku:it.sku||'', quantity:it.quantity||1, image_url:it.image_url||'', lampEn:lt.en, lampCn:lt.cn, hs:lt.hs, material:lt.material, spec:it.variant_title||'' }; });
-  return { orderId:o.shopify_order_id, orderNumber:o.shopify_order_number||o.shopify_order_id, platform:o.platform, store:storeFromOrder(o,field), customerName:o.customer_name, customerEmail:o.customer_email, customerPhone:o.customer_phone, address:addr||{}, items, createdAt:o.shopify_created_at };
+  // 🆕 fix87: 客户备注(可能含「改地址」等关键信息)— 兼容多种字段名 + note_attributes
+  let na=o.note_attributes; if(typeof na==='string'){try{na=JSON.parse(na);}catch{na=null;}}
+  const naStr=Array.isArray(na)?na.map(x=>`${x.name||x.key||''}: ${x.value||x.v||''}`).filter(s=>/[^\s:]/.test(s.replace(/^[^:]*:/,''))).join(' · '):'';
+  const note=[String(o.note||o.order_note||o.customer_note||o.notes||'').trim(), naStr].filter(Boolean).join(' · ');
+  return { orderId:o.shopify_order_id, orderNumber:o.shopify_order_number||o.shopify_order_id, platform:o.platform, store:storeFromOrder(o,field), customerName:o.customer_name, customerEmail:o.customer_email, customerPhone:o.customer_phone, address:addr||{}, items, note, createdAt:o.shopify_created_at };
 }
 
 // 昌晖 73 列
@@ -121,14 +125,17 @@ function chProd(){const a=[];for(let i=1;i<=5;i++){a.push(`英文申报品名${i
 const CH_HEADERS=[...CH_BASE,...chProd(),'运单备注'];
 function buildChanghuiRow(t){
   const a=t.address||{}; const row=new Array(CH_HEADERS.length).fill('');
-  row[0]=t.orderNumber; row[1]=t.channel||''; row[2]=a.country_code||a.country||'US';
+  const totalQty=t.items.reduce((s,it)=>s+(parseInt(it.quantity)||1),0);  // 🆕 fix88: 个数 = 整单数量总和
+  row[0]=t.carrierRef||t.orderNumber; row[1]=t.channel||''; row[2]=a.country_code||a.country||'US';
   row[3]=t.packageCount||''; row[4]=t.weight||'';
   row[6]=a.name||t.customerName||''; row[7]=a.province||''; row[8]=a.city||'';
   row[9]={v:a.zip||'',t:'s'}; row[10]=[a.address1,a.address2].filter(Boolean).join(' ');
   row[12]=a.phone||t.customerPhone||''; row[14]=t.customerEmail||'';
   t.items.slice(0,5).forEach((it,bi)=>{ const first=bi===0; const start=16+(first?0:12+(bi-1)*11); let c=start; const qty=parseInt(it.quantity)||1;
-    row[c++]=it.lampEn; row[c++]=it.lampCn; row[c++]=DECLARE.unitPriceEach*qty; row[c++]=qty; row[c++]=''; row[c++]=it.hs||'9405100000'; row[c++]=''; row[c++]=''; row[c++]=it.material||'Plastic + metal'; if(first)row[c++]=qty; row[c++]=''; row[c++]=DECLARE.usage; });
-  row[row.length-1]=t.prepNote||''; return row;
+    row[c++]=it.lampEn; row[c++]=it.lampCn; row[c++]=DECLARE.unitPriceEach*qty; row[c++]=qty; row[c++]=''; row[c++]=it.hs||'9405100000'; row[c++]=''; row[c++]=''; row[c++]=it.material||'Plastic + metal'; if(first)row[c++]=totalQty; row[c++]=''; row[c++]=DECLARE.usage; });
+  // 🆕 fix88: 北简对单用「客户参考号」作客户订单号时,把我们的订单号(MH4490)写进运单备注
+  row[row.length-1]=[t.carrierRef?t.orderNumber:'', t.prepNote].filter(Boolean).join(' · ');
+  return row;
 }
 const COURIERS={ changhui:{name:'昌晖',headers:CH_HEADERS,build:buildChanghuiRow} };
 const PAGE_SIZE=24;
@@ -245,7 +252,7 @@ function MakeInvoice(){
   const pageOrders=filtered.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE);
 
   const assignedLineIds=useMemo(()=>{const s=new Set();tickets.forEach(t=>t.items.forEach(it=>s.add(it.lineId)));return s;},[tickets]);
-  const makeTicket=(order,items)=>({ id:'tk_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), sourceOrderId:order.orderId, orderNumber:order.orderNumber, platform:order.platform, store:order.store, customerName:order.customerName, customerEmail:order.customerEmail, customerPhone:order.customerPhone, address:order.address, items, channel:'', weight:'', packageCount:1, prepNote:'' });
+  const makeTicket=(order,items)=>({ id:'tk_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), sourceOrderId:order.orderId, orderNumber:order.orderNumber, carrierRef:'', platform:order.platform, store:order.store, customerName:order.customerName, customerEmail:order.customerEmail, customerPhone:order.customerPhone, address:order.address, note:order.note||'', items, channel:'', weight:'', packageCount:1, prepNote:'' });
   const addWhole=(o)=>setTickets(p=>[...p,makeTicket(o,o.items.map(it=>({...it})))]);
   const addPartial=(o,ids)=>{const items=o.items.filter(it=>ids.has(it.lineId)).map(it=>({...it}));if(items.length)setTickets(p=>[...p,makeTicket(o,items)]);};
   // 🆕 fix72: 订单批量多选
@@ -267,22 +274,27 @@ function MakeInvoice(){
   const allValid=tickets.length>0&&tickets.every(t=>validate(t).length===0);
   const exportExcel=()=>{const tpl=COURIERS[courier];const ws=XLSX.utils.aoa_to_sheet([tpl.headers,...tickets.map(tpl.build)]);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Sheet1');XLSX.writeFile(wb,`${tpl.name}发票_${dateStr}_${tickets.length}票.xlsx`);};
 
-  // 🆕 fix86: 按订单号批量查库(分批 .or,避免 URL 过长)
-  const bulkFetchByOrderNumbers=async(nums)=>{
+  // 🆕 fix86/88: 批量查库(分批 .or;map 同时按 订单号 + order_id 建索引)
+  const bulkFetchByKeys=async(keys)=>{
     const c=getClient(); if(!c) throw new Error('订单库未连接');
-    const map={}; let field=storeField; const CH=25;
-    for(let i=0;i<nums.length;i+=CH){
-      const chunk=nums.slice(i,i+CH);
+    const map={}; let field=storeField; const CH=20;
+    const uniq=[...new Set(keys.filter(Boolean).map(k=>String(k).trim()))];
+    for(let i=0;i<uniq.length;i+=CH){
+      const chunk=uniq.slice(i,i+CH);
       const orExpr=chunk.map(n=>`shopify_order_number.eq.${n},shopify_order_id.eq.${n}`).join(',');
-      const {data,error}=await c.from('shopify_orders').select('*').or(orExpr).limit(chunk.length*3);
+      const {data,error}=await c.from('shopify_orders').select('*').or(orExpr).limit(chunk.length*4);
       if(error) throw error;
       if(!field && (data||[]).length) field=detectStoreField(data[0]);
-      (data||[]).forEach(o=>{ const p=parseOrder(o,field); map[String(p.orderNumber).trim()]=p; });
+      (data||[]).forEach(o=>{ const p=parseOrder(o,field);
+        const k1=String(o.shopify_order_number||'').trim(), k2=String(o.shopify_order_id||'').trim();
+        if(k1) map[k1]=p; if(k2) map[k2]=p; });
     }
     if(field && !storeField) setStoreField(field);
     return map;
   };
-  // 🆕 fix86: 上传订单表 → 自动建票(地址/品名/申报来自库;表里带的 重量/件数/渠道 一并填入)
+  // 🆕 fix86/88: 上传北简表 → 按「订单编号」(或客户参考号)查库自动建票
+  //   昌晖客户订单号[0] = 客户参考号(XM8T,对单用);我们的订单号(MH4490)写进运单备注
+  //   渠道/件数/重量/备注 取自北简表;地址/品名/申报 取自跟单库
   const importOrderSheet=async(file)=>{
     setImporting(true); setErr(''); setImportReport(null);
     try{
@@ -292,32 +304,35 @@ function MakeInvoice(){
       const aoa=XLSX.utils.sheet_to_json(ws,{header:1,blankrows:false});
       if(!aoa.length) throw new Error('表格是空的');
       const header=(aoa[0]||[]).map(h=>String(h||'').trim());
-      const findCol=(re)=>header.findIndex(h=>re.test(h));
-      let orderCol=findCol(/订单|单号|order/i);
-      const channelCol=findCol(/渠道|channel/i);
-      const weightCol=findCol(/结算重|实重|重量|weight/i);
-      const piecesCol=findCol(/件数|箱数|包裹|pcs|pieces/i);
+      const find=(...res)=>{ for(const re of res){ const i=header.findIndex(h=>re.test(h)); if(i>=0) return i; } return -1; };
+      let orderCol=find(/订单编号/, /订单号/, /^订单$/, /\border\b/i);   // 我们手填 MH4490
+      const refCol=find(/客户参考号/, /参考号/, /reference/i);          // 北简 XM8T
+      const channelCol=find(/收货渠道/, /渠道/, /channel/i);
+      const weightCol=find(/收货结算重/, /结算重/, /重量/, /weight/i);   // 结算重优先
+      const piecesCol=find(/总件数/, /件数/, /箱数/, /pieces/i);        // 总件数优先
+      const noteCol=find(/^备注$/, /备注/, /remark/i);
       let startRow=1;
-      if(orderCol<0){ orderCol=0; startRow=0; }   // 没表头 → 首列当订单号
+      if(orderCol<0 && refCol<0){ orderCol=0; startRow=0; }            // 没表头 → 首列当订单号
+      const get=(r,i)=> i>=0 ? String(r[i]==null?'':r[i]).trim() : '';
       const seen=new Set(); const inputs=[];
       for(let i=startRow;i<aoa.length;i++){
-        const r=aoa[i]||[]; const on=String(r[orderCol]==null?'':r[orderCol]).trim();
-        if(!on||seen.has(on)) continue; seen.add(on);
-        inputs.push({ orderNumber:on,
-          channel: channelCol>=0?String(r[channelCol]||'').trim():'',
-          weight:  weightCol>=0?String(r[weightCol]||'').trim():'',
-          pieces:  piecesCol>=0?String(r[piecesCol]||'').trim():'' });
+        const r=aoa[i]||[]; const on=get(r,orderCol), ref=get(r,refCol);
+        const key=on||ref; if(!key||seen.has(key)) continue; seen.add(key);
+        inputs.push({ orderNumber:on, carrierRef:ref, channel:get(r,channelCol), weight:get(r,weightCol), pieces:get(r,piecesCol), note:get(r,noteCol) });
       }
-      if(!inputs.length) throw new Error('没读到订单号 — 请确认表里有「订单号」列');
-      const map=await bulkFetchByOrderNumbers(inputs.map(x=>x.orderNumber));
+      if(!inputs.length) throw new Error('没读到订单号 — 请确认表里有「订单编号」或「客户参考号」列');
+      const allKeys=[]; inputs.forEach(x=>{ if(x.orderNumber)allKeys.push(x.orderNumber); if(x.carrierRef)allKeys.push(x.carrierRef); });
+      const map=await bulkFetchByKeys(allKeys);
       const newTickets=[]; const unmatched=[];
       inputs.forEach(inp=>{
-        const o=map[inp.orderNumber];
-        if(!o){ unmatched.push(inp.orderNumber); return; }
+        const o=map[inp.orderNumber]||map[inp.carrierRef];
+        if(!o){ unmatched.push(inp.orderNumber||inp.carrierRef); return; }
         const t=makeTicket(o,o.items.map(it=>({...it})));
+        t.carrierRef=inp.carrierRef||'';
         if(inp.channel) t.channel=inp.channel;
         if(inp.weight)  t.weight=inp.weight;
         if(inp.pieces)  t.packageCount=inp.pieces;
+        if(inp.note)    t.prepNote=inp.note;
         newTickets.push(t);
       });
       setTickets(prev=>[...prev,...newTickets]);
@@ -355,7 +370,7 @@ function MakeInvoice(){
       <div className="card" style={{border:'1.5px dashed #0071e3',background:'#f5faff'}}>
         <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
           <strong style={{fontSize:15}}>📤 批量建票 · 上传订单表</strong>
-          <span className="muted" style={{flex:1,minWidth:220}}>上传含「订单号」列的表格 → 自动按订单号查库建票(地址 / 品名 / 申报全自动)· 表里若带 重量 / 件数 / 渠道 列会一并填入</span>
+          <span className="muted" style={{flex:1,minWidth:220}}>上传北简表(已手填「订单编号」如 MH4490)→ 按订单号查库自动建票:地址 / 品名 / 申报全自动;渠道 / 总件数 / 收货结算重 / 备注 取自北简表。昌晖「客户订单号」用客户参考号,我们的订单号写进运单备注。</span>
           <button className="btn-pri btn" onClick={()=>importRef.current?.click()} disabled={importing} style={{whiteSpace:'nowrap'}}>{importing?'⏳ 建票中…':'📂 选择订单表'}</button>
           <input ref={importRef} type="file" accept=".xls,.xlsx,.csv" style={{display:'none'}} onChange={e=>{if(e.target.files[0])importOrderSheet(e.target.files[0]);e.target.value='';}}/>
         </div>
@@ -400,6 +415,7 @@ function MakeInvoice(){
                   {miss.length>0&&<span className="pill" style={{background:'#fee2e2',color:'#b91c1c'}}>缺:{miss.join('/')}</span>}
                   <div style={{flex:1}}/><button className="btn btn-sm" onClick={()=>rmTicket(t.id)}>移除</button>
                 </div>
+                {t.note&&<div style={{background:'#fffbeb',border:'1px solid #fde68a',borderRadius:9,padding:'8px 11px',marginBottom:8,fontSize:12,lineHeight:1.6,color:'#92400e',whiteSpace:'pre-wrap',wordBreak:'break-word'}}>📝 客户备注(留意改地址):{t.note}</div>}
                 <div style={{background:'#f8fafc',borderRadius:9,padding:'9px 11px',marginBottom:8}}>
                   <div className="muted" style={{fontSize:11,marginBottom:6,fontWeight:600}}>📍 收件地址(客户改过地址可在此手动修正)</div>
                   <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
@@ -414,7 +430,7 @@ function MakeInvoice(){
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:8}}>
-                  <div><span className="lbl">渠道 *</span><select className="inp" style={{width:160,borderColor:t.channel?'#d8d8dc':'#fca5a5'}} value={t.channel} onChange={e=>upTicket(t.id,{channel:e.target.value})}><option value="">— 选 —</option>{CHANNELS.map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+                  <div><span className="lbl">渠道 *</span><select className="inp" style={{width:160,borderColor:t.channel?'#d8d8dc':'#fca5a5'}} value={t.channel} onChange={e=>upTicket(t.id,{channel:e.target.value})}><option value="">— 选 —</option>{CHANNELS.map(c=><option key={c} value={c}>{c}</option>)}{t.channel&&!CHANNELS.includes(t.channel)&&<option value={t.channel}>{t.channel}</option>}</select></div>
                   <div><span className="lbl">重量 kg *</span><input className="inp" style={{width:90,borderColor:t.weight?'#d8d8dc':'#fca5a5'}} type="number" step="0.001" value={t.weight} onChange={e=>upTicket(t.id,{weight:e.target.value})}/></div>
                   <div><span className="lbl">件数 *</span><input className="inp" style={{width:68}} type="number" value={t.packageCount} onChange={e=>upTicket(t.id,{packageCount:e.target.value})}/></div>
                   <div style={{flex:1,minWidth:150}}><span className="lbl">运单备注</span><input className="inp" value={t.prepNote} onChange={e=>upTicket(t.id,{prepNote:e.target.value})} placeholder="实重复测/改加班船…"/></div>
@@ -544,6 +560,11 @@ function OrderCard({order,assignedLineIds,onWhole,onPartial,selected,onToggleSel
           );})}
         </div>
       </div>
+      {order.note&&(
+        <div style={{marginTop:10,background:'#fffbeb',border:'1px solid #fde68a',borderRadius:9,padding:'8px 11px',fontSize:12,lineHeight:1.6,color:'#92400e',whiteSpace:'pre-wrap',wordBreak:'break-word'}}>
+          📝 客户备注(留意是否改地址):{order.note}
+        </div>
+      )}
       <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
         <button className="btn-pri btn btn-sm" onClick={()=>{onWhole();setChosen(new Set());}} disabled={allAssigned}>整单做 1 票</button>
         {multi&&<button className="btn btn-sm" onClick={()=>{onPartial(chosen);setChosen(new Set());}} disabled={chosen.size===0}>➕ 勾选 {chosen.size} 个做 1 票(拆票)</button>}
