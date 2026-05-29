@@ -2066,6 +2066,10 @@ input, textarea { font-family: inherit; color: var(--ink); }
   .article { break-inside: avoid; border: 1px solid #ccc; }
 }
 </style>
+<script>
+/* 🚫 全局禁止浏览器自动填充(登录页除外)· 详见 全局禁止自动填充-贴到index.html.html */
+(function(){var A="[data-login-screen],[data-autofill-ok]",T={"autocomplete":"off","data-lpignore":"true","data-1p-ignore":"true","data-bwignore":"true","data-form-type":"other"},S=/email|e\-mail|user|login|account|password|passwd|pwd|signin|sign\-in/i;function p(e){if(!e||e.dataset.afOff==="1")return;if(e.closest&&e.closest(A))return;if(e.tagName!=="INPUT"&&e.tagName!=="TEXTAREA")return;var t=(e.type||"").toLowerCase();if(["hidden","checkbox","radio","file","submit","button","reset","range","color"].indexOf(t)!==-1)return;for(var k in T)e.setAttribute(k,T[k]);var h=(e.name||"")+" "+(e.id||"")+" "+(e.placeholder||"")+" "+(e.getAttribute("aria-label")||"");if(t==="email"||t==="password"||S.test(h)){e.setAttribute("autocomplete","new-password");if(document.activeElement!==e&&!e.readOnly&&!e.disabled){e.setAttribute("readonly","readonly");var u=function(){e.removeAttribute("readonly")};e.addEventListener("focus",u,{once:true});e.addEventListener("mousedown",u,{once:true});e.addEventListener("touchstart",u,{once:true,passive:true})}}e.dataset.afOff="1"}function s(r){if(!r)return;if(r.nodeType===1){if(r.tagName==="INPUT"||r.tagName==="TEXTAREA")p(r);if(r.querySelectorAll){var l=r.querySelectorAll("input,textarea");for(var i=0;i<l.length;i++)p(l[i])}}}function i(){s(document.body)}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",i);else i();var pn=false,o=new MutationObserver(function(m){if(pn)return;pn=true;(window.requestAnimationFrame||setTimeout)(function(){pn=false;for(var i=0;i<m.length;i++){var a=m[i].addedNodes;for(var j=0;j<a.length;j++)s(a[j])}},16)});function so(){o.observe(document.body,{childList:true,subtree:true})}if(document.body)so();else document.addEventListener("DOMContentLoaded",so)})();
+</script>
 </head>
 <body>
 

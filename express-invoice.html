@@ -46,6 +46,10 @@
   .thumb{width:46px;height:46px;object-fit:contain;border-radius:8px;border:1px solid #ececef;background:#fafafa;flex-shrink:0;}
   .pager{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;flex-wrap:wrap;}
 </style>
+<script>
+/* 🚫 全局禁止浏览器自动填充(登录页除外)· 详见 全局禁止自动填充-贴到index.html.html */
+(function(){var A="[data-login-screen],[data-autofill-ok]",T={"autocomplete":"off","data-lpignore":"true","data-1p-ignore":"true","data-bwignore":"true","data-form-type":"other"},S=/email|e\-mail|user|login|account|password|passwd|pwd|signin|sign\-in/i;function p(e){if(!e||e.dataset.afOff==="1")return;if(e.closest&&e.closest(A))return;if(e.tagName!=="INPUT"&&e.tagName!=="TEXTAREA")return;var t=(e.type||"").toLowerCase();if(["hidden","checkbox","radio","file","submit","button","reset","range","color"].indexOf(t)!==-1)return;for(var k in T)e.setAttribute(k,T[k]);var h=(e.name||"")+" "+(e.id||"")+" "+(e.placeholder||"")+" "+(e.getAttribute("aria-label")||"");if(t==="email"||t==="password"||S.test(h)){e.setAttribute("autocomplete","new-password");if(document.activeElement!==e&&!e.readOnly&&!e.disabled){e.setAttribute("readonly","readonly");var u=function(){e.removeAttribute("readonly")};e.addEventListener("focus",u,{once:true});e.addEventListener("mousedown",u,{once:true});e.addEventListener("touchstart",u,{once:true,passive:true})}}e.dataset.afOff="1"}function s(r){if(!r)return;if(r.nodeType===1){if(r.tagName==="INPUT"||r.tagName==="TEXTAREA")p(r);if(r.querySelectorAll){var l=r.querySelectorAll("input,textarea");for(var i=0;i<l.length;i++)p(l[i])}}}function i(){s(document.body)}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",i);else i();var pn=false,o=new MutationObserver(function(m){if(pn)return;pn=true;(window.requestAnimationFrame||setTimeout)(function(){pn=false;for(var i=0;i<m.length;i++){var a=m[i].addedNodes;for(var j=0;j<a.length;j++)s(a[j])}},16)});function so(){o.observe(document.body,{childList:true,subtree:true})}if(document.body)so();else document.addEventListener("DOMContentLoaded",so)})();
+</script>
 </head>
 <body>
 <div id="root"></div>
@@ -156,6 +160,8 @@ function MakeInvoice(){
   const [activeStore,setActiveStore]=useState('all');
   const [page,setPage]=useState(1);
   const [showPreview,setShowPreview]=useState(false);  // 🆕 导出前预览全部
+  const [selectedOrders,setSelectedOrders]=useState(new Set());  // 🆕 fix72: 订单批量多选
+  const [batchChannel,setBatchChannel]=useState('');             // 🆕 批量统一渠道
 
   const handleErr=(e)=>{ setConn('fail'); const m=e.message||String(e);
     if(/permission|RLS|policy|JWT|401|Bad cred/i.test(m)) setErr('读取订单被拒(RLS 权限)— 让 Martin 跑 cs-readonly-orders.sql 给客服 anon 开只读。原始:'+m);
@@ -239,6 +245,17 @@ function MakeInvoice(){
   const makeTicket=(order,items)=>({ id:'tk_'+Date.now()+'_'+Math.random().toString(36).slice(2,6), sourceOrderId:order.orderId, orderNumber:order.orderNumber, platform:order.platform, store:order.store, customerName:order.customerName, customerEmail:order.customerEmail, customerPhone:order.customerPhone, address:order.address, items, channel:'', weight:'', packageCount:1, prepNote:'' });
   const addWhole=(o)=>setTickets(p=>[...p,makeTicket(o,o.items.map(it=>({...it})))]);
   const addPartial=(o,ids)=>{const items=o.items.filter(it=>ids.has(it.lineId)).map(it=>({...it}));if(items.length)setTickets(p=>[...p,makeTicket(o,items)]);};
+  // 🆕 fix72: 订单批量多选
+  const toggleSelect=(id)=>setSelectedOrders(p=>{const s=new Set(p);s.has(id)?s.delete(id):s.add(id);return s;});
+  const selectAllPage=()=>setSelectedOrders(p=>{const s=new Set(p);const allSel=pageOrders.every(o=>s.has(o.orderId));pageOrders.forEach(o=>allSel?s.delete(o.orderId):s.add(o.orderId));return s;});
+  const batchAdd=()=>{
+    const toAdd=filtered.filter(o=>selectedOrders.has(o.orderId)&&!o.items.every(it=>assignedLineIds.has(it.lineId)));
+    if(!toAdd.length){alert('请先勾选订单');return;}
+    setTickets(p=>[...p,...toAdd.map(o=>makeTicket(o,o.items.map(it=>({...it}))))]);
+    setSelectedOrders(new Set());
+  };
+  // 🆕 批量统一渠道(应用到所有票)
+  const applyBatchChannel=()=>{ if(!batchChannel){alert('先选渠道');return;} setTickets(p=>p.map(t=>({...t,channel:batchChannel}))); };
   const upTicket=(id,patch)=>setTickets(p=>p.map(t=>t.id===id?{...t,...patch}:t));
   const upItem=(id,idx,patch)=>setTickets(p=>p.map(t=>t.id!==id?t:{...t,items:t.items.map((it,i)=>i===idx?{...it,...patch}:it)}));
   const rmTicket=(id)=>setTickets(p=>p.filter(t=>t.id!==id));
@@ -279,6 +296,14 @@ function MakeInvoice(){
             <span className="pill" style={{background:'#34c759',color:'white'}}>{tickets.length} 票</span>
             {allValid?<span className="pill" style={{background:'#dcfce7',color:'#15803d'}}>✓ 必填齐全</span>:<span className="pill" style={{background:'#fee2e2',color:'#b91c1c'}}>⚠ 有必填未填</span>}
             <div style={{flex:1}}/>
+            {/* 🆕 fix72: 批量统一渠道 */}
+            <div style={{display:'flex',alignItems:'center',gap:5}}>
+              <span className="muted" style={{whiteSpace:'nowrap'}}>批量渠道:</span>
+              <select className="inp" style={{width:150,padding:'5px 8px'}} value={batchChannel} onChange={e=>setBatchChannel(e.target.value)}>
+                <option value="">— 选 —</option>{CHANNELS.map(c=><option key={c} value={c}>{c}</option>)}
+              </select>
+              <button className="btn btn-sm" onClick={applyBatchChannel} title="应用到全部票">应用全部</button>
+            </div>
             <button className="btn btn-sm" onClick={()=>setTickets([])}>清空</button>
             <button className="btn" onClick={()=>setShowPreview(true)}>👁 预览全部</button>
             <button className="btn-good btn" onClick={exportExcel} disabled={!allValid}>📤 导出 {COURIERS[courier].name} Excel</button>
@@ -336,6 +361,9 @@ function MakeInvoice(){
           <strong style={{fontSize:16}}>📦 订单列表</strong>
           <span className="muted">{filtered.length} 单{activeStore!=='all'?` · ${activeStore}`:''}</span>
           <div style={{flex:1}}/>
+          <button className="btn btn-sm" onClick={selectAllPage}>{pageOrders.length>0&&pageOrders.every(o=>selectedOrders.has(o.orderId))?'☑ 取消本页':'☐ 全选本页'}</button>
+          {selectedOrders.size>0&&<button className="btn-pri btn btn-sm" onClick={batchAdd}>➕ 批量加入 {selectedOrders.size} 单</button>}
+          {selectedOrders.size>0&&<button className="btn btn-sm" onClick={()=>setSelectedOrders(new Set())}>清除选择</button>}
           <button className="btn btn-sm" onClick={loadRecent}>🔄 刷新(取跟单最新)</button>
         </div>
         {/* 店铺筛选 */}
@@ -348,7 +376,7 @@ function MakeInvoice(){
         )}
         {loading&&<div style={{padding:36,textAlign:'center',color:'#86868b'}}>⏳ 加载中…</div>}
         {!loading&&filtered.length===0&&<div style={{padding:36,textAlign:'center',color:'#86868b'}}>{conn==='fail'?'连不上订单库,见上方提示':'暂无订单'}</div>}
-        {!loading&&pageOrders.map(o=><OrderCard key={o.orderId} order={o} assignedLineIds={assignedLineIds} onWhole={()=>addWhole(o)} onPartial={ids=>addPartial(o,ids)}/>)}
+        {!loading&&pageOrders.map(o=><OrderCard key={o.orderId} order={o} assignedLineIds={assignedLineIds} selected={selectedOrders.has(o.orderId)} onToggleSelect={()=>toggleSelect(o.orderId)} onWhole={()=>addWhole(o)} onPartial={ids=>addPartial(o,ids)}/>)}
         {totalPages>1&&(
           <div className="pager">
             <button className="btn btn-sm" disabled={page<=1} onClick={()=>setPage(1)}>« 首页</button>
@@ -395,14 +423,15 @@ function MakeInvoice(){
   );
 }
 
-function OrderCard({order,assignedLineIds,onWhole,onPartial}){
+function OrderCard({order,assignedLineIds,onWhole,onPartial,selected,onToggleSelect}){
   const [chosen,setChosen]=useState(new Set());
   const a=order.address||{}; const multi=order.items.length>1;
   const allAssigned=order.items.every(it=>assignedLineIds.has(it.lineId));
   const toggle=id=>setChosen(p=>{const s=new Set(p);s.has(id)?s.delete(id):s.add(id);return s;});
   return (
-    <div className="ocard" style={{opacity:allAssigned?.6:1}}>
+    <div className="ocard" style={{opacity:allAssigned?.6:1,borderColor:selected?'#0071e3':undefined,boxShadow:selected?'0 0 0 2px rgba(0,113,227,.15)':undefined}}>
       <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:8}}>
+        {onToggleSelect&&<input type="checkbox" checked={!!selected} disabled={allAssigned} onChange={onToggleSelect} title="选中以批量加入" style={{width:16,height:16,cursor:'pointer'}}/>}
         <strong style={{fontSize:14}}>#{order.orderNumber}</strong>
         <span className="pill" style={{background:'#e0f2fe',color:'#075985'}}>🏪 {order.store}</span>
         <span className="pill" style={{background:'#eef2ff',color:'#4338ca'}}>{order.platform||'?'}</span>
