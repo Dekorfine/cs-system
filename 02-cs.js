@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-81
-// APP_VERSION: 2026.05.27-fix81
+// 📞 客服跟进 + 视频上传 · fix28-82
+// APP_VERSION: 2026.05.29-fix82
 // ════════════════════════════════════════════════════════════════════
 
 const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) => {
@@ -576,6 +576,9 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
       orderRef: '',
       note: '',
       nextFollowUp: '',
+      isFeedback: false,       // 🆕 fix82: 标记为「问题反馈」
+      feedbackNote: '',        // 🆕 fix82: 问题反馈说明
+      feedbackShots: [],       // 🆕 fix82: 问题反馈截图 [{id,data,name}]
       screenshots: [], // [{id, data, name}]
       followUps: [],   // [{id, time, text, status, screenshots}]
       deleted: false,
@@ -1782,12 +1785,22 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
                   <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))', gap:8, marginBottom:8}}>
                     {/* 网站 */}
                     <div>
-                      <label style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>🌐 网站</label>
+                      <label style={{fontSize:10, fontWeight:600, color:'var(--ink-3)', display:'block', marginBottom:3}}>🌐 网站{!r.website && <span style={{color:'var(--bad)', marginLeft:3}}>· 未填</span>}</label>
                       <select disabled={!editable} value={r.website} onChange={e => updateRow(r.id, {website:e.target.value})}
-                        style={{width:'100%', padding:'7px 10px', fontSize:13, border:'1px solid var(--line)', borderRadius:7, background:'white'}}>
+                        style={{width:'100%', padding:'7px 10px', fontSize:13, border:'1px solid '+(!r.website?'var(--bad)':'var(--line)'), borderRadius:7, background: !r.website?'#fff5f5':'white'}}>
                         <option value="">选择网站...</option>
                         {allSites.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
+                      {editable && !r.website && (() => {
+                        const sug = (window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef)) || '';
+                        return sug ? (
+                          <button onClick={() => updateRow(r.id, {website: sug})}
+                            title={`根据订单号 ${r.orderRef} 推断 · 点击填入`}
+                            style={{marginTop:4, padding:'2px 8px', fontSize:10, fontWeight:600, border:'1px dashed var(--accent-mid)', background:'var(--accent-soft)', color:'var(--accent)', borderRadius:8, cursor:'pointer', fontFamily:'inherit'}}>
+                            💡 建议: {sug} ← 点填入
+                          </button>
+                        ) : null;
+                      })()}
                     </div>
                     
                     {/* 难度 */}
@@ -3992,6 +4005,25 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
     onUpdate({ screenshots });
   };
 
+  // 🆕 fix82: 问题反馈截图
+  const handleFeedbackFile = (file) => {
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { toast('⚠ 图片过大 (>3MB)，请压缩后再上传'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const feedbackShots = [...(record.feedbackShots || []), {
+        id: uid(), data: e.target.result, name: file.name || 'feedback.png', time: nowISO(),
+      }];
+      onUpdate({ feedbackShots, isFeedback: true });
+      toast('✓ 问题反馈截图已添加');
+    };
+    reader.readAsDataURL(file);
+  };
+  const removeFeedbackShot = (sid) => {
+    const feedbackShots = (record.feedbackShots || []).filter(s => s.id !== sid);
+    onUpdate({ feedbackShots });
+  };
+
   const addFollowUp = () => {
     if (!newFollowText.trim()) return;
     const followUps = [...(record.followUps || []), {
@@ -4290,6 +4322,48 @@ const FollowUpModal = ({ record, onClose, onUpdate, toast, user, employees, clou
           )}
         </div>
 
+        {/* 🆕 fix82: 问题反馈 */}
+        <div className="mb-5 rounded-xl p-3 border" style={{borderColor: record.isFeedback ? '#f59e0b' : 'var(--line)', background: record.isFeedback ? '#fffbeb' : 'var(--bg)'}}>
+          <label className="flex items-center gap-2 cursor-pointer" style={{userSelect:'none'}}>
+            <input type="checkbox" disabled={readonly} checked={!!record.isFeedback}
+              onChange={e => onUpdate({ isFeedback: e.target.checked })} style={{width:16, height:16, cursor:'pointer'}} />
+            <span className="font-display text-sm font-bold">📣 标记为问题反馈</span>
+            <span className="text-[10px]" style={{color:'var(--ink-3)'}}>(主管按月汇总每人反馈的问题数)</span>
+          </label>
+          {(record.isFeedback || (record.feedbackShots?.length > 0)) && (
+            <div className="mt-3">
+              {!readonly && (
+                <textarea value={record.feedbackNote || ''} onChange={e => onUpdate({ feedbackNote: e.target.value })}
+                  placeholder="问题反馈说明,例: 工厂频繁延期 / 某产品多次破损 / 物流商投诉…"
+                  rows="2" style={{background:'white', fontSize:13, marginBottom:8}} />
+              )}
+              {readonly && record.feedbackNote && (
+                <div className="text-xs leading-relaxed mb-2" style={{color:'var(--ink-2)'}}>{record.feedbackNote}</div>
+              )}
+              {!readonly && (
+                <label style={{display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', fontSize:11, fontWeight:600, border:'1px dashed #f59e0b', color:'#b45309', background:'#fffbeb', borderRadius:8, cursor:'pointer'}}>
+                  <Icon name="upload" className="w-3.5 h-3.5" /> 上传问题反馈截图 (≤3MB)
+                  <input type="file" accept="image/*" style={{display:'none'}} onChange={e => { handleFeedbackFile(e.target.files?.[0]); e.target.value=''; }} />
+                </label>
+              )}
+              {record.feedbackShots?.length > 0 && (
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  {record.feedbackShots.map(s => (
+                    <div key={s.id} className="relative group">
+                      <img src={s.data} alt={s.name} className="thumb" onClick={() => setViewingImg(s.data)} />
+                      {!readonly && (
+                        <button onClick={() => removeFeedbackShot(s.id)}
+                          className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100"
+                          style={{background:'var(--bad)', border:'1.5px solid white'}}>×</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* 跟进时间线 */}
         <div className="mb-5">
           <div className="flex items-center gap-2 mb-2">
@@ -4406,7 +4480,7 @@ const SiteDailyBreakdown = ({ scope, selectedEmpId, employees, live, today, last
       if (r.date < startDate || r.date > today) return;
       const cell = m[r.ownerId].byDay[r.date];
       if (!cell) return;
-      const site = (r.site || '').trim() || '?';
+      const site = (r.site || '').trim() || (window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef)) || '?';
       cell.total++;
       cell.bySite[site] = (cell.bySite[site] || 0) + 1;
       m[r.ownerId].sitesTotal[site] = (m[r.ownerId].sitesTotal[site] || 0) + 1;
@@ -4516,14 +4590,6 @@ const SiteDailyBreakdown = ({ scope, selectedEmpId, employees, live, today, last
           </div>
         )}
       </div>
-      {/* 🆕 fix52: 客户档案 360° Modal */}
-      {customer360Email && (
-        <Customer360Modal
-          email={customer360Email}
-          records={records}
-          onClose={() => setCustomer360Email(null)}
-        />
-      )}
     </div>
   );
 };

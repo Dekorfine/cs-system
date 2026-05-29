@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-81
-// APP_VERSION: 2026.05.27-fix81
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-82
+// APP_VERSION: 2026.05.29-fix82
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -387,6 +387,15 @@ const DashboardModule = ({ user, employees, records }) => {
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }, [periodRecords]);
   
+  // ========== 🆕 fix82: 问题反馈统计(每人本期标记数) ==========
+  const feedbackStats = useMemo(() => {
+    return employees.map(e => ({
+      ...e,
+      count: periodRecords.filter(r => r.ownerId === e.id && r.isFeedback).length,
+    })).filter(e => e.count > 0).sort((a, b) => b.count - a.count);
+  }, [employees, periodRecords]);
+  const feedbackRecords = useMemo(() => periodRecords.filter(r => r.isFeedback), [periodRecords]);
+
   // ========== 按客服分布 ==========
   const empStats = useMemo(() => {
     return employees.map(e => {
@@ -512,6 +521,54 @@ const DashboardModule = ({ user, employees, records }) => {
           onClickRecord={setDetailRecord} />
       </div>
       
+      {/* 🆕 fix82: 邮件分布 员工×日期×网站(接入原孤儿组件) */}
+      <SiteDailyBreakdown
+        scope={scope}
+        selectedEmpId={scope === 'me' ? user.id : selectedEmpId}
+        employees={employees}
+        live={liveRecords}
+        today={today}
+        last7Start={addDays(today, -6)}
+        monthStart={today.slice(0, 8) + '01'} />
+
+      {/* 🆕 fix82: 问题反馈汇总 */}
+      <div className="paper rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <span className="font-display text-sm font-bold">📣 问题反馈</span>
+            <span className="text-[10px]" style={{color:'var(--ink-3)'}}>{rangeLabel} · 客服标记的问题</span>
+          </div>
+          <span style={{fontWeight:800, fontSize:20, color:'#b45309'}}>{feedbackRecords.length}<span style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', marginLeft:3}}>条</span></span>
+        </div>
+        {feedbackStats.length > 0 ? (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {feedbackStats.map(e => (
+              <span key={e.id} style={{padding:'3px 10px', background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:10, fontSize:12, fontWeight:600, color:'#92400e'}}>
+                {e.name}{e.alias ? ' ' + e.alias : ''} · {e.count}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div className="text-xs py-2" style={{color:'var(--ink-4)'}}>本期还没有标记的问题反馈 · 客服在「跟进 &amp; 截图」弹窗里勾选「📣 标记为问题反馈」即可</div>
+        )}
+        {feedbackRecords.length > 0 && (
+          <div className="space-y-1 max-h-52 overflow-y-auto scrollbar-thin">
+            {feedbackRecords.map(r => (
+              <div key={r.id} onClick={() => setDetailRecord(r)}
+                className="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-[var(--bg-elevated)]"
+                style={{fontSize:12, borderBottom:'1px solid var(--line)'}}>
+                <span style={{padding:'1px 6px', background:'var(--bg-elevated)', borderRadius:6, fontSize:10}}>{r.site || (window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef)) || '?'}</span>
+                <span style={{fontWeight:600, minWidth:80}}>{r.customer || '(无客户名)'}</span>
+                <span style={{color:'var(--ink-3)', fontFamily:'monospace', fontSize:11}}>{r.orderRef || ''}</span>
+                <span style={{color:'var(--ink-2)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.feedbackNote || r.note || ''}</span>
+                {r.feedbackShots?.length > 0 && <span style={{fontSize:10, color:'var(--ink-3)'}}>📷{r.feedbackShots.length}</span>}
+                <span style={{fontSize:10, color:'var(--ink-4)'}}>{r.date}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* ④ 未解决清单 */}
       <UnresolvedList
         records={unresolvedList}

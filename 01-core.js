@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-81
-// APP_VERSION: 2026.05.27-fix81
+// 🧱 核心 · fix28-82
+// APP_VERSION: 2026.05.29-fix82
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -418,6 +418,29 @@ const CATEGORIES = [
   '库存','工厂进度','质量问题','图片提供','样品','促销活动'
 ];
 const SITES = ['MJ','DC','VK','DF','LS','RS','MH','PL','MO','RD','海服'];  // 🆕 fix51: J → MH (Mooiehome 取代 JaneDecor)
+
+// 🆕 fix82: 订单号前缀 → 网站 兜底映射
+// 客服常只填订单号(如 RD16893 / MJ6099 / V105171)忘了选网站下拉,
+// 这张表让看板/统计能从订单号前缀自动推断网站。**前缀含义请核对**(尤其 V)。
+// 注意:仅用于显示/统计兜底,不会覆盖已保存的 website 字段。
+const ORDER_PREFIX_TO_SITE = {
+  RD: 'RD', MJ: 'MJ', VK: 'VK', DC: 'DC', DF: 'DF',
+  LS: 'LS', RS: 'RS', MH: 'MH', PL: 'PL', MO: 'MO',
+  V: 'VK',   // ⚠ 猜测:V 前缀 = VK(Vakker)— 不对请告诉我改这一行
+};
+// 从订单号/备注里抽取开头连续字母,优先匹配 2 字母前缀,再退 1 字母
+function siteFromOrderRef(ref) {
+  if (!ref) return '';
+  const m = String(ref).trim().match(/^([A-Za-z]{1,3})/);
+  if (!m) return '';
+  const letters = m[1].toUpperCase();
+  if (ORDER_PREFIX_TO_SITE[letters]) return ORDER_PREFIX_TO_SITE[letters];
+  if (letters.length >= 2 && ORDER_PREFIX_TO_SITE[letters.slice(0, 2)]) return ORDER_PREFIX_TO_SITE[letters.slice(0, 2)];
+  if (ORDER_PREFIX_TO_SITE[letters[0]]) return ORDER_PREFIX_TO_SITE[letters[0]];
+  return '';
+}
+// 全局 helper(切片后跨 .js 可用)
+if (typeof window !== 'undefined') window.__siteFromOrderRef = siteFromOrderRef;
 
 // 🆕 fix22 联动 3: 网站 Context — 让自定义网站出现在所有下拉里
 // 内置 SITES 永远在前,自定义网站按代码追加
