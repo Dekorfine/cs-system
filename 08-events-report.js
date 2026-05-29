@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-81
-// APP_VERSION: 2026.05.27-fix81
+// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-93
+// APP_VERSION: 2026.05.29-fix93
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -470,12 +470,21 @@ const AftersalesTable = ({ items, employees, suppliers, user, isAdmin, onEdit, o
                       {e.issue_detail && <div style={{color:'var(--ink-2)', marginTop:2, fontSize:11, maxWidth:'400px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.issue_detail}</div>}
                     </td>
                     <td>
-                      {e.attachments && e.attachments.length > 0 ? (
-                        <button onClick={() => setOpenImageId(e.id)}
-                          style={{display:'flex', alignItems:'center', gap:4, padding:'3px 6px', background:'#f0f9ff', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontFamily:'inherit', fontSize:11, fontWeight:600}}>
-                          📷 {e.attachments.length}
-                        </button>
-                      ) : '-'}
+                      {e.attachments && e.attachments.length > 0 ? (() => {
+                        const a0 = e.attachments[0] || {};
+                        const u0 = a0.url || a0.dataUrl || a0.data || '';
+                        return (
+                          <div style={{display:'flex', alignItems:'center', gap:4}}>
+                            {u0 ? <img src={u0} alt="" style={{width:40, height:40, objectFit:'cover', borderRadius:5, border:'1px solid var(--line)', cursor:'zoom-in'}}/> : null}
+                            {(e.attachments.length > 1 || !u0) && (
+                              <button onClick={() => setOpenImageId(e.id)} title="查看全部图片"
+                                style={{padding:'3px 6px', background:'#f0f9ff', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontFamily:'inherit', fontSize:11, fontWeight:600}}>
+                                📷 {e.attachments.length}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })() : '-'}
                     </td>
                     <td style={{fontSize:11, color:'var(--ink-2)'}}>
                       {remindDate && <div>{remindDate}</div>}
@@ -560,12 +569,20 @@ const RefillsTable = ({ items, employees, suppliers, user, isAdmin, onEdit, onDe
                     <td style={{fontSize:12}}>{e.supplier_name || '-'}</td>
                     <td style={{fontSize:12, lineHeight:1.4}}>{itemsList || '-'}</td>
                     <td>
-                      {e.attachments && e.attachments.length > 0 ? (
-                        <button onClick={() => setOpenImageId(e.id)}
-                          style={{padding:'3px 6px', background:'#f0f9ff', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
-                          📷 {e.attachments.length}
-                        </button>
-                      ) : '-'}
+                      {e.attachments && e.attachments.length > 0 ? (() => {
+                        const a0 = e.attachments[0] || {}; const u0 = a0.url || a0.dataUrl || a0.data || '';
+                        return (
+                          <div style={{display:'flex', alignItems:'center', gap:4}}>
+                            {u0 ? <img src={u0} alt="" style={{width:40, height:40, objectFit:'cover', borderRadius:5, border:'1px solid var(--line)', cursor:'zoom-in'}}/> : null}
+                            {(e.attachments.length > 1 || !u0) && (
+                              <button onClick={() => setOpenImageId(e.id)} title="查看全部图片"
+                                style={{padding:'3px 6px', background:'#f0f9ff', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                                📷 {e.attachments.length}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })() : '-'}
                     </td>
                     <td style={{fontSize:11, color:'var(--ink-2)'}}>{e.expected_ship_date || '-'}</td>
                     <td style={{fontSize:11, color:'#16a34a', fontWeight:e.actual_ship_date ? 600 : 400}}>{e.actual_ship_date || '-'}</td>
@@ -687,12 +704,20 @@ const RefundsTable = ({ items, employees, suppliers, user, isFinance, canRefundR
                       {pay && <span style={{color: pay.color, fontWeight:500}}>{pay.label}{r.payment_method === 'other' && r.payment_method_custom ? `: ${r.payment_method_custom}` : ''}</span>}
                     </td>
                     <td>
-                      {r.attachments && r.attachments.length > 0 ? (
-                        <button onClick={() => setOpenImageId(r.id)}
-                          style={{padding:'3px 6px', background:'#f0f9ff', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
-                          📷 {r.attachments.length}
-                        </button>
-                      ) : '-'}
+                      {r.attachments && r.attachments.length > 0 ? (() => {
+                        const a0 = r.attachments[0] || {}; const u0 = a0.url || a0.dataUrl || a0.data || '';
+                        return (
+                          <div style={{display:'flex', alignItems:'center', gap:4}}>
+                            {u0 ? <img src={u0} alt="" style={{width:40, height:40, objectFit:'cover', borderRadius:5, border:'1px solid var(--line)', cursor:'zoom-in'}}/> : null}
+                            {(r.attachments.length > 1 || !u0) && (
+                              <button onClick={() => setOpenImageId(r.id)} title="查看全部图片"
+                                style={{padding:'3px 6px', background:'#f0f9ff', color:'#0369a1', border:'1px solid #7dd3fc', borderRadius:5, cursor:'pointer', fontSize:11, fontWeight:600, fontFamily:'inherit'}}>
+                                📷 {r.attachments.length}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })() : '-'}
                     </td>
                     <td>
                       <span style={{padding:'3px 8px', background: status?.bg, color: status?.color, borderRadius:5, fontSize:11, fontWeight:600}}>
