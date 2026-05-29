@@ -1083,6 +1083,7 @@ fieldset legend {
         <button class="status-chip" data-status="won" onclick="setStatusFilter('won')">成单 · Won</button>
         <button class="status-chip" data-status="lost" onclick="setStatusFilter('lost')">丢单 · Lost</button>
         <button class="status-chip" data-status="archived" onclick="setStatusFilter('archived')">归档 · Archived</button>
+        <button class="status-chip" id="chip-followup" onclick="toggleFollowupFilter()" style="border-color:#fcd34d;">⚑ 只看需跟进 · Follow-up</button>
       </div>
 
       <!-- 🎨 fix43: 大搜索框 — 独占一行,带图标 + 清空按钮 + 结果计数 -->
@@ -1229,6 +1230,20 @@ fieldset legend {
             <button type="button" class="status-btn lost" data-status="lost" onclick="setQuoteStatus('lost')">丢单 Lost</button>
             <button type="button" class="status-btn archived" data-status="archived" onclick="setQuoteStatus('archived')">归档 Archive</button>
           </div>
+        </div>
+        <!-- 🆕 fix82: 需跟进 -->
+        <div class="form-row" style="margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600;color:#b45309;">
+            <input type="checkbox" id="need_followup" onchange="onFollowupManualChange()" style="width:15px;height:15px;cursor:pointer;">
+            ⚑ 需跟进 · Follow-up
+          </label>
+        </div>
+        <div class="form-row" id="followup-detail" style="margin-top:6px;display:none;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="date" id="followup_date" onchange="onFollowupManualChange()" title="跟进日期" style="flex:0 0 auto;">
+          <input type="text" id="followup_note" oninput="triggerAutoSave()" placeholder="备注(选填)· 例:大单,3天后回访" style="flex:1;min-width:140px;">
+        </div>
+        <div class="form-row" style="margin-top:4px;font-size:11px;color:#94a3b8;align-items:center;gap:4px;">
+          报价 ≥ <input type="number" id="followup_threshold" min="0" step="100" onchange="saveFollowupThreshold()" style="width:78px;padding:2px 5px;font-size:11px;"> USD 自动标记需跟进
         </div>
       </fieldset>
 
@@ -1945,6 +1960,8 @@ let currentQuoteStatus = 'draft';      // status of the quote currently in the f
 let currentCreatedAt = null;            // ISO timestamp; preserved across saves of the same quote
 let currentLoadedSha = null;            // sha of the loaded record (for conflict detection)
 let statusFilter = '';                  // active status filter in cloud list ('' = all)
+let followupOnly = false;               // 🆕 fix82: 云端列表「只看需跟进」筛选
+let followupManuallySet = false;        // 🆕 fix82: 用户手动改过需跟进 → 不再被金额阈值自动覆盖
 const storageKey = 'quoteGeneratorSaves_v4';
 const draftKey   = 'quoteGenerator_draft_v1';
 const SETTINGS_KEY = 'quoteToolSettings_v1';
@@ -2434,6 +2451,7 @@ function syncAndCalculate() {
   const discountAmtUSD = subtotalUSD * (discountPct / 100);
   const totalAfterDisc = subtotalUSD - discountAmtUSD;
   const finalTotalUSD  = totalAfterDisc + freightCostUSD;
+  maybeAutoFollowup(finalTotalUSD);  // 🆕 fix82: 总额达阈值自动标记需跟进
 
   const convSubtotal = subtotalUSD * rate;
   const convDiscount = discountAmtUSD * rate;
@@ -2773,6 +2791,9 @@ function collectFormData() {
     opt_show_deposit_in_quote: !!$('opt_show_deposit_in_quote')?.checked,  // 🆕 fix38: 默认 false
     opt_show_customer_note: !!$('opt_show_customer_note')?.checked,  // 🆕 fix24-3
     customer_note: $('customer_note')?.value || '',                   // 🆕 fix24-3
+    need_followup:      !!$('need_followup')?.checked,                // 🆕 fix82
+    followup_date:      $('followup_date')?.value || '',             // 🆕 fix82
+    followup_note:      $('followup_note')?.value || '',             // 🆕 fix82
     terms_preset:       $('terms_preset').value,
     terms_conditions:   $('terms_conditions').value,
     pl_remarks:         ($('pl_remarks') || {}).value || '',
@@ -2792,7 +2813,7 @@ function restoreDataToForm(d) {
 
   const skip = new Set(['items','bankFields','pl_remarks','_status','_total_usd','_created_at','_updated_at','_sku_list']);
   // checkbox 字段：用 .checked 而不是 .value
-  const checkboxFields = new Set(['opt_show_dimensions','opt_show_deposit_in_quote','opt_show_customer_note']);
+  const checkboxFields = new Set(['opt_show_dimensions','opt_show_deposit_in_quote','opt_show_customer_note','need_followup']);
   for (const k in d) {
     if (skip.has(k)) continue;
     if (k.startsWith('_')) continue;
@@ -2818,6 +2839,9 @@ function restoreDataToForm(d) {
   // Set status before setLanguage to ensure any sync triggered has the correct status
   setQuoteStatus(d._status || 'draft');
   setLanguage(lang);
+  // 🆕 fix82: 已存报价含该字段 → 尊重当时勾选(视为手动);旧报价无此字段 → 允许按金额自动补标
+  followupManuallySet = ('need_followup' in d);
+  updateFollowupUI();
 }
 
 /* ============================================================
@@ -2868,6 +2892,12 @@ function newQuote() {
   const v = new Date(); v.setDate(today.getDate() + 30);
   $('valid_until').valueAsDate = v;
   termsManuallyEdited = false;
+  // 🆕 fix82: 重置需跟进
+  if ($('need_followup')) $('need_followup').checked = false;
+  if ($('followup_date')) $('followup_date').value = '';
+  if ($('followup_note')) $('followup_note').value = '';
+  followupManuallySet = false;
+  updateFollowupUI();
   addItem();
   autoFillSellerInfo();
   updateOrderNumbers();
@@ -3477,6 +3507,123 @@ function setCloudViewMode(mode) {
   loadCloudList();
 }
 
+// 🆕 fix82: ===== 需跟进 相关 =====
+function getFollowupThreshold() {
+  const v = getSettings().followupThreshold;
+  return (v === undefined || v === null || v === '') ? 2000 : (Number(v) || 0);
+}
+function saveFollowupThreshold() {
+  const v = Math.max(0, Number($('followup_threshold')?.value) || 0);
+  const cur = getSettings();
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...cur, followupThreshold: v }));
+  followupManuallySet = false;   // 改了阈值 → 允许重新自动判断
+  syncAndCalculate();
+}
+function initFollowupThreshold() {
+  const el = $('followup_threshold');
+  if (el) el.value = getFollowupThreshold();
+}
+function updateFollowupUI() {
+  const cb = $('need_followup');
+  const detail = $('followup-detail');
+  if (cb && detail) detail.style.display = cb.checked ? 'flex' : 'none';
+}
+function onFollowupManualChange() {
+  followupManuallySet = true;
+  updateFollowupUI();
+  triggerAutoSave();
+}
+function maybeAutoFollowup(totalUSD) {
+  if (followupManuallySet) return;        // 用户手动设过就不自动覆盖
+  const cb = $('need_followup');
+  if (!cb) return;
+  const th = getFollowupThreshold();
+  if (th > 0 && totalUSD >= th && !cb.checked) {
+    cb.checked = true;
+    if (!$('followup_date').value) {
+      const d = new Date(); d.setDate(d.getDate() + 7);
+      $('followup_date').value = d.toISOString().slice(0, 10);
+    }
+    if (!$('followup_note').value) $('followup_note').value = `大单 ≥ $${th.toLocaleString('en-US')} · 建议跟进`;
+    updateFollowupUI();
+  }
+}
+// 🆕 fix82: 列表样式 — 跟进日期到期/临近的色块
+function followupStyle(dateStr) {
+  let bg = '#fef3c7', fg = '#b45309';  // 默认 amber
+  if (dateStr) {
+    const today = new Date().toISOString().slice(0, 10);
+    if (dateStr < today)      { bg = '#fee2e2'; fg = '#b91c1c'; }   // 过期 红
+    else {
+      const soon = new Date(); soon.setDate(soon.getDate() + 3);
+      if (dateStr <= soon.toISOString().slice(0, 10)) { bg = '#fef9c3'; fg = '#a16207'; }  // 3天内 黄
+    }
+  }
+  return `background:${bg};color:${fg};`;
+}
+// 🆕 fix82: 「只看需跟进」筛选
+function toggleFollowupFilter() {
+  followupOnly = !followupOnly;
+  const c = $('chip-followup');
+  if (c) c.classList.toggle('active', followupOnly);
+  renderCloudList();
+}
+// 🆕 fix82: 需跟进 → 同步到客服跟进系统(workspace_records),用所选日期,不再 prompt
+async function syncFollowupToCS(customerName, piRef, data, quoteId) {
+  const buyerEmail = (data.buyer_email || '').trim();
+  let cur = null, cfg = null;
+  try {
+    cur = JSON.parse(localStorage.getItem('current_user') || 'null');
+    cfg = JSON.parse(localStorage.getItem('cloud_config') || 'null');
+  } catch (e) {}
+  if (!cur || !cfg || !cfg.url) {
+    showToast('💡 需跟进已存,但未登录工作台 — 暂未同步到客服系统', 'info');
+    return;
+  }
+  // 跟进日期:用所选,缺省今天+7
+  let nextFollowUp = data.followup_date;
+  if (!nextFollowUp) {
+    const d = new Date(); d.setDate(d.getDate() + 7);
+    nextFollowUp = d.toISOString().slice(0, 10);
+  }
+  const todayStr = new Date().toISOString().slice(0, 10);
+  // 用报价 id 派生稳定的记录 id → 重复保存只更新同一条,不会刷屏
+  const recordId = 'qf_' + (quoteId || piRef || Date.now().toString(36));
+  const noteExtra = (data.followup_note || '').trim();
+  const record = {
+    id: recordId,
+    ownerId: cur.id,
+    date: todayStr,
+    customer: buyerEmail || customerName || '',
+    site: (window.__siteFromOrderRef && window.__siteFromOrderRef(piRef)) || 'RD',
+    orderRef: piRef || '',
+    category: '报价',
+    note: `📌 报价跟进 · ${customerName}\n报价:${piRef || '-'}${noteExtra ? '\n' + noteExtra : ''}`,
+    status: 'following',
+    nextFollowUp: nextFollowUp,
+    difficulty: 'mid',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  try {
+    const resp = await fetch(cfg.url + '/rest/v1/workspace_records?on_conflict=id', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': cfg.key,
+        'Authorization': 'Bearer ' + cfg.key,
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify(record),
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    showToast(`✓ 已同步到客服跟进(${nextFollowUp})`, 'ok');
+  } catch (e) {
+    console.error('同步客服跟进失败:', e);
+    showToast('⚠ 需跟进已存,但同步客服系统失败:' + e.message, 'err');
+  }
+}
+
 function setStatusFilter(status) {
   statusFilter = status;
   document.querySelectorAll('.status-chip').forEach(c => {
@@ -3541,6 +3688,8 @@ function rowToCloudRecord(row) {
     date: (row.updated_at || '').slice(0,16).replace('T','-').replace(':','-'),
     status: row.status || 'draft',
     amount: Number(row.amount) || 0,
+    needFollowup: !!rawData.need_followup,        // 🆕 fix82
+    followupDate: rawData.followup_date || '',    // 🆕 fix82
     quoteName: displayName,
     trashed: !!row.trashed,
   };
@@ -3683,6 +3832,7 @@ function renderCloudList() {
     if (uf && r.user !== uf) return false;
     if (!passesDateFilter(r)) return false;
     if (statusFilter && r.status !== statusFilter) return false;
+    if (followupOnly && !r.needFollowup) return false;  // 🆕 fix82
     // 🆕 fix43: 多关键词 AND 匹配 — 所有关键词都得在 haystack 里出现
     if (searchTerms.length > 0) {
       const hay = makeHaystack(r);
@@ -3696,7 +3846,7 @@ function renderCloudList() {
   // 🆕 fix43: 实时更新结果计数
   const countEl = $('search-result-count');
   if (countEl) {
-    if (searchTerms.length === 0 && !statusFilter && dateFilter === 'all') {
+    if (searchTerms.length === 0 && !statusFilter && dateFilter === 'all' && !followupOnly) {
       countEl.textContent = cloudRecords.length > 0 ? `${cloudRecords.length} 条` : '';
       countEl.className = 'search-bar-count';
     } else {
@@ -3738,6 +3888,7 @@ function renderCloudList() {
         <div class="cloud-item-name">
           ${escapeHTML(r.buyerName)}
           <span class="status-tag ${r.status}">${r.status}</span>
+          ${r.needFollowup ? `<span class="status-tag" style="${followupStyle(r.followupDate)}" title="需跟进${r.followupDate ? ' · ' + r.followupDate : ''}">⚑ ${r.followupDate || '跟进'}</span>` : ''}
           ${isCurrent ? '<span class="current-pill">CURRENT</span>' : ''}
         </div>
         <div class="cloud-item-meta">${escapeHTML(r.user)} · ${dateDisplay}${amountDisplay ? ` · <strong>${amountDisplay}</strong>` : ''}</div>
@@ -3893,9 +4044,9 @@ async function cloudSave() {
     currentLoadedPath = saved.id;
     currentLoadedSha = saved.updated_at;
     loadCloudList();
-    // 🆕 新建报价单时弹"回访提醒"对话框
-    if (!isUpdate) {
-      setTimeout(() => promptFollowUpReminder(buyerNameDisplay || '客户', piNo), 600);
+    // 🆕 fix82: 勾了「需跟进」→ 按所选日期同步到客服跟进系统(新建/更新都同步)
+    if (data.need_followup) {
+      setTimeout(() => syncFollowupToCS(buyerNameDisplay || '客户', piNo, data, saved.id), 400);
     }
   } else {
     // 🎨 fix42: 失败时,关掉 busy toast(showSaveErrorModal 已经弹大对话框了)
@@ -4227,6 +4378,8 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   // First-visit setup prompt
+  initFollowupThreshold();  // 🆕 fix82
+  updateFollowupUI();       // 🆕 fix82
   loadCloudList();  // 🆕 fix25: 不再卡住,直接加载
 });
 
