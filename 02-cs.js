@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 · fix28-78
-// APP_VERSION: 2026.05.27-fix78
+// 📞 客服跟进(fix79 顶部添加一行+批量转交搜索) · fix28-79
+// APP_VERSION: 2026.05.27-fix79
 // ════════════════════════════════════════════════════════════════════
 
 const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) => {
@@ -1463,6 +1463,19 @@ const CSModule = ({ user, employees, records, setRecords, onTrash, toast, cloudO
           <div style={{fontSize:11, color:'var(--ink-3)'}}>
             筛选后 <strong style={{color:'var(--accent)'}}>{tableRecords.length}</strong> 条 · 当前第 <strong>{safePage}</strong>/{totalPages} 页
           </div>
+        )}
+        {/* 🆕 fix79: 顶部"添加一行"按钮 — 客服每天大量添加,不用滚到底部 */}
+        {canEditRecord({date:viewDate}, user, adminUnlock) ? (
+          <button onClick={addRow}
+            style={{padding:'7px 18px', borderRadius:10, fontSize:13, fontWeight:600,
+              background:'var(--accent)', color:'white', border:'none', cursor:'pointer',
+              boxShadow:'0 2px 6px rgba(0,113,227,.25)', fontFamily:'inherit',
+              display:'inline-flex', alignItems:'center', gap:6}}>
+            <Icon name="plus" className="w-4 h-4" />
+            添加一行
+          </button>
+        ) : (
+          <span style={{fontSize:11, color:'var(--ink-4)', padding:'4px 10px'}}>🔒 历史日期不可新增</span>
         )}
       </div>
       
@@ -3538,9 +3551,26 @@ const BatchTransferModal = ({ employees, records, user, fromUserId, setFromUserI
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [filterSite, setFilterSite] = useState('');
   const [targetUserId, setTargetUserId] = useState('');
+  // 🆕 fix79: 智能搜索 — 员工很多时按名字/拼音/部门搜
+  const [fromSearch, setFromSearch] = useState('');
+  const [targetSearch, setTargetSearch] = useState('');
   
   // 候选源员工列表
   const candidateEmployees = employees.filter(e => e.role !== 'finance');
+  
+  // 🆕 fix79: 搜索过滤(支持 name / alias / email / role / title)
+  const matchEmp = (e, q) => {
+    if (!q) return true;
+    const s = q.toLowerCase();
+    return (e.name || '').toLowerCase().includes(s)
+      || (e.alias || '').toLowerCase().includes(s)
+      || (e.email || '').toLowerCase().includes(s)
+      || (e.title || '').toLowerCase().includes(s)
+      || (e.role || '').toLowerCase().includes(s)
+      || (e.sites || '').toLowerCase().includes(s);
+  };
+  const sourceFiltered = candidateEmployees.filter(e => matchEmp(e, fromSearch));
+  const targetFiltered = candidateEmployees.filter(e => e.id !== fromUserId && matchEmp(e, targetSearch));
   
   // 当前选中员工的活跃工作
   const sourceRecords = useMemo(() => {
@@ -3612,11 +3642,25 @@ const BatchTransferModal = ({ employees, records, user, fromUserId, setFromUserI
         
         {/* Step 1: 选源员工 */}
         <div style={{padding:'14px 24px', borderBottom:'1px solid var(--line)', background:'var(--bg-soft)'}}>
-          <div style={{fontSize:12, fontWeight:600, color:'var(--ink-3)', marginBottom:8}}>
-            Step 1 · 选择源员工（要转出工作的人）
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:8, flexWrap:'wrap'}}>
+            <div style={{fontSize:12, fontWeight:600, color:'var(--ink-3)'}}>
+              Step 1 · 选择源员工（要转出工作的人）
+            </div>
+            {/* 🆕 fix79: 智能搜索 */}
+            <div style={{position:'relative'}}>
+              <input value={fromSearch} onChange={e => setFromSearch(e.target.value)}
+                placeholder="🔍 搜索员工名 / 别名 / 部门..."
+                style={{padding:'5px 28px 5px 10px', fontSize:12, border:'1px solid var(--line)', borderRadius:6, width:230, fontFamily:'inherit'}} />
+              {fromSearch && (
+                <button onClick={() => setFromSearch('')} title="清空"
+                  style={{position:'absolute', right:6, top:'50%', transform:'translateY(-50%)', border:'none', background:'transparent', cursor:'pointer', color:'var(--ink-4)', fontSize:14, padding:'0 4px', lineHeight:1}}>×</button>
+              )}
+            </div>
           </div>
           <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
-            {candidateEmployees.map(emp => {
+            {sourceFiltered.length === 0 ? (
+              <div style={{fontSize:12, color:'var(--ink-4)', padding:'8px 0'}}>无匹配员工 · 试试别的关键字</div>
+            ) : sourceFiltered.map(emp => {
               const workload = records.filter(r => r.ownerId === emp.id && !r.deleted && r.status !== 'resolved').length;
               const isSelected = fromUserId === emp.id;
               return (
@@ -3638,6 +3682,9 @@ const BatchTransferModal = ({ employees, records, user, fromUserId, setFromUserI
               );
             })}
           </div>
+          {fromSearch && sourceFiltered.length > 0 && (
+            <div style={{fontSize:10, color:'var(--ink-4)', marginTop:6}}>显示 {sourceFiltered.length} / {candidateEmployees.length} 人</div>
+          )}
         </div>
         
         {/* Step 2: 勾选工作（按网站筛选） */}
@@ -3717,11 +3764,25 @@ const BatchTransferModal = ({ employees, records, user, fromUserId, setFromUserI
         {/* Step 3: 选目标员工 + 提交 */}
         {fromUserId && selectedIds.size > 0 && (
           <div style={{padding:'14px 24px', borderTop:'1px solid var(--line)', background:'var(--bg-soft)'}}>
-            <div style={{fontSize:12, fontWeight:600, color:'var(--ink-3)', marginBottom:8}}>
-              Step 3 · 选目标员工
+            <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:8, flexWrap:'wrap'}}>
+              <div style={{fontSize:12, fontWeight:600, color:'var(--ink-3)'}}>
+                Step 3 · 选目标员工
+              </div>
+              {/* 🆕 fix79: 智能搜索目标 */}
+              <div style={{position:'relative'}}>
+                <input value={targetSearch} onChange={e => setTargetSearch(e.target.value)}
+                  placeholder="🔍 搜索员工名 / 别名 / 部门..."
+                  style={{padding:'5px 28px 5px 10px', fontSize:12, border:'1px solid var(--line)', borderRadius:6, width:230, fontFamily:'inherit'}} />
+                {targetSearch && (
+                  <button onClick={() => setTargetSearch('')} title="清空"
+                    style={{position:'absolute', right:6, top:'50%', transform:'translateY(-50%)', border:'none', background:'transparent', cursor:'pointer', color:'var(--ink-4)', fontSize:14, padding:'0 4px', lineHeight:1}}>×</button>
+                )}
+              </div>
             </div>
             <div style={{display:'flex', flexWrap:'wrap', gap:6, marginBottom:12}}>
-              {candidateEmployees.filter(e => e.id !== fromUserId).map(emp => {
+              {targetFiltered.length === 0 ? (
+                <div style={{fontSize:12, color:'var(--ink-4)', padding:'8px 0'}}>无匹配员工 · 试试别的关键字</div>
+              ) : targetFiltered.map(emp => {
                 const workload = records.filter(r => r.ownerId === emp.id && !r.deleted && r.status !== 'resolved').length;
                 const isSelected = targetUserId === emp.id;
                 return (
