@@ -133,7 +133,7 @@ const CH_HEADERS=[...CH_BASE,...chProd(),'运单备注'];
 function buildChanghuiRow(t){
   const a=t.address||{}; const row=new Array(CH_HEADERS.length).fill('');
   const totalQty=t.items.reduce((s,it)=>s+(parseInt(it.quantity)||1),0);  // 🆕 fix88: 个数 = 整单数量总和
-  row[0]=t.carrierRef||t.orderNumber; row[1]=t.channel||''; row[2]=a.country_code||a.country||'US';
+  row[0]=t.orderNumber||t.carrierRef; row[1]=t.channel||''; row[2]=a.country_code||a.country||'US';  // 🆕 fix89: 客户订单号以我们的订单号(MH4490)为准
   row[3]=t.packageCount||''; row[4]=t.weight||'';
   row[6]=a.name||t.customerName||''; row[7]=a.province||''; row[8]=a.city||'';
   row[9]={v:a.zip||'',t:'s'}; row[10]=[a.address1,a.address2].filter(Boolean).join(' ');
@@ -141,7 +141,8 @@ function buildChanghuiRow(t){
   t.items.slice(0,5).forEach((it,bi)=>{ const first=bi===0; const start=16+(first?0:12+(bi-1)*11); let c=start; const qty=parseInt(it.quantity)||1;
     row[c++]=it.lampEn; row[c++]=it.lampCn; row[c++]=DECLARE.unitPriceEach*qty; row[c++]=qty; row[c++]=''; row[c++]=it.hs||'9405100000'; row[c++]=''; row[c++]=''; row[c++]=it.material||'Plastic + metal'; if(first)row[c++]=totalQty; row[c++]=''; row[c++]=DECLARE.usage; });
   // 🆕 fix88: 北简对单用「客户参考号」作客户订单号时,把我们的订单号(MH4490)写进运单备注
-  row[row.length-1]=[t.carrierRef?t.orderNumber:'', t.prepNote].filter(Boolean).join(' · ');
+  // 🆕 fix89: MH4490 已在客户订单号[0],运单备注只放北简备注(如超长/超重)
+  row[row.length-1]=t.prepNote||'';
   return row;
 }
 const COURIERS={ changhui:{name:'昌晖',headers:CH_HEADERS,build:buildChanghuiRow} };
@@ -377,7 +378,7 @@ function MakeInvoice(){
       <div className="card" style={{border:'1.5px dashed #0071e3',background:'#f5faff'}}>
         <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
           <strong style={{fontSize:15}}>📤 批量建票 · 上传订单表</strong>
-          <span className="muted" style={{flex:1,minWidth:220}}>上传北简表(已手填「订单编号」如 MH4490)→ 按订单号查库自动建票:地址 / 品名 / 申报全自动;渠道 / 总件数 / 收货结算重 / 备注 取自北简表。昌晖「客户订单号」用客户参考号,我们的订单号写进运单备注。</span>
+          <span className="muted" style={{flex:1,minWidth:220}}>上传北简表(已手填「订单编号」如 MH4490)→ 按订单号查库自动建票:地址 / 品名 / 申报全自动;渠道 / 总件数 / 收货结算重 / 备注 取自北简表。昌晖「客户订单号」= 我们的订单号(MH4490)。</span>
           <button className="btn-pri btn" onClick={()=>importRef.current?.click()} disabled={importing} style={{whiteSpace:'nowrap'}}>{importing?'⏳ 建票中…':'📂 选择订单表'}</button>
           <input ref={importRef} type="file" accept=".xls,.xlsx,.csv" style={{display:'none'}} onChange={e=>{if(e.target.files[0])importOrderSheet(e.target.files[0]);e.target.value='';}}/>
         </div>
