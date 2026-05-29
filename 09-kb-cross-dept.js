@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 运费 + 快递发票 + 跨部门 · fix28-76
-// APP_VERSION: 2026.05.27-fix76
+// 📚 知识库 + 自定义布局拖拽(fix77) + 运费 + 快递发票 + 跨部门 · fix28-77
+// APP_VERSION: 2026.05.27-fix77
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -999,6 +999,41 @@ const LayoutCustomizeModal = ({ allTabs, layoutPrefs, defaultTopKeys, onSave, on
   
   const reset = () => { setTopKeys(defaultTopKeys); setSidebarOrder([]); };
   const save = () => { onSave({ topKeys, sidebarOrder }); onClose(); };
+
+  // 🆕 fix77: HTML5 拖拽 — 上下拖动调整位置
+  const [dragKey, setDragKey] = useState(null);
+  const reorderTop = (src, target) => {
+    if (!src || src === target) return;
+    setTopKeys(prev => {
+      const without = prev.filter(k => k !== src);
+      const ti = without.indexOf(target);
+      if (ti === -1) return prev;
+      const next = [...without.slice(0, ti), src, ...without.slice(ti)];
+      return next;
+    });
+  };
+  const reorderOther = (src, target, group) => {
+    if (!src || src === target) return;
+    const groupKeys = otherItemsByGroup[group]?.map(t => t.key) || [];
+    const without = groupKeys.filter(k => k !== src);
+    const ti = without.indexOf(target);
+    if (ti === -1) return;
+    const newGroupKeys = [...without.slice(0, ti), src, ...without.slice(ti)];
+    const all = [];
+    ['main','resources','collab','admin'].forEach(g => {
+      if (g === group) all.push(...newGroupKeys);
+      else all.push(...otherItems.filter(t => t.group === g).map(t => t.key));
+    });
+    setSidebarOrder(all);
+  };
+  const dragRowProps = (key, onDropFn) => ({
+    draggable: true,
+    onDragStart: (e) => { setDragKey(key); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', key); },
+    onDragOver: (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; },
+    onDrop: (e) => { e.preventDefault(); const src = dragKey || e.dataTransfer.getData('text/plain'); if (src && src !== key) onDropFn(src, key); setDragKey(null); },
+    onDragEnd: () => setDragKey(null),
+    style: { cursor: 'grab', userSelect: 'none' },
+  });
   
   // 当前选中的(按顺序) + 未选中的(按分组)
   const topItems = topKeys.map(k => allTabs.find(t => t.key === k)).filter(Boolean);
@@ -1047,7 +1082,7 @@ const LayoutCustomizeModal = ({ allTabs, layoutPrefs, defaultTopKeys, onSave, on
         <div style={{padding: '18px 22px', overflowY: 'auto', flex: 1}}>
           <div style={{padding: '10px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, fontSize: 12, color: '#1e40af', marginBottom: 14, lineHeight: 1.6}}>
             💡 选中的功能"钉"在<strong>顶部导航栏</strong>(日常切换最快) — 未选中的会出现在<strong>左侧侧边栏</strong>(按分组分类)。<br/>
-            建议顶部放 <strong>3~6 个</strong>最常用的,过多会拥挤。
+            🖱 <strong>抓住每行左侧的 ⋮⋮ 上下拖动</strong>调整位置 · 建议顶部放 <strong>3~6 个</strong>最常用的,过多会拥挤。
           </div>
           
           {/* 顶部已钉 */}
@@ -1064,19 +1099,20 @@ const LayoutCustomizeModal = ({ allTabs, layoutPrefs, defaultTopKeys, onSave, on
             </div>
           ) : (
             <div style={{display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 16}}>
-              {topItems.map((t, i) => (
-                <div key={t.key} style={{padding: '7px 10px', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 6}}>
+              {topItems.map((t, i) => {
+                const drag = dragRowProps(t.key, reorderTop);
+                const isDragging = dragKey === t.key;
+                return (
+                <div key={t.key} {...drag}
+                  style={{padding: '7px 10px', background: 'var(--accent-soft)', border: '1px solid var(--accent)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 6, opacity: isDragging ? 0.35 : 1, ...drag.style}}>
+                  <span title="拖动调整顺序" style={{color: 'var(--accent)', fontSize: 14, lineHeight: 1, cursor: 'grab', padding: '0 3px'}}>⋮⋮</span>
                   <span style={{fontSize: 11, color: 'var(--accent)', fontWeight: 600, width: 18, textAlign: 'center'}}>{i + 1}</span>
                   <span style={{fontSize: 15, lineHeight: 1}}>{t.icon}</span>
                   <span style={{flex: 1, fontSize: 13, color: 'var(--accent)', fontWeight: 600}}>{t.label.replace(/^.\s*/, '').trim()}</span>
-                  <button onClick={() => moveUp(t.key)} disabled={i === 0} title="上移"
-                    style={{padding: '2px 7px', background: 'white', border: '1px solid var(--line)', borderRadius: 4, cursor: i === 0 ? 'not-allowed' : 'pointer', fontSize: 11, opacity: i === 0 ? 0.4 : 1, fontFamily: 'inherit'}}>↑</button>
-                  <button onClick={() => moveDown(t.key)} disabled={i === topItems.length - 1} title="下移"
-                    style={{padding: '2px 7px', background: 'white', border: '1px solid var(--line)', borderRadius: 4, cursor: i === topItems.length - 1 ? 'not-allowed' : 'pointer', fontSize: 11, opacity: i === topItems.length - 1 ? 0.4 : 1, fontFamily: 'inherit'}}>↓</button>
                   <button onClick={() => toggleTop(t.key)} title="移回侧边栏"
                     style={{padding: '2px 9px', background: 'white', border: '1px solid var(--line)', borderRadius: 4, cursor: 'pointer', fontSize: 11, color: 'var(--ink-3)', fontFamily: 'inherit'}}>↗ 移走</button>
-                </div>
-              ))}
+                </div>);
+              })}
             </div>
           )}
           
@@ -1091,21 +1127,19 @@ const LayoutCustomizeModal = ({ allTabs, layoutPrefs, defaultTopKeys, onSave, on
               <div key={grp} style={{marginBottom: 10}}>
                 <div style={{fontSize: 10, fontWeight: 700, color: 'var(--ink-4)', marginBottom: 4, paddingLeft: 2, letterSpacing: '.5px'}}>{groupTitles[grp]}</div>
                 <div style={{display: 'flex', flexDirection: 'column', gap: 3}}>
-                  {items.map((t, idx) => (
-                    <div key={t.key} style={{padding: '7px 10px', background: 'white', border: '1px solid var(--line)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 8}}>
+                  {items.map((t, idx) => {
+                    const drag = dragRowProps(t.key, (s, target) => reorderOther(s, target, grp));
+                    const isDragging = dragKey === t.key;
+                    return (
+                    <div key={t.key} {...drag}
+                      style={{padding: '7px 10px', background: 'white', border: '1px solid var(--line)', borderRadius: 7, display: 'flex', alignItems: 'center', gap: 8, opacity: isDragging ? 0.35 : 1, ...drag.style}}>
+                      <span title="拖动调整顺序" style={{color: 'var(--ink-4)', fontSize: 14, lineHeight: 1, cursor: 'grab', padding: '0 3px'}}>⋮⋮</span>
                       <span style={{fontSize: 15, lineHeight: 1}}>{t.icon}</span>
                       <span style={{flex: 1, fontSize: 13, color: 'var(--ink)'}}>{t.label.replace(/^.\s*/, '').trim()}</span>
-                      {/* 🆕 fix28: 组内 ↑↓ 排序 */}
-                      <button onClick={() => moveOtherUp(t.key, grp)} disabled={idx === 0}
-                        title="上移" 
-                        style={{padding:'3px 7px', background: idx === 0 ? '#f5f5f7' : 'white', color: idx === 0 ? 'var(--ink-4)' : 'var(--ink-2)', border:'1px solid var(--line)', borderRadius:4, cursor: idx === 0 ? 'not-allowed' : 'pointer', fontSize:11, fontFamily:'inherit'}}>↑</button>
-                      <button onClick={() => moveOtherDown(t.key, grp)} disabled={idx === items.length - 1}
-                        title="下移"
-                        style={{padding:'3px 7px', background: idx === items.length - 1 ? '#f5f5f7' : 'white', color: idx === items.length - 1 ? 'var(--ink-4)' : 'var(--ink-2)', border:'1px solid var(--line)', borderRadius:4, cursor: idx === items.length - 1 ? 'not-allowed' : 'pointer', fontSize:11, fontFamily:'inherit'}}>↓</button>
                       <button onClick={() => toggleTop(t.key)}
                         style={{padding: '4px 10px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit', fontWeight: 600}}>📌 钉到顶部</button>
-                    </div>
-                  ))}
+                    </div>);
+                  })}
                 </div>
               </div>
             );
