@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-93
-// APP_VERSION: 2026.05.29-fix93
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-94
+// APP_VERSION: 2026.05.29-fix94
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -1969,6 +1969,8 @@ const AdminOverviewDashboard = ({ user, employees, toast }) => {
   const [data, setData] = useState({ chargebacks:[], offlineOrders:[], customInquiries:[], photoVerif:[], aftersales:[], refills:[], refunds:[], reviews:[], records:[], deleteReqs:[] });
   const [loading, setLoading] = useState(true);
   const [filterEmployee, setFilterEmployee] = useState('all');
+  const [drill, setDrill] = useState(null);  // 🆕 fix94: 点统计卡看明细 { title, rows }
+  const openDrill = (title, rows) => setDrill({ title, rows: rows || [] });
   
   const load = async () => {
     setLoading(true);
@@ -2052,6 +2054,25 @@ const AdminOverviewDashboard = ({ user, employees, toast }) => {
     };
   }, [data, filterEmployee]);
   
+  // 🆕 fix94: 各统计卡对应的明细列表(点卡片弹窗用)
+  const drillLists = useMemo(() => {
+    const cb = filterByEmployee(data.chargebacks);
+    const cbActive = cb.filter(c => !['won','lost','closed'].includes(c.status));
+    const cbUrgent = cbActive.filter(c => { const u = getChargebackUrgency(c); return u && ['overdue','today','critical','urgent'].includes(u.level); });
+    const oo = filterByEmployee(data.offlineOrders);
+    const ci = filterByEmployee(data.customInquiries); const ciActive = ci.filter(c => !['completed','cancelled'].includes(c.stage));
+    const pv = filterByEmployee(data.photoVerif); const pvPending = pv.filter(p => !['accepted','rejected','replaced'].includes(p.status));
+    const af = filterByEmployee(data.aftersales);
+    const rf = filterByEmployee(data.refills);
+    const rfd = filterByEmployee(data.refunds); const rfdPending = rfd.filter(r => r.status === 'pending');
+    const reviews = filterByEmployee(data.reviews, ['created_by','claimed_by']); const reviewsActive = reviews.filter(r => !['completed','cancelled'].includes(r.status));
+    const records = filterByEmployee(data.records, ['ownerId']);
+    const today = new Date().toISOString().slice(0,10);
+    const recordsOverdue = records.filter(r => r.status !== 'resolved' && r.nextFollowUp && r.nextFollowUp < today);
+    const drPending = data.deleteReqs.filter(r => r.status === 'pending');
+    return { cbActive, cbUrgent, oo, ciActive, pvPending, af, rf, rfd, rfdPending, reviews, reviewsActive, records, recordsOverdue, drPending };
+  }, [data, filterEmployee]);
+
   if (loading) return <div className="paper rounded-2xl p-12" style={{textAlign:'center'}}>⏳ 加载中...</div>;
   
   const StatCard = ({ icon, title, value, color, sub, onClick }) => (
@@ -2103,33 +2124,33 @@ const AdminOverviewDashboard = ({ user, employees, toast }) => {
         <div className="paper rounded-2xl p-4" style={{background:'linear-gradient(90deg, #fef2f2 0%, #fed7aa 100%)', border:'2px solid #f87171'}}>
           <div className="font-display" style={{fontSize:15, fontWeight:700, color:'#991b1b', marginBottom:10}}>🔥 紧急关注</div>
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:10}}>
-            {stats.chargebacks.urgent > 0 && <StatCard icon="🚨" title="紧急拒付" value={stats.chargebacks.urgent} color="#dc2626" sub="7 天内截止 / 已逾期" />}
-            {stats.refunds.pending > 0 && <StatCard icon="💰" title="待审退款" value={stats.refunds.pending} color="#d97706" sub="财务审核中" />}
-            {stats.followups.overdue > 0 && <StatCard icon="⏰" title="跟进逾期" value={stats.followups.overdue} color="#dc2626" sub="未处理客户跟进" />}
-            {stats.deleteReqs.pending > 0 && <StatCard icon="🛡" title="待审删除" value={stats.deleteReqs.pending} color="#7c3aed" sub="员工的删除申请" />}
+            {stats.chargebacks.urgent > 0 && <StatCard icon="🚨" title="紧急拒付" value={stats.chargebacks.urgent} color="#dc2626" sub="7 天内截止 / 已逾期" onClick={() => openDrill('紧急拒付', drillLists.cbUrgent)} />}
+            {stats.refunds.pending > 0 && <StatCard icon="💰" title="待审退款" value={stats.refunds.pending} color="#d97706" sub="财务审核中" onClick={() => openDrill('待审退款', drillLists.rfdPending)} />}
+            {stats.followups.overdue > 0 && <StatCard icon="⏰" title="跟进逾期" value={stats.followups.overdue} color="#dc2626" sub="未处理客户跟进" onClick={() => openDrill('跟进逾期', drillLists.recordsOverdue)} />}
+            {stats.deleteReqs.pending > 0 && <StatCard icon="🛡" title="待审删除" value={stats.deleteReqs.pending} color="#7c3aed" sub="员工的删除申请" onClick={() => openDrill('待审删除', drillLists.drPending)} />}
           </div>
         </div>
       )}
       
       {/* 主业务模块 */}
       <div className="paper rounded-2xl p-4">
-        <div className="font-display" style={{fontSize:15, fontWeight:600, marginBottom:10}}>📦 业务模块</div>
+        <div className="font-display" style={{fontSize:15, fontWeight:600, marginBottom:10}}>📦 业务模块 <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:400}}>· 点卡片看明细</span></div>
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:10}}>
-          <StatCard icon="📞" title="客服跟进" value={stats.followups.total} color="#5e5ce6" 
+          <StatCard icon="📞" title="客服跟进" value={stats.followups.total} color="#5e5ce6" onClick={() => openDrill('客服跟进', drillLists.records)}
             sub={`今日 ${stats.followups.today} · 逾期 ${stats.followups.overdue}`} />
-          <StatCard icon="🚨" title="拒付管理" value={stats.chargebacks.active} color="#dc2626"
+          <StatCard icon="🚨" title="拒付管理" value={stats.chargebacks.active} color="#dc2626" onClick={() => openDrill('拒付管理(进行中)', drillLists.cbActive)}
             sub={`总 ${stats.chargebacks.total} · 胜诉 ${stats.chargebacks.won} · 败诉 ${stats.chargebacks.lost}`} />
-          <StatCard icon="💳" title="线下单" value={stats.offline.total} color="#0369a1"
+          <StatCard icon="💳" title="线下单" value={stats.offline.total} color="#0369a1" onClick={() => openDrill('线下单', drillLists.oo)}
             sub={`已收款 $${stats.offline.amount}`} />
-          <StatCard icon="🎨" title="定制咨询" value={stats.custom.active} color="#7c3aed"
+          <StatCard icon="🎨" title="定制咨询" value={stats.custom.active} color="#7c3aed" onClick={() => openDrill('定制咨询(进行中)', drillLists.ciActive)}
             sub={`生产/付款中 ${stats.custom.paid} · 总 ${stats.custom.total}`} />
-          <StatCard icon="📸" title="实拍核实" value={stats.photo.pending} color="#be185d"
+          <StatCard icon="📸" title="实拍核实" value={stats.photo.pending} color="#be185d" onClick={() => openDrill('实拍核实(待处理)', drillLists.pvPending)}
             sub={`待联系 · 总 ${stats.photo.total}`} />
-          <StatCard icon="🔧" title="售后" value={stats.aftersales.total} color="#ea580c" sub="历史 + 进行中" />
-          <StatCard icon="📦" title="补件" value={stats.refills.total} color="#0891b2" sub="历史 + 进行中" />
-          <StatCard icon="💰" title="退款" value={stats.refunds.total} color="#d97706" 
+          <StatCard icon="🔧" title="售后" value={stats.aftersales.total} color="#ea580c" sub="历史 + 进行中" onClick={() => openDrill('售后', drillLists.af)} />
+          <StatCard icon="📦" title="补件" value={stats.refills.total} color="#0891b2" sub="历史 + 进行中" onClick={() => openDrill('补件', drillLists.rf)} />
+          <StatCard icon="💰" title="退款" value={stats.refunds.total} color="#d97706" onClick={() => openDrill('退款', drillLists.rfd)}
             sub={`待审 ${stats.refunds.pending}`} />
-          <StatCard icon="⭐" title="产品评价" value={stats.reviews.active} color="#fbbf24"
+          <StatCard icon="⭐" title="产品评价" value={stats.reviews.active} color="#fbbf24" onClick={() => openDrill('产品评价(进行中)', drillLists.reviewsActive)}
             sub={`总 ${stats.reviews.total}`} />
         </div>
       </div>
@@ -2177,6 +2198,45 @@ const AdminOverviewDashboard = ({ user, employees, toast }) => {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 fix94: 统计卡明细弹窗 — 点任意统计卡看具体记录 */}
+      {drill && (
+        <div onClick={() => setDrill(null)} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.4)', zIndex:1000, display:'flex', alignItems:'flex-start', justifyContent:'center', padding:'6vh 16px', overflowY:'auto'}}>
+          <div onClick={e => e.stopPropagation()} style={{background:'white', borderRadius:14, maxWidth:760, width:'100%', maxHeight:'84vh', overflowY:'auto', padding:18}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+              <div className="font-display" style={{fontSize:16, fontWeight:600}}>{drill.title} · {drill.rows.length} 条</div>
+              <button onClick={() => setDrill(null)} className="btn-sec" style={{padding:'4px 12px', fontSize:12}}>关闭</button>
+            </div>
+            {drill.rows.length === 0 ? (
+              <div style={{padding:28, textAlign:'center', color:'var(--ink-3)', fontSize:13}}>暂无记录</div>
+            ) : (
+              <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                {drill.rows.map((r, i) => {
+                  const ref = r.order_ref || r.orderRef || r.pi_no || r.product_name || r.customer || r.buyer_email || r.id || '-';
+                  const cust = r.customer || r.customer_name || r.buyer_email || r.email || '';
+                  const st = r.status || r.stage || '';
+                  const amt = r.amount || r.payment_amount || r.refund_amount || '';
+                  const date = String(r.created_at || r.date || r.createdAt || '').slice(0, 10);
+                  const note = r.note || r.reason || r.issue_detail || r.notes || '';
+                  return (
+                    <div key={r.id || i} style={{border:'1px solid var(--line)', borderRadius:10, padding:'10px 12px', fontSize:12, lineHeight:1.6}}>
+                      <div style={{display:'flex', gap:8, flexWrap:'wrap', alignItems:'center'}}>
+                        <strong>{String(ref)}</strong>
+                        {cust && <span style={{color:'var(--ink-2)'}}>· {cust}</span>}
+                        {st && <span style={{padding:'1px 7px', background:'var(--bg-elevated)', borderRadius:6, fontSize:11}}>{String(st)}</span>}
+                        {amt && <span style={{color:'#0369a1', fontWeight:600}}>${amt}</span>}
+                        <div style={{flex:1}}/>
+                        {date && <span style={{color:'var(--ink-3)', fontSize:11}}>{date}</span>}
+                      </div>
+                      {note && <div style={{color:'var(--ink-2)', marginTop:4, whiteSpace:'pre-wrap', maxHeight:64, overflow:'hidden'}}>{String(note).slice(0, 220)}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

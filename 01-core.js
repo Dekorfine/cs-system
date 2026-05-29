@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-93
-// APP_VERSION: 2026.05.29-fix93
+// 🧱 核心 · fix28-94
+// APP_VERSION: 2026.05.29-fix94
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
