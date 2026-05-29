@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板深度版(fix78) + 回收站 · fix28-79
-// APP_VERSION: 2026.05.27-fix79
+// 📈 数据看板深度版 + KPI 可点击(fix80)+ 回收站 · fix28-80
+// APP_VERSION: 2026.05.27-fix80
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -242,6 +242,7 @@ const DashboardModule = ({ user, employees, records }) => {
   const [expandedEmp, setExpandedEmp] = useState(null);
   const [unresolvedFilter, setUnresolvedFilter] = useState({ owner:'all', cat:'all', site:'all', status:'all', overdueOnly:false, noFollowOnly:false });
   const [detailRecord, setDetailRecord] = useState(null);
+  const [kpiDetail, setKpiDetail] = useState(null);  // 🆕 fix80: KPI 卡详情弹窗
   
   // ========== 独立模块数据加载 ==========
   const [extra, setExtra] = useState({ chargebacks:[], offlineOrders:[], customInquiries:[], photoVerif:[] });
@@ -472,27 +473,33 @@ const DashboardModule = ({ user, employees, records }) => {
         </div>
       </div>
       
-      {/* ② 6 张概览卡 */}
+      {/* ② 6 张概览卡 — 全部可点击查看详情 */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
         <KpiCard title="📧 处理总数" value={totalCount}
           sub={diffPct !== null ? `${diffPct >= 0 ? '↑' : '↓'} ${Math.abs(diffPct)}% vs 上期` : '上期无数据'}
           subColor={diffPct === null ? 'var(--ink-4)' : (diffPct >= 0 ? 'var(--good)' : 'var(--bad)')}
-          accent="var(--accent)" />
+          accent="var(--accent)"
+          onClick={totalCount > 0 ? () => setKpiDetail({ type:'records', title:'📧 处理总数', records: periodRecords, accent:'var(--accent)' }) : undefined} />
         <KpiCard title="✅ 已解决" value={resolved.length}
           sub={totalCount > 0 ? `${Math.round(resolved.length / totalCount * 100)}% 解决率` : '—'}
-          accent="var(--good)" />
+          accent="var(--good)"
+          onClick={resolved.length > 0 ? () => setKpiDetail({ type:'records', title:'✅ 已解决', records: resolved, accent:'var(--good)' }) : undefined} />
         <KpiCard title="⏳ 未解决" value={unresolved.length}
           sub={overdue.length > 0 ? `🔴 ${overdue.length} 已超期` : (noFollowUpSet.length > 0 ? `🟡 ${noFollowUpSet.length} 未设跟进` : '✓ 状态正常')}
           subColor={overdue.length > 0 ? 'var(--bad)' : (noFollowUpSet.length > 0 ? 'var(--warn)' : 'var(--ink-4)')}
-          accent="var(--warn)" highlight={overdue.length > 0} />
+          accent="var(--warn)" highlight={overdue.length > 0}
+          onClick={unresolved.length > 0 ? () => setKpiDetail({ type:'records', title:'⏳ 未解决', records: unresolved, accent:'var(--warn)' }) : undefined} />
         <KpiCard title="👥 活跃客服" value={activeEmps}
-          sub={`/ ${employees.length} 总人数`} accent="#5e5ce6" />
+          sub={`/ ${employees.length} 总人数`} accent="#5e5ce6"
+          onClick={activeEmps > 0 ? () => setKpiDetail({ type:'employees', title:'👥 活跃客服', records: empStats.filter(e => e.total > 0), accent:'#5e5ce6' }) : undefined} />
         <KpiCard title="🚨 拒付待处理" value={cbActive.length}
           sub={cbInRange.length > 0 ? `本期新增 ${cbInRange.length}` : '本期无新增'}
-          accent="var(--bad)" highlight={cbActive.length > 5} />
+          accent="var(--bad)" highlight={cbActive.length > 5}
+          onClick={cbActive.length > 0 ? () => setKpiDetail({ type:'chargebacks', title:'🚨 拒付待处理', records: cbActive, accent:'var(--bad)' }) : undefined} />
         <KpiCard title="💳 工单待处理" value={ooActive.length + ciActive.length + pvPending.length}
           sub={`线下 ${ooActive.length} · 定制 ${ciActive.length} · 实拍 ${pvPending.length}`}
-          accent="#af52de" />
+          accent="#af52de"
+          onClick={(ooActive.length + ciActive.length + pvPending.length) > 0 ? () => setKpiDetail({ type:'tickets', title:'💳 工单待处理', tickets: { offline: ooActive, custom: ciActive, photo: pvPending }, accent:'#af52de' }) : undefined} />
       </div>
       
       {/* ③ 三个分布(并排) */}
@@ -533,21 +540,40 @@ const DashboardModule = ({ user, employees, records }) => {
       {detailRecord && (
         <RecordDetailModal record={detailRecord} employees={employees} onClose={() => setDetailRecord(null)} />
       )}
+      
+      {/* 🆕 fix80: KPI 卡详情弹窗 */}
+      {kpiDetail && (
+        <KpiDetailModal kpi={kpiDetail} employees={employees}
+          onClose={() => setKpiDetail(null)}
+          onClickRecord={(r) => { setKpiDetail(null); setDetailRecord(r); }} />
+      )}
     </div>
   );
 };
 
 // ============================================================
-// KPI 卡片
+// KPI 卡片(可点击展开详情)
 // ============================================================
-const KpiCard = ({ title, value, sub, subColor, accent, highlight }) => (
-  <div className="paper rounded-2xl p-4" style={{
+const KpiCard = ({ title, value, sub, subColor, accent, highlight, onClick }) => (
+  <div onClick={onClick} className={onClick ? 'kpi-clickable' : ''} style={{
+    background:'white', border:'1px solid var(--line)', borderRadius:16, padding:'14px 16px',
     borderLeft: `4px solid ${accent}`,
-    boxShadow: highlight ? `0 0 0 2px ${accent}33` : undefined,
-  }}>
+    boxShadow: highlight ? `0 0 0 2px ${accent}33` : '0 1px 2px rgba(0,0,0,.03)',
+    cursor: onClick ? 'pointer' : 'default',
+    transition: 'all .15s',
+    position: 'relative',
+  }}
+    onMouseEnter={onClick ? (e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 4px 12px rgba(0,0,0,.08), 0 0 0 1px ${accent}44`; } : undefined}
+    onMouseLeave={onClick ? (e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = highlight ? `0 0 0 2px ${accent}33` : '0 1px 2px rgba(0,0,0,.03)'; } : undefined}
+  >
     <div className="text-[11px] font-bold" style={{color:'var(--ink-3)'}}>{title}</div>
     <div className="font-mono font-bold text-3xl tabular-nums mt-1" style={{color: accent}}>{value}</div>
     <div className="text-[10px] mt-1" style={{color: subColor || 'var(--ink-4)'}}>{sub}</div>
+    {onClick && value > 0 && (
+      <div style={{position:'absolute', top:10, right:10, fontSize:10, color:'var(--ink-4)', opacity:.6}}>
+        点击查看 →
+      </div>
+    )}
   </div>
 );
 
@@ -976,6 +1002,302 @@ const ModuleIntegrationPanel = ({ chargebacks, chargebacksInRange, offlineOrders
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ============================================================
+// 🆕 fix80: KPI 卡详情弹窗 — 4 种类型(records/employees/chargebacks/tickets)
+// ============================================================
+const KpiDetailModal = ({ kpi, employees, onClose, onClickRecord }) => {
+  const [search, setSearch] = useState('');
+  const today = todayISO();
+  
+  // 通用筛选
+  const filterBySearch = (items, getText) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter(it => getText(it).toLowerCase().includes(q));
+  };
+  
+  const empName = (id) => employees.find(e => e.id === id)?.name || '?';
+  
+  return (
+    <div onClick={onClose} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:1100,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'white', borderRadius:16, maxWidth:1000, width:'100%',
+        maxHeight:'88vh', display:'flex', flexDirection:'column',
+        boxShadow:'0 24px 60px rgba(0,0,0,.25)', overflow:'hidden',
+      }}>
+        {/* 头部 */}
+        <div style={{padding:'18px 24px', borderBottom:'1px solid var(--line)', display:'flex', alignItems:'center', gap:12, borderLeft:`6px solid ${kpi.accent}`}}>
+          <div className="font-display" style={{fontSize:18, fontWeight:600}}>{kpi.title}</div>
+          <span className="font-mono font-bold" style={{fontSize:24, color: kpi.accent}}>
+            {kpi.type === 'tickets' ? (kpi.tickets.offline.length + kpi.tickets.custom.length + kpi.tickets.photo.length) : (kpi.records?.length || 0)}
+          </span>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="🔍 搜索客户 / 订单号 / 备注..."
+            style={{flex:1, marginLeft:12, padding:'6px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit'}} />
+          <button onClick={onClose} className="btn-sec" style={{padding:'5px 14px'}}>✕ 关闭</button>
+        </div>
+        
+        {/* 内容 — 根据 type 渲染 */}
+        <div style={{flex:1, overflowY:'auto', padding:'12px 0'}}>
+          {kpi.type === 'records' && (
+            <KpiRecordsTable records={filterBySearch(kpi.records, r => `${r.customer||''} ${r.orderRef||''} ${r.note||''} ${r.category||''}`)}
+              employees={employees} onClickRecord={onClickRecord} today={today} />
+          )}
+          {kpi.type === 'employees' && (
+            <KpiEmployeesTable items={filterBySearch(kpi.records, e => `${e.name||''} ${e.alias||''}`)}
+              onClickRecord={onClickRecord} />
+          )}
+          {kpi.type === 'chargebacks' && (
+            <KpiChargebacksTable records={filterBySearch(kpi.records, c => `${c.customer_name||''} ${c.customer_email||''} ${c.order_no||''} ${c.notes||''}`)}
+              empName={empName} />
+          )}
+          {kpi.type === 'tickets' && (
+            <KpiTicketsTable tickets={kpi.tickets}
+              search={search} empName={empName} />
+          )}
+        </div>
+        
+        {/* 底部提示 */}
+        <div style={{padding:'10px 24px', borderTop:'1px solid var(--line)', background:'var(--bg-soft)', fontSize:11, color:'var(--ink-3)'}}>
+          💡 点击任意行查看完整内容 · ESC 关闭
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 客服记录表(records 类型)
+const KpiRecordsTable = ({ records, employees, onClickRecord, today }) => {
+  if (records.length === 0) return <div style={{textAlign:'center', padding:60, color:'var(--ink-4)', fontSize:13}}>无匹配记录</div>;
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>客户</th>
+          <th>网站</th>
+          <th>订单号</th>
+          <th>分类</th>
+          <th>客服</th>
+          <th>状态</th>
+          <th>日期</th>
+          <th>跟进日</th>
+        </tr>
+      </thead>
+      <tbody>
+        {records.slice(0, 300).map(r => {
+          const emp = employees.find(e => e.id === r.ownerId);
+          const isOverdue = r.nextFollowUp && r.nextFollowUp < today;
+          return (
+            <tr key={r.id} onClick={() => onClickRecord(r)} style={{cursor:'pointer'}}
+              onMouseEnter={e => e.currentTarget.style.background='var(--accent-soft)'}
+              onMouseLeave={e => e.currentTarget.style.background=''}>
+              <td className="text-[12px]">{r.customer || <span style={{color:'var(--ink-4)'}}>—</span>}</td>
+              <td><span className="text-[10px] px-1.5 py-0.5 rounded" style={{background:'var(--bg-elevated)'}}>{r.site || '—'}</span></td>
+              <td className="text-[11px] font-mono" style={{color:'var(--ink-3)'}}>{r.orderRef || '—'}</td>
+              <td className="text-[11px]">{r.category || '—'}</td>
+              <td className="text-[11px]">{emp ? emp.name : '—'}</td>
+              <td><StatusTag status={r.status} /></td>
+              <td className="text-[10px]" style={{color:'var(--ink-4)'}}>{r.date}</td>
+              <td>
+                {!r.nextFollowUp ? (
+                  <span className="text-[10px] font-bold" style={{color:'#b45309'}}>🟡 未设</span>
+                ) : (
+                  <span className="text-[10px] font-mono" style={{color: isOverdue ? 'var(--bad)' : 'var(--ink-3)', fontWeight: isOverdue ? 600 : 400}}>
+                    {isOverdue && '🔴 '}{r.nextFollowUp}
+                  </span>
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+};
+
+// 活跃客服表
+const KpiEmployeesTable = ({ items, onClickRecord }) => {
+  const [expanded, setExpanded] = useState(null);
+  if (items.length === 0) return <div style={{textAlign:'center', padding:60, color:'var(--ink-4)', fontSize:13}}>无活跃客服</div>;
+  return (
+    <div style={{padding:'0 24px'}}>
+      {items.map((e, idx) => {
+        const isOpen = expanded === e.id;
+        return (
+          <div key={e.id} style={{borderBottom:'1px solid var(--line-soft)', padding:'10px 4px'}}>
+            <div onClick={() => setExpanded(isOpen ? null : e.id)}
+              style={{display:'flex', alignItems:'center', gap:12, cursor:'pointer'}}>
+              <span className="font-mono text-[11px] font-bold" style={{color: idx<3?'var(--gold)':'var(--ink-4)', width:24}}>#{idx+1}</span>
+              <div style={{flex:1}}>
+                <div className="text-[13px] font-bold">{e.name}{e.alias?` · ${e.alias}`:''}</div>
+                <div className="text-[11px] flex gap-2" style={{color:'var(--ink-3)'}}>
+                  <span>📧 处理 <b>{e.total}</b></span>
+                  <span style={{color:'var(--good)'}}>✓ {e.resolved}</span>
+                  {e.unresolved > 0 && <span style={{color:'var(--warn)'}}>⏳ {e.unresolved}</span>}
+                  {e.overdue > 0 && <span style={{color:'var(--bad)'}}>🔴 {e.overdue}</span>}
+                  {e.noFollow > 0 && <span style={{color:'#b45309'}}>🟡 {e.noFollow}</span>}
+                  <span>· 时长 {fmtDuration(e.mins)}</span>
+                </div>
+              </div>
+              <span style={{color:'var(--ink-4)'}}>{isOpen ? '▾' : '▸'}</span>
+            </div>
+            {isOpen && (
+              <div style={{marginTop:8, paddingLeft:36, maxHeight:280, overflowY:'auto'}}>
+                {e.records.map(r => (
+                  <div key={r.id} onClick={() => onClickRecord(r)}
+                    style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px', borderRadius:6, cursor:'pointer', fontSize:11, borderBottom:'1px solid var(--line-soft)'}}
+                    onMouseEnter={ev => ev.currentTarget.style.background='var(--accent-soft)'}
+                    onMouseLeave={ev => ev.currentTarget.style.background=''}>
+                    <span className="font-bold">{r.customer || '(无客户)'}</span>
+                    <span style={{color:'var(--ink-3)'}}>{r.orderRef || ''}</span>
+                    <span style={{background:'var(--bg-elevated)', padding:'1px 6px', borderRadius:4, fontSize:10}}>{r.category}</span>
+                    <div style={{flex:1}}/>
+                    <StatusTag status={r.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// 拒付表
+const KpiChargebacksTable = ({ records, empName }) => {
+  if (records.length === 0) return <div style={{textAlign:'center', padding:60, color:'var(--ink-4)', fontSize:13}}>无匹配拒付记录</div>;
+  const statusColor = (s) => ({
+    pending:'#92400e', evidence:'#1e40af', submitted:'#7e22ce',
+    won:'#15803d', lost:'#b91c1c', closed:'#6e6e73'
+  })[s] || '#6e6e73';
+  const statusLabel = (s) => ({
+    pending:'待处理', evidence:'收集证据', submitted:'已提交',
+    won:'已赢', lost:'已输', closed:'已关闭'
+  })[s] || s;
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>客户</th>
+          <th>订单号</th>
+          <th>金额</th>
+          <th>状态</th>
+          <th>负责</th>
+          <th>截止</th>
+          <th>创建</th>
+        </tr>
+      </thead>
+      <tbody>
+        {records.slice(0, 300).map(c => {
+          const isOverdue = c.deadline && c.deadline < todayISO();
+          return (
+            <tr key={c.id}>
+              <td className="text-[12px]">
+                <div className="font-bold">{c.customer_name || '—'}</div>
+                {c.customer_email && <div className="text-[10px]" style={{color:'var(--ink-4)'}}>{c.customer_email}</div>}
+              </td>
+              <td className="text-[11px] font-mono" style={{color:'var(--ink-3)'}}>{c.order_no || '—'}</td>
+              <td className="text-[11px] font-mono font-bold" style={{color:'var(--bad)'}}>${c.amount || '0'}</td>
+              <td>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{background: statusColor(c.status)+'22', color: statusColor(c.status)}}>
+                  {statusLabel(c.status)}
+                </span>
+              </td>
+              <td className="text-[11px]">{empName(c.created_by)}</td>
+              <td className="text-[10px] font-mono" style={{color: isOverdue ? 'var(--bad)' : 'var(--ink-3)', fontWeight: isOverdue ? 600 : 400}}>
+                {isOverdue && '🔴 '}{c.deadline || '—'}
+              </td>
+              <td className="text-[10px]" style={{color:'var(--ink-4)'}}>{(c.created_at || '').slice(0, 10)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+};
+
+// 工单表(线下/定制/实拍)
+const KpiTicketsTable = ({ tickets, search, empName }) => {
+  const q = search.trim().toLowerCase();
+  const filterFn = (text) => !q || text.toLowerCase().includes(q);
+  const oo = tickets.offline.filter(o => filterFn(`${o.customer_name||''} ${o.customer_email||''} ${o.order_no||''}`));
+  const ci = tickets.custom.filter(c => filterFn(`${c.customer_name||''} ${c.customer_email||''} ${c.order_no||''} ${c.requirement||''}`));
+  const pv = tickets.photo.filter(p => filterFn(`${p.sku||''} ${p.product_name||''} ${p.supplier_name||''}`));
+  
+  if (oo.length === 0 && ci.length === 0 && pv.length === 0) {
+    return <div style={{textAlign:'center', padding:60, color:'var(--ink-4)', fontSize:13}}>无匹配工单</div>;
+  }
+  
+  return (
+    <div style={{padding:'0 24px'}}>
+      {oo.length > 0 && (
+        <div style={{marginBottom:18}}>
+          <div className="text-[12px] font-bold mb-2" style={{color:'#4338ca'}}>💳 线下单({oo.length})</div>
+          <table>
+            <thead><tr><th>客户</th><th>订单号</th><th>网站</th><th>金额</th><th>状态</th><th>负责</th></tr></thead>
+            <tbody>
+              {oo.slice(0, 100).map(o => (
+                <tr key={o.id}>
+                  <td className="text-[12px]">{o.customer_name || '—'}</td>
+                  <td className="text-[11px] font-mono">{o.order_no || '—'}</td>
+                  <td className="text-[10px]"><span className="px-1.5 py-0.5 rounded" style={{background:'var(--bg-elevated)'}}>{o.site || '—'}</span></td>
+                  <td className="text-[11px] font-mono font-bold">{o.payment_currency || '$'}{o.payment_amount || 0}</td>
+                  <td className="text-[10px]">{o.status}</td>
+                  <td className="text-[11px]">{empName(o.created_by)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {ci.length > 0 && (
+        <div style={{marginBottom:18}}>
+          <div className="text-[12px] font-bold mb-2" style={{color:'#b45309'}}>🎨 定制咨询({ci.length})</div>
+          <table>
+            <thead><tr><th>客户</th><th>订单/报价</th><th>网站</th><th>阶段</th><th>需求</th><th>负责</th></tr></thead>
+            <tbody>
+              {ci.slice(0, 100).map(c => (
+                <tr key={c.id}>
+                  <td className="text-[12px]">{c.customer_name || '—'}</td>
+                  <td className="text-[11px] font-mono">{c.order_no || c.quote_no || '—'}</td>
+                  <td className="text-[10px]"><span className="px-1.5 py-0.5 rounded" style={{background:'var(--bg-elevated)'}}>{c.site || '—'}</span></td>
+                  <td className="text-[10px]">{c.stage}</td>
+                  <td className="text-[11px] truncate" style={{maxWidth:240, color:'var(--ink-3)'}}>{c.requirement || '—'}</td>
+                  <td className="text-[11px]">{empName(c.created_by)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {pv.length > 0 && (
+        <div style={{marginBottom:18}}>
+          <div className="text-[12px] font-bold mb-2" style={{color:'#7e22ce'}}>📸 实拍核实({pv.length})</div>
+          <table>
+            <thead><tr><th>SKU</th><th>产品</th><th>供应商</th><th>状态</th><th>差异</th><th>负责</th></tr></thead>
+            <tbody>
+              {pv.slice(0, 100).map(p => (
+                <tr key={p.id}>
+                  <td className="text-[11px] font-mono">{p.sku || '—'}</td>
+                  <td className="text-[12px]">{p.product_name || '—'}</td>
+                  <td className="text-[11px]" style={{color:'var(--ink-3)'}}>{p.supplier_name || '—'}</td>
+                  <td className="text-[10px]">{p.status}</td>
+                  <td className="text-[11px] truncate" style={{maxWidth:240, color:'var(--ink-3)'}}>{p.difference_detail || '—'}</td>
+                  <td className="text-[11px]">{empName(p.created_by)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };

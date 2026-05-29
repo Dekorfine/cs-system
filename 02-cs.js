@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进(fix79 顶部添加一行+批量转交搜索) · fix28-79
-// APP_VERSION: 2026.05.27-fix79
+// 📞 客服跟进 + MultiImageUploader(fix80 加视频) · fix28-80
+// APP_VERSION: 2026.05.27-fix80
 // ════════════════════════════════════════════════════════════════════
 
 const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard }) => {
@@ -2868,7 +2868,7 @@ const DailyGreeting = ({ user }) => {
   );
 };
 
-const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'product', maxSize = 10 }) => {
+const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'product', maxSize = 10, acceptVideo = false, videoMaxSize = 100 }) => {
   const fileInputRef = React.useRef(null);
   const dropRef = React.useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -2881,11 +2881,29 @@ const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'produ
     { key:'communication', label:'💬 沟通图',   color:'#7c3aed' },
     { key:'notes',         label:'📝 备注图',   color:'#525252' },
     { key:'receipt',       label:'🧾 凭证',     color:'#16a34a' },
+    ...(acceptVideo ? [{ key:'video', label:'🎬 视频', color:'#7c3aed' }] : []),
   ];
   
+  const isVideo = (att) => {
+    if (att.kind === 'video') return true;
+    if (att.label === 'video') return true;
+    const url = att.url || '';
+    return /\.(mp4|webm|mov|avi|m4v)(\?|$)/i.test(url);
+  };
+  
   const uploadFile = async (file, label = defaultLabel) => {
-    if (!file.type.startsWith('image/')) { alert('只能上传图片'); return; }
-    if (file.size > maxSize * 1024 * 1024) { alert(`图片大小不能超过 ${maxSize}MB`); return; }
+    const isVid = file.type.startsWith('video/');
+    const isImg = file.type.startsWith('image/');
+    if (!isImg && !isVid) {
+      alert(acceptVideo ? '只能上传图片或视频' : '只能上传图片');
+      return;
+    }
+    if (isVid && !acceptVideo) { alert('该字段不支持视频'); return; }
+    const limit = isVid ? videoMaxSize : maxSize;
+    if (file.size > limit * 1024 * 1024) {
+      alert(`${isVid ? '视频' : '图片'}大小不能超过 ${limit}MB`);
+      return;
+    }
     setUploading(true);
     try {
       const res = await CLOUD.uploadImage('aftersales-images', file);
@@ -2894,8 +2912,11 @@ const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'produ
         id: 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7),
         url: res.url,
         path: res.path,
-        label: label,
+        label: isVid ? 'video' : label,
+        kind: isVid ? 'video' : 'image',
         size: file.size,
+        mime: file.type,
+        name: file.name,
         uploaded_at: new Date().toISOString(),
       };
       setAttachments([...(attachments || []), newAttach]);
@@ -2905,13 +2926,13 @@ const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'produ
     setUploading(false);
   };
   
-  // 粘贴
+  // 粘贴(图片)— 视频通常不能从剪贴板粘贴
   useEffect(() => {
     const handler = (e) => {
       const items = e.clipboardData?.items;
       if (!items) return;
       for (const it of items) {
-        if (it.type.startsWith('image/')) {
+        if (it.type.startsWith('image/') || (acceptVideo && it.type.startsWith('video/'))) {
           const f = it.getAsFile();
           if (f) { uploadFile(f); e.preventDefault(); break; }
         }
@@ -2921,7 +2942,7 @@ const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'produ
     if (!el) return;
     el.addEventListener('paste', handler);
     return () => el.removeEventListener('paste', handler);
-  }, [attachments]);
+  }, [attachments, acceptVideo]);
   
   const handleFiles = (files) => {
     if (!files) return;
@@ -2929,7 +2950,7 @@ const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'produ
   };
   
   const removeAttach = async (att) => {
-    if (!confirm('删除这张图？')) return;
+    if (!confirm(isVideo(att) ? '删除这个视频?' : '删除这张图?')) return;
     if (att.path) await CLOUD.deleteImage('aftersales-images', att.path);
     setAttachments(attachments.filter(a => a.id !== att.id));
   };
@@ -2958,25 +2979,39 @@ const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'produ
           transition:'all .15s', outline:'none',
         }}>
         <div style={{fontSize:13, color:'var(--ink-2)', fontWeight:500}}>
-          {uploading ? '⏳ 上传中...' : '📷 拖拽 / 粘贴 (Ctrl+V) / 点击上传图片'}
+          {uploading ? '⏳ 上传中...' : (acceptVideo ? '📷 / 🎬 拖拽 / 粘贴 (Ctrl+V) / 点击上传图片或视频' : '📷 拖拽 / 粘贴 (Ctrl+V) / 点击上传图片')}
         </div>
         <div style={{fontSize:10, color:'var(--ink-4)', marginTop:4}}>
-          支持多张 · JPG/PNG/WebP · 最大 {maxSize}MB
+          {acceptVideo
+            ? `图片(JPG/PNG/WebP 最大 ${maxSize}MB)· 视频(MP4/WebM/MOV 最大 ${videoMaxSize}MB)· 可多个`
+            : `支持多张 · JPG/PNG/WebP · 最大 ${maxSize}MB`}
         </div>
-        <input ref={fileInputRef} type="file" accept="image/*" multiple style={{display:'none'}}
+        <input ref={fileInputRef} type="file" accept={acceptVideo ? "image/*,video/*" : "image/*"} multiple style={{display:'none'}}
           onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
       </div>
       
-      {/* 已上传图片网格 */}
+      {/* 已上传文件网格 */}
       {attachments && attachments.length > 0 && (
         <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:8, marginTop:10}}>
           {attachments.map((att, idx) => {
             const labelInfo = LABELS.find(l => l.key === att.label) || LABELS[0];
+            const vid = isVideo(att);
             return (
               <div key={att.id} style={{position:'relative', border:'1px solid var(--line)', borderRadius:8, overflow:'hidden', background:'white'}}>
-                <div style={{height:100, position:'relative', background:'#f3f4f6', overflow:'hidden', cursor:'pointer'}}
+                <div style={{height:100, position:'relative', background:'#0f0f10', overflow:'hidden', cursor:'pointer'}}
                   onClick={() => setPreviewIdx(idx)}>
-                  <img src={att.url} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} />
+                  {vid ? (
+                    <>
+                      <video src={att.url} preload="metadata" muted playsInline
+                        style={{width:'100%', height:'100%', objectFit:'cover', background:'#0f0f10'}} />
+                      <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', pointerEvents:'none'}}>
+                        <div style={{width:36, height:36, borderRadius:'50%', background:'rgba(0,0,0,.6)', color:'white', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16}}>▶</div>
+                      </div>
+                      <div style={{position:'absolute', bottom:4, left:4, background:'rgba(0,0,0,.65)', color:'white', fontSize:9, padding:'1px 5px', borderRadius:3, fontWeight:600}}>视频</div>
+                    </>
+                  ) : (
+                    <img src={att.url} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} />
+                  )}
                   <button onClick={e => { e.stopPropagation(); removeAttach(att); }}
                     style={{position:'absolute', top:4, right:4, background:'rgba(220,38,38,.9)', color:'white', border:'none', borderRadius:'50%', width:22, height:22, cursor:'pointer', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center'}}>
                     ×
@@ -2995,8 +3030,26 @@ const MultiImageUploader = ({ attachments, setAttachments, defaultLabel = 'produ
       {/* 图片放大预览 */}
       {previewIdx !== null && attachments[previewIdx] && (
         <div onClick={() => setPreviewIdx(null)}
-          style={{position:'fixed', inset:0, background:'rgba(0,0,0,.85)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, cursor:'pointer'}}>
-          <img src={attachments[previewIdx].url} style={{maxWidth:'95%', maxHeight:'95%', objectFit:'contain'}} />
+          style={{position:'fixed', inset:0, background:'rgba(0,0,0,.92)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, cursor:'pointer', flexDirection:'column', gap:12}}>
+          {isVideo(attachments[previewIdx]) ? (
+            <video src={attachments[previewIdx].url} controls autoPlay
+              onClick={e => e.stopPropagation()}
+              style={{maxWidth:'95%', maxHeight:'88%', background:'black', borderRadius:8}} />
+          ) : (
+            <img src={attachments[previewIdx].url} onClick={e => e.stopPropagation()}
+              style={{maxWidth:'95%', maxHeight:'88%', objectFit:'contain'}} />
+          )}
+          {attachments.length > 1 && (
+            <div style={{display:'flex', gap:10, alignItems:'center'}} onClick={e => e.stopPropagation()}>
+              <button onClick={() => setPreviewIdx((previewIdx - 1 + attachments.length) % attachments.length)}
+                style={{padding:'6px 14px', background:'rgba(255,255,255,.15)', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontSize:13}}>← 上一个</button>
+              <span style={{color:'white', fontSize:12}}>{previewIdx + 1} / {attachments.length}</span>
+              <button onClick={() => setPreviewIdx((previewIdx + 1) % attachments.length)}
+                style={{padding:'6px 14px', background:'rgba(255,255,255,.15)', color:'white', border:'none', borderRadius:6, cursor:'pointer', fontSize:13}}>下一个 →</button>
+            </div>
+          )}
+          <button onClick={() => setPreviewIdx(null)}
+            style={{position:'absolute', top:20, right:20, background:'rgba(255,255,255,.15)', color:'white', border:'none', borderRadius:'50%', width:38, height:38, cursor:'pointer', fontSize:18}}>×</button>
         </div>
       )}
     </div>
@@ -3385,7 +3438,7 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
                     {/* 🆕 每个补件项的独立图片上传 */}
                     <div style={{paddingLeft:30}}>
                       <div style={{fontSize:10, color:'var(--ink-3)', marginBottom:4}}>
-                        📷 此配件的图片 {it.attachments && it.attachments.length > 0 && <span style={{color:'var(--accent)', fontWeight:600}}>({it.attachments.length})</span>}
+                        📷 / 🎬 此配件的图片 · 视频 {it.attachments && it.attachments.length > 0 && <span style={{color:'var(--accent)', fontWeight:600}}>({it.attachments.length})</span>}
                       </div>
                       <MultiImageUploader 
                         attachments={it.attachments || []} 
@@ -3393,6 +3446,7 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
                           const next = [...refillItems]; next[idx] = { ...next[idx], attachments: atts };
                           setRefillItems(next);
                         }}
+                        acceptVideo={true}
                         defaultLabel="product" />
                     </div>
                   </div>
@@ -3509,14 +3563,15 @@ const EventEditorModal = ({ kind, record, suppliers, user, onClose, onSaved, exi
             <SupplierSelect suppliers={suppliers} value={supplierId} onChange={setSupplierId} />
           </div>
           
-          {/* 共用：图片附件 */}
+          {/* 共用：图片 / 视频 附件 */}
           <div style={{marginBottom:14}}>
             <label style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', display:'block', marginBottom:6}}>
-              图片附件 {attachments.length > 0 && <span style={{color:'var(--accent)', fontWeight:600}}>({attachments.length})</span>}
+              📷 / 🎬 图片 · 视频附件 {attachments.length > 0 && <span style={{color:'var(--accent)', fontWeight:600}}>({attachments.length})</span>}
             </label>
             <MultiImageUploader 
               attachments={attachments} 
               setAttachments={setAttachments}
+              acceptVideo={true}
               defaultLabel={kind === 'refund' ? 'damage' : (kind === 'aftersale' ? 'damage' : 'product')} />
           </div>
           
