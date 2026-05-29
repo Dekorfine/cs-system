@@ -112,10 +112,17 @@ function parseOrder(o, field) {
   let addr=o.shipping_address; if(typeof addr==='string'){try{addr=JSON.parse(addr);}catch{addr={};}}
   let items=o.line_items; if(typeof items==='string'){try{items=JSON.parse(items);}catch{items=[];}}
   items=(items||[]).map((it,i)=>{ const lt=getLampInfo(it); return { lineId:o.shopify_order_id+'_'+i, title:it.title||'', sku:it.sku||'', quantity:it.quantity||1, image_url:it.image_url||'', lampEn:lt.en, lampCn:lt.cn, hs:lt.hs, material:lt.material, spec:it.variant_title||'' }; });
-  // 🆕 fix87: 客户备注(可能含「改地址」等关键信息)— 兼容多种字段名 + note_attributes
+  // 🆕 fix87/89: 客户备注 — 显式字段 + 兜底扫描任意含 note/备注 的列 + 原始订单 JSON 里的 note + note_attributes
   let na=o.note_attributes; if(typeof na==='string'){try{na=JSON.parse(na);}catch{na=null;}}
   const naStr=Array.isArray(na)?na.map(x=>`${x.name||x.key||''}: ${x.value||x.v||''}`).filter(s=>/[^\s:]/.test(s.replace(/^[^:]*:/,''))).join(' · '):'';
-  const note=[String(o.note||o.order_note||o.customer_note||o.notes||'').trim(), naStr].filter(Boolean).join(' · ');
+  let noteMain=String(o.note||o.order_note||o.customer_note||o.notes||'').trim();
+  if(!noteMain){ // 兜底1:任意列名含 note/remark/comment/备注/留言 的字符串字段(排除 attributes)
+    for(const k in o){ if(/attribute/i.test(k)) continue; if(/note|remark|comment|备注|留言/i.test(k)){ const v=o[k]; if(typeof v==='string'&&v.trim()){ noteMain=v.trim(); break; } } }
+  }
+  if(!noteMain){ // 兜底2:原始订单 JSON 列里的 note
+    for(const k in o){ let v=o[k]; if(typeof v==='string'&&/^\s*\{/.test(v)){try{v=JSON.parse(v);}catch{v=null;}} if(v&&typeof v==='object'&&typeof v.note==='string'&&v.note.trim()){ noteMain=v.note.trim(); break; } }
+  }
+  const note=[noteMain, naStr].filter(Boolean).join(' · ');
   return { orderId:o.shopify_order_id, orderNumber:o.shopify_order_number||o.shopify_order_id, platform:o.platform, store:storeFromOrder(o,field), customerName:o.customer_name, customerEmail:o.customer_email, customerPhone:o.customer_phone, address:addr||{}, items, note, createdAt:o.shopify_created_at };
 }
 
