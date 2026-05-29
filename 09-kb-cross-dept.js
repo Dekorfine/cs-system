@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 自定义布局拖拽(fix77) + 运费 + 快递发票 + 跨部门 · fix28-77
-// APP_VERSION: 2026.05.27-fix77
+// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-78
+// APP_VERSION: 2026.05.27-fix78
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -3675,4 +3675,1218 @@ const renderStatusLine = (log) => {
     lines.push('🌐 已嵌入独立站' + (log.url_xiaohongshu ? ' · 📕 小红书已发' : ''));
   }
   return lines;
+};
+
+const PhotoRequestsModule = ({ user, toast }) => {
+  // 🆕 fix53 v3: 默认 sub-tab = 'all-activities' (全部工作动态)
+  const [filter, setFilter] = useState('all-activities');
+  const [loading, setLoading] = useState(false);
+  const [list, setList] = useState([]);
+  const [showNew, setShowNew] = useState(false);
+  const [showBatch, setShowBatch] = useState(false);
+  const [detailItem, setDetailItem] = useState(null);
+  const [editItem, setEditItem] = useState(null);
+  const [configured, setConfigured] = useState(window.isWtkpiConfigured?.() || false);
+  const lastRefreshRef = useRef(0);
+
+  const refresh = async () => {
+    if (!window.isWtkpiConfigured?.()) { setConfigured(false); setList([]); return; }
+    setConfigured(true);
+    setLoading(true);
+    try {
+      // 🆕 fix53 v3: 拉全部,客户端按 sub-tab 过滤
+      const data = await window.listPhotoRequests();
+      setList(data || []);
+      lastRefreshRef.current = Date.now();
+    } catch (e) {
+      console.error('[PhotoReq] 加载失败', e);
+      toast('加载拍摄需求失败:' + (e.message || ''));
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  // 🆕 fix53 v3 (Q3-C) + fix59 v4: 实时订阅 — 状态变化 + 入库/唤醒事件
+  useEffect(() => {
+    if (!configured) return;
+    const client = window.getWtkpiClient?.();
+    if (!client) return;
+    const channel = client.channel(`cs-photo-logs-${user.id}-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'photo_logs' }, (payload) => {
+        const { eventType, new: newRow, old: oldRow } = payload;
+        // 列表自动刷新(节流:1 秒内最多 1 次)
+        if (Date.now() - lastRefreshRef.current > 1000) refresh();
+        const isMine = newRow?.external_request?.from_user_id === user.id;
+        if (eventType === 'UPDATE' && isMine) {
+          // 🆕 fix59 v4: 入库通知(原来没 warehouse_info,现在有了)
+          if (!oldRow?.warehouse_info && newRow?.warehouse_info) {
+            const w = newRow.warehouse_info;
+            toast(`📦 你提的「${newRow.product_name}」已入库 — 原因:${w.reason}(${w.by_name || '拍摄部'})`);
+            return;
+          }
+          // 🆕 fix59 v4: 唤醒通知(原来有,现在没了)
+          if (oldRow?.warehouse_info && !newRow?.warehouse_info) {
+            toast(`✨ 你提的「${newRow.product_name}」已唤醒出库 — 货到位了,拍摄部继续跟进`);
+            return;
+          }
+          // 状态变化
+          if (oldRow?.status !== newRow?.status) {
+            const labels = { shooting: '📷 拍摄部已接', shot: '✓ 已拍完', editing: '🎬 剪辑中', done: '✅ 完成 · 已上线' };
+            if (labels[newRow.status]) {
+              toast(`你提的「${newRow.product_name}」 → ${labels[newRow.status]}`);
+            }
+          }
+        }
+      })
+      .subscribe();
+    return () => { client.removeChannel(channel); };
+  }, [configured, user.id]);
+
+  // 🆕 fix59 v4: 客户端筛选(默认排除在仓库的)
+  const visible = list.filter(r => {
+    const warehoused = isWarehoused(r);
+    if (filter === 'warehouse') return warehoused;       // 仓库 tab:只看在仓库的
+    if (filter === 'all-with-warehouse') return true;    // 全部含仓库:都显示
+    // 其他所有 tab 默认排除仓库中的
+    if (warehoused) return false;
+    if (filter === 'all-activities') return true;
+    if (filter === 'mine') return r.external_request?.from_user_id === user.id;
+    if (filter === 'urgent') return (r.priority === 'urgent' || r.external_request?.urgency === 'urgent') && r.status !== 'done';
+    if (filter === 'in-progress') return ['shooting', 'shot', 'editing', 'edited', 'uploading'].includes(r.status);
+    if (filter === 'done') return r.status === 'done';
+    return true;
+  });
+
+  // 🆕 fix59 v4: 我提的且在仓库的(用于顶部横幅)
+  const myWarehoused = list.filter(r =>
+    r.external_request?.from_user_id === user.id && isWarehoused(r)
+  );
+
+  if (!configured) {
+    return (
+      <div className="paper rounded-2xl" style={{padding:'48px 32px', textAlign:'center', maxWidth:520, margin:'40px auto'}}>
+        <div style={{fontSize:48, marginBottom:12}}>📨</div>
+        <div style={{fontSize:20, fontWeight:600, marginBottom:8, letterSpacing:'-.022em'}}>拍摄需求中心未配置</div>
+        <div style={{fontSize:14, color:'var(--ink-3)', lineHeight:1.65, marginBottom:24}}>
+          需要主管先去 <strong>⚙ 设置中心 → 拍摄部对接</strong> 填写 WorkTrack-KPI 的 Supabase URL 和 anon key。
+        </div>
+        <button className="btn-pri" onClick={() => {
+          setConfigured(window.isWtkpiConfigured?.() || false);
+          if (window.isWtkpiConfigured?.()) refresh();
+        }}>
+          🔄 检测配置 / 刷新
+        </button>
+      </div>
+    );
+  }
+
+  // 各 sub-tab 计数(🆕 fix59 v4: 活跃统计排除仓库中的)
+  const activeList = list.filter(r => !isWarehoused(r));
+  const counts = {
+    all: activeList.length,
+    allWithWarehouse: list.length,
+    mine: activeList.filter(r => r.external_request?.from_user_id === user.id).length,
+    urgent: activeList.filter(r => (r.priority === 'urgent' || r.external_request?.urgency === 'urgent') && r.status !== 'done').length,
+    inProgress: activeList.filter(r => ['shooting', 'shot', 'editing', 'edited', 'uploading'].includes(r.status)).length,
+    done: activeList.filter(r => r.status === 'done').length,
+    warehouse: list.filter(r => isWarehoused(r)).length,
+  };
+
+  return (
+    <>
+      <div className="paper rounded-2xl p-4">
+        <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14, flexWrap:'wrap'}}>
+          <div className="font-display" style={{fontSize:20, fontWeight:600, letterSpacing:'-.022em', flex:1}}>
+            📨 拍摄需求中心
+            <span style={{fontSize:12, fontWeight:400, color:'var(--ink-3)', marginLeft:8}}>v4 · 全量可见 + 协作编辑 + 拍摄仓库</span>
+          </div>
+          <button className="btn-sec" onClick={refresh} disabled={loading} title="刷新列表">
+            {loading ? '⏳' : '🔄'} 刷新
+          </button>
+          <button className="btn-sec" onClick={() => setShowBatch(true)} title="一次提交多条需求">
+            📥 批量
+          </button>
+          <button className="btn-pri" onClick={() => setShowNew(true)}>
+            + 新建需求
+          </button>
+        </div>
+
+        {/* 🆕 fix59 v4: "我提的入库中"横幅 */}
+        {myWarehoused.length > 0 && (
+          <div style={{
+            background:'#fffbeb', border:'1px solid #fbbf24', borderRadius:12, padding:'12px 16px', marginBottom:14,
+          }}>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6, flexWrap:'wrap'}}>
+              <span style={{fontSize:14, fontWeight:600, color:'#92400e'}}>
+                📦 你提的 {myWarehoused.length} 条需求当前在拍摄仓库 · 等货回来
+              </span>
+              <div style={{flex:1}}/>
+              <button onClick={() => setFilter('warehouse')} style={{
+                fontSize:12, padding:'4px 12px', background:'#f59e0b', color:'white',
+                border:'none', borderRadius:'var(--radius-pill)', cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+              }}>查看仓库 →</button>
+            </div>
+            <div style={{fontSize:12, color:'#78350f', lineHeight:1.7}}>
+              {myWarehoused.slice(0, 3).map((r, i) => {
+                const w = getWarehouseInfo(r);
+                return (
+                  <div key={i}>· {r.product_name}({w.reason} · {daysAgoText(w.at_ms)})</div>
+                );
+              })}
+              {myWarehoused.length > 3 && <div style={{color:'#a16207'}}>… 还有 {myWarehoused.length - 3} 条</div>}
+            </div>
+          </div>
+        )}
+
+        {/* 🆕 fix54: 顶部统计 hero — 即使列表少,视觉信息密度足 */}
+        <div style={{
+          display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(110px, 1fr))', gap:8, marginBottom:14,
+        }}>
+          {[
+            { label:'活跃工单', val:counts.all,    color:'var(--ink-2)',  bg:'var(--bg-elevated)' },
+            { label:'我提的', val:counts.mine,   color:'var(--accent)', bg:'var(--accent-soft)' },
+            { label:'🚨 加急未完', val:counts.urgent, color:'var(--bad)', bg:'var(--bad-soft)' },
+            { label:'🔄 进行中', val:counts.inProgress, color:'#0369a1', bg:'#dbeafe' },
+            { label:'✅ 已完成', val:counts.done, color:'var(--good)', bg:'var(--good-soft)' },
+            { label:'📦 在仓库', val:counts.warehouse, color:'#92400e', bg:'#fef3c7' },
+          ].map((s, i) => (
+            <div key={i} style={{
+              padding:'10px 12px', borderRadius:10, background:s.bg, display:'flex', flexDirection:'column', gap:2,
+            }}>
+              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500}}>{s.label}</div>
+              <div style={{fontSize:20, fontWeight:700, color:s.color, letterSpacing:'-.022em'}}>{s.val}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* 🆕 fix53 v3 + fix59 v4: sub-tab(默认「全部工作动态」,加 全部含仓库 + 📦 仓库) */}
+        <div style={{display:'flex', gap:8, marginBottom:14, flexWrap:'wrap'}}>
+          {[
+            { id:'all-activities', label:`全部活动 (${counts.all})` },
+            { id:'mine',           label:`我提的 (${counts.mine})` },
+            { id:'urgent',         label:`🚨 加急 (${counts.urgent})` },
+            { id:'in-progress',    label:`🔄 进行中 (${counts.inProgress})` },
+            { id:'done',           label:`✅ 完成 (${counts.done})` },
+            { id:'all-with-warehouse', label:`全部含仓库 (${counts.allWithWarehouse})` },
+            { id:'warehouse',      label:`📦 仓库 (${counts.warehouse})` },
+          ].map(t => (
+            <button key={t.id} className={`tab-btn ${filter === t.id ? 'active' : ''}`} onClick={() => setFilter(t.id)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {visible.length === 0 ? (
+          <div style={{textAlign:'center', padding:'64px 20px', color:'var(--ink-3)', fontSize:14, background:'var(--bg-elevated)', borderRadius:12}}>
+            <div style={{fontSize:48, marginBottom:12, opacity:.4}}>📭</div>
+            <div style={{fontSize:15, fontWeight:500, marginBottom:6, color:'var(--ink-2)'}}>
+              {loading ? '⏳ 加载中…' :
+                filter === 'mine' ? '你还没提过需求' :
+                filter === 'urgent' ? '没有加急的需求' :
+                filter === 'in-progress' ? '没有进行中的工单' :
+                filter === 'done' ? '还没有已完成的需求' :
+                '系统里没有任何拍摄工单'}
+            </div>
+            {!loading && filter !== 'done' && (
+              <div style={{fontSize:13, color:'var(--ink-4)', marginBottom:14}}>
+                {filter === 'urgent' ? '🎉 一切平静' :
+                 filter === 'mine' ? '需要拍摄部协助时,点右上"+ 新建"开始' :
+                 '点右上"+ 新建"或"📥 批量"开始'}
+              </div>
+            )}
+            {!loading && (filter === 'mine' || filter === 'all-activities') && counts.all === 0 && (
+              <div style={{display:'inline-flex', gap:8, marginTop:8}}>
+                <button className="btn-pri" onClick={() => setShowNew(true)}>+ 新建第一条</button>
+                <button className="btn-sec" onClick={() => setShowBatch(true)}>📥 批量录入</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))', gap:12}}>
+              {visible.map(r => (
+                <PhotoRequestCard
+                  key={r.id} item={r} currentUserId={user.id}
+                  onOpen={() => setDetailItem(r)}
+                  onEdit={() => setEditItem(r)}
+                  toast={toast}
+                />
+              ))}
+            </div>
+            {/* 🆕 fix54: footer 统计行 + 已到底部提示 */}
+            <div style={{
+              marginTop:18, padding:'12px 16px', background:'var(--bg-elevated)', borderRadius:10,
+              display:'flex', alignItems:'center', gap:14, fontSize:12, color:'var(--ink-3)', flexWrap:'wrap',
+            }}>
+              <span>📊 当前显示 <strong style={{color:'var(--ink-2)'}}>{visible.length}</strong> / 共 {list.length} 条</span>
+              {filter !== 'all-activities' && (
+                <button onClick={() => setFilter('all-activities')} style={{
+                  background:'none', border:'none', color:'var(--accent)', cursor:'pointer', fontSize:12, padding:0, fontFamily:'inherit',
+                }}>切回「全部」 →</button>
+              )}
+              <div style={{flex:1}}/>
+              <span style={{color:'var(--ink-4)'}}>—— 已到底部 ——</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {showNew && (
+        <PhotoRequestNewModal user={user} toast={toast}
+          onClose={() => setShowNew(false)}
+          onSuccess={() => { setShowNew(false); refresh(); }}/>
+      )}
+
+      {showBatch && (
+        <PhotoRequestBatchModal user={user} toast={toast}
+          onClose={() => setShowBatch(false)}
+          onSuccess={() => { setShowBatch(false); refresh(); }}/>
+      )}
+
+      {detailItem && (
+        <PhotoRequestDetailModal item={detailItem} onClose={() => setDetailItem(null)}
+          onEdit={() => { setEditItem(detailItem); setDetailItem(null); }}/>
+      )}
+
+      {editItem && (
+        <PhotoRequestEditModal item={editItem} user={user} toast={toast}
+          onClose={() => setEditItem(null)}
+          onSuccess={() => { setEditItem(null); refresh(); }}/>
+      )}
+    </>
+  );
+};
+
+const PhotoRequestCard = ({ item, currentUserId, onOpen, onEdit, toast }) => {
+  const st = PHOTO_STATUS_MAP[item.status] || { label: item.status, color:'#999', bg:'#eee' };
+  const isUrgent = item.priority === 'urgent';
+  const ext = item.external_request || {};
+  const attachCount = (ext.attachments || []).length;
+  const reasonPreview = (ext.reason || '').slice(0, 100);
+  const ago = item.created_at_ms ? humanAgoMs(Date.now() - item.created_at_ms) : '';
+  const isMine = ext.from_user_id === currentUserId;
+  // 🆕 fix53 v3: 来源徽章
+  const sourceKey = ext.source || '自发';
+  const sourceBadge = SOURCE_BADGE_MAP[sourceKey] || SOURCE_BADGE_MAP['自发'];
+  // 🆕 fix53 v3: 状态行展开
+  const statusLines = renderStatusLine(item);
+  // 🆕 fix59 v4: 仓库判定
+  const wh = getWarehouseInfo(item);
+  const inWarehouse = !!wh;
+  const whReasonMeta = wh ? (WAREHOUSE_REASON_META[wh.reason] || WAREHOUSE_REASON_META['其他']) : null;
+  const canNotify = wh && shouldNotifyCustomer(wh.reason);
+
+  const copyCustomerScript = (e) => {
+    e.stopPropagation();
+    const script = buildWarehouseCustomerScript(item);
+    navigator.clipboard.writeText(script).then(() => toast && toast('✓ 已复制客户通知话术'));
+  };
+
+  return (
+    <div onClick={onOpen} style={{
+      background: inWarehouse ? 'var(--bg-soft)' : 'white',
+      border: `1px solid ${inWarehouse ? '#fbbf24' : (isUrgent ? 'var(--bad)' : 'var(--line)')}`,
+      borderRadius:14, padding:14, cursor:'pointer', boxShadow:'var(--shadow-sm)',
+      transition:'transform .15s, box-shadow .15s',
+      opacity: inWarehouse ? 0.92 : 1,
+    }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-md)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}>
+      {/* 顶部徽章行 */}
+      <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:8, flexWrap:'wrap'}}>
+        {isUrgent && !inWarehouse && <span style={{fontSize:11, padding:'2px 8px', background:'var(--bad)', color:'white', borderRadius:'var(--radius-pill)', fontWeight:600}}>🚨 加急</span>}
+        {/* 🆕 fix53 v3: 来源徽章 */}
+        <span style={{
+          fontSize:11, padding:'2px 8px', borderRadius:'var(--radius-pill)', fontWeight:600,
+          background: sourceBadge.bg, color: sourceBadge.color,
+        }}>
+          {sourceBadge.icon} {sourceBadge.label}{ext.from_name ? ' · ' + ext.from_name : ''}
+        </span>
+        {isMine && (
+          <span style={{fontSize:10, padding:'2px 6px', background:'var(--accent-soft)', color:'var(--accent)', borderRadius:'var(--radius-pill)', fontWeight:600}}>我提的</span>
+        )}
+        {/* 🆕 fix59 v4: 仓库徽章 */}
+        {inWarehouse && (
+          <span style={{
+            fontSize:10, padding:'2px 8px', background:'#fef3c7', color:'#92400e',
+            border:'1px solid #fbbf24', borderRadius:'var(--radius-pill)', fontWeight:700,
+          }}>📦 仓库 {daysAgoText(wh.at_ms)}</span>
+        )}
+        <div style={{flex:1}}/>
+        <span style={{fontSize:11, color:'var(--ink-4)'}}>{ago}</span>
+      </div>
+      {/* 产品信息 */}
+      <div style={{display:'flex', gap:10, marginBottom:10}}>
+        {item.product_image && (
+          <img src={item.product_image} style={{width:80, height:80, objectFit:'contain', borderRadius:8, flexShrink:0, border:'1px solid var(--line)', background:'var(--bg-elevated)', padding:2, filter: inWarehouse ? 'grayscale(.4)' : 'none'}} alt=""/>
+        )}
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{fontWeight:600, fontSize:14, color:'var(--ink)', marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+            {item.product_name || '未命名产品'}
+          </div>
+          {item.sku && <div style={{fontSize:11, color:'var(--ink-4)', fontFamily:'SF Mono,monospace', marginBottom:4}}>{item.sku}</div>}
+          {item.applicable_shops?.length > 0 && (
+            <div style={{display:'flex', gap:3, flexWrap:'wrap', marginBottom:4}}>
+              {item.applicable_shops.slice(0, 4).map((s, i) => (
+                <span key={i} style={{fontSize:10, padding:'1px 6px', background:'var(--bg-elevated)', color:'var(--ink-3)', borderRadius:'var(--radius-pill)'}}>🏪 {s}</span>
+              ))}
+              {item.applicable_shops.length > 4 && (
+                <span style={{fontSize:10, color:'var(--ink-4)'}}>+{item.applicable_shops.length - 4}</span>
+              )}
+            </div>
+          )}
+          <div style={{fontSize:12, color:'var(--ink-3)', lineHeight:1.45, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden'}}>
+            {reasonPreview || '(无描述)'}
+          </div>
+        </div>
+      </div>
+      {/* 🆕 fix59 v4: 仓库信息块(在仓库时显示)*/}
+      {inWarehouse ? (
+        <div style={{background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:'8px 10px', marginTop:4}}>
+          <div style={{fontSize:12, color:'#92400e', fontWeight:600, marginBottom:2}}>
+            {whReasonMeta?.icon} 入库 {daysAgoText(wh.at_ms)} · {wh.by_name || '拍摄部'} · {wh.reason}
+          </div>
+          {wh.reason_detail && (
+            <div style={{fontSize:11, color:'#78350f', lineHeight:1.5}}>💬 {wh.reason_detail}</div>
+          )}
+          <div style={{fontSize:10, color:'#a16207', marginTop:3}}>
+            ⏸️ 入库前状态:{PHOTO_STATUS_MAP[wh.prev_status]?.label || wh.prev_status || 'draft'} · 唤醒后恢复
+          </div>
+        </div>
+      ) : (
+        /* 🆕 fix53 v3: 状态行展开 */
+        <div style={{borderTop:'1px solid var(--line-soft)', paddingTop:8, marginTop:4}}>
+          {statusLines.map((line, i) => (
+            <div key={i} style={{fontSize:11, color:i === 0 ? 'var(--ink-2)' : 'var(--ink-3)', lineHeight:1.5, marginBottom:2}}>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+      {/* 底部:附件数 + 编辑按钮 / 仓库话术 */}
+      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:10, fontSize:11, color:'var(--ink-4)', flexWrap:'wrap'}}>
+        {attachCount > 0 && <span>📎 {attachCount} 图</span>}
+        <div style={{flex:1}}/>
+        {/* 🆕 fix59 v4: 仓库 — 客户通知话术(仅需通知客户的原因) */}
+        {inWarehouse && canNotify && (
+          <button onClick={copyCustomerScript} title="复制通知客户的话术"
+            style={{
+              background:'#fef2f2', border:'1px solid #fecaca', color:'#b91c1c',
+              padding:'3px 10px', fontSize:11, borderRadius:'var(--radius-pill)', cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+            }}>💬 通知客户</button>
+        )}
+        {/* 🆕 fix59 v4: 编辑按钮 — 在仓库时 disable */}
+        {onEdit && (
+          inWarehouse ? (
+            <button disabled title="在仓库中暂停 · 等拍摄部唤醒后才能改"
+              style={{
+                background:'var(--bg-elevated)', border:'1px solid var(--line)', color:'var(--ink-4)',
+                padding:'3px 10px', fontSize:11, borderRadius:'var(--radius-pill)', cursor:'not-allowed', fontFamily:'inherit', fontWeight:500,
+              }}>🔒 仓库中</button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              title="协作编辑产品基础字段"
+              style={{
+                background:'var(--bg-elevated)', border:'1px solid var(--line)', color:'var(--ink-2)',
+                padding:'3px 10px', fontSize:11, borderRadius:'var(--radius-pill)', cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+              }}
+            >✏️ 编辑</button>
+          )
+        )}
+      </div>
+    </div>
+  );
+};
+
+const humanAgoMs = (ms) => {
+  if (ms < 60000) return '刚刚';
+  if (ms < 3600000) return Math.floor(ms / 60000) + ' 分钟前';
+  if (ms < 86400000) return Math.floor(ms / 3600000) + ' 小时前';
+  if (ms < 7 * 86400000) return Math.floor(ms / 86400000) + ' 天前';
+  return Math.floor(ms / (7 * 86400000)) + ' 周前';
+};
+
+const PhotoRequestNewModal = ({ user, toast, onClose, onSuccess, prefill = {} }) => {
+  const [productName, setProductName] = useState(prefill.productName || '');
+  const [sku, setSku] = useState(prefill.sku || '');
+  const [shops, setShops] = useState(prefill.shops || []);
+  const [reason, setReason] = useState(prefill.reason || '');
+  const [urgency, setUrgency] = useState('normal');
+  const [attachments, setAttachments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const externalRefId = prefill.externalRefId || null;
+
+  const toggleShop = (label) => {
+    setShops(prev => prev.includes(label) ? prev.filter(s => s !== label) : [...prev, label]);
+  };
+
+  const handleFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setUploading(true);
+    const newAttachments = [];
+    for (const f of files) {
+      try {
+        const a = await window.uploadAttachmentToWtkpi(f);
+        newAttachments.push(a);
+      } catch (err) {
+        toast('上传 ' + f.name + ' 失败:' + err.message);
+      }
+    }
+    setAttachments(prev => [...prev, ...newAttachments]);
+    setUploading(false);
+    e.target.value = '';
+  };
+
+  const removeAttachment = (idx) => {
+    setAttachments(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const submit = async () => {
+    if (!productName.trim()) { toast('请填产品名'); return; }
+    if (!reason.trim()) { toast('请填详细原因 — 告诉拍摄部你要他们做什么'); return; }
+    if (shops.length === 0) {
+      if (!confirm('没选店铺,拍摄部可能不知道用在哪。继续提交?')) return;
+    }
+    setSubmitting(true);
+    try {
+      await window.submitPhotoRequest({
+        productName: productName.trim(),
+        sku: sku.trim(),
+        productImage: prefill.productImage || null,
+        applicableShops: shops,
+        currentUser: user,
+        reason: reason.trim(),
+        urgency, attachments, externalRefId,
+      });
+      toast('✓ 已提交给拍摄部');
+      onSuccess?.();
+    } catch (e) {
+      console.error('[PhotoReq] 提交失败', e);
+      alert('提交失败:\n\n' + (e.message || JSON.stringify(e)) + '\n\n常见原因:\n• 配置的 URL/Key 错了\n• Supabase RLS 拒绝写入 (联系拍摄部主管配 policy)\n• 网络问题');
+    }
+    setSubmitting(false);
+  };
+
+  return ReactDOM.createPortal(
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:10000,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'white', borderRadius:18, maxWidth:680, width:'100%', maxHeight:'92vh', overflow:'auto',
+        padding:'28px 32px', boxShadow:'0 20px 60px rgba(0,0,0,.25)',
+      }}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
+          <div className="font-display" style={{fontSize:20, fontWeight:600, letterSpacing:'-.022em'}}>📨 新建拍摄需求</div>
+          <button onClick={onClose} style={{background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-3)'}}>✕</button>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{display:'block', fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>
+            产品名称 <span style={{color:'var(--bad)'}}>*</span>
+          </label>
+          <input value={productName} onChange={e => setProductName(e.target.value)}
+            placeholder="例:Milk Table Lamp - 餐厅灯具"
+            style={{width:'100%', padding:'10px 12px', border:'1px solid var(--line)', borderRadius:10, fontSize:14}}/>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{display:'block', fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>
+            SKU <span style={{color:'var(--ink-4)', fontWeight:400}}>(选填,但强烈建议)</span>
+          </label>
+          <input value={sku} onChange={e => setSku(e.target.value)}
+            placeholder="例:DCT-24118-5"
+            style={{width:'100%', padding:'10px 12px', border:'1px solid var(--line)', borderRadius:10, fontSize:14, fontFamily:'SF Mono,monospace'}}/>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{display:'block', fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>
+            适用店铺(多选)
+          </label>
+          <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+            {(typeof SHOPS_PRESET !== 'undefined' ? SHOPS_PRESET : []).map(s => (
+              <button key={s.id} type="button" onClick={() => toggleShop(s.label)} style={{
+                padding:'5px 12px', borderRadius:'var(--radius-pill)', cursor:'pointer',
+                border:'1px solid ' + (shops.includes(s.label) ? 'var(--accent)' : 'var(--line)'),
+                background: shops.includes(s.label) ? 'var(--accent)' : 'white',
+                color: shops.includes(s.label) ? 'white' : 'var(--ink-2)',
+                fontSize:12, fontWeight: shops.includes(s.label) ? 600 : 400,
+                fontFamily:'inherit', transition:'all .15s',
+              }}>{s.label}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{display:'block', fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>
+            详细原因 / 拍摄要求 <span style={{color:'var(--bad)'}}>*</span>
+          </label>
+          <textarea value={reason} onChange={e => setReason(e.target.value)}
+            placeholder="例:&#10;客户反馈拿到的吸顶灯实际是冷白光,我们卖的描述是暖白光&#10;要求拍 3 张实物图:开灯 / 关灯 / 灯泡特写,让客户对比&#10;紧急 - 客户在 PayPal 开了 dispute,2 天内要给答复"
+            rows={5}
+            style={{width:'100%', padding:'10px 12px', border:'1px solid var(--line)', borderRadius:10, fontSize:13, fontFamily:'inherit', resize:'vertical'}}/>
+        </div>
+        <div style={{marginBottom:14}}>
+          <label style={{display:'block', fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>
+            紧急程度
+          </label>
+          <div style={{display:'flex', gap:8}}>
+            <button type="button" onClick={() => setUrgency('normal')} style={{
+              flex:1, padding:'10px', borderRadius:10,
+              border:'1px solid ' + (urgency === 'normal' ? 'var(--accent)' : 'var(--line)'),
+              background: urgency === 'normal' ? 'var(--accent-soft)' : 'white',
+              color: urgency === 'normal' ? 'var(--accent)' : 'var(--ink-2)',
+              fontSize:13, fontWeight: urgency === 'normal' ? 600 : 400,
+              cursor:'pointer', fontFamily:'inherit',
+            }}>· 普通</button>
+            <button type="button" onClick={() => setUrgency('urgent')} style={{
+              flex:1, padding:'10px', borderRadius:10,
+              border:'1px solid ' + (urgency === 'urgent' ? 'var(--bad)' : 'var(--line)'),
+              background: urgency === 'urgent' ? 'var(--bad-soft)' : 'white',
+              color: urgency === 'urgent' ? 'var(--bad)' : 'var(--ink-2)',
+              fontSize:13, fontWeight: urgency === 'urgent' ? 600 : 400,
+              cursor:'pointer', fontFamily:'inherit',
+            }}>🚨 加急</button>
+          </div>
+          <div style={{fontSize:11, color:'var(--ink-4)', marginTop:5}}>
+            加急的工单会在拍摄部首页置顶,显示 🚨 红标 — 请慎用
+          </div>
+        </div>
+        <div style={{marginBottom:18}}>
+          <label style={{display:'block', fontSize:12, fontWeight:600, color:'var(--ink-2)', marginBottom:6}}>
+            附件(客户聊天截图 / 对比图等)
+          </label>
+          {attachments.length > 0 && (
+            <div style={{display:'flex', gap:8, flexWrap:'wrap', marginBottom:8}}>
+              {attachments.map((a, i) => (
+                <div key={i} style={{position:'relative', width:70, height:70}}>
+                  <img src={a.url} alt={a.name} style={{width:'100%', height:'100%', objectFit:'contain', borderRadius:8, border:'1px solid var(--line)', background:'var(--bg-elevated)'}}/>
+                  <button onClick={() => removeAttachment(i)} style={{
+                    position:'absolute', top:-6, right:-6, width:20, height:20,
+                    background:'var(--bad)', color:'white', border:'none', borderRadius:'50%',
+                    cursor:'pointer', fontSize:11, lineHeight:1, fontFamily:'inherit',
+                  }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input type="file" accept="image/*" multiple onChange={handleFiles} disabled={uploading} style={{fontSize:12}}/>
+          {uploading && <div style={{fontSize:12, color:'var(--accent)', marginTop:5}}>⏳ 上传中…(已自动压缩 ≤1600px)</div>}
+        </div>
+        <div style={{display:'flex', gap:10, justifyContent:'flex-end'}}>
+          <button className="btn-sec" onClick={onClose}>取消</button>
+          <button className="btn-pri" onClick={submit} disabled={submitting || uploading}>
+            {submitting ? '⏳ 提交中…' : '✓ 提交给拍摄部'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+const PhotoRequestDetailModal = ({ item, onClose, onEdit }) => {
+  const ext = item.external_request || {};
+  const st = PHOTO_STATUS_MAP[item.status] || { label: item.status, color:'#999', bg:'#eee' };
+  const isUrgent = item.priority === 'urgent';
+  const statusLines = renderStatusLine(item);
+  const sourceKey = ext.source || '自发';
+  const sourceBadge = SOURCE_BADGE_MAP[sourceKey] || SOURCE_BADGE_MAP['自发'];
+  // 🆕 fix59 v4: 仓库信息
+  const wh = getWarehouseInfo(item);
+  const inWarehouse = !!wh;
+  const whMeta = wh ? (WAREHOUSE_REASON_META[wh.reason] || WAREHOUSE_REASON_META['其他']) : null;
+  return ReactDOM.createPortal(
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:10000,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'white', borderRadius:18, maxWidth:680, width:'100%', maxHeight:'92vh', overflow:'auto',
+        padding:'24px 28px',
+      }}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
+          <div style={{display:'flex', alignItems:'center', gap:8, flexWrap:'wrap'}}>
+            {isUrgent && <span style={{fontSize:11, padding:'3px 10px', background:'var(--bad)', color:'white', borderRadius:'var(--radius-pill)', fontWeight:600}}>🚨 加急</span>}
+            <span style={{fontSize:11, padding:'3px 10px', borderRadius:'var(--radius-pill)', fontWeight:600, background:sourceBadge.bg, color:sourceBadge.color}}>
+              {sourceBadge.icon} {sourceBadge.label}{ext.from_name ? ' · ' + ext.from_name : ''}
+            </span>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-3)'}}>✕</button>
+        </div>
+        <div className="font-display" style={{fontSize:20, fontWeight:600, marginBottom:4, letterSpacing:'-.022em'}}>
+          {item.product_name || '未命名产品'}
+        </div>
+        {item.sku && <div style={{fontSize:12, color:'var(--ink-3)', fontFamily:'SF Mono,monospace', marginBottom:14}}>{item.sku}</div>}
+        {item.applicable_shops?.length > 0 && (
+          <div style={{display:'flex', gap:4, flexWrap:'wrap', marginBottom:14}}>
+            {item.applicable_shops.map((s, i) => (
+              <span key={i} style={{fontSize:11, padding:'2px 8px', background:'var(--bg-elevated)', color:'var(--ink-2)', borderRadius:'var(--radius-pill)'}}>🏪 {s}</span>
+            ))}
+          </div>
+        )}
+        {/* 🆕 fix59 v4: 仓库信息块 */}
+        {inWarehouse && (
+          <div style={{background:'#fffbeb', border:'1px solid #fbbf24', padding:14, borderRadius:10, marginBottom:14}}>
+            <div style={{fontSize:13, fontWeight:700, color:'#92400e', marginBottom:6}}>
+              {whMeta?.icon} 在拍摄仓库 · 已入库 {getWarehouseAge(item)} 天
+            </div>
+            <div style={{fontSize:13, color:'#78350f', lineHeight:1.7}}>
+              <div>📦 入库原因:{wh.reason}</div>
+              {wh.reason_detail && <div>💬 详细:{wh.reason_detail}</div>}
+              <div>👤 操作人:{wh.by_name || '拍摄部'}</div>
+              <div>🕐 入库时间:{new Date(wh.at_ms).toLocaleString('zh-CN')}</div>
+              <div>⏸️ 入库前状态:{PHOTO_STATUS_MAP[wh.prev_status]?.label || wh.prev_status || 'draft'}(唤醒后恢复)</div>
+            </div>
+            {shouldNotifyCustomer(wh.reason) && (
+              <button onClick={() => {
+                navigator.clipboard.writeText(buildWarehouseCustomerScript(item));
+              }} style={{
+                marginTop:10, padding:'6px 14px', fontSize:12, background:'#fef2f2', color:'#b91c1c',
+                border:'1px solid #fecaca', borderRadius:'var(--radius-pill)', cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+              }}>💬 复制话术 → 通知客户</button>
+            )}
+            <div style={{fontSize:11, color:'#a16207', marginTop:10, paddingTop:8, borderTop:'1px dashed #fde68a'}}>
+              ℹ️ 在仓库期间这条记录暂停 · 只有拍摄部能唤醒出库 · 客服/跟单暂不能编辑
+            </div>
+          </div>
+        )}
+        {/* 🆕 fix53 v3: 完整状态展开(仓库中时显示入库前状态) */}
+        {!inWarehouse && (
+          <div style={{background:'var(--accent-soft)', padding:12, borderRadius:10, marginBottom:14}}>
+            <div style={{fontSize:11, color:'var(--accent)', marginBottom:6, fontWeight:600}}>当前进度</div>
+            {statusLines.map((line, i) => (
+              <div key={i} style={{fontSize:13, color: i === 0 ? 'var(--ink)' : 'var(--ink-2)', lineHeight:1.6, marginBottom:2, fontWeight: i === 0 ? 600 : 400}}>
+                {line}
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{background:'var(--bg-elevated)', padding:14, borderRadius:10, marginBottom:14}}>
+          <div style={{fontSize:11, color:'var(--ink-3)', marginBottom:6, fontWeight:600}}>原因 / 拍摄要求</div>
+          <div style={{fontSize:14, lineHeight:1.65, whiteSpace:'pre-wrap', color:'var(--ink)'}}>{ext.reason || '(无)'}</div>
+        </div>
+        {item.product_notes && (
+          <div style={{background:'var(--bg-elevated)', padding:14, borderRadius:10, marginBottom:14}}>
+            <div style={{fontSize:11, color:'var(--ink-3)', marginBottom:6, fontWeight:600}}>产品备注</div>
+            <div style={{fontSize:14, lineHeight:1.65, whiteSpace:'pre-wrap', color:'var(--ink)'}}>{item.product_notes}</div>
+          </div>
+        )}
+        {ext.attachments?.length > 0 && (
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:12, color:'var(--ink-2)', fontWeight:600, marginBottom:8}}>📎 附件 ({ext.attachments.length})</div>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(140px, 1fr))', gap:8}}>
+              {ext.attachments.map((a, i) => (
+                <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" style={{display:'block'}}>
+                  <img src={a.url} alt={a.name} className="img-thumb" style={{width:'100%', aspectRatio:'3/4', objectFit:'contain', borderRadius:8, border:'1px solid var(--line)', background:'var(--bg-elevated)'}}/>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{fontSize:12, color:'var(--ink-3)', display:'flex', gap:14, flexWrap:'wrap', borderTop:'1px solid var(--line)', paddingTop:12, marginBottom:14}}>
+          <span>👤 提交人:{ext.from_name || item.created_by_name}</span>
+          {item.created_at_ms && <span>🕐 {new Date(item.created_at_ms).toLocaleString('zh-CN')}</span>}
+        </div>
+        {/* 🆕 fix53 v3 + fix59 v4: 编辑按钮(仓库中 disable) */}
+        {onEdit && (
+          <div className="modal-actions">
+            <button className="btn-modal-cancel" onClick={onClose}>关闭</button>
+            {inWarehouse ? (
+              <button className="btn-modal-primary" disabled style={{opacity:.4, cursor:'not-allowed'}}
+                title="在仓库中暂停 · 等拍摄部唤醒后才能改">🔒 仓库中暂停编辑</button>
+            ) : (
+              <button className="btn-modal-primary" onClick={onEdit}>✏️ 协作编辑</button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+if (typeof window !== 'undefined') {
+  window.PhotoRequestNewModal = PhotoRequestNewModal;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix53 v3: 协作编辑 Modal — 任何人可改基础字段(merge,不覆盖)
+// 拍摄部填的字段(status / photographer / review 等)灰底只读
+// ════════════════════════════════════════════════════════════════════
+const PhotoRequestEditModal = ({ item, user, toast, onClose, onSuccess }) => {
+  const ext = item.external_request || {};
+  const [productName, setProductName] = useState(item.product_name || '');
+  const [sku, setSku] = useState(item.sku || '');
+  const [shops, setShops] = useState(item.applicable_shops || []);
+  const [productType, setProductType] = useState(item.product_type || '常规产品');
+  const [productNotes, setProductNotes] = useState(item.product_notes || '');
+  const [reasonAppend, setReasonAppend] = useState('');
+  const [newAttachments, setNewAttachments] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const toggleShop = (label) => {
+    setShops(prev => prev.includes(label) ? prev.filter(s => s !== label) : [...prev, label]);
+  };
+
+  const handleFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setUploading(true);
+    const news = [];
+    for (const f of files) {
+      try {
+        const a = await window.uploadAttachmentToWtkpi(f);
+        news.push(a);
+      } catch (err) {
+        toast('上传 ' + f.name + ' 失败:' + err.message);
+      }
+    }
+    setNewAttachments(prev => [...prev, ...news]);
+    setUploading(false);
+    e.target.value = '';
+  };
+
+  const save = async () => {
+    if (!productName.trim()) { toast('产品名不能空'); return; }
+    setSaving(true);
+    try {
+      // 1. 基础字段 merge
+      await window.updatePhotoRequestBasics(item.id, {
+        product_name: productName.trim(),
+        sku: sku.trim() || null,
+        applicable_shops: shops,
+        product_type: productType,
+        product_notes: productNotes.trim() || null,
+      });
+      // 2. 如果有追加内容(原因 / 附件),merge external_request
+      if (reasonAppend.trim() || newAttachments.length > 0) {
+        await window.appendToPhotoRequest(item.id, {
+          reason_append: reasonAppend.trim(),
+          attachments: newAttachments,
+          editor_name: user.name + (user.alias ? ' ' + user.alias : ''),
+        });
+      }
+      toast('✓ 已保存');
+      onSuccess?.();
+    } catch (e) {
+      console.error('[PhotoReq Edit] 保存失败', e);
+      alert('保存失败:\n\n' + (e.message || JSON.stringify(e)));
+    }
+    setSaving(false);
+  };
+
+  const statusLines = renderStatusLine(item);
+  const isMine = ext.from_user_id === user.id;
+
+  return ReactDOM.createPortal(
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:10000,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'white', borderRadius:18, maxWidth:680, width:'100%', maxHeight:'92vh', overflow:'auto',
+        padding:'24px 28px', boxShadow:'0 20px 60px rgba(0,0,0,.25)',
+      }}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6}}>
+          <div className="font-display" style={{fontSize:19, fontWeight:600, letterSpacing:'-.022em'}}>
+            ✏️ 协作编辑
+            {!isMine && <span style={{fontSize:11, fontWeight:400, color:'var(--ink-3)', marginLeft:8}}>(原作者:{ext.from_name})</span>}
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-3)'}}>✕</button>
+        </div>
+        <div style={{fontSize:12, color:'var(--ink-3)', marginBottom:16}}>
+          基础字段(产品名 / SKU / 店铺 / 备注 / 原因)可改 · 拍摄部填的字段只读
+        </div>
+
+        {/* 🆕 可编辑字段(黄边强调) */}
+        <div style={{background:'#fffbeb', border:'1px solid #fbbf24', borderRadius:10, padding:14, marginBottom:14}}>
+          <div style={{fontSize:11, fontWeight:600, color:'#92400e', marginBottom:10, letterSpacing:'.5px'}}>✏️ 你可以编辑这些</div>
+
+          <div style={{marginBottom:12}}>
+            <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>
+              📝 产品名 <span style={{color:'var(--bad)'}}>*</span>
+            </label>
+            <input value={productName} onChange={e => setProductName(e.target.value)}
+              style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, background:'white'}}/>
+          </div>
+
+          <div style={{marginBottom:12}}>
+            <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>🏷 SKU</label>
+            <input value={sku} onChange={e => setSku(e.target.value)} placeholder="DCT-24118-5"
+              style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'SF Mono,monospace', background:'white'}}/>
+          </div>
+
+          <div style={{marginBottom:12}}>
+            <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>🏪 适用店铺</label>
+            <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
+              {(typeof SHOPS_PRESET !== 'undefined' ? SHOPS_PRESET : []).map(s => (
+                <button key={s.id} type="button" onClick={() => toggleShop(s.label)} style={{
+                  padding:'4px 10px', borderRadius:'var(--radius-pill)', cursor:'pointer',
+                  border:'1px solid ' + (shops.includes(s.label) ? 'var(--accent)' : 'var(--line)'),
+                  background: shops.includes(s.label) ? 'var(--accent)' : 'white',
+                  color: shops.includes(s.label) ? 'white' : 'var(--ink-2)',
+                  fontSize:11, fontWeight: shops.includes(s.label) ? 600 : 400,
+                  fontFamily:'inherit',
+                }}>{s.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{marginBottom:12}}>
+            <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>📋 产品类型</label>
+            <select value={productType} onChange={e => setProductType(e.target.value)}
+              style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, background:'white', fontFamily:'inherit'}}>
+              <option value="常规产品">常规产品</option>
+              <option value="样品">样品</option>
+              <option value="新款">新款</option>
+              <option value="现货款">现货款</option>
+              <option value="试拍">试拍</option>
+              <option value="客服需求">客服需求</option>
+              <option value="跟单需求">跟单需求</option>
+            </select>
+          </div>
+
+          <div style={{marginBottom:12}}>
+            <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>📝 产品备注(材质 / 尺寸 / 特殊提醒)</label>
+            <textarea value={productNotes} onChange={e => setProductNotes(e.target.value)} rows={3}
+              placeholder="例:黄铜色 · 高度 1.5m · 客户要求不要拍特写"
+              style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit', resize:'vertical', background:'white'}}/>
+          </div>
+
+          <div style={{marginBottom:12}}>
+            <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>📌 补充原因 / 追加说明(会追加到原来的描述之后)</label>
+            <textarea value={reasonAppend} onChange={e => setReasonAppend(e.target.value)} rows={2}
+              placeholder="例:客户又发来新邮件 · 说要拍底座的细节"
+              style={{width:'100%', padding:'8px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit', resize:'vertical', background:'white'}}/>
+          </div>
+
+          <div>
+            <label style={{display:'block', fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:4}}>📎 追加附件(会加到现有附件后)</label>
+            {newAttachments.length > 0 && (
+              <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:6}}>
+                {newAttachments.map((a, i) => (
+                  <img key={i} src={a.url} alt={a.name} style={{width:60, height:60, objectFit:'contain', borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-elevated)', padding:2}}/>
+                ))}
+              </div>
+            )}
+            <input type="file" accept="image/*" multiple onChange={handleFiles} disabled={uploading} style={{fontSize:11}}/>
+            {uploading && <div style={{fontSize:11, color:'var(--accent)', marginTop:4}}>⏳ 上传中…</div>}
+          </div>
+        </div>
+
+        {/* 🔒 只读区(拍摄部填的) */}
+        <div style={{background:'var(--bg-elevated)', borderRadius:10, padding:14, marginBottom:14}}>
+          <div style={{fontSize:11, fontWeight:600, color:'var(--ink-3)', marginBottom:10, letterSpacing:'.5px'}}>🔒 以下由拍摄部填 · 你只能看</div>
+          {statusLines.map((line, i) => (
+            <div key={i} style={{fontSize:12, color:'var(--ink-2)', lineHeight:1.6, marginBottom:2}}>{line}</div>
+          ))}
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn-modal-cancel" onClick={onClose}>取消</button>
+          <button className="btn-modal-primary" onClick={save} disabled={saving || uploading}>
+            {saving ? '⏳ 保存中…' : '💾 保存修改'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix53 v3: 批量录入 Modal — 一次提交多条拍摄需求
+// 适合客服汇总员场景:周末整理一批待拍产品
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix56: 批量录入单行的附件组件 — 支持点击 / 粘贴 / 拖拽上传 + 缩略图预览
+const RowAttachments = ({ items, onChange, toast }) => {
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [focused, setFocused] = useState(false);     // 🆕 fix64: 聚焦提示
+  const [preview, setPreview] = useState(null);       // 🆕 fix64: 放大预览 lightbox
+  const fileInputRef = useRef(null);
+
+  const handleFiles = async (files) => {
+    const list = Array.from(files || []).filter(f => f.type.startsWith('image/'));
+    if (list.length === 0) return;
+    setUploading(true);
+    const news = [];
+    for (const f of list) {
+      try {
+        const a = await window.uploadAttachmentToWtkpi(f);
+        news.push(a);
+      } catch (e) {
+        toast('上传 ' + f.name + ' 失败:' + (e.message || ''));
+      }
+    }
+    if (news.length > 0) {
+      onChange([...items, ...news]);
+      toast(`✓ 已添加 ${news.length} 张图`);
+    }
+    setUploading(false);
+  };
+
+  const handlePaste = async (e) => {
+    const clipItems = Array.from(e.clipboardData?.items || []);
+    const imageFiles = clipItems.filter(it => it.type && it.type.startsWith('image/')).map(it => it.getAsFile()).filter(Boolean);
+    if (imageFiles.length > 0) {
+      e.preventDefault();
+      await handleFiles(imageFiles);
+    } else {
+      toast('剪贴板里没有图片 — 先截图/复制图片再粘贴');
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    await handleFiles(e.dataTransfer?.files);
+  };
+
+  const removeAt = (idx) => onChange(items.filter((_, i) => i !== idx));
+
+  return (
+    <>
+      <div
+        tabIndex={0}
+        onPaste={handlePaste}
+        onDrop={handleDrop}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          display:'flex', flexWrap:'wrap', gap:5, alignItems:'center', minHeight:48,
+          padding:5, borderRadius:8, cursor:'text',
+          background: dragOver ? 'var(--accent-soft)' : (focused ? '#f0f9ff' : 'transparent'),
+          border: dragOver ? '1px dashed var(--accent)' : (focused ? '1px solid var(--accent)' : '1px dashed var(--line)'),
+          outline:'none', transition:'all .12s', position:'relative',
+        }}
+        title="点这里激活 → 然后 Ctrl+V 粘贴 / 拖拽 / 点 📎 选图"
+      >
+        {items.map((a, i) => (
+          <div key={i} style={{position:'relative', width:48, height:48}}>
+            <img src={a.url} alt={a.name}
+              onClick={(e) => { e.stopPropagation(); setPreview(a); }}
+              title="点击放大预览"
+              style={{width:'100%', height:'100%', objectFit:'contain', borderRadius:6, border:'1px solid var(--line)', background:'var(--bg-elevated)', cursor:'zoom-in'}}/>
+            <button onClick={(e) => { e.stopPropagation(); removeAt(i); }} title="删除"
+              style={{
+                position:'absolute', top:-6, right:-6, width:17, height:17,
+                background:'var(--bad)', color:'white', border:'2px solid white', borderRadius:'50%',
+                cursor:'pointer', fontSize:9, lineHeight:1, fontFamily:'inherit', padding:0,
+              }}>✕</button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="选图 / 也可粘贴 Ctrl+V / 拖拽进来"
+          style={{
+            width:48, height:48, border:'1px dashed var(--line)', borderRadius:6,
+            background:'white', cursor: uploading ? 'wait' : 'pointer', fontSize:14, color:'var(--ink-3)',
+            display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'inherit', padding:0, flexShrink:0,
+          }}
+        >
+          {uploading ? '⏳' : '📎+'}
+        </button>
+        {/* 🆕 fix64: 聚焦时明确提示可粘贴 */}
+        {focused && items.length === 0 && !uploading && (
+          <span style={{fontSize:11, color:'var(--accent)', fontWeight:500, whiteSpace:'nowrap'}}>
+            📋 现在可 Ctrl+V 粘贴
+          </span>
+        )}
+        <input ref={fileInputRef} type="file" accept="image/*" multiple
+          onChange={(e) => { handleFiles(e.target.files); e.target.value = ''; }}
+          style={{display:'none'}}/>
+      </div>
+
+      {/* 🆕 fix64: 放大预览 lightbox */}
+      {preview && ReactDOM.createPortal(
+        <div onClick={() => setPreview(null)} style={{
+          position:'fixed', inset:0, background:'rgba(0,0,0,.8)', zIndex:100001,
+          display:'flex', alignItems:'center', justifyContent:'center', padding:30, cursor:'zoom-out',
+        }}>
+          <img src={preview.url} alt={preview.name}
+            style={{maxWidth:'90vw', maxHeight:'90vh', objectFit:'contain', borderRadius:10, boxShadow:'0 20px 60px rgba(0,0,0,.5)'}}/>
+          <button onClick={() => setPreview(null)} style={{
+            position:'fixed', top:24, right:30, width:40, height:40, borderRadius:'50%',
+            background:'rgba(255,255,255,.15)', color:'white', border:'none', fontSize:22, cursor:'pointer',
+          }}>✕</button>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
+
+const PhotoRequestBatchModal = ({ user, toast, onClose, onSuccess }) => {
+  const [rows, setRows] = useState([
+    { productName:'', sku:'', urgency:'normal', reason:'', attachments:[] },
+    { productName:'', sku:'', urgency:'normal', reason:'', attachments:[] },
+    { productName:'', sku:'', urgency:'normal', reason:'', attachments:[] },
+  ]);
+  const [defaultShops, setDefaultShops] = useState([]);
+  const [defaultUrgency, setDefaultUrgency] = useState('normal');
+  const [reasonPrefix, setReasonPrefix] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const addRow = () => setRows([...rows, { productName:'', sku:'', urgency:'normal', reason:'', attachments:[] }]);
+  const removeRow = (i) => setRows(rows.filter((_, idx) => idx !== i));
+  const updateRow = (i, field, val) => setRows(rows.map((r, idx) => idx === i ? { ...r, [field]: val } : r));
+  const toggleDefaultShop = (label) => {
+    setDefaultShops(prev => prev.includes(label) ? prev.filter(s => s !== label) : [...prev, label]);
+  };
+
+  const valid = rows.filter(r => r.productName.trim());
+  const totalImages = rows.reduce((sum, r) => sum + (r.attachments?.length || 0), 0);
+
+  const submit = async () => {
+    if (valid.length === 0) { toast('至少要填 1 条产品名'); return; }
+    if (!confirm(`确认批量提交 ${valid.length} 条需求?\n\n${totalImages > 0 ? `(包含 ${totalImages} 张图片)` : '(无图片)'}`)) return;
+    setSubmitting(true);
+    try {
+      const result = await window.batchSubmitPhotoRequests(valid, {
+        applicableShops: defaultShops,
+        urgency: defaultUrgency,
+        reasonPrefix: reasonPrefix.trim(),
+      }, user);
+      if (result.failed === 0) {
+        toast(`✓ 全部 ${result.succeeded} 条已提交`);
+      } else {
+        alert(`部分成功:\n\n成功:${result.succeeded} 条\n失败:${result.failed} 条\n\n错误:\n${result.errors.slice(0, 3).join('\n')}`);
+      }
+      onSuccess?.();
+    } catch (e) {
+      console.error('[PhotoReq Batch] 失败', e);
+      alert('批量提交失败:\n\n' + (e.message || JSON.stringify(e)));
+    }
+    setSubmitting(false);
+  };
+
+  return ReactDOM.createPortal(
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:10000,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'white', borderRadius:18, maxWidth:1100, width:'100%', maxHeight:'92vh', overflow:'auto',
+        padding:'24px 28px',
+      }}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6}}>
+          <div className="font-display" style={{fontSize:20, fontWeight:600, letterSpacing:'-.022em'}}>📥 批量录入待拍产品</div>
+          <button onClick={onClose} style={{background:'none', border:'none', fontSize:22, cursor:'pointer', color:'var(--ink-3)'}}>✕</button>
+        </div>
+        <div style={{fontSize:12, color:'var(--ink-3)', marginBottom:16}}>
+          一行一个产品 · 共有字段(店铺 / 紧急度 / 前缀)在下方统一设置 · <strong>每行支持点 📎+ / 粘贴 Ctrl+V / 拖拽 上传图片</strong>
+        </div>
+
+        {/* 统一设置 */}
+        <div style={{background:'var(--bg-elevated)', padding:14, borderRadius:10, marginBottom:14}}>
+          <div style={{fontSize:11, fontWeight:600, color:'var(--ink-2)', marginBottom:8}}>📋 统一应用到所有行</div>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:11, color:'var(--ink-3)', display:'block', marginBottom:4}}>默认店铺(每行可单独覆盖)</label>
+            <div style={{display:'flex', gap:4, flexWrap:'wrap'}}>
+              {(typeof SHOPS_PRESET !== 'undefined' ? SHOPS_PRESET : []).map(s => (
+                <button key={s.id} type="button" onClick={() => toggleDefaultShop(s.label)} style={{
+                  padding:'3px 9px', borderRadius:'var(--radius-pill)', cursor:'pointer',
+                  border:'1px solid ' + (defaultShops.includes(s.label) ? 'var(--accent)' : 'var(--line)'),
+                  background: defaultShops.includes(s.label) ? 'var(--accent)' : 'white',
+                  color: defaultShops.includes(s.label) ? 'white' : 'var(--ink-2)',
+                  fontSize:11, fontFamily:'inherit',
+                }}>{s.label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
+            <label style={{fontSize:11, color:'var(--ink-3)'}}>统一紧急度:</label>
+            <select value={defaultUrgency} onChange={e => setDefaultUrgency(e.target.value)}
+              style={{padding:'4px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'inherit'}}>
+              <option value="normal">· 普通</option>
+              <option value="urgent">🚨 加急</option>
+            </select>
+            <label style={{fontSize:11, color:'var(--ink-3)', marginLeft:14}}>统一原因前缀:</label>
+            <input value={reasonPrefix} onChange={e => setReasonPrefix(e.target.value)}
+              placeholder="例:本周新品汇总"
+              style={{flex:'1 1 200px', padding:'4px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:12}}/>
+          </div>
+        </div>
+
+        {/* 行表格 */}
+        <div style={{overflowX:'auto', marginBottom:12}}>
+          <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
+            <thead>
+              <tr style={{background:'var(--bg-soft)'}}>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, width:30}}>#</th>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:150}}>产品名 *</th>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:120}}>SKU</th>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, width:85}}>紧急度</th>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:170}}>原因 / 备注</th>
+                <th style={{padding:'8px 6px', textAlign:'left', fontWeight:600, fontSize:11, minWidth:180}}>📎 附件</th>
+                <th style={{padding:'8px 6px', width:30}}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} style={{borderBottom:'1px solid var(--line-soft)'}}>
+                  <td style={{padding:'6px 6px', color:'var(--ink-3)', verticalAlign:'middle'}}>{i + 1}</td>
+                  <td style={{padding:'6px 6px', verticalAlign:'middle'}}>
+                    <input value={r.productName} onChange={e => updateRow(i, 'productName', e.target.value)}
+                      placeholder="必填"
+                      style={{width:'100%', padding:'5px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'inherit'}}/>
+                  </td>
+                  <td style={{padding:'6px 6px', verticalAlign:'middle'}}>
+                    <input value={r.sku} onChange={e => updateRow(i, 'sku', e.target.value)}
+                      style={{width:'100%', padding:'5px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'SF Mono,monospace'}}/>
+                  </td>
+                  <td style={{padding:'6px 6px', verticalAlign:'middle'}}>
+                    <select value={r.urgency} onChange={e => updateRow(i, 'urgency', e.target.value)}
+                      style={{width:'100%', padding:'5px 6px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'inherit'}}>
+                      <option value="normal">普通</option>
+                      <option value="urgent">🚨 加急</option>
+                    </select>
+                  </td>
+                  <td style={{padding:'6px 6px', verticalAlign:'middle'}}>
+                    <input value={r.reason} onChange={e => updateRow(i, 'reason', e.target.value)}
+                      style={{width:'100%', padding:'5px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'inherit'}}/>
+                  </td>
+                  <td style={{padding:'6px 6px', verticalAlign:'middle'}}>
+                    <RowAttachments
+                      items={r.attachments || []}
+                      onChange={(news) => updateRow(i, 'attachments', news)}
+                      toast={toast}
+                    />
+                  </td>
+                  <td style={{padding:'6px 6px', textAlign:'center', verticalAlign:'middle'}}>
+                    {rows.length > 1 && (
+                      <button onClick={() => removeRow(i)} style={{
+                        background:'none', border:'none', color:'var(--bad)', cursor:'pointer', fontSize:14, padding:0,
+                      }} title="删除此行">✕</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <button onClick={addRow} style={{
+          padding:'7px 14px', background:'var(--accent-soft)', color:'var(--accent)',
+          border:'1px dashed var(--accent)', borderRadius:8, cursor:'pointer',
+          fontSize:12, fontFamily:'inherit', fontWeight:600, marginBottom:14,
+        }}>+ 加一行</button>
+
+        <div className="modal-actions">
+          <button className="btn-modal-cancel" onClick={onClose}>取消</button>
+          <button className="btn-modal-primary" onClick={submit} disabled={submitting || valid.length === 0}>
+            {submitting ? '⏳ 提交中…' : `💾 批量提交 ${valid.length} 条${totalImages > 0 ? ` (含 ${totalImages} 图)` : ''}`}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
 };

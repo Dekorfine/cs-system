@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 看板 + 回收站 · fix28-77
-// APP_VERSION: 2026.05.27-fix77
+// 📈 数据看板深度重做(fix78)+ 回收站 · fix28-78
+// APP_VERSION: 2026.05.27-fix78
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -223,234 +223,834 @@ const Section360 = ({ icon, title, count, items }) => {
 // ============================================================
 // 数据看板 - 当天/7天/本月
 // ============================================================
+// ============================================================
+// 📊 数据看板 (fix78 重做) — 主管深度视角
+// ============================================================
+// 时间维度:今日/本周/本月/本季/本年/自定义
+// 4 层视图:概览卡 + 分布图 + 未解决清单 + 4 独立模块整合
+// ============================================================
+
 const DashboardModule = ({ user, employees, records }) => {
   const isAdmin = (user.role === 'admin' || user.role === 'super_admin');
-  const [scope, setScope] = useState(isAdmin ? 'team' : 'me'); // me | team
+  const [timeRange, setTimeRange] = useState('today');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [scope, setScope] = useState(isAdmin ? 'team' : 'me');
   const [selectedEmpId, setSelectedEmpId] = useState(user.id);
-
-  const live = records.filter(r => !r.deleted);
-
-  // 过滤范围
-  const scopedRecords = useMemo(() => {
-    if (scope === 'me') return live.filter(r => r.ownerId === user.id);
-    if (scope === 'one' && selectedEmpId) return live.filter(r => r.ownerId === selectedEmpId);
-    return live; // team
-  }, [scope, selectedEmpId, live, user.id]);
-
+  const [expandedCategory, setExpandedCategory] = useState(null);
+  const [expandedSite, setExpandedSite] = useState(null);
+  const [expandedEmp, setExpandedEmp] = useState(null);
+  const [unresolvedFilter, setUnresolvedFilter] = useState({ owner:'all', cat:'all', site:'all', status:'all', overdueOnly:false, noFollowOnly:false });
+  const [detailRecord, setDetailRecord] = useState(null);
+  
+  // ========== 独立模块数据加载 ==========
+  const [extra, setExtra] = useState({ chargebacks:[], offlineOrders:[], customInquiries:[], photoVerif:[] });
+  const [extraLoading, setExtraLoading] = useState(true);
+  
+  useEffect(() => {
+    (async () => {
+      setExtraLoading(true);
+      try {
+        const [cb, oo, ci, pv] = await Promise.all([
+          CLOUD.list('chargebacks', { limit: 1000 }),
+          CLOUD.list('offline_orders', { limit: 1000 }),
+          CLOUD.list('custom_inquiries', { limit: 1000 }),
+          CLOUD.list('photo_verifications', { limit: 1000 }),
+        ]);
+        setExtra({
+          chargebacks: (cb || []).filter(x => !x.deleted),
+          offlineOrders: (oo || []).filter(x => !x.deleted),
+          customInquiries: (ci || []).filter(x => !x.deleted),
+          photoVerif: (pv || []).filter(x => !x.deleted),
+        });
+      } catch(e) { console.error('[Dashboard] 独立模块加载失败:', e); }
+      setExtraLoading(false);
+    })();
+  }, []);
+  
+  // ========== 时间范围解析 ==========
   const today = todayISO();
-  const last7Start = addDays(today, -6);
-  const monthStart = today.slice(0, 8) + '01';
-
-  // 时段统计
-  const calcRange = (startDate, endDate) => {
-    const filtered = scopedRecords.filter(r => r.date >= startDate && r.date <= endDate);
-    const totalEmails = filtered.length;
-    const totalMins = filtered.reduce((s, r) => s + (r.durationMin || 0), 0);
-    const easy = filtered.filter(r => r.difficulty === 'easy').length;
-    const mid = filtered.filter(r => r.difficulty === 'mid').length;
-    const hard = filtered.filter(r => r.difficulty === 'hard').length;
-    const resolved = filtered.filter(r => r.status === 'resolved').length;
-    const overdue = filtered.filter(r => r.status !== 'resolved' && r.nextFollowUp && r.nextFollowUp < today).length;
-    return { totalEmails, totalMins, easy, mid, hard, resolved, overdue };
-  };
-
-  const todayStats = calcRange(today, today);
-  const week7Stats = calcRange(last7Start, today);
-  const monthStats = calcRange(monthStart, today);
-
-  // 7天每天柱状图数据
-  const daily7 = useMemo(() => {
-    const arr = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = addDays(today, -i);
-      const recs = scopedRecords.filter(r => r.date === d);
-      arr.push({
-        date: d,
-        label: d.slice(5).replace('-','/'),
-        weekday: ['日','一','二','三','四','五','六'][new Date(d).getDay()],
-        count: recs.length,
-        mins: recs.reduce((s, r) => s + (r.durationMin || 0), 0),
-      });
+  const timeMeta = useMemo(() => {
+    const d = new Date(today);
+    let start = today, end = today, label = '今日', prevStart, prevEnd;
+    if (timeRange === 'today') {
+      start = today; end = today; label = '今日';
+      prevStart = addDays(today, -1); prevEnd = addDays(today, -1);
+    } else if (timeRange === 'week') {
+      const dow = d.getDay() === 0 ? 6 : d.getDay() - 1;
+      start = addDays(today, -dow); end = today;
+      label = `本周 (${start.slice(5)} → ${end.slice(5)})`;
+      prevStart = addDays(start, -7); prevEnd = addDays(end, -7);
+    } else if (timeRange === 'month') {
+      start = today.slice(0, 8) + '01'; end = today;
+      label = `${today.slice(0, 7)}`;
+      const lm = new Date(start + 'T00:00:00');
+      lm.setMonth(lm.getMonth() - 1);
+      prevStart = lm.toISOString().slice(0, 10);
+      lm.setMonth(lm.getMonth() + 1); lm.setDate(0);
+      prevEnd = lm.toISOString().slice(0, 10);
+    } else if (timeRange === 'quarter') {
+      const m = d.getMonth();
+      const qStart = Math.floor(m / 3) * 3;
+      start = `${today.slice(0,4)}-${String(qStart+1).padStart(2,'0')}-01`;
+      end = today;
+      label = `${today.slice(0,4)} Q${Math.floor(m/3)+1}`;
+      const py = qStart === 0 ? d.getFullYear() - 1 : d.getFullYear();
+      const pm = qStart === 0 ? 9 : qStart - 3;
+      prevStart = `${py}-${String(pm+1).padStart(2,'0')}-01`;
+      const pe = new Date(py, pm + 3, 0);
+      prevEnd = `${pe.getFullYear()}-${String(pe.getMonth()+1).padStart(2,'0')}-${String(pe.getDate()).padStart(2,'0')}`;
+    } else if (timeRange === 'year') {
+      start = today.slice(0,4) + '-01-01'; end = today;
+      label = `${today.slice(0,4)} 年`;
+      const py = parseInt(today.slice(0,4)) - 1;
+      prevStart = `${py}-01-01`; prevEnd = `${py}-12-31`;
+    } else if (timeRange === 'custom') {
+      start = customStart || today; end = customEnd || today;
+      label = customStart && customEnd ? `${customStart} → ${customEnd}` : '请选范围';
+      if (customStart && customEnd) {
+        const ds = new Date(start + 'T00:00:00'), de = new Date(end + 'T00:00:00');
+        const days = Math.round((de - ds) / 86400000) + 1;
+        prevStart = addDays(start, -days); prevEnd = addDays(end, -days);
+      }
     }
-    return arr;
-  }, [scopedRecords]);
-
-  const maxCount = Math.max(...daily7.map(d => d.count), 1);
-
-  // 每员工本月排行 (主管视角)
-  const empRanking = useMemo(() => {
-    if (scope !== 'team') return null;
+    return { startDate: start, endDate: end, rangeLabel: label, prevStartDate: prevStart, prevEndDate: prevEnd };
+  }, [timeRange, customStart, customEnd, today]);
+  
+  const { startDate, endDate, rangeLabel, prevStartDate, prevEndDate } = timeMeta;
+  
+  // ========== 客服 records 过滤 ==========
+  const liveRecords = useMemo(() => records.filter(r => !r.deleted), [records]);
+  const scopedRecords = useMemo(() => {
+    if (scope === 'me') return liveRecords.filter(r => r.ownerId === user.id);
+    if (scope === 'one' && selectedEmpId) return liveRecords.filter(r => r.ownerId === selectedEmpId);
+    return liveRecords;
+  }, [scope, selectedEmpId, liveRecords, user.id]);
+  
+  const inRange = (date) => date && date >= startDate && date <= endDate;
+  const inPrevRange = (date) => date && prevStartDate && prevEndDate && date >= prevStartDate && date <= prevEndDate;
+  
+  const periodRecords = useMemo(() => scopedRecords.filter(r => inRange(r.date)), [scopedRecords, startDate, endDate]);
+  const prevPeriodRecords = useMemo(() => scopedRecords.filter(r => inPrevRange(r.date)), [scopedRecords, prevStartDate, prevEndDate]);
+  
+  // ========== 核心指标 ==========
+  const UNRESOLVED_STATUSES = ['pending', 'following', 'waiting'];
+  const totalCount = periodRecords.length;
+  const prevTotalCount = prevPeriodRecords.length;
+  const diffPct = prevTotalCount > 0 ? Math.round((totalCount - prevTotalCount) / prevTotalCount * 100) : null;
+  
+  const resolved = periodRecords.filter(r => r.status === 'resolved');
+  const unresolved = periodRecords.filter(r => UNRESOLVED_STATUSES.includes(r.status));
+  const overdue = unresolved.filter(r => r.nextFollowUp && r.nextFollowUp < today);
+  const noFollowUpSet = unresolved.filter(r => !r.nextFollowUp);
+  const activeEmps = new Set(periodRecords.map(r => r.ownerId)).size;
+  
+  // ========== 独立模块计数 ==========
+  const cbActive = extra.chargebacks.filter(c => !['won','lost','closed'].includes(c.status));
+  const ooActive = extra.offlineOrders.filter(o => !['completed','cancelled'].includes(o.status));
+  const ciActive = extra.customInquiries.filter(c => !['completed','cancelled'].includes(c.stage));
+  const pvPending = extra.photoVerif.filter(p => !['accepted','rejected','replaced'].includes(p.status));
+  
+  const cbInRange = extra.chargebacks.filter(c => inRange((c.created_at || '').slice(0, 10)));
+  const ooInRange = extra.offlineOrders.filter(o => inRange((o.created_at || '').slice(0, 10)));
+  const ciInRange = extra.customInquiries.filter(c => inRange((c.created_at || '').slice(0, 10)));
+  const pvInRange = extra.photoVerif.filter(p => inRange((p.created_at || '').slice(0, 10)));
+  
+  // ========== 按问题分类分布 ==========
+  const categoryStats = useMemo(() => {
+    const map = new Map();
+    periodRecords.forEach(r => {
+      const cat = r.category || '(未分类)';
+      if (!map.has(cat)) map.set(cat, { name: cat, total: 0, unresolved: 0, resolved: 0, records: [] });
+      const item = map.get(cat);
+      item.total++;
+      item.records.push(r);
+      if (UNRESOLVED_STATUSES.includes(r.status)) item.unresolved++;
+      if (r.status === 'resolved') item.resolved++;
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [periodRecords]);
+  
+  // ========== 按网站分布 ==========
+  const siteStats = useMemo(() => {
+    const map = new Map();
+    periodRecords.forEach(r => {
+      const site = r.site || '(未填)';
+      if (!map.has(site)) map.set(site, { name: site, total: 0, unresolved: 0, resolved: 0, records: [] });
+      const item = map.get(site);
+      item.total++;
+      item.records.push(r);
+      if (UNRESOLVED_STATUSES.includes(r.status)) item.unresolved++;
+      if (r.status === 'resolved') item.resolved++;
+    });
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [periodRecords]);
+  
+  // ========== 按客服分布 ==========
+  const empStats = useMemo(() => {
     return employees.map(e => {
-      const recs = live.filter(r => r.ownerId === e.id && r.date >= monthStart);
-      const mins = recs.reduce((s, r) => s + (r.durationMin || 0), 0);
-      const easy = recs.filter(r => r.difficulty === 'easy').length;
-      const mid = recs.filter(r => r.difficulty === 'mid').length;
-      const hard = recs.filter(r => r.difficulty === 'hard').length;
-      const resolved = recs.filter(r => r.status === 'resolved').length;
-      const score = easy + mid * 2 + hard * 3;
-      return { ...e, count: recs.length, mins, easy, mid, hard, resolved, score };
-    }).sort((a, b) => b.score - a.score);
-  }, [scope, employees, live, monthStart]);
-
+      const recs = periodRecords.filter(r => r.ownerId === e.id);
+      return {
+        ...e,
+        total: recs.length,
+        unresolved: recs.filter(r => UNRESOLVED_STATUSES.includes(r.status)).length,
+        resolved: recs.filter(r => r.status === 'resolved').length,
+        overdue: recs.filter(r => UNRESOLVED_STATUSES.includes(r.status) && r.nextFollowUp && r.nextFollowUp < today).length,
+        noFollow: recs.filter(r => UNRESOLVED_STATUSES.includes(r.status) && !r.nextFollowUp).length,
+        easy: recs.filter(r => r.difficulty === 'easy').length,
+        mid: recs.filter(r => r.difficulty === 'mid').length,
+        hard: recs.filter(r => r.difficulty === 'hard').length,
+        mins: recs.reduce((s, r) => s + (r.durationMin || 0), 0),
+        records: recs,
+      };
+    }).filter(e => e.total > 0 || (scope === 'team')).sort((a, b) => b.total - a.total);
+  }, [employees, periodRecords, today, scope]);
+  
+  // ========== 未解决清单(可筛选) ==========
+  const unresolvedList = useMemo(() => {
+    let l = unresolved;
+    if (unresolvedFilter.owner !== 'all') l = l.filter(r => r.ownerId === unresolvedFilter.owner);
+    if (unresolvedFilter.cat !== 'all') l = l.filter(r => r.category === unresolvedFilter.cat);
+    if (unresolvedFilter.site !== 'all') l = l.filter(r => r.site === unresolvedFilter.site);
+    if (unresolvedFilter.status !== 'all') l = l.filter(r => r.status === unresolvedFilter.status);
+    if (unresolvedFilter.overdueOnly) l = l.filter(r => r.nextFollowUp && r.nextFollowUp < today);
+    if (unresolvedFilter.noFollowOnly) l = l.filter(r => !r.nextFollowUp);
+    return [...l].sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
+  }, [unresolved, unresolvedFilter, today]);
+  
+  const daysAgo = (date) => {
+    if (!date) return null;
+    const d1 = new Date(today + 'T00:00:00'), d2 = new Date(date + 'T00:00:00');
+    return Math.round((d1 - d2) / 86400000);
+  };
+  
+  // 高优先级问题分类(标红)
+  const URGENT_CATS = ['拒付','售后','退货','补发','取消订单','质量问题'];
+  
   return (
     <div className="space-y-5 fade-in">
-      {/* 范围切换 */}
+      {/* ① 时间维度 + 范围切换 */}
       <div className="paper rounded-2xl p-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap mb-3">
           <div className="flex items-center gap-2">
             <Icon name="chart" className="w-5 h-5" style={{color:'var(--accent)'}} />
-            <span className="font-display text-base font-bold">数据看板</span>
-            <span className="text-[10px] font-mono" style={{color:'var(--ink-4)'}}>
-              当天 · 近 7 天 · 本月
-            </span>
+            <span className="font-display text-base font-bold">📊 数据看板</span>
+            <span className="text-[11px]" style={{color:'var(--ink-3)'}}>· {rangeLabel}</span>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {isAdmin && (
-              <>
-                <button className={`btn-sec ${scope==='team'?'!bg-[var(--accent)] !text-white !border-[var(--accent)]':''}`} onClick={() => setScope('team')}>全团队</button>
-                <button className={`btn-sec ${scope==='one'?'!bg-[var(--accent)] !text-white !border-[var(--accent)]':''}`} onClick={() => setScope('one')}>指定员工</button>
-                {scope === 'one' && (
-                  <select value={selectedEmpId} onChange={e => setSelectedEmpId(e.target.value)} style={{width:'auto', padding:'5px 10px', fontSize:'12px'}}>
-                    {employees.map(e => <option key={e.id} value={e.id}>{e.name}{e.alias && ` (${e.alias})`}</option>)}
-                  </select>
-                )}
-              </>
-            )}
-            <button className={`btn-sec ${scope==='me'?'!bg-[var(--accent)] !text-white !border-[var(--accent)]':''}`} onClick={() => setScope('me')}>我的</button>
-          </div>
+          <div style={{flex:1}}></div>
+          {isAdmin && (
+            <div className="flex items-center gap-1">
+              <button className={`btn-sec ${scope==='team'?'!bg-[var(--accent)] !text-white !border-[var(--accent)]':''}`}
+                onClick={() => setScope('team')} style={{padding:'5px 12px', fontSize:12}}>全团队</button>
+              <button className={`btn-sec ${scope==='one'?'!bg-[var(--accent)] !text-white !border-[var(--accent)]':''}`}
+                onClick={() => setScope('one')} style={{padding:'5px 12px', fontSize:12}}>指定员工</button>
+              {scope === 'one' && (
+                <select value={selectedEmpId} onChange={e => setSelectedEmpId(e.target.value)} style={{padding:'4px 8px', fontSize:12, border:'1px solid var(--line)', borderRadius:6}}>
+                  {employees.map(e => <option key={e.id} value={e.id}>{e.name}{e.alias?` (${e.alias})`:''}</option>)}
+                </select>
+              )}
+            </div>
+          )}
+          <button className={`btn-sec ${scope==='me'?'!bg-[var(--accent)] !text-white !border-[var(--accent)]':''}`}
+            onClick={() => setScope('me')} style={{padding:'5px 12px', fontSize:12}}>我的</button>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-bold" style={{color:'var(--ink-3)'}}>📅 时间</span>
+          {[['today','今日'],['week','本周'],['month','本月'],['quarter','本季'],['year','本年'],['custom','自定义']].map(([k,l]) => (
+            <button key={k} className={`btn-sec ${timeRange===k?'!bg-[var(--accent)] !text-white !border-[var(--accent)]':''}`}
+              onClick={() => setTimeRange(k)} style={{padding:'5px 14px', fontSize:12, fontWeight: timeRange===k?600:500}}>{l}</button>
+          ))}
+          {timeRange === 'custom' && (
+            <div className="flex items-center gap-2 ml-2">
+              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)}
+                style={{padding:'4px 8px', fontSize:12, border:'1px solid var(--line)', borderRadius:6}} />
+              <span style={{color:'var(--ink-3)'}}>→</span>
+              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)}
+                style={{padding:'4px 8px', fontSize:12, border:'1px solid var(--line)', borderRadius:6}} />
+            </div>
+          )}
         </div>
       </div>
-
-      {/* 三段统计 */}
+      
+      {/* ② 6 张概览卡 */}
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+        <KpiCard title="📧 处理总数" value={totalCount}
+          sub={diffPct !== null ? `${diffPct >= 0 ? '↑' : '↓'} ${Math.abs(diffPct)}% vs 上期` : '上期无数据'}
+          subColor={diffPct === null ? 'var(--ink-4)' : (diffPct >= 0 ? 'var(--good)' : 'var(--bad)')}
+          accent="var(--accent)" />
+        <KpiCard title="✅ 已解决" value={resolved.length}
+          sub={totalCount > 0 ? `${Math.round(resolved.length / totalCount * 100)}% 解决率` : '—'}
+          accent="var(--good)" />
+        <KpiCard title="⏳ 未解决" value={unresolved.length}
+          sub={overdue.length > 0 ? `🔴 ${overdue.length} 已超期` : (noFollowUpSet.length > 0 ? `🟡 ${noFollowUpSet.length} 未设跟进` : '✓ 状态正常')}
+          subColor={overdue.length > 0 ? 'var(--bad)' : (noFollowUpSet.length > 0 ? 'var(--warn)' : 'var(--ink-4)')}
+          accent="var(--warn)" highlight={overdue.length > 0} />
+        <KpiCard title="👥 活跃客服" value={activeEmps}
+          sub={`/ ${employees.length} 总人数`} accent="#5e5ce6" />
+        <KpiCard title="🚨 拒付待处理" value={cbActive.length}
+          sub={cbInRange.length > 0 ? `本期新增 ${cbInRange.length}` : '本期无新增'}
+          accent="var(--bad)" highlight={cbActive.length > 5} />
+        <KpiCard title="💳 工单待处理" value={ooActive.length + ciActive.length + pvPending.length}
+          sub={`线下 ${ooActive.length} · 定制 ${ciActive.length} · 实拍 ${pvPending.length}`}
+          accent="#af52de" />
+      </div>
+      
+      {/* ③ 三个分布(并排) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <RangeCard title="今日" range={today} stats={todayStats} accent="var(--good)" />
-        <RangeCard title="近 7 天" range={`${last7Start.slice(5)} → ${today.slice(5)}`} stats={week7Stats} accent="var(--info)" />
-        <RangeCard title="本月" range={`${monthStart.slice(5,7)}月`} stats={monthStats} accent="var(--accent)" />
+        <CategoryDistribution items={categoryStats} expanded={expandedCategory} onExpand={setExpandedCategory}
+          urgentKeys={URGENT_CATS} onClickRecord={setDetailRecord} employees={employees} />
+        <SiteDistribution items={siteStats} expanded={expandedSite} onExpand={setExpandedSite}
+          onClickRecord={setDetailRecord} employees={employees} />
+        <EmployeeDistribution items={empStats} expanded={expandedEmp} onExpand={setExpandedEmp}
+          onClickRecord={setDetailRecord} />
       </div>
+      
+      {/* ④ 未解决清单 */}
+      <UnresolvedList
+        records={unresolvedList}
+        totalUnresolved={unresolved.length}
+        overdueCount={overdue.length}
+        noFollowCount={noFollowUpSet.length}
+        filter={unresolvedFilter}
+        setFilter={setUnresolvedFilter}
+        employees={employees}
+        today={today}
+        daysAgo={daysAgo}
+        onClickRecord={setDetailRecord}
+        isAdmin={isAdmin}
+      />
+      
+      {/* ⑤ 独立模块整合 */}
+      <ModuleIntegrationPanel
+        chargebacks={extra.chargebacks} chargebacksInRange={cbInRange}
+        offlineOrders={extra.offlineOrders} offlineInRange={ooInRange}
+        customInquiries={extra.customInquiries} ciInRange={ciInRange}
+        photoVerif={extra.photoVerif} pvInRange={pvInRange}
+        rangeLabel={rangeLabel} loading={extraLoading} employees={employees}
+      />
+      
+      {/* 记录详情弹窗 */}
+      {detailRecord && (
+        <RecordDetailModal record={detailRecord} employees={employees} onClose={() => setDetailRecord(null)} />
+      )}
+    </div>
+  );
+};
 
-      {/* 7天每天柱状图 */}
-      <div className="paper rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="font-display text-sm font-bold">近 7 天工作量趋势</div>
-            <div className="text-[10px] font-mono" style={{color:'var(--ink-3)'}}>邮件数 / 工作时长</div>
-          </div>
-        </div>
-        <div className="flex items-end gap-2 h-44">
-          {daily7.map(d => {
-            const heightPct = (d.count / maxCount) * 100;
-            const isToday = d.date === today;
+// ============================================================
+// KPI 卡片
+// ============================================================
+const KpiCard = ({ title, value, sub, subColor, accent, highlight }) => (
+  <div className="paper rounded-2xl p-4" style={{
+    borderLeft: `4px solid ${accent}`,
+    boxShadow: highlight ? `0 0 0 2px ${accent}33` : undefined,
+  }}>
+    <div className="text-[11px] font-bold" style={{color:'var(--ink-3)'}}>{title}</div>
+    <div className="font-mono font-bold text-3xl tabular-nums mt-1" style={{color: accent}}>{value}</div>
+    <div className="text-[10px] mt-1" style={{color: subColor || 'var(--ink-4)'}}>{sub}</div>
+  </div>
+);
+
+// ============================================================
+// 按分类分布
+// ============================================================
+const CategoryDistribution = ({ items, expanded, onExpand, urgentKeys, onClickRecord, employees }) => {
+  const maxV = Math.max(1, ...items.map(it => it.total));
+  const top10 = items.slice(0, 10);
+  return (
+    <div className="paper rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-display text-sm font-bold">🏷 按问题类型 TOP 10</div>
+        <span className="text-[10px]" style={{color:'var(--ink-4)'}}>{items.length} 类</span>
+      </div>
+      {top10.length === 0 ? (
+        <div className="text-center py-8 text-xs" style={{color:'var(--ink-4)'}}>本期无数据</div>
+      ) : (
+        <div className="space-y-1.5">
+          {top10.map(it => {
+            const pct = it.total / maxV * 100;
+            const isUrgent = urgentKeys.includes(it.name);
+            const isOpen = expanded === it.name;
             return (
-              <div key={d.date} className="flex-1 flex flex-col items-center gap-1" style={{minWidth:'40px'}}>
-                <div className="text-[10px] font-mono font-bold" style={{color: d.count > 0 ? 'var(--ink)' : 'var(--ink-4)'}}>{d.count || ''}</div>
-                <div style={{
-                  width:'100%',
-                  height: Math.max(heightPct, 2) + '%',
-                  background: isToday ? 'var(--accent)' : (d.count > 0 ? 'var(--accent-mid)' : 'var(--line-soft)'),
-                  borderRadius:'4px 4px 0 0',
-                  transition:'all .3s',
-                  position:'relative',
-                  display:'flex',
-                  alignItems:'flex-end',
-                  justifyContent:'center',
-                }} title={`${d.count} 封 · ${fmtDuration(d.mins)}`}>
-                </div>
-                <div className="text-center">
-                  <div className="text-[10px] font-mono font-bold" style={{color: isToday ? 'var(--accent)' : 'var(--ink-2)'}}>{d.label}</div>
-                  <div className="text-[9px]" style={{color:'var(--ink-4)'}}>周{d.weekday}</div>
-                </div>
+              <div key={it.name}>
+                <button onClick={() => onExpand(isOpen ? null : it.name)}
+                  className="w-full text-left flex items-center gap-2 py-1 px-2 rounded hover:bg-[var(--bg-elevated)] transition"
+                  style={{background: isOpen ? 'var(--accent-soft)' : 'transparent'}}>
+                  <span className="text-[11px] font-bold w-20 truncate" style={{color: isUrgent ? 'var(--bad)' : 'var(--ink)'}}>
+                    {isUrgent && '🔴 '}{it.name}
+                  </span>
+                  <div className="flex-1 h-4 rounded overflow-hidden" style={{background:'var(--bg-elevated)'}}>
+                    <div style={{
+                      width: pct + '%', height: '100%',
+                      background: isUrgent ? 'var(--bad)' : 'var(--accent)',
+                      transition: 'width .3s',
+                    }} />
+                  </div>
+                  <span className="text-[11px] font-mono font-bold w-8 text-right">{it.total}</span>
+                  {it.unresolved > 0 && (
+                    <span className="text-[10px] font-mono w-12 text-right" style={{color:'var(--warn)'}}>⏳{it.unresolved}</span>
+                  )}
+                  <span style={{color:'var(--ink-4)'}}>{isOpen ? '▾' : '▸'}</span>
+                </button>
+                {isOpen && (
+                  <div className="ml-2 mt-1 mb-2 p-2 rounded" style={{background:'var(--bg-soft)', maxHeight:240, overflowY:'auto'}}>
+                    {it.records.slice(0, 50).map(r => (
+                      <div key={r.id} onClick={() => onClickRecord(r)}
+                        className="py-1.5 px-2 text-[11px] cursor-pointer rounded hover:bg-white"
+                        style={{borderBottom:'1px solid var(--line-soft)'}}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">{r.customer || '(无客户名)'}</span>
+                          <span style={{color:'var(--ink-4)'}}>{r.orderRef || ''}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{background:'var(--bg-elevated)', color:'var(--ink-3)'}}>{r.site}</span>
+                          <div style={{flex:1}}/>
+                          <span className="text-[10px]" style={{color:'var(--ink-4)'}}>{r.date}</span>
+                          <StatusTag status={r.status} />
+                        </div>
+                        {r.note && <div className="text-[10px] mt-0.5 truncate" style={{color:'var(--ink-3)'}}>{r.note}</div>}
+                      </div>
+                    ))}
+                    {it.records.length > 50 && <div className="text-[10px] text-center pt-1" style={{color:'var(--ink-4)'}}>共 {it.records.length} 条,只显示前 50</div>}
+                  </div>
+                )}
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* 🆕 fix18: 邮件按网站 × 按天 分布 (主管想看每人负责哪些网站,每天回多少) */}
-      <SiteDailyBreakdown
-        scope={scope} selectedEmpId={selectedEmpId} employees={employees}
-        live={live} today={today} last7Start={last7Start} monthStart={monthStart}
-      />
-
-      {/* 员工排行 (仅主管/全团队) */}
-      {empRanking && (
-        <div className="paper rounded-2xl overflow-hidden">
-          <div className="p-4 border-b" style={{borderColor:'var(--line)'}}>
-            <div className="flex items-center gap-2">
-              <Icon name="star" className="w-4 h-4" style={{color:'var(--gold)'}} />
-              <span className="font-display text-sm font-bold">本月工作量排行</span>
-              <span className="text-[10px] font-mono" style={{color:'var(--ink-3)'}}>简 ×1 + 中 ×2 + 复 ×3 = 加权分</span>
-            </div>
-          </div>
-          <div className="overflow-x-auto scrollbar-thin">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{width:'40px'}}>#</th>
-                  <th>员工</th>
-                  <th>负责网站</th>
-                  <th style={{textAlign:'right'}}>邮件数</th>
-                  <th style={{textAlign:'right'}}>总时长</th>
-                  <th style={{textAlign:'right'}}>简/中/复</th>
-                  <th style={{textAlign:'right'}}>已解决</th>
-                  <th style={{textAlign:'right'}}>加权分</th>
-                </tr>
-              </thead>
-              <tbody>
-                {empRanking.map((e, idx) => (
-                  <tr key={e.id}>
-                    <td>
-                      <span className={`tag ${idx<3?'tag-gold':'tag-neutral'}`}>{idx+1}</span>
-                    </td>
-                    <td>
-                      <div className="font-bold text-xs">{e.name}{e.alias && ` · ${e.alias}`}</div>
-                      {(e.role === 'admin' || e.role === 'super_admin') && <div className="text-[10px]" style={{color:'var(--accent)'}}>{e.title || '主管'}</div>}
-                    </td>
-                    <td><span className="text-[11px]" style={{color:'var(--ink-3)'}}>{e.sites || '—'}</span></td>
-                    <td style={{textAlign:'right'}}><span className="font-mono font-bold">{e.count}</span></td>
-                    <td style={{textAlign:'right'}}><span className="font-mono">{fmtDuration(e.mins)}</span></td>
-                    <td style={{textAlign:'right'}}><span className="font-mono text-[11px]" style={{color:'var(--ink-3)'}}>{e.easy}/{e.mid}/{e.hard}</span></td>
-                    <td style={{textAlign:'right'}}><span className="font-mono font-bold" style={{color:'var(--good)'}}>{e.resolved}</span></td>
-                    <td style={{textAlign:'right'}}><span className="font-mono font-bold text-base" style={{color:'var(--accent)'}}>{e.score}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
     </div>
   );
 };
 
-const RangeCard = ({ title, range, stats, accent }) => (
-  <div className="paper rounded-2xl p-5" style={{borderLeft:`4px solid ${accent}`}}>
-    <div className="flex items-center justify-between mb-3">
-      <div>
-        <div className="font-display text-base font-bold">{title}</div>
-        <div className="text-[10px] font-mono" style={{color:'var(--ink-3)'}}>{range}</div>
+// ============================================================
+// 按网站分布
+// ============================================================
+const SiteDistribution = ({ items, expanded, onExpand, onClickRecord, employees }) => {
+  const maxV = Math.max(1, ...items.map(it => it.total));
+  return (
+    <div className="paper rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-display text-sm font-bold">🌐 按网站分布</div>
+        <span className="text-[10px]" style={{color:'var(--ink-4)'}}>{items.length} 站</span>
+      </div>
+      {items.length === 0 ? (
+        <div className="text-center py-8 text-xs" style={{color:'var(--ink-4)'}}>本期无数据</div>
+      ) : (
+        <div className="space-y-1.5">
+          {items.map(it => {
+            const pct = it.total / maxV * 100;
+            const isOpen = expanded === it.name;
+            return (
+              <div key={it.name}>
+                <button onClick={() => onExpand(isOpen ? null : it.name)}
+                  className="w-full text-left flex items-center gap-2 py-1 px-2 rounded hover:bg-[var(--bg-elevated)] transition"
+                  style={{background: isOpen ? 'var(--accent-soft)' : 'transparent'}}>
+                  <span className="text-[11px] font-bold w-14 truncate">{it.name}</span>
+                  <div className="flex-1 h-4 rounded overflow-hidden" style={{background:'var(--bg-elevated)'}}>
+                    <div style={{width: pct + '%', height: '100%', background:'#5e5ce6', transition: 'width .3s'}} />
+                  </div>
+                  <span className="text-[11px] font-mono font-bold w-8 text-right">{it.total}</span>
+                  {it.unresolved > 0 && (
+                    <span className="text-[10px] font-mono w-12 text-right" style={{color:'var(--warn)'}}>⏳{it.unresolved}</span>
+                  )}
+                  <span style={{color:'var(--ink-4)'}}>{isOpen ? '▾' : '▸'}</span>
+                </button>
+                {isOpen && (
+                  <div className="ml-2 mt-1 mb-2 p-2 rounded" style={{background:'var(--bg-soft)', maxHeight:240, overflowY:'auto'}}>
+                    {it.records.slice(0, 50).map(r => (
+                      <div key={r.id} onClick={() => onClickRecord(r)}
+                        className="py-1.5 px-2 text-[11px] cursor-pointer rounded hover:bg-white"
+                        style={{borderBottom:'1px solid var(--line-soft)'}}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">{r.customer || '(无客户名)'}</span>
+                          <span style={{color:'var(--ink-4)'}}>{r.orderRef || ''}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{background:'var(--bg-elevated)', color:'var(--ink-3)'}}>{r.category}</span>
+                          <div style={{flex:1}}/>
+                          <span className="text-[10px]" style={{color:'var(--ink-4)'}}>{r.date}</span>
+                          <StatusTag status={r.status} />
+                        </div>
+                      </div>
+                    ))}
+                    {it.records.length > 50 && <div className="text-[10px] text-center pt-1" style={{color:'var(--ink-4)'}}>共 {it.records.length} 条,只显示前 50</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// 按客服分布
+// ============================================================
+const EmployeeDistribution = ({ items, expanded, onExpand, onClickRecord }) => {
+  return (
+    <div className="paper rounded-2xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-display text-sm font-bold">👤 按客服分布</div>
+        <span className="text-[10px]" style={{color:'var(--ink-4)'}}>{items.length} 人</span>
+      </div>
+      {items.length === 0 ? (
+        <div className="text-center py-8 text-xs" style={{color:'var(--ink-4)'}}>本期无数据</div>
+      ) : (
+        <div className="space-y-1.5" style={{maxHeight:520, overflowY:'auto'}}>
+          {items.map((e, idx) => {
+            const isOpen = expanded === e.id;
+            return (
+              <div key={e.id}>
+                <button onClick={() => onExpand(isOpen ? null : e.id)}
+                  className="w-full text-left flex items-center gap-2 py-1.5 px-2 rounded hover:bg-[var(--bg-elevated)] transition"
+                  style={{background: isOpen ? 'var(--accent-soft)' : 'transparent'}}>
+                  <span className={`text-[10px] font-bold w-5 text-center px-1 rounded ${idx<3?'tag-gold':''}`}
+                    style={idx >= 3 ? {color:'var(--ink-4)'} : {}}>{idx+1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] font-bold truncate">{e.name}{e.alias?` · ${e.alias}`:''}</div>
+                    <div className="text-[10px] flex items-center gap-1.5 flex-wrap" style={{color:'var(--ink-3)'}}>
+                      <span>📧 <b>{e.total}</b></span>
+                      <span style={{color:'var(--good)'}}>✓ {e.resolved}</span>
+                      {e.unresolved > 0 && <span style={{color:'var(--warn)'}}>⏳ {e.unresolved}</span>}
+                      {e.overdue > 0 && <span style={{color:'var(--bad)'}}>🔴 {e.overdue}</span>}
+                      {e.noFollow > 0 && <span style={{color:'#b45309'}}>🟡 {e.noFollow}未设</span>}
+                    </div>
+                  </div>
+                  <span style={{color:'var(--ink-4)'}}>{isOpen ? '▾' : '▸'}</span>
+                </button>
+                {isOpen && (
+                  <div className="ml-2 mt-1 mb-2 p-2 rounded" style={{background:'var(--bg-soft)', maxHeight:240, overflowY:'auto'}}>
+                    <div className="text-[10px] mb-2" style={{color:'var(--ink-3)'}}>
+                      简 <b style={{color:'var(--good)'}}>{e.easy}</b> · 中 <b style={{color:'var(--gold)'}}>{e.mid}</b> · 复 <b style={{color:'var(--bad)'}}>{e.hard}</b> · 共 {fmtDuration(e.mins)}
+                    </div>
+                    {e.records.slice(0, 50).map(r => (
+                      <div key={r.id} onClick={() => onClickRecord(r)}
+                        className="py-1.5 px-2 text-[11px] cursor-pointer rounded hover:bg-white"
+                        style={{borderBottom:'1px solid var(--line-soft)'}}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">{r.customer || '(无客户名)'}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{background:'var(--bg-elevated)', color:'var(--ink-3)'}}>{r.category}</span>
+                          <div style={{flex:1}}/>
+                          <StatusTag status={r.status} />
+                        </div>
+                      </div>
+                    ))}
+                    {e.records.length > 50 && <div className="text-[10px] text-center pt-1" style={{color:'var(--ink-4)'}}>共 {e.records.length} 条,只显示前 50</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// 状态 Tag
+// ============================================================
+const StatusTag = ({ status }) => {
+  const map = {
+    pending:     { label:'待处理', bg:'#fef3c7', color:'#92400e' },
+    following:   { label:'跟进中', bg:'#dbeafe', color:'#1e40af' },
+    waiting:     { label:'等客户', bg:'#fce7f3', color:'#9d174d' },
+    resolved:    { label:'已解决', bg:'#dcfce7', color:'#15803d' },
+    transferred: { label:'已转交', bg:'#e5e5e7', color:'#6e6e73' },
+  };
+  const m = map[status] || { label: status || '?', bg:'#f5f5f7', color:'#86868b' };
+  return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{background:m.bg, color:m.color}}>{m.label}</span>;
+};
+
+// ============================================================
+// 未解决清单
+// ============================================================
+const UnresolvedList = ({ records, totalUnresolved, overdueCount, noFollowCount, filter, setFilter, employees, today, daysAgo, onClickRecord, isAdmin }) => {
+  return (
+    <div className="paper rounded-2xl overflow-hidden">
+      <div className="p-4 border-b" style={{borderColor:'var(--line)', background:'linear-gradient(to right, #fef3c7, transparent)'}}>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Icon name="alert" className="w-5 h-5" style={{color:'var(--warn)'}} />
+          <span className="font-display text-base font-bold">⏳ 未解决清单</span>
+          <span className="text-[11px] px-2 py-0.5 rounded-full font-mono font-bold" style={{background:'var(--warn-soft)', color:'#92400e'}}>
+            {records.length} / {totalUnresolved} 条
+          </span>
+          {overdueCount > 0 && (
+            <span className="text-[11px] px-2 py-0.5 rounded-full font-mono font-bold" style={{background:'var(--bad-soft)', color:'var(--bad)'}}>
+              🔴 {overdueCount} 已超期
+            </span>
+          )}
+          {noFollowCount > 0 && (
+            <span className="text-[11px] px-2 py-0.5 rounded-full font-mono font-bold" style={{background:'#fef9c3', color:'#854d0e'}}>
+              🟡 {noFollowCount} 未设跟进日
+            </span>
+          )}
+        </div>
+        <div className="text-[11px] mt-2" style={{color:'var(--ink-3)'}}>
+          状态 ∈ {'{待处理, 跟进中, 等客户}'} · 按拖延天数倒序 · 点击任意行查看完整内容
+        </div>
+        <div className="flex items-center gap-2 flex-wrap mt-3">
+          <select value={filter.owner} onChange={e => setFilter(f => ({...f, owner:e.target.value}))}
+            style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+            <option value="all">全部客服</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <select value={filter.cat} onChange={e => setFilter(f => ({...f, cat:e.target.value}))}
+            style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+            <option value="all">全部分类</option>
+            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={filter.site} onChange={e => setFilter(f => ({...f, site:e.target.value}))}
+            style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+            <option value="all">全部网站</option>
+            {SITES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select value={filter.status} onChange={e => setFilter(f => ({...f, status:e.target.value}))}
+            style={{padding:'4px 8px', fontSize:11, border:'1px solid var(--line)', borderRadius:6}}>
+            <option value="all">全部状态</option>
+            <option value="pending">待处理</option>
+            <option value="following">跟进中</option>
+            <option value="waiting">等客户</option>
+          </select>
+          <label className="flex items-center gap-1 text-[11px]" style={{color:'var(--bad)', fontWeight:600}}>
+            <input type="checkbox" checked={filter.overdueOnly} onChange={e => setFilter(f => ({...f, overdueOnly:e.target.checked}))} />
+            🔴 只看超期
+          </label>
+          <label className="flex items-center gap-1 text-[11px]" style={{color:'#b45309', fontWeight:600}}>
+            <input type="checkbox" checked={filter.noFollowOnly} onChange={e => setFilter(f => ({...f, noFollowOnly:e.target.checked}))} />
+            🟡 只看未设跟进
+          </label>
+        </div>
+      </div>
+      
+      {records.length === 0 ? (
+        <div className="text-center py-12 text-sm" style={{color:'var(--ink-4)'}}>✓ 当前筛选条件下无未解决记录</div>
+      ) : (
+        <div className="overflow-x-auto" style={{maxHeight:600, overflowY:'auto'}}>
+          <table>
+            <thead>
+              <tr>
+                <th style={{width:60}}>拖延</th>
+                <th>客户</th>
+                <th>网站</th>
+                <th>订单号</th>
+                <th>分类</th>
+                <th>客服</th>
+                <th>状态</th>
+                <th>难度</th>
+                <th>跟进日</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.slice(0, 200).map(r => {
+                const da = daysAgo(r.date);
+                const isOverdue = r.nextFollowUp && r.nextFollowUp < today;
+                const noFollow = !r.nextFollowUp;
+                let color = 'var(--good)';
+                let label = `${da}天`;
+                if (da == null) { color = 'var(--ink-4)'; label = '-'; }
+                else if (da > 7) color = 'var(--bad)';
+                else if (da > 3) color = 'var(--warn)';
+                const emp = employees.find(e => e.id === r.ownerId);
+                return (
+                  <tr key={r.id} onClick={() => onClickRecord(r)} style={{cursor:'pointer'}}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--accent-soft)'}
+                    onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <td><span className="text-[11px] font-mono font-bold" style={{color}}>{da > 7 ? '🔴 ' : (da > 3 ? '🟡 ' : '')}{label}</span></td>
+                    <td className="text-[12px]">{r.customer || <span style={{color:'var(--ink-4)'}}>—</span>}</td>
+                    <td><span className="text-[10px] px-1.5 py-0.5 rounded" style={{background:'var(--bg-elevated)'}}>{r.site || '—'}</span></td>
+                    <td className="text-[11px] font-mono" style={{color:'var(--ink-3)'}}>{r.orderRef || '—'}</td>
+                    <td><span className="text-[11px]">{r.category || '—'}</span></td>
+                    <td className="text-[11px]">{emp ? emp.name : <span style={{color:'var(--ink-4)'}}>—</span>}</td>
+                    <td><StatusTag status={r.status} /></td>
+                    <td><span className="text-[10px] font-mono">{r.difficulty || '—'}</span></td>
+                    <td>
+                      {noFollow ? (
+                        <span className="text-[10px] font-bold" style={{color:'#b45309'}}>🟡 未设</span>
+                      ) : (
+                        <span className="text-[10px] font-mono" style={{color: isOverdue ? 'var(--bad)' : 'var(--ink-3)', fontWeight: isOverdue ? 600 : 400}}>
+                          {isOverdue && '🔴 '}{r.nextFollowUp}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {records.length > 200 && (
+            <div className="text-[11px] text-center py-2" style={{color:'var(--ink-4)'}}>共 {records.length} 条,只显示前 200,请用筛选缩小范围</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============================================================
+// 独立模块整合
+// ============================================================
+const ModuleIntegrationPanel = ({ chargebacks, chargebacksInRange, offlineOrders, offlineInRange, customInquiries, ciInRange, photoVerif, pvInRange, rangeLabel, loading, employees }) => {
+  if (loading) return <div className="paper rounded-2xl p-6 text-center text-xs" style={{color:'var(--ink-4)'}}>⏳ 加载独立模块数据中...</div>;
+  
+  // 拒付分析
+  const cbActive = chargebacks.filter(c => !['won','lost','closed'].includes(c.status));
+  const cbWon = chargebacks.filter(c => c.status === 'won').length;
+  const cbLost = chargebacks.filter(c => c.status === 'lost').length;
+  const cbAmount = chargebacksInRange.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+  
+  // 线下单分析
+  const ooAmount = offlineInRange.filter(o => ['paid','dispatched','completed'].includes(o.status))
+    .reduce((s, o) => s + (parseFloat(o.payment_amount) || 0), 0);
+  const ooPending = offlineOrders.filter(o => o.status === 'pending_payment').length;
+  
+  // 定制分析
+  const ciNew = customInquiries.filter(c => c.stage === 'new').length;
+  const ciQuoted = customInquiries.filter(c => c.stage === 'quoted').length;
+  const ciProducing = customInquiries.filter(c => c.stage === 'producing').length;
+  
+  // 实拍分析
+  const pvPending = photoVerif.filter(p => p.status === 'pending').length;
+  const pvSent = photoVerif.filter(p => p.status === 'sent').length;
+  const pvRejected = photoVerif.filter(p => p.status === 'rejected').length;
+  
+  return (
+    <div className="paper rounded-2xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="font-display text-base font-bold">🔗 独立工单深度分析</span>
+        <span className="text-[10px]" style={{color:'var(--ink-4)'}}>· {rangeLabel}</span>
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+        {/* 拒付 */}
+        <div className="rounded-xl p-3" style={{border:'1px solid var(--bad-soft)', background:'#fff5f5'}}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-base">🚨</span>
+            <span className="text-[12px] font-bold">拒付 Chargebacks</span>
+          </div>
+          <div className="font-mono font-bold text-2xl tabular-nums mb-2" style={{color:'var(--bad)'}}>{cbActive.length}</div>
+          <div className="text-[10px] space-y-0.5" style={{color:'var(--ink-3)'}}>
+            <div>本期新增: <b>{chargebacksInRange.length}</b> 起 · ${cbAmount.toFixed(0)}</div>
+            <div>已赢: <b style={{color:'var(--good)'}}>{cbWon}</b> · 已输: <b style={{color:'var(--bad)'}}>{cbLost}</b></div>
+            {chargebacks.length > 0 && <div>胜率: <b>{Math.round(cbWon / (cbWon + cbLost || 1) * 100)}%</b></div>}
+          </div>
+        </div>
+        
+        {/* 线下单 */}
+        <div className="rounded-xl p-3" style={{border:'1px solid #c7d2fe', background:'#eef2ff'}}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-base">💳</span>
+            <span className="text-[12px] font-bold">线下单 Offline</span>
+          </div>
+          <div className="font-mono font-bold text-2xl tabular-nums mb-2" style={{color:'#4338ca'}}>{ooPending}</div>
+          <div className="text-[10px] space-y-0.5" style={{color:'var(--ink-3)'}}>
+            <div>本期新增: <b>{offlineInRange.length}</b> 单</div>
+            <div>本期成交额: <b>${ooAmount.toFixed(0)}</b></div>
+            <div>待付款: <b style={{color:'var(--warn)'}}>{ooPending}</b></div>
+          </div>
+        </div>
+        
+        {/* 定制咨询 */}
+        <div className="rounded-xl p-3" style={{border:'1px solid #fde68a', background:'#fffbeb'}}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-base">🎨</span>
+            <span className="text-[12px] font-bold">定制咨询 Custom</span>
+          </div>
+          <div className="font-mono font-bold text-2xl tabular-nums mb-2" style={{color:'#b45309'}}>{ciNew + ciQuoted + ciProducing}</div>
+          <div className="text-[10px] space-y-0.5" style={{color:'var(--ink-3)'}}>
+            <div>本期新增: <b>{ciInRange.length}</b> 单</div>
+            <div>新询单: <b>{ciNew}</b> · 已报价: <b>{ciQuoted}</b></div>
+            <div>生产中: <b style={{color:'var(--info)'}}>{ciProducing}</b></div>
+          </div>
+        </div>
+        
+        {/* 实拍核实 */}
+        <div className="rounded-xl p-3" style={{border:'1px solid #d8b4fe', background:'#faf5ff'}}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-base">📸</span>
+            <span className="text-[12px] font-bold">实拍核实 Photo</span>
+          </div>
+          <div className="font-mono font-bold text-2xl tabular-nums mb-2" style={{color:'#7e22ce'}}>{pvPending + pvSent}</div>
+          <div className="text-[10px] space-y-0.5" style={{color:'var(--ink-3)'}}>
+            <div>本期新增: <b>{pvInRange.length}</b> 个</div>
+            <div>待发: <b>{pvPending}</b> · 已发待回: <b>{pvSent}</b></div>
+            <div>被拒: <b style={{color:'var(--bad)'}}>{pvRejected}</b></div>
+          </div>
+        </div>
       </div>
     </div>
-    <div className="grid grid-cols-2 gap-3 text-sm">
-      <div>
-        <div className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>邮件数</div>
-        <div className="font-mono font-bold text-2xl tabular-nums" style={{color:accent}}>{stats.totalEmails}</div>
-      </div>
-      <div>
-        <div className="text-[10px] font-bold uppercase" style={{color:'var(--ink-3)'}}>总时长</div>
-        <div className="font-mono font-bold text-2xl tabular-nums">{fmtDuration(stats.totalMins)}</div>
+  );
+};
+
+// ============================================================
+// 记录详情弹窗
+// ============================================================
+const RecordDetailModal = ({ record, employees, onClose }) => {
+  const emp = employees.find(e => e.id === record.ownerId);
+  const r = record;
+  return (
+    <div onClick={onClose} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.4)', zIndex:1000,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'white', borderRadius:16, padding:24, maxWidth:680, width:'100%',
+        maxHeight:'85vh', overflowY:'auto', boxShadow:'0 24px 48px rgba(0,0,0,.2)',
+      }}>
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="font-display text-lg font-bold">{r.customer || '(无客户名)'}</span>
+              <StatusTag status={r.status} />
+              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{background:'var(--bg-elevated)'}}>{r.site}</span>
+              {r.difficulty && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{background:'var(--accent-soft)', color:'var(--accent)'}}>{r.difficulty}</span>}
+            </div>
+            <div className="text-[12px]" style={{color:'var(--ink-3)'}}>{r.category} · {r.orderRef || '无订单号'}</div>
+          </div>
+          <button onClick={onClose} className="btn-sec" style={{padding:'4px 12px'}}>✕</button>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mb-4 text-[11px]" style={{color:'var(--ink-3)'}}>
+          <div><b>客服:</b> {emp ? emp.name : '?'}</div>
+          <div><b>日期:</b> {r.date}</div>
+          <div><b>开始:</b> {r.startTime || '-'} → {r.endTime || '-'}</div>
+          <div><b>时长:</b> {fmtDuration(r.durationMin || 0)}</div>
+          <div><b>下次跟进:</b> {r.nextFollowUp || <span style={{color:'#b45309'}}>🟡 未设(主管请提醒客服补上)</span>}</div>
+          <div><b>网站:</b> {r.website || r.site}</div>
+        </div>
+        {r.note && (
+          <div className="mb-3">
+            <div className="text-[11px] font-bold mb-1" style={{color:'var(--ink-3)'}}>📝 备注</div>
+            <div className="text-[12px] p-3 rounded whitespace-pre-wrap" style={{background:'var(--bg-soft)'}}>{r.note}</div>
+          </div>
+        )}
+        {Array.isArray(r.followUps) && r.followUps.length > 0 && (
+          <div className="mb-3">
+            <div className="text-[11px] font-bold mb-1" style={{color:'var(--ink-3)'}}>💬 跟进记录 ({r.followUps.length})</div>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {r.followUps.map((f, i) => (
+                <div key={i} className="text-[11px] p-2 rounded" style={{background:'var(--bg-soft)'}}>
+                  <div className="text-[10px]" style={{color:'var(--ink-4)'}}>{f.at || f.time || ''}</div>
+                  <div className="whitespace-pre-wrap mt-0.5">{f.text || f.content || ''}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {Array.isArray(r.screenshots) && r.screenshots.length > 0 && (
+          <div className="mb-3">
+            <div className="text-[11px] font-bold mb-1" style={{color:'var(--ink-3)'}}>📷 截图 ({r.screenshots.length})</div>
+            <div className="flex gap-2 flex-wrap">
+              {r.screenshots.map((s, i) => (
+                <img key={i} src={typeof s === 'string' ? s : (s.url || s.data || '')} alt="" 
+                  style={{maxWidth:120, maxHeight:120, borderRadius:6, border:'1px solid var(--line)', cursor:'zoom-in'}}
+                  onClick={(e) => { window.open(e.target.src, '_blank'); }} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
-    <div className="mt-3 pt-3 border-t space-y-1.5 text-[11px]" style={{borderColor:'var(--line-soft)'}}>
-      <div className="flex justify-between"><span style={{color:'var(--ink-3)'}}>简/中/复</span>
-        <span className="font-mono"><span style={{color:'var(--good)'}}>{stats.easy}</span>/<span style={{color:'var(--gold)'}}>{stats.mid}</span>/<span style={{color:'var(--bad)'}}>{stats.hard}</span></span>
-      </div>
-      <div className="flex justify-between"><span style={{color:'var(--ink-3)'}}>已解决</span>
-        <span className="font-mono font-bold" style={{color:'var(--good)'}}>{stats.resolved}</span></div>
-      <div className="flex justify-between"><span style={{color:'var(--ink-3)'}}>逾期</span>
-        <span className="font-mono font-bold" style={{color: stats.overdue > 0 ? 'var(--bad)' : 'var(--ink-4)'}}>{stats.overdue}</span></div>
-    </div>
-  </div>
-);
+  );
+};
+
 
 // ============================================================
 // 回收站
