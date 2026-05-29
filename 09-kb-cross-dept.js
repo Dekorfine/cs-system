@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-81
-// APP_VERSION: 2026.05.27-fix81
+// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-83
+// APP_VERSION: 2026.05.29-fix83
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -4117,28 +4117,56 @@ const PhotoRequestNewModal = ({ user, toast, onClose, onSuccess, prefill = {} })
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);  // 🆕 fix83: 拖拽高亮
   const externalRefId = prefill.externalRefId || null;
 
   const toggleShop = (label) => {
     setShops(prev => prev.includes(label) ? prev.filter(s => s !== label) : [...prev, label]);
   };
 
-  const handleFiles = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
+  const uploadFiles = async (files) => {
+    const imgs = Array.from(files || []).filter(f => f && (f.type || '').startsWith('image/'));
+    if (imgs.length === 0) return;
     setUploading(true);
     const newAttachments = [];
-    for (const f of files) {
+    for (const f of imgs) {
       try {
         const a = await window.uploadAttachmentToWtkpi(f);
         newAttachments.push(a);
       } catch (err) {
-        toast('上传 ' + f.name + ' 失败:' + err.message);
+        toast('上传 ' + (f.name || '图片') + ' 失败:' + err.message);
       }
     }
     setAttachments(prev => [...prev, ...newAttachments]);
     setUploading(false);
+  };
+
+  const handleFiles = async (e) => {
+    await uploadFiles(e.target.files);
     e.target.value = '';
+  };
+
+  // 🆕 fix83: Ctrl+V 粘贴图片(弹窗打开期间生效)
+  useEffect(() => {
+    const onPaste = (e) => {
+      const items = (e.clipboardData && e.clipboardData.items) || [];
+      const files = [];
+      for (const it of items) {
+        if (it.kind === 'file' && (it.type || '').startsWith('image/')) {
+          const f = it.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length) { e.preventDefault(); uploadFiles(files); }
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+  }, []);
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    uploadFiles(e.dataTransfer && e.dataTransfer.files);
   };
 
   const removeAttachment = (idx) => {
@@ -4270,7 +4298,19 @@ const PhotoRequestNewModal = ({ user, toast, onClose, onSuccess, prefill = {} })
               ))}
             </div>
           )}
-          <input type="file" accept="image/*" multiple onChange={handleFiles} disabled={uploading} style={{fontSize:12}}/>
+          <label
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={e => { e.preventDefault(); setDragOver(false); }}
+            onDrop={handleDrop}
+            style={{
+              display:'block', cursor:'pointer', textAlign:'center', padding:'16px 12px', borderRadius:10,
+              border:'1.5px dashed ' + (dragOver ? 'var(--accent)' : 'var(--line)'),
+              background: dragOver ? 'var(--accent-soft)' : 'var(--bg-elevated)', transition:'all .15s',
+            }}>
+            <div style={{fontSize:13, fontWeight:600, color:'var(--ink-2)'}}>📎 点击上传 · 拖拽到此 · Ctrl+V 粘贴</div>
+            <div style={{fontSize:11, color:'var(--ink-4)', marginTop:3}}>支持多张图片 · 自动压缩 ≤1600px</div>
+            <input type="file" accept="image/*" multiple onChange={handleFiles} disabled={uploading} style={{display:'none'}}/>
+          </label>
           {uploading && <div style={{fontSize:12, color:'var(--accent)', marginTop:5}}>⏳ 上传中…(已自动压缩 ≤1600px)</div>}
         </div>
         <div style={{display:'flex', gap:10, justifyContent:'flex-end'}}>
