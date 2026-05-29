@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付 + 💳 线下单 + 🎨 定制实拍 · fix28-80
-// APP_VERSION: 2026.05.27-fix80
+// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-81
+// APP_VERSION: 2026.05.27-fix81
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -9,6 +9,7 @@ const ChargebacksModule = ({ user, employees, toast }) => {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const [cbListModal, setCbListModal] = useState(null);  // 🆕 fix81: 数字点击弹列表
   const [filterStatus, setFilterStatus] = useState('active');
   const [search, setSearch] = useState('');
   const [filterOwner, setFilterOwner] = useState('all');   // 🆕 fix75: 客服筛选
@@ -199,6 +200,9 @@ const ChargebacksModule = ({ user, employees, toast }) => {
           closed:         { label:'已关闭', color:'#6b7280', bg:'#f3f4f6' },
         }}
         getSite={c => c.site || c.website || null}
+        onClickStats={({ records, title }) => setCbListModal({
+          events: records, title, kind: 'chargeback', accent: '#dc2626', icon: '🚨',
+        })}
       />
       
       {loading ? (
@@ -219,6 +223,14 @@ const ChargebacksModule = ({ user, employees, toast }) => {
       {editing && (
         <ChargebackEditor cb={editing === 'new' ? null : editing} user={user} employees={employees}
           onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} toast={toast} />
+      )}
+      
+      {/* 🆕 fix81: 数字点击后弹出的拒付列表 */}
+      {cbListModal && (
+        <EventListModal {...cbListModal}
+          employees={employees}
+          onClose={() => setCbListModal(null)}
+          onClickEvent={(cb) => { setCbListModal(null); setEditing(cb); }} />
       )}
     </div>
   );

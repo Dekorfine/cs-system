@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📋 主线 + 汇总 · fix28-80
-// APP_VERSION: 2026.05.27-fix80
+// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-81
+// APP_VERSION: 2026.05.27-fix81
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -14,6 +14,7 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
   const [editEvent, setEditEvent] = useState(null);  // { kind, event }
   const [exportPanel, setExportPanel] = useState(false);
   const [refundReview, setRefundReview] = useState(null);  // 审核 modal
+  const [eventListModal, setEventListModal] = useState(null);  // 🆕 fix81: 数字点击弹出列表
   
   const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   const isFinance = user.role === 'finance' || isAdmin;  // 财务+admin 都能管退款
@@ -313,6 +314,9 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
             icon="🔧"
             color="#ea580c"
             completedStatuses={['returned', 'customer_refund', 'closed']}
+            onClickStats={({ records, title }) => setEventListModal({
+              events: records, title, kind: 'aftersale', accent: '#ea580c', icon: '🔧',
+            })}
           />
           <AftersalesTable items={filteredAftersales} employees={employees} suppliers={suppliers} user={user} isAdmin={isAdmin}
             onEdit={(e) => setEditEvent({ kind:'aftersale', event:e })}
@@ -328,6 +332,9 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
             icon="📦"
             color="#0369a1"
             completedStatuses={['delivered']}
+            onClickStats={({ records, title }) => setEventListModal({
+              events: records, title, kind: 'refill', accent: '#0369a1', icon: '📦',
+            })}
           />
           <RefillsTable items={filteredRefills} employees={employees} suppliers={suppliers} user={user} isAdmin={isAdmin}
             onEdit={(e) => setEditEvent({ kind:'refill', event:e })}
@@ -350,6 +357,9 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
               rejected:  { label:'已拒绝',  color:'#6b7280', bg:'#f3f4f6' },
             }}
             getSite={r => r.site || r.website || null}
+            onClickStats={({ records, title }) => setEventListModal({
+              events: records, title, kind: 'refund', accent: '#dc2626', icon: '💰',
+            })}
           />
           <RefundsTable items={filteredRefunds} employees={employees} suppliers={suppliers} user={user} isFinance={isFinance}
             canRefundReview={isFinance || (typeof window !== 'undefined' && window.__canProcessRefund?.(user))}
@@ -392,6 +402,18 @@ const EventsModule = ({ user, employees, records, toast, cloudOn }) => {
           aftersales={filteredAftersales} refills={filteredRefills} refunds={filteredRefunds}
           suppliers={suppliers} employees={employees}
           subTab={subTab} filterMonth={filterMonth} toast={toast} />
+      )}
+      
+      {/* 🆕 fix81: 数字点击后弹出的事件列表 */}
+      {eventListModal && (
+        <EventListModal {...eventListModal}
+          employees={employees} suppliers={suppliers}
+          onClose={() => setEventListModal(null)}
+          onClickEvent={(ev) => {
+            const kind = eventListModal.kind;
+            setEventListModal(null);
+            setEditEvent({ kind, event: ev });
+          }} />
       )}
     </div>
   );
@@ -846,7 +868,7 @@ const ImageGalleryModal = ({ event, onClose }) => {
 // 时间筛选: 3/7/14/30/90 天 + 季度 + 年 + 自定义
 // 显示: 总金额, 件数, 按网站分布, 按状态分布
 // ============================================================
-const AmountSummaryWidget = ({ title, icon, color, items, statusLabels, statusKey = 'status', amountKey = 'amount', getSite }) => {
+const AmountSummaryWidget = ({ title, icon, color, items, statusLabels, statusKey = 'status', amountKey = 'amount', getSite, onClickStats }) => {
   const [range, setRange] = useState('7');  // 字符串: '3'/'7'/'14'/'30'/'90'/'quarter'/'year'/'all'
   
   // 计算时间筛选范围
@@ -975,33 +997,52 @@ const AmountSummaryWidget = ({ title, icon, color, items, statusLabels, statusKe
         <>
           {/* 大金额展示 - 按货币 */}
           <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:8, marginBottom:12}}>
-            {Object.entries(totalsByCurrency).map(([cur, amt]) => (
-              <div key={cur} style={{padding:'12px 14px', background:`${color}10`, border:`1px solid ${color}40`, borderRadius:10}}>
-                <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500}}>{cur} 累计</div>
-                <div style={{fontSize:22, fontWeight:700, color, marginTop:2, letterSpacing:.2}}>
-                  {formatAmount(cur, amt)}
+            {Object.entries(totalsByCurrency).map(([cur, amt]) => {
+              const curItems = filtered.filter(f => (f.currency || 'USD').toUpperCase() === cur);
+              const clickable = !!onClickStats && curItems.length > 0;
+              return (
+                <div key={cur} onClick={() => clickable && onClickStats({ records: curItems, title: `${title} · ${cur} 累计` })}
+                  style={{padding:'12px 14px', background:`${color}10`, border:`1px solid ${color}40`, borderRadius:10,
+                    cursor: clickable ? 'pointer' : 'default', transition:'all .15s'}}
+                  onMouseEnter={clickable ? e => { e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow=`0 4px 10px ${color}25`; } : undefined}
+                  onMouseLeave={clickable ? e => { e.currentTarget.style.transform=''; e.currentTarget.style.boxShadow=''; } : undefined}>
+                  <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:500, display:'flex', justifyContent:'space-between'}}>
+                    <span>{cur} 累计</span>
+                    {clickable && <span style={{fontSize:9, color:'var(--ink-4)', opacity:.7}}>查看 →</span>}
+                  </div>
+                  <div style={{fontSize:22, fontWeight:700, color, marginTop:2, letterSpacing:.2}}>
+                    {formatAmount(cur, amt)}
+                  </div>
+                  <div style={{fontSize:10, color:'var(--ink-4)', marginTop:1}}>
+                    {curItems.length} 笔
+                  </div>
                 </div>
-                <div style={{fontSize:10, color:'var(--ink-4)', marginTop:1}}>
-                  {filtered.filter(f => (f.currency || 'USD').toUpperCase() === cur).length} 笔
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           
           {/* 网站分布 */}
           {byWebsite.length > 0 && (
             <div style={{marginBottom:10}}>
-              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, marginBottom:6}}>📍 按网站分布</div>
+              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, marginBottom:6}}>📍 按网站分布 {onClickStats && <span style={{color:'var(--ink-4)', fontWeight:400}}>· 💡 点击查看</span>}</div>
               <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
-                {byWebsite.map(w => (
-                  <div key={w.site} style={{padding:'5px 10px', background:'white', border:'1px solid var(--line)', borderRadius:14, fontSize:11, display:'flex', alignItems:'center', gap:6}}>
-                    <span style={{fontWeight:700, color:'var(--ink)'}}>{w.site}</span>
-                    <span style={{padding:'1px 5px', background:`${color}20`, color, borderRadius:8, fontWeight:600}}>{w.count}</span>
-                    <span style={{color:'var(--ink-3)', fontSize:10}}>
-                      {Object.entries(w.totals).map(([c, a]) => formatAmount(c, a)).join(' · ')}
-                    </span>
-                  </div>
-                ))}
+                {byWebsite.map(w => {
+                  const siteItems = filtered.filter(f => ((getSite ? getSite(f) : f.site) || '(未填)') === w.site);
+                  const clickable = !!onClickStats && siteItems.length > 0;
+                  return (
+                    <div key={w.site} onClick={() => clickable && onClickStats({ records: siteItems, title: `${title} · ${w.site}` })}
+                      style={{padding:'5px 10px', background:'white', border:'1px solid var(--line)', borderRadius:14, fontSize:11, display:'flex', alignItems:'center', gap:6,
+                        cursor: clickable ? 'pointer' : 'default', transition:'all .15s'}}
+                      onMouseEnter={clickable ? e => { e.currentTarget.style.background=color+'10'; e.currentTarget.style.borderColor=color; } : undefined}
+                      onMouseLeave={clickable ? e => { e.currentTarget.style.background='white'; e.currentTarget.style.borderColor='var(--line)'; } : undefined}>
+                      <span style={{fontWeight:700, color:'var(--ink)'}}>{w.site}</span>
+                      <span style={{padding:'1px 5px', background:`${color}20`, color, borderRadius:8, fontWeight:600}}>{w.count}</span>
+                      <span style={{color:'var(--ink-3)', fontSize:10}}>
+                        {Object.entries(w.totals).map(([c, a]) => formatAmount(c, a)).join(' · ')}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1009,12 +1050,18 @@ const AmountSummaryWidget = ({ title, icon, color, items, statusLabels, statusKe
           {/* 状态分布 */}
           {byStatus.length > 0 && statusLabels && (
             <div>
-              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, marginBottom:6}}>🏷 按状态分布</div>
+              <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:600, marginBottom:6}}>🏷 按状态分布 {onClickStats && <span style={{color:'var(--ink-4)', fontWeight:400}}>· 💡 点击查看</span>}</div>
               <div style={{display:'flex', flexWrap:'wrap', gap:6}}>
                 {byStatus.map(s => {
                   const lab = statusLabels[s.status] || { label: s.status, color:'#6b7280', bg:'#f3f4f6' };
+                  const statusItems = filtered.filter(f => (f[statusKey] || '(未填)') === s.status);
+                  const clickable = !!onClickStats && statusItems.length > 0;
                   return (
-                    <div key={s.status} style={{padding:'5px 10px', background: lab.bg || '#f3f4f6', border:'1px solid var(--line)', borderRadius:14, fontSize:11, display:'flex', alignItems:'center', gap:6}}>
+                    <div key={s.status} onClick={() => clickable && onClickStats({ records: statusItems, title: `${title} · ${lab.label}` })}
+                      style={{padding:'5px 10px', background: lab.bg || '#f3f4f6', border:'1px solid var(--line)', borderRadius:14, fontSize:11, display:'flex', alignItems:'center', gap:6,
+                        cursor: clickable ? 'pointer' : 'default', transition:'all .15s'}}
+                      onMouseEnter={clickable ? e => e.currentTarget.style.transform='translateY(-1px)' : undefined}
+                      onMouseLeave={clickable ? e => e.currentTarget.style.transform='' : undefined}>
                       <span style={{color: lab.color, fontWeight:600}}>{lab.label}</span>
                       <span style={{padding:'1px 5px', background:'white', color: lab.color, borderRadius:8, fontWeight:600}}>{s.count}</span>
                     </div>
@@ -1030,10 +1077,181 @@ const AmountSummaryWidget = ({ title, icon, color, items, statusLabels, statusKe
 };
 
 // ============================================================
+// 🆕 fix81: 通用事件清单弹窗 — 售后/补件/退款/拒付 数字点击后弹出
+// ============================================================
+const EventListModal = ({ events, title, accent, icon, kind, employees, suppliers, onClose, onClickEvent }) => {
+  const [search, setSearch] = useState('');
+  
+  const filtered = (events || []).filter(e => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return (
+      (e.order_ref || e.order_no || '').toLowerCase().includes(q) ||
+      (e.customer || e.customer_name || '').toLowerCase().includes(q) ||
+      (e.product_name || '').toLowerCase().includes(q) ||
+      (e.notes || '').toLowerCase().includes(q) ||
+      (e.supplier_name || '').toLowerCase().includes(q) ||
+      (e.created_by_name || '').toLowerCase().includes(q)
+    );
+  });
+  
+  const STATUS_LABELS = {
+    // 售后
+    pending_remind: { label:'⏳ 待提醒', color:'#92400e' },
+    reminded: { label:'📣 已提醒', color:'#1e40af' },
+    customer_responded: { label:'💬 客户回复', color:'#7e22ce' },
+    returning: { label:'📦 寄回中', color:'#0369a1' },
+    returned: { label:'✅ 已退回', color:'#15803d' },
+    customer_refund: { label:'💸 客户退款', color:'#15803d' },
+    closed: { label:'✅ 已关闭', color:'#15803d' },
+    // 补件
+    pending_order: { label:'⏳ 待下单', color:'#92400e' },
+    ordered: { label:'📝 已下单', color:'#1e40af' },
+    producing: { label:'🔨 生产中', color:'#7e22ce' },
+    shipped: { label:'🚚 已发货', color:'#0369a1' },
+    delivered: { label:'✅ 已送达', color:'#15803d' },
+    // 退款
+    pending_approval: { label:'⏳ 待审', color:'#92400e' },
+    approved: { label:'✓ 已批准', color:'#0369a1' },
+    refunded: { label:'💸 已退款', color:'#15803d' },
+    rejected: { label:'✗ 已拒绝', color:'#b91c1c' },
+    // 拒付
+    evidence: { label:'📁 收集证据', color:'#1e40af' },
+    submitted: { label:'📤 已提交', color:'#7e22ce' },
+    won: { label:'🏆 已赢', color:'#15803d' },
+    lost: { label:'❌ 已输', color:'#b91c1c' },
+  };
+  
+  const empName = (id) => {
+    const e = (employees || []).find(x => x.id === id);
+    return e ? (e.name + (e.alias ? ' ' + e.alias : '')) : '?';
+  };
+  
+  // 按类型决定列
+  const columns = (() => {
+    if (kind === 'chargeback') {
+      return ['客户', '订单号', '金额', '状态', '负责', '截止', '创建'];
+    }
+    if (kind === 'refund') {
+      return ['客户', '订单号', '产品', '金额', '状态', '负责', '创建'];
+    }
+    return ['客户', '订单号', '产品', '问题/备注', '状态', '负责', '创建'];
+  })();
+  
+  const today = todayISO();
+  
+  return (
+    <div onClick={onClose} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:1100,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background:'white', borderRadius:16, maxWidth:1100, width:'100%',
+        maxHeight:'88vh', display:'flex', flexDirection:'column',
+        boxShadow:'0 24px 60px rgba(0,0,0,.25)', overflow:'hidden',
+      }}>
+        {/* 头部 */}
+        <div style={{padding:'16px 22px', borderBottom:'1px solid var(--line)', display:'flex', alignItems:'center', gap:12, borderLeft:`6px solid ${accent}`, flexShrink:0}}>
+          {icon && <span style={{fontSize:22}}>{icon}</span>}
+          <div className="font-display" style={{fontSize:16, fontWeight:600}}>{title}</div>
+          <span className="font-mono font-bold" style={{fontSize:22, color: accent}}>{events.length}</span>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="🔍 搜索客户 / 订单号 / 产品 / 备注 / 供应商 / 创建人..."
+            style={{flex:1, marginLeft:8, padding:'6px 12px', border:'1px solid var(--line)', borderRadius:8, fontSize:13, fontFamily:'inherit'}} />
+          {search && filtered.length !== events.length && (
+            <span className="text-[11px]" style={{color:'var(--ink-3)'}}>{filtered.length} / {events.length}</span>
+          )}
+          <button onClick={onClose} className="btn-sec" style={{padding:'5px 14px'}}>✕ 关闭</button>
+        </div>
+        
+        {/* 表格 */}
+        <div style={{flex:1, overflowY:'auto'}}>
+          {filtered.length === 0 ? (
+            <div style={{textAlign:'center', padding:60, color:'var(--ink-4)', fontSize:13}}>无匹配记录</div>
+          ) : (
+            <table>
+              <thead>
+                <tr>{columns.map(c => <th key={c}>{c}</th>)}</tr>
+              </thead>
+              <tbody>
+                {filtered.slice(0, 300).map(ev => {
+                  const sl = STATUS_LABELS[ev.status] || { label: ev.status || '?', color: '#6e6e73' };
+                  const created = (ev.created_at || '').slice(0, 10);
+                  if (kind === 'chargeback') {
+                    const isOverdue = ev.deadline && ev.deadline < today;
+                    return (
+                      <tr key={ev.id} onClick={() => onClickEvent && onClickEvent(ev)} style={{cursor: onClickEvent ? 'pointer' : 'default'}}
+                        onMouseEnter={e => onClickEvent && (e.currentTarget.style.background='var(--accent-soft)')}
+                        onMouseLeave={e => onClickEvent && (e.currentTarget.style.background='')}>
+                        <td className="text-[12px]">
+                          <div className="font-bold">{ev.customer_name || '—'}</div>
+                          {ev.customer_email && <div className="text-[10px]" style={{color:'var(--ink-4)'}}>{ev.customer_email}</div>}
+                        </td>
+                        <td className="text-[11px] font-mono" style={{color:'var(--ink-3)'}}>{ev.order_no || '—'}</td>
+                        <td className="text-[11px] font-mono font-bold" style={{color:'var(--bad)'}}>${ev.amount || '0'}</td>
+                        <td><span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{background: sl.color+'22', color: sl.color}}>{sl.label}</span></td>
+                        <td className="text-[11px]">{empName(ev.created_by)}</td>
+                        <td className="text-[10px] font-mono" style={{color: isOverdue ? 'var(--bad)' : 'var(--ink-3)', fontWeight: isOverdue ? 600 : 400}}>
+                          {isOverdue && '🔴 '}{ev.deadline || '—'}
+                        </td>
+                        <td className="text-[10px]" style={{color:'var(--ink-4)'}}>{created}</td>
+                      </tr>
+                    );
+                  }
+                  if (kind === 'refund') {
+                    return (
+                      <tr key={ev.id} onClick={() => onClickEvent && onClickEvent(ev)} style={{cursor: onClickEvent ? 'pointer' : 'default'}}
+                        onMouseEnter={e => onClickEvent && (e.currentTarget.style.background='var(--accent-soft)')}
+                        onMouseLeave={e => onClickEvent && (e.currentTarget.style.background='')}>
+                        <td className="text-[12px]">{ev.customer || '—'}</td>
+                        <td className="text-[11px] font-mono">{ev.order_ref || '—'}</td>
+                        <td className="text-[11px]">{ev.product_name || '—'}</td>
+                        <td className="text-[11px] font-mono font-bold" style={{color:'var(--bad)'}}>{(ev.currency==='USD'?'$':ev.currency==='EUR'?'€':ev.currency==='CNY'?'¥':'')}{ev.amount || '0'}</td>
+                        <td><span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{background: sl.color+'22', color: sl.color}}>{sl.label}</span></td>
+                        <td className="text-[11px]">{ev.created_by_name || empName(ev.created_by)}</td>
+                        <td className="text-[10px]" style={{color:'var(--ink-4)'}}>{created}</td>
+                      </tr>
+                    );
+                  }
+                  // aftersale / refill
+                  const subText = ev.issue_detail || ev.notes || (ev.items && ev.items.map(i => i.item).filter(Boolean).join(', ')) || '';
+                  return (
+                    <tr key={ev.id} onClick={() => onClickEvent && onClickEvent(ev)} style={{cursor: onClickEvent ? 'pointer' : 'default'}}
+                      onMouseEnter={e => onClickEvent && (e.currentTarget.style.background='var(--accent-soft)')}
+                      onMouseLeave={e => onClickEvent && (e.currentTarget.style.background='')}>
+                      <td className="text-[12px]">{ev.customer || '—'}</td>
+                      <td className="text-[11px] font-mono">{ev.order_ref || '—'}</td>
+                      <td className="text-[11px]">{ev.product_name || '—'}</td>
+                      <td className="text-[11px] truncate" style={{maxWidth:260, color:'var(--ink-3)'}}>{subText}</td>
+                      <td><span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{background: sl.color+'22', color: sl.color}}>{sl.label}</span></td>
+                      <td className="text-[11px]">{ev.created_by_name || empName(ev.created_by)}</td>
+                      <td className="text-[10px]" style={{color:'var(--ink-4)'}}>{created}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          {filtered.length > 300 && (
+            <div style={{textAlign:'center', padding:10, fontSize:11, color:'var(--ink-4)'}}>共 {filtered.length} 条,只显示前 300 · 请用搜索缩小范围</div>
+          )}
+        </div>
+        
+        {/* 底部 */}
+        <div style={{padding:'10px 22px', borderTop:'1px solid var(--line)', background:'var(--bg-soft)', fontSize:11, color:'var(--ink-3)', flexShrink:0}}>
+          💡 {onClickEvent ? '点击任意行打开编辑详情 · ' : ''}ESC 关闭
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
 // 🆕 fix9b: 完成率统计 banner (售后 / 补件)
 // 展示最近 3/7/14/30/60 天的总数 + 已完成 + 完成率
+// 🆕 fix81: 数字全部可点 — 总数 / ✓完成 / ⏳未完成 都能点开列表
 // ============================================================
-const CompletionStatsBanner = ({ items, title, icon, color, completedStatuses, onQuickComplete }) => {
+const CompletionStatsBanner = ({ items, title, icon, color, completedStatuses, onQuickComplete, onClickStats }) => {
   const ranges = [3, 7, 14, 30, 60];
   
   const calcStats = (days) => {
@@ -1041,7 +1259,18 @@ const CompletionStatsBanner = ({ items, title, icon, color, completedStatuses, o
     cutoff.setDate(cutoff.getDate() - days);
     const inRange = (items || []).filter(it => it.created_at && new Date(it.created_at) >= cutoff);
     const completed = inRange.filter(it => completedStatuses.includes(it.status));
-    return { total: inRange.length, completed: completed.length, pending: inRange.length - completed.length };
+    const pending = inRange.filter(it => !completedStatuses.includes(it.status));
+    return { total: inRange.length, completed: completed.length, pending: pending.length, allItems: inRange, completedItems: completed, pendingItems: pending };
+  };
+  
+  // 🆕 fix81: 点击触发
+  const handleClick = (days, mode, list) => {
+    if (!onClickStats || list.length === 0) return;
+    const suffix = mode === 'completed' ? ' · ✅ 已完成' : (mode === 'pending' ? ' · ⏳ 未完成' : '');
+    onClickStats({
+      records: list,
+      title: `${title} · 最近 ${days} 天${suffix}`,
+    });
   };
   
   return (
@@ -1050,19 +1279,44 @@ const CompletionStatsBanner = ({ items, title, icon, color, completedStatuses, o
         <div className="font-display" style={{fontSize:13, fontWeight:600, color, display:'flex', alignItems:'center', gap:6}}>
           <span style={{fontSize:16}}>{icon}</span>{title}
         </div>
-        <div style={{fontSize:10, color:'var(--ink-4)'}}>已完成状态: {completedStatuses.join(' / ')}</div>
+        <div style={{fontSize:10, color:'var(--ink-4)'}}>已完成状态: {completedStatuses.join(' / ')} · 💡 点击数字查看明细</div>
       </div>
       <div style={{display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:6}}>
         {ranges.map(d => {
           const s = calcStats(d);
           const pct = s.total === 0 ? 0 : Math.round(s.completed / s.total * 100);
+          const totalClickable = s.total > 0 && !!onClickStats;
           return (
-            <div key={d} style={{padding:'8px 6px', background:'white', border:'1px solid var(--line)', borderRadius:8, textAlign:'center'}}>
+            <div key={d} style={{padding:'8px 6px', background:'white', border:'1px solid var(--line)', borderRadius:8, textAlign:'center', transition:'all .15s'}}>
               <div style={{fontSize:10, color:'var(--ink-3)', fontWeight:500}}>最近 {d} 天</div>
-              <div style={{fontSize:20, fontWeight:700, color, marginTop:3, lineHeight:1}}>{s.total}</div>
-              <div style={{display:'flex', justifyContent:'center', gap:4, marginTop:4, fontSize:10}}>
-                <span style={{color:'#16a34a'}}>✓{s.completed}</span>
-                {s.pending > 0 && <span style={{color:'#ca8a04'}}>⏳{s.pending}</span>}
+              <div onClick={() => handleClick(d, 'total', s.allItems)}
+                style={{fontSize:20, fontWeight:700, color, marginTop:3, lineHeight:1,
+                  cursor: totalClickable ? 'pointer' : 'default',
+                  textDecoration: totalClickable ? 'underline' : 'none',
+                  textDecorationStyle: 'dotted', textDecorationColor: color + '60',
+                  textUnderlineOffset: 3}}
+                title={totalClickable ? `点击查看最近 ${d} 天的全部记录` : ''}
+                onMouseEnter={totalClickable ? e => e.currentTarget.style.opacity = '0.75' : undefined}
+                onMouseLeave={totalClickable ? e => e.currentTarget.style.opacity = '1' : undefined}>
+                {s.total}
+              </div>
+              <div style={{display:'flex', justifyContent:'center', gap:6, marginTop:4, fontSize:10}}>
+                <span onClick={(e) => { e.stopPropagation(); handleClick(d, 'completed', s.completedItems); }}
+                  style={{color:'#16a34a', cursor: s.completed > 0 && onClickStats ? 'pointer' : 'default',
+                    textDecoration: s.completed > 0 && onClickStats ? 'underline dotted' : 'none',
+                    textUnderlineOffset:2}}
+                  title={s.completed > 0 && onClickStats ? `点击查看 ${s.completed} 条已完成` : ''}>
+                  ✓{s.completed}
+                </span>
+                {s.pending > 0 && (
+                  <span onClick={(e) => { e.stopPropagation(); handleClick(d, 'pending', s.pendingItems); }}
+                    style={{color:'#ca8a04', cursor: onClickStats ? 'pointer' : 'default',
+                      textDecoration: onClickStats ? 'underline dotted' : 'none',
+                      textUnderlineOffset:2, fontWeight:600}}
+                    title={onClickStats ? `点击查看 ${s.pending} 条未完成` : ''}>
+                    ⏳{s.pending}
+                  </span>
+                )}
               </div>
               <div style={{
                 marginTop:4, height:3, background:'#f3f4f6', borderRadius:2, overflow:'hidden',
