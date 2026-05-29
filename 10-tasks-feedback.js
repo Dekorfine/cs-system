@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄 + 任务 + 反馈 · fix28-81
-// APP_VERSION: 2026.05.27-fix81
+// 📷 拍摄 + 任务 + 反馈 · fix28-92
+// APP_VERSION: 2026.05.29-fix92
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -130,6 +130,16 @@ const TasksModule = ({ user, employees, toast }) => {
   
   const openTask = openId ? tasks.find(t => t.id === openId) : null;
   
+  // 🆕 fix85: 点击统计卡 → 跳到对应任务(设对 tab + 状态,并清掉会挡住的其它筛选)
+  const jumpToCard = ({ tab: t, status }) => {
+    setTab(t);
+    setFilterStatus(status);
+    setFilterPriority('all');
+    setFilterAssignee('all');
+    setSearch('');
+    setDateFilter({ kind: 'all' });
+  };
+  
   const TABS = [
     { key:'inbox',   label:'📥 我的待办', count: stats.inbox, color:'#dc2626' },
     { key:'sent',    label:'📤 我派的',   count: stats.sent,  color:'#0071e3' },
@@ -164,14 +174,17 @@ const TasksModule = ({ user, employees, toast }) => {
       {/* 统计卡 */}
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(130px, 1fr))', gap:8, marginBottom:12}}>
         {[
-          { label:'⏳ 待处理',   val: stats.pending,    color:'#d97706' },
-          { label:'🔧 处理中',   val: stats.inProgress, color:'#0369a1' },
-          { label:'⛔ 卡住',     val: stats.blocked,    color:'#dc2626' },
-          { label:'⚠ 已超期',   val: stats.overdue,    color:'#dc2626' },
-          { label:'✅ 已完成',   val: stats.done,       color:'#15803d' },
-          { label:'📋 总任务',   val: stats.total,      color:'#7c3aed' },
+          { label:'⏳ 待处理',   val: stats.pending,    color:'#d97706', jump:{ tab:'all', status:'pending' } },
+          { label:'🔧 处理中',   val: stats.inProgress, color:'#0369a1', jump:{ tab:'all', status:'in_progress' } },
+          { label:'⛔ 卡住',     val: stats.blocked,    color:'#dc2626', jump:{ tab:'all', status:'blocked' } },
+          { label:'⚠ 已超期',   val: stats.overdue,    color:'#dc2626', jump:{ tab:'overdue', status:'all' } },
+          { label:'✅ 已完成',   val: stats.done,       color:'#15803d', jump:{ tab:'all', status:'done' } },
+          { label:'📋 总任务',   val: stats.total,      color:'#7c3aed', jump:{ tab:'all', status:'all' } },
         ].map(s => (
-          <div key={s.label} className="paper rounded-2xl p-3" style={{borderLeft:'4px solid '+s.color}}>
+          <div key={s.label} onClick={() => jumpToCard(s.jump)} title="点击查看这些任务 →"
+            className="paper rounded-2xl p-3" style={{borderLeft:'4px solid '+s.color, cursor:'pointer', transition:'box-shadow .15s, transform .1s'}}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow='0 4px 14px rgba(0,0,0,.08)'; e.currentTarget.style.transform='translateY(-1px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow=''; e.currentTarget.style.transform=''; }}>
             <div style={{fontSize:11, color:'var(--ink-3)', fontWeight:600}}>{s.label}</div>
             <div style={{fontSize:24, fontWeight:700, color:s.color, marginTop:2}}>{s.val}</div>
           </div>

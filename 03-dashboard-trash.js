@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-84
-// APP_VERSION: 2026.05.29-fix84
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-92
+// APP_VERSION: 2026.05.29-fix92
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -376,7 +376,7 @@ const DashboardModule = ({ user, employees, records }) => {
   const siteStats = useMemo(() => {
     const map = new Map();
     periodRecords.forEach(r => {
-      const site = r.site || '(未填)';
+      const site = r.site || (window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef)) || '(未填)';  // 🆕 fix92: 无 site 时按订单号前缀推断
       if (!map.has(site)) map.set(site, { name: site, total: 0, unresolved: 0, resolved: 0, records: [] });
       const item = map.get(site);
       item.total++;
@@ -1857,6 +1857,112 @@ const DeleteApprovalCenter = ({ user, toast }) => {
 
 
 // ============================================================
+// 🆕 fix92: 绩效考核半自动打分板 — 客观项自动统计,主观项主管手填,实时总分,存 system_settings
+const KPI_ITEMS = [
+  { key:'q1', dim:'业绩', label:'邮件质量+时效', max:20 },
+  { key:'q2', dim:'业绩', label:'询价跟进转化', max:15 },
+  { key:'q3', dim:'业绩', label:'订单问题跟进', max:10 },
+  { key:'q4', dim:'业绩', label:'售后与纠纷', max:15 },
+  { key:'q5', dim:'业绩', label:'求助风控意识', max:15 },
+  { key:'a1', dim:'态度', label:'培训运用执行', max:10 },
+  { key:'a2', dim:'态度', label:'轮休协作纪律', max:10 },
+  { key:'a3', dim:'态度', label:'企业文化管理', max:5 },
+];
+const KPIScoreboard = ({ employees, records, toast }) => {
+  const [month, setMonth] = useState(new Date().toISOString().slice(0,7));
+  const [scores, setScores] = useState({});
+  const [saving, setSaving] = useState(false);
+  const today = new Date().toISOString().slice(0,10);
+  const storeKey = 'kpi_scores_' + month;
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!CLOUD.client) { setScores({}); return; }
+        const { data } = await CLOUD.client.from('system_settings').select('value').eq('key', storeKey).maybeSingle();
+        setScores((data && data.value) || {});
+      } catch(e) { setScores({}); }
+    })();
+  }, [month]);
+  const monRecs = useMemo(() => (records||[]).filter(r => (r.date||'').slice(0,7) === month), [records, month]);
+  const metrics = useMemo(() => {
+    const m = {};
+    employees.forEach(e => {
+      const recs = monRecs.filter(r => r.ownerId === e.id);
+      if (!recs.length) return;
+      const un = recs.filter(r => r.status !== 'resolved');
+      m[e.id] = { emp:e, total:recs.length, unresolved:un.length,
+        overdue: un.filter(r => r.nextFollowUp && r.nextFollowUp < today).length,
+        noFollow: un.filter(r => !r.nextFollowUp).length,
+        feedback: recs.filter(r => r.isFeedback).length,
+        avgMin: Math.round(recs.reduce((s,r)=>s+(r.durationMin||0),0) / recs.length) };
+    });
+    return m;
+  }, [employees, monRecs, today]);
+  const rows = Object.values(metrics).sort((a,b)=>b.total-a.total);
+  const getScore = (id, key, dflt) => { const s = scores[id] || {}; return (s[key] !== undefined && s[key] !== '') ? s[key] : dflt; };
+  const setScore = (id, key, val) => setScores(prev => ({ ...prev, [id]: { ...(prev[id]||{}), [key]: val } }));
+  const total = (m) => { let t = 0; KPI_ITEMS.forEach(it => { t += Number(getScore(m.emp.id, it.key, it.max)) || 0; }); t += Number(getScore(m.emp.id, 'bonus', m.feedback)) || 0; return t; };
+  const save = async () => {
+    setSaving(true);
+    try { await CLOUD.client.from('system_settings').upsert({ key: storeKey, value: scores }, { onConflict: 'key' }); toast && toast('✓ 绩效评分已保存 (' + month + ')'); }
+    catch(e) { toast && toast('❌ 保存失败: ' + e.message); }
+    setSaving(false);
+  };
+  return (
+    <div className="paper rounded-2xl p-4">
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:10, marginBottom:12}}>
+        <div className="font-display" style={{fontSize:15, fontWeight:600}}>📋 绩效考核打分 <span style={{fontSize:11, color:'var(--ink-3)', fontWeight:400}}>· 客观项自动算 / 主观项手填 / 满分100+奖惩</span></div>
+        <div style={{display:'flex', gap:8, alignItems:'center'}}>
+          <input type="month" value={month} onChange={e=>setMonth(e.target.value)} style={{padding:'5px 8px', border:'1px solid var(--line)', borderRadius:6, fontSize:12, fontFamily:'inherit'}}/>
+          <button onClick={save} disabled={saving} className="btn-pri" style={{padding:'5px 12px', fontSize:12}}>{saving?'保存中…':'💾 保存评分'}</button>
+        </div>
+      </div>
+      {rows.length === 0 ? (
+        <div style={{padding:24, textAlign:'center', color:'var(--ink-3)', fontSize:13}}>本月暂无客服记录</div>
+      ) : (
+        <div style={{overflowX:'auto'}}>
+          <table style={{borderCollapse:'collapse', fontSize:12, width:'100%', minWidth:920}}>
+            <thead>
+              <tr style={{color:'var(--ink-3)', textAlign:'left'}}>
+                <th style={{padding:'6px 8px', position:'sticky', left:0, background:'white'}}>客服</th>
+                <th style={{padding:'6px 8px'}}>客观参考(自动)</th>
+                {KPI_ITEMS.map(it => <th key={it.key} style={{padding:'6px 4px', textAlign:'center', minWidth:60}} title={it.dim+'·满'+it.max+'分'}>{it.label}<div style={{fontSize:9, color:'var(--ink-4)'}}>/{it.max}</div></th>)}
+                <th style={{padding:'6px 4px', textAlign:'center', minWidth:56}}>奖惩 ±</th>
+                <th style={{padding:'6px 8px', textAlign:'right', color:'#0071e3'}}>总分</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((m, idx) => (
+                <tr key={m.emp.id} style={{background: idx%2?'#fafafa':'white', borderTop:'1px solid var(--line)'}}>
+                  <td style={{padding:'8px', position:'sticky', left:0, background: idx%2?'#fafafa':'white', fontWeight:600}}>{m.emp.name}{m.emp.alias?<div style={{fontSize:9,color:'var(--ink-3)'}}>{m.emp.alias}</div>:null}</td>
+                  <td style={{padding:'8px', fontSize:10, color:'var(--ink-2)', lineHeight:1.6, minWidth:210}}>
+                    邮件 <b>{m.total}</b> · 未解决 {m.unresolved} · <span style={{color: m.overdue?'#dc2626':'inherit'}}>逾期 {m.overdue}</span> · 无跟进 {m.noFollow}<br/>
+                    问题反馈 <b style={{color:'#059669'}}>{m.feedback}</b> · 均时长 {m.avgMin}min
+                  </td>
+                  {KPI_ITEMS.map(it => (
+                    <td key={it.key} style={{padding:'4px', textAlign:'center'}}>
+                      <input type="number" min="0" max={it.max} value={getScore(m.emp.id, it.key, it.max)} onChange={e=>setScore(m.emp.id, it.key, e.target.value)}
+                        style={{width:46, padding:'3px', textAlign:'center', border:'1px solid var(--line)', borderRadius:5, fontSize:12, fontFamily:'inherit'}}/>
+                    </td>
+                  ))}
+                  <td style={{padding:'4px', textAlign:'center'}}>
+                    <input type="number" value={getScore(m.emp.id, 'bonus', m.feedback)} onChange={e=>setScore(m.emp.id, 'bonus', e.target.value)}
+                      style={{width:46, padding:'3px', textAlign:'center', border:'1px solid var(--line)', borderRadius:5, fontSize:12, fontFamily:'inherit'}}/>
+                  </td>
+                  <td style={{padding:'8px', textAlign:'right', fontWeight:700, fontSize:15, color:'#0071e3'}}>{total(m)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{fontSize:10, color:'var(--ink-3)', marginTop:8, lineHeight:1.6}}>
+            客观项(邮件量/逾期/无跟进/反馈/时长)由系统按本月记录自动统计,仅作打分参考;各项默认满分,主管按实际下调;「奖惩」默认=问题反馈奖(+反馈数),可手填(售后扣分 / 互助加分等)。
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // 📊 主管汇总面板 - 总览所有模块
 // ============================================================
 const AdminOverviewDashboard = ({ user, employees, toast }) => {
@@ -1989,6 +2095,9 @@ const AdminOverviewDashboard = ({ user, employees, toast }) => {
         </div>
       </div>
       
+      {/* 🆕 fix92: 绩效考核打分板 */}
+      <KPIScoreboard employees={employees} records={data.records} toast={toast} />
+
       {/* 紧急关注 */}
       {(stats.chargebacks.urgent > 0 || stats.refunds.pending > 0 || stats.followups.overdue > 0 || stats.deleteReqs.pending > 0) && (
         <div className="paper rounded-2xl p-4" style={{background:'linear-gradient(90deg, #fef2f2 0%, #fed7aa 100%)', border:'2px solid #f87171'}}>

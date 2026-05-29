@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-84
-// APP_VERSION: 2026.05.29-fix84
+// 🧱 核心 · fix28-92
+// APP_VERSION: 2026.05.29-fix92
 // ════════════════════════════════════════════════════════════════════
 
 const { useState, useMemo, useEffect, useRef, useCallback, useContext, createContext } = React;
@@ -426,7 +426,7 @@ const SITES = ['MJ','DC','VK','DF','LS','RS','MH','PL','MO','RD','海服'];  // 
 const ORDER_PREFIX_TO_SITE = {
   RD: 'RD', MJ: 'MJ', VK: 'VK', DC: 'DC', DF: 'DF',
   LS: 'LS', RS: 'RS', MH: 'MH', PL: 'PL', MO: 'MO',
-  V: 'VK',   // ⚠ 猜测:V 前缀 = VK(Vakker)— 不对请告诉我改这一行
+  V: 'VK', K: 'VK',   // 🆕 fix92: V / K 前缀 = VK 网站
 };
 // 从订单号/备注里抽取开头连续字母,优先匹配 2 字母前缀,再退 1 字母
 function siteFromOrderRef(ref) {

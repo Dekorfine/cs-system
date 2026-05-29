@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-81
-// APP_VERSION: 2026.05.27-fix81
+// 📖 手册 + App(fix81) · fix28-92
+// APP_VERSION: 2026.05.29-fix92
 // ════════════════════════════════════════════════════════════════════
 
 
@@ -740,6 +740,34 @@ const App = () => {
   // 🆕 fix22: 联动 1+3 — 全局加载产品主表 + 自定义网站,Context 注入到所有模块
   const [customSites, setCustomSites] = useState([]);
   const [productsList, setProductsList] = useState([]);
+
+  // 🆕 fix92: 全局图片点击看大图(任何 img 都生效,拦截新标签打开,不改各组件)
+  useEffect(() => {
+    let overlay = document.getElementById('__img_lightbox__');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = '__img_lightbox__';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:4vh 4vw;cursor:zoom-out;';
+      overlay.innerHTML = '<img style="max-width:100%;max-height:92vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5)"/><div style="position:fixed;top:14px;right:20px;color:#fff;font-size:30px;line-height:1;cursor:pointer">✕</div>';
+      overlay.addEventListener('click', () => { overlay.style.display = 'none'; });
+      document.body.appendChild(overlay);
+    }
+    const imgEl = overlay.querySelector('img');
+    const onClick = (e) => {
+      const t = e.target;
+      if (!t || t.tagName !== 'IMG') return;
+      if (t.closest('#__img_lightbox__') || t.closest('button') || t.closest('[data-no-zoom]')) return;
+      const src = t.currentSrc || t.src;
+      if (!src || src.startsWith('data:image/svg')) return;
+      const rect = t.getBoundingClientRect();
+      if (rect.width && rect.width < 30) return;  // 极小图标/头像跳过
+      e.preventDefault(); e.stopPropagation();
+      imgEl.src = src;
+      overlay.style.display = 'flex';
+    };
+    document.addEventListener('click', onClick, true);  // 捕获阶段,先于组件自身/超链接
+    return () => { document.removeEventListener('click', onClick, true); };
+  }, []);
   
   const loadCustomSites = useCallback(async () => {
     try {
@@ -1967,7 +1995,7 @@ const App = () => {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-const APP_VERSION = '2026.05.27-fix81';
+const APP_VERSION = '2026.05.29-fix92';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

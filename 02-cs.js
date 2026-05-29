@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-84
-// APP_VERSION: 2026.05.29-fix84
+// 📞 客服跟进 + 视频上传 · fix28-92
+// APP_VERSION: 2026.05.29-fix92
 // ════════════════════════════════════════════════════════════════════
 
 const CSGridCard = ({ r, employees, getDisplayStatus, onOpen360, onClickCard, onViewImg }) => {
@@ -4538,7 +4538,7 @@ const SiteDailyBreakdown = ({ scope, selectedEmpId, employees, live, today, last
       <div className="p-4 border-b" style={{borderColor:'var(--line)', display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:8}}>
         <div className="flex items-center gap-2">
           <span className="font-display text-sm font-bold">📊 邮件分布:员工 × 日期 × 网站</span>
-          <span className="text-[10px]" style={{color:'var(--ink-3)'}}>颜色深浅=邮件数量 · 悬停看网站分布</span>
+          <span className="text-[10px]" style={{color:'var(--ink-3)'}}>颜色深浅=邮件数量 · 每格直接显示网站分布</span>
         </div>
         <div className="flex gap-1">
           {[
@@ -4598,6 +4598,13 @@ const SiteDailyBreakdown = ({ scope, selectedEmpId, employees, live, today, last
                         <div style={{padding:'4px 0', borderRadius:4, background: cellColor(cell.total), fontWeight: cell.total > 0 ? 600 : 400, color: cell.total > maxPerCell * 0.6 ? 'white' : 'var(--ink)'}}>
                           {cell.total || '-'}
                         </div>
+                        {cell.total > 0 && (
+                          <div style={{marginTop:2, display:'flex', flexDirection:'column', gap:1, alignItems:'center'}}>
+                            {Object.entries(cell.bySite).sort((a,b)=>b[1]-a[1]).map(([s,c]) => (
+                              <span key={s} style={{fontSize:8, lineHeight:1.25, color:'var(--ink-2)', whiteSpace:'nowrap'}}>{s} {c}</span>
+                            ))}
+                          </div>
+                        )}
                       </td>
                     );
                   })}

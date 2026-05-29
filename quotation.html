@@ -3571,15 +3571,10 @@ function toggleFollowupFilter() {
 // 🆕 fix82: 需跟进 → 同步到客服跟进系统(workspace_records),用所选日期,不再 prompt
 async function syncFollowupToCS(customerName, piRef, data, quoteId) {
   const buyerEmail = (data.buyer_email || '').trim();
-  let cur = null, cfg = null;
-  try {
-    cur = JSON.parse(localStorage.getItem('current_user') || 'null');
-    cfg = JSON.parse(localStorage.getItem('cloud_config') || 'null');
-  } catch (e) {}
-  if (!cur || !cfg || !cfg.url) {
-    showToast('💡 需跟进已存,但未登录工作台 — 暂未同步到客服系统', 'info');
-    return;
-  }
+  // 🆕 fix93: 用报价单自己的云配置(SB_URL/SB_KEY)直接写 workspace_records,不再依赖工作台登录
+  let cur = null;
+  try { cur = JSON.parse(localStorage.getItem('current_user') || 'null'); } catch (e) {}
+  const ownerId = (cur && cur.id) || 'quote_followup';   // 没登录工作台也能同步,挂到通用跟进人
   // 跟进日期:用所选,缺省今天+7
   let nextFollowUp = data.followup_date;
   if (!nextFollowUp) {
@@ -3592,7 +3587,7 @@ async function syncFollowupToCS(customerName, piRef, data, quoteId) {
   const noteExtra = (data.followup_note || '').trim();
   const record = {
     id: recordId,
-    ownerId: cur.id,
+    ownerId: ownerId,
     date: todayStr,
     customer: buyerEmail || customerName || '',
     site: (window.__siteFromOrderRef && window.__siteFromOrderRef(piRef)) || 'RD',
@@ -3606,12 +3601,12 @@ async function syncFollowupToCS(customerName, piRef, data, quoteId) {
     updatedAt: new Date().toISOString(),
   };
   try {
-    const resp = await fetch(cfg.url + '/rest/v1/workspace_records?on_conflict=id', {
+    const resp = await fetch(SB_URL + '/rest/v1/workspace_records?on_conflict=id', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': cfg.key,
-        'Authorization': 'Bearer ' + cfg.key,
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + SB_KEY,
         'Prefer': 'resolution=merge-duplicates,return=minimal',
       },
       body: JSON.stringify(record),
@@ -4088,16 +4083,13 @@ async function promptFollowUpReminder(customerName, piRef) {
     currentUser = JSON.parse(localStorage.getItem('current_user') || 'null');
     cloudCfg = JSON.parse(localStorage.getItem('cloud_config') || 'null');
   } catch(e) {}
-  if (!currentUser || !cloudCfg || !cloudCfg.url) {
-    showToast('⚠ 请先在工作台登录后再设置回访提醒', 'err');
-    return;
-  }
+  const _ownerId = (currentUser && currentUser.id) || 'quote_followup';  // 🆕 fix93: 用报价单自己的云配置,不再要求工作台登录
   // 构造跟进记录
   const todayStr = new Date().toISOString().slice(0, 10);
   const recordId = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   const record = {
     id: recordId,
-    ownerId: currentUser.id,
+    ownerId: _ownerId,
     date: todayStr,
     customer: buyerEmail,
     site: 'RD',  // 默认网站
@@ -4112,12 +4104,12 @@ async function promptFollowUpReminder(customerName, piRef) {
   };
   // 直接 POST 到 Supabase
   try {
-    const resp = await fetch(cloudCfg.url + '/rest/v1/workspace_records', {
+    const resp = await fetch(SB_URL + '/rest/v1/workspace_records', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': cloudCfg.key,
-        'Authorization': 'Bearer ' + cloudCfg.key,
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + SB_KEY,
         'Prefer': 'return=minimal',
       },
       body: JSON.stringify(record),
