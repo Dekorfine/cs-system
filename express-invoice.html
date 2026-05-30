@@ -895,6 +895,7 @@ function MakeInvoice() {
     const t = makeTicket(quickResult, quickResult.items.map(it => ({
       ...it
     })));
+    t.sheetOrderNo = quickResult.queryNum || ''; // 🆕 录入的原始单号
     if (isReshipKey(quickResult.queryNum)) t.isReship = true;
     setTickets(p => [...p, t]);
   };
@@ -1095,6 +1096,7 @@ function MakeInvoice() {
           ...it
         })));
         t.carrierRef = inp.carrierRef || '';
+        t.sheetOrderNo = inp.orderNumber || ''; // 🆕 北简表里录入的原始单号(如 K115753-3)→ 卡片显示供人工核对
         applyNoteSelection(t.items, t.note, inp.orderNumber); // 🆕 按后台备注自动选该子单对应的灯(多产品)
         if (isReshipKey(inp.orderNumber) || isReshipKey(inp.carrierRef)) {
           t.isReship = true;
@@ -1448,7 +1450,24 @@ function MakeInvoice() {
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word'
       }
-    }, "\uD83D\uDCDD \u5BA2\u6237\u5907\u6CE8(\u7559\u610F\u6539\u5730\u5740):", t.note), /*#__PURE__*/React.createElement("div", {
+    }, "\uD83D\uDCDD \u5BA2\u6237\u5907\u6CE8(\u7559\u610F\u6539\u5730\u5740):", t.note), t.sheetOrderNo && /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: '#eef2ff',
+        border: '1px solid #c7d2fe',
+        borderRadius: 9,
+        padding: '7px 11px',
+        marginBottom: 8,
+        fontSize: 14,
+        fontWeight: 700,
+        color: '#3730a3'
+      }
+    }, "\uD83D\uDCCB \u5317\u7B80\u5F55\u5165\u5355\u53F7:", t.sheetOrderNo, normOrderKey(t.sheetOrderNo) !== (t.orderNumber || '') && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 400,
+        fontSize: 12,
+        color: '#6366f1'
+      }
+    }, " \u2192 \u7CFB\u7EDF\u5339\u914D\u5230\u8BA2\u5355 ", t.orderNumber, "(\u8BF7\u6838\u5BF9\u662F\u5426\u4E00\u81F4)")), /*#__PURE__*/React.createElement("div", {
       style: {
         background: '#f8fafc',
         borderRadius: 9,
