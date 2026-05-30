@@ -165,19 +165,24 @@ function isReshipKey(k) {
 }
 
 // 🆕 订单实时单查(本地未命中 → 调跟单 Edge Function · 用订单库 anon key · auto_save:false · 不入库)
+// 真实 shop_domain 映射(跟单核对 shopify_stores 表给出 · 与品牌直觉名不同!)
 const PREFIX_TO_DOMAIN = {
-  V: 'vakkerlight.myshopify.com',
-  VK: 'vakkerlight.myshopify.com',
-  K: 'vakkerlight.myshopify.com',
-  PL: 'pinlighting.myshopify.com',
-  MH: 'mooiehome.myshopify.com',
-  RD: 'radilum.myshopify.com',
+  V: 'vakkerlighting.myshopify.com',
+  VK: 'vakkerlighting.myshopify.com',
+  K: 'vakkerlighting.myshopify.com',
+  PL: 'vkfrench.myshopify.com',
+  // PL=Pinlighting 品牌 → 店铺域名是 vkfrench
   DF: 'dekorfine.myshopify.com',
-  DC: 'docos.myshopify.com',
-  LS: 'lumioshine.myshopify.com',
-  RS: 'rayonshine.myshopify.com',
-  MJ: 'mooijane.myshopify.com',
-  ML: 'mooielight.com'
+  DC: 'docolight.myshopify.com',
+  MH: 'vkwholesale.myshopify.com',
+  LS: 'docolamp.myshopify.com',
+  RD: 'vakkerge.myshopify.com',
+  RS: 'decormote.myshopify.com',
+  JD: 'janedecor.myshopify.com',
+  MJ: 'janedecor.myshopify.com',
+  // mooijane 老订单已被 JD(janedecor)接管
+  ML: 'mooielight.com' // WooCommerce → 走 woo-api
+  // (Mooiehome 若出现新前缀再补)
 };
 function guessShopDomain(orderNo) {
   const m = String(orderNo || '').toUpperCase().match(/^([A-Z]+)/);
