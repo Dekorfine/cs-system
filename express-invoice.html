@@ -9,6 +9,9 @@
 <!-- 🚀 预编译:已离线编译 JSX,移除 babel-standalone -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- 🆕 云鼎渠道:ExcelJS(带嵌图/合并单元格的 Excel) + JSZip(批量打包) -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <style>
   *{box-sizing:border-box;}
   body{margin:0;background:#f5f5f7;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang SC',system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-size:13px;}
@@ -664,11 +667,117 @@ function buildChanghuiRow(t) {
   row[row.length - 1] = [ourNo ? '我方单号 ' + ourNo : '', t.prepNote || ''].filter(Boolean).join(' · ');
   return row;
 }
+// ============================================================
+// 🆕 云鼎渠道(FBA专线模板)— 每个订单一个独立 Excel,文件名=订单号,产品图嵌入
+// 与昌晖完全不同:头部信息块 + 装箱单表;申报单价=500×件数;HS固定8539510000;箱序号=订单号
+// ============================================================
+const YD_CHANNEL = 'YL-洛杉矶直送超大件卡派';
+const YD_HS = '8539510000';
+const YD_HEADS = ['箱序号*', '物品FBA ID', 'Reference ID', '物品中文名*', '物品英文名*', '海关编码*', '单箱数量*', '申报单价（USD）*', '材质(中英文)*', '用途(中英文)*', '品牌*', '型号*', '单箱净重*', '单箱毛重*', '长*', '宽*', '高*', '产品图片*', '销售链接'];
+// 浏览器端抓产品图 → ArrayBuffer(跨域失败则返回 null,跳过嵌图)
+async function ydFetchImg(url) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, {
+      mode: 'cors'
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return {
+      buf: await blob.arrayBuffer(),
+      ext: blob.type && blob.type.includes('png') ? 'png' : blob.type && blob.type.includes('webp') ? 'png' : 'jpeg'
+    };
+  } catch (e) {
+    return null;
+  }
+}
+// 用 ExcelJS 构建一张云鼎发票(一个订单)。ref=客户参考号(文件名),sel=选中产品(每个不同产品一行)
+async function buildYundingWorkbook(t) {
+  const ExcelJS = window.ExcelJS;
+  if (!ExcelJS) throw new Error('ExcelJS 未加载');
+  const a = t.address || {};
+  const ref = t.ydRef || t.orderNumber;
+  const sel = (t.items || []).filter(it => it.selected !== false);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('模板示例');
+  ws.getColumn(1).width = 15;
+  ws.getColumn(2).width = 14;
+  ws.getColumn(3).width = 12;
+  ws.getColumn(4).width = 16;
+  ws.getColumn(5).width = 20;
+  for (let c = 6; c <= 17; c++) ws.getColumn(c).width = 11;
+  ws.getColumn(18).width = 14;
+  ws.getColumn(19).width = 22;
+  ws.getCell('A1').value = 'FBA专线导入模版';
+  ws.mergeCells('A1:N1');
+  ws.getCell('A2').value = '订单信息';
+  ws.getCell('D2').value = '收件人信息';
+  ws.mergeCells('B2:C2');
+  ws.mergeCells('E2:F2');
+  const HL = [['客户参考号*（必填）', ref, 'FBA仓库*（FBA必填）', ''], ['收货渠道*（必填）', YD_CHANNEL, '收件人公司*（必填）', a.company || ''], ['目的地*（必填）', '美国', '收件人名称*（必填）', a.name || t.customerName || ''], ['预报实重', t.weight || '', '收件人电话*（必填）', a.phone || t.customerPhone || ''], ['报关类型*（必填）', '买单报关', '收件人邮编*（必填）', a.zip || ''], ['是否带电*（必填）', '否', '收件人城市*（必填）', a.city || ''], ['是否投保*（必填）', '否', '收件人省州*（必填）', a.province || a.province_code || ''], ['投保金额*（只填数字，币种以人民币为准）', '/', '收件人地址1*（不可超过35个字符）', a.address1 || ''], ['FBA ID*（FBA必填）', '/', '收件人地址2', a.address2 || ''], ['Reference ID*（FBA必填）', '/', '收件人邮箱*（必填）', t.customerEmail || '']];
+  HL.forEach((row, i) => {
+    const r = 3 + i;
+    ws.getCell(r, 1).value = row[0];
+    ws.getCell(r, 2).value = row[1];
+    ws.mergeCells(r, 2, r, 3);
+    ws.getCell(r, 4).value = row[2];
+    ws.getCell(r, 5).value = row[3];
+    ws.mergeCells(r, 5, r, 6);
+  });
+  ws.getCell('A13').value = '装箱单信息';
+  YD_HEADS.forEach((h, i) => {
+    const cell = ws.getCell(14, i + 1);
+    cell.value = h;
+    cell.font = {
+      bold: true
+    };
+  });
+  let r = 15;
+  for (const it of sel) {
+    const qty = parseInt(it.quantity) || 1;
+    ws.getRow(r).height = 62;
+    ws.getCell(r, 1).value = ref; // 箱序号 = 订单号
+    ws.getCell(r, 4).value = it.lampCn || '吊灯'; // 中文名(灯型识别)
+    ws.getCell(r, 5).value = it.lampEn || 'Lamp'; // 英文名
+    ws.getCell(r, 6).value = YD_HS; // HS 固定 8539510000
+    ws.getCell(r, 7).value = qty; // 单箱数量
+    ws.getCell(r, 8).value = 500 * qty; // 申报单价 = 500×件数
+    ws.getCell(r, 19).value = it.salesUrl || ''; // 销售链接(暂空)
+    const img = await ydFetchImg(it.image_url);
+    if (img) {
+      try {
+        const id = wb.addImage({
+          buffer: img.buf,
+          extension: img.ext
+        });
+        ws.addImage(id, {
+          tl: {
+            col: 17,
+            row: r - 1
+          },
+          ext: {
+            width: 82,
+            height: 82
+          }
+        });
+      } catch (e) {}
+    }
+    r++;
+  }
+  return wb;
+}
 const COURIERS = {
   changhui: {
     name: '昌晖',
+    mode: 'sheet',
     headers: CH_HEADERS,
     build: buildChanghuiRow
+  },
+  yunding: {
+    name: '云鼎',
+    mode: 'perOrder',
+    channel: YD_CHANNEL,
+    hs: YD_HS
   }
 };
 const PAGE_SIZE = 24;
@@ -926,6 +1035,12 @@ function MakeInvoice() {
     })));
     t.sheetOrderNo = quickResult.queryNum || ''; // 🆕 录入的原始单号
     if (isReshipKey(quickResult.queryNum)) t.isReship = true;
+    if (courier === 'yunding') {
+      // 🆕 云鼎:客户参考号=订单号,默认全选产品,件数=产品总数量(可改)
+      t.ydRef = quickResult.orderNumber || quickResult.queryNum || '';
+      t.items.forEach(it => it.selected = true);
+      t.pieceCount = String(t.items.reduce((s, it) => s + (parseInt(it.quantity) || 1), 0));
+    }
     setTickets(p => [...p, t]);
   };
   // 🆕 fix72: 订单批量多选
@@ -980,10 +1095,17 @@ function MakeInvoice() {
   const rmTicket = id => setTickets(p => p.filter(t => t.id !== id));
   const validate = t => {
     const m = [];
+    const a = t.address || {};
+    if (courier === 'yunding') {
+      if (!(a.name || t.customerName)) m.push('收件人');
+      if (!a.zip) m.push('邮编');
+      if (!a.address1) m.push('地址');
+      if (!(t.items || []).some(it => it.selected !== false)) m.push('产品');
+      return m;
+    }
     if (!t.channel) m.push('渠道');
     if (!t.weight) m.push('重量');
     if (!t.packageCount) m.push('件数');
-    const a = t.address || {};
     if (!(a.name || t.customerName)) m.push('收件人');
     if (!a.zip) m.push('邮编');
     if (!a.address1) m.push('地址');
@@ -994,12 +1116,66 @@ function MakeInvoice() {
   const basketTotalPages = Math.max(1, Math.ceil(tickets.length / BASKET_PAGE_SIZE));
   const basketPg = Math.min(basketPage, basketTotalPages);
   const pagedTickets = tickets.length > BASKET_PAGE_SIZE ? tickets.slice((basketPg - 1) * BASKET_PAGE_SIZE, basketPg * BASKET_PAGE_SIZE) : tickets;
-  const exportExcel = () => {
-    const tpl = COURIERS[courier];
+  const [exporting, setExporting] = useState(false);
+  const exportChanghui = () => {
+    const tpl = COURIERS.changhui;
     const ws = XLSX.utils.aoa_to_sheet([tpl.headers, ...tickets.map(tpl.build)]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-    XLSX.writeFile(wb, `${tpl.name}发票_${dateStr}_${tickets.length}票.xlsx`);
+    XLSX.writeFile(wb, `昌晖发票_${dateStr}_${tickets.length}票.xlsx`);
+  };
+  const safeName = s => String(s || '订单').replace(/[\\/:*?"<>|]/g, '_').slice(0, 80);
+  const exportYunding = async () => {
+    if (!window.ExcelJS) {
+      setErr('ExcelJS 未加载,请刷新页面重试');
+      return;
+    }
+    setExporting(true);
+    setErr('');
+    try {
+      if (tickets.length === 1) {
+        const wb = await buildYundingWorkbook(tickets[0]);
+        const buf = await wb.xlsx.writeBuffer();
+        const ref = tickets[0].ydRef || tickets[0].orderNumber;
+        const blob = new Blob([buf], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        const url = URL.createObjectURL(blob);
+        const aTag = document.createElement('a');
+        aTag.href = url;
+        aTag.download = safeName(ref) + '.xlsx';
+        aTag.click();
+        URL.revokeObjectURL(url);
+      } else {
+        if (!window.JSZip) {
+          setErr('JSZip 未加载,请刷新页面重试');
+          setExporting(false);
+          return;
+        }
+        const zip = new window.JSZip();
+        for (const t of tickets) {
+          const wb = await buildYundingWorkbook(t);
+          const buf = await wb.xlsx.writeBuffer();
+          zip.file(safeName(t.ydRef || t.orderNumber) + '.xlsx', buf);
+        }
+        const content = await zip.generateAsync({
+          type: 'blob'
+        });
+        const url = URL.createObjectURL(content);
+        const aTag = document.createElement('a');
+        aTag.href = url;
+        aTag.download = `云鼎发票_${dateStr}_${tickets.length}单.zip`;
+        aTag.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {
+      setErr('导出失败:' + (e.message || e));
+    }
+    setExporting(false);
+  };
+  const exportExcel = () => {
+    if (courier === 'yunding') return exportYunding();
+    return exportChanghui();
   };
 
   // 🆕 fix86/88: 批量查库(分批 .or;map 同时按 订单号 + order_id 建索引)
@@ -1163,6 +1339,113 @@ function MakeInvoice() {
     }
     setImporting(false);
   };
+
+  // 🆕 云鼎:上传交接清单 → 解析「单号」+「件数」→ 查库建票(DF.../DF...合并单,K..-1子单)
+  const importYundingSheet = async file => {
+    setImporting(true);
+    setErr('');
+    setImportReport(null);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {
+        type: 'array'
+      });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, {
+        header: 1,
+        blankrows: false
+      });
+      // 找含「单号」的表头行(交接清单第1行是标题,表头在第2行)
+      let hr = -1,
+        orderCol = -1,
+        pieceCol = -1;
+      for (let i = 0; i < Math.min(aoa.length, 10); i++) {
+        const row = (aoa[i] || []).map(x => String(x == null ? '' : x).trim());
+        const oi = row.findIndex(h => /单号|订单号|订单编号/.test(h));
+        if (oi >= 0) {
+          hr = i;
+          orderCol = oi;
+          pieceCol = row.findIndex(h => /件数|箱数|^数量$/.test(h));
+          break;
+        }
+      }
+      if (hr < 0) throw new Error('没找到「单号」列 — 请确认上传的是云鼎交接清单');
+      const get = (r, i) => i >= 0 ? String((r && r[i]) == null ? '' : r[i]).trim() : '';
+      const rows = [];
+      const seen = new Set();
+      for (let i = hr + 1; i < aoa.length; i++) {
+        const r = aoa[i] || [];
+        const raw = get(r, orderCol);
+        if (!raw || /合计|总计|签字|signature|日期/i.test(raw)) continue;
+        if (seen.has(raw)) continue;
+        seen.add(raw);
+        rows.push({
+          rawNo: raw,
+          pieces: get(r, pieceCol)
+        });
+      }
+      if (!rows.length) throw new Error('没读到单号');
+      // 合并单 DF17280/DF17392 拆开收集所有 key
+      const allKeys = [];
+      rows.forEach(x => {
+        x.rawNo.split(/[\/,，]/).forEach(p => {
+          const k = p.trim();
+          if (k) allKeys.push(k);
+        });
+      });
+      const map = await bulkFetchByKeys(allKeys);
+      const newTickets = [];
+      const unmatched = [];
+      rows.forEach(row => {
+        const parts = row.rawNo.split(/[\/,，]/).map(s => s.trim()).filter(Boolean);
+        const orders = parts.map(p => map[p] || map[normOrderKey(p)]).filter(Boolean);
+        if (!orders.length) {
+          unmatched.push(row.rawNo);
+          return;
+        }
+        const items = [];
+        orders.forEach(o => (o.items || []).forEach(it => items.push({
+          ...it,
+          selected: true
+        }))); // 云鼎默认全选(整票产品都报)
+        // 🆕 合并单:跨订单的同款产品(同 品名+SKU+规格)合并、数量累加 → 一行
+        let merged = items;
+        if (orders.length > 1) {
+          const mg = [],
+            idx = {};
+          items.forEach(it => {
+            const k = (it.title || '') + '|' + (it.sku || '') + '|' + (it.spec || '');
+            if (idx[k] !== undefined) {
+              mg[idx[k]].quantity = (parseInt(mg[idx[k]].quantity) || 0) + (parseInt(it.quantity) || 0);
+            } else {
+              idx[k] = mg.length;
+              mg.push({
+                ...it
+              });
+            }
+          });
+          merged = mg;
+        }
+        const t = makeTicket(orders[0], merged);
+        t.ydRef = parts.join('-'); // 客户参考号/文件名:斜杠→连字符
+        t.sheetOrderNo = row.rawNo;
+        t.pieceCount = row.pieces || ''; // 交接清单件数 = 申报总件数(目标,可核对)
+        t.isMerged = parts.length > 1;
+        newTickets.push(t);
+      });
+      setTickets(prev => [...prev, ...newTickets]);
+      setImportReport({
+        total: rows.length,
+        matched: newTickets.length,
+        unmatched
+      });
+      setConn('ok');
+    } catch (e) {
+      setErr('导入失败:' + (e.message || e));
+    }
+    setImporting(false);
+  };
+  const importSheet = file => courier === 'yunding' ? importYundingSheet(file) : importOrderSheet(file);
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "card"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1452,7 +1735,13 @@ function MakeInvoice() {
     style: {
       fontSize: 15
     }
-  }, "\uD83D\uDCE4 \u6279\u91CF\u5EFA\u7968 \xB7 \u4E0A\u4F20\u8BA2\u5355\u8868"), /*#__PURE__*/React.createElement("span", {
+  }, "\uD83D\uDCE4 \u6279\u91CF\u5EFA\u7968 \xB7 ", courier === 'yunding' ? '上传交接清单' : '上传订单表'), courier === 'yunding' ? /*#__PURE__*/React.createElement("span", {
+    className: "muted",
+    style: {
+      flex: 1,
+      minWidth: 220
+    }
+  }, "\u4E0A\u4F20\u4E91\u9F0E\u4EA4\u63A5\u6E05\u5355 \u2192 \u6309\u300C\u5355\u53F7\u300D\u67E5\u5E93\u81EA\u52A8\u5EFA\u7968:DF17280/DF17392 \u81EA\u52A8\u5408\u5E76\u6210\u4E00\u5355(\u6587\u4EF6\u540D DF17280-DF17392)\u3001K114157-1 \u5B50\u5355\u81EA\u52A8\u5904\u7406;\u7533\u62A5\u6570\u91CF\u53D6\u81EA\u6E05\u5355\u300C\u4EF6\u6570\u300D,\u53EF\u6838\u5BF9\u8C03\u6574\u3002\u6BCF\u4E2A\u8BA2\u5355\u751F\u6210\u4E00\u4E2A\u72EC\u7ACB Excel(\u6587\u4EF6\u540D=\u8BA2\u5355\u53F7),\u591A\u5355\u4E00\u6B21\u5BFC\u51FA\u6253\u5305 ZIP\u3002") : /*#__PURE__*/React.createElement("span", {
     className: "muted",
     style: {
       flex: 1,
@@ -1465,7 +1754,7 @@ function MakeInvoice() {
     style: {
       whiteSpace: 'nowrap'
     }
-  }, importing ? '⏳ 建票中…' : '📂 选择订单表'), /*#__PURE__*/React.createElement("input", {
+  }, importing ? '⏳ 建票中…' : courier === 'yunding' ? '📂 选择交接清单' : '📂 选择订单表'), /*#__PURE__*/React.createElement("input", {
     ref: importRef,
     type: "file",
     accept: ".xls,.xlsx,.csv",
@@ -1473,7 +1762,7 @@ function MakeInvoice() {
       display: 'none'
     },
     onChange: e => {
-      if (e.target.files[0]) importOrderSheet(e.target.files[0]);
+      if (e.target.files[0]) importSheet(e.target.files[0]);
       e.target.value = '';
     }
   })), importReport && /*#__PURE__*/React.createElement("div", {
@@ -1607,8 +1896,8 @@ function MakeInvoice() {
   }, "\uD83D\uDC41 \u9884\u89C8\u5168\u90E8"), /*#__PURE__*/React.createElement("button", {
     className: "btn-good btn",
     onClick: exportExcel,
-    disabled: !allValid
-  }, "\uD83D\uDCE4 \u5BFC\u51FA ", COURIERS[courier].name, " Excel")), tickets.length > BASKET_PAGE_SIZE && /*#__PURE__*/React.createElement("div", {
+    disabled: !allValid || exporting
+  }, exporting ? '⏳ 生成中…' : courier === 'yunding' ? tickets.length > 1 ? `📦 导出云鼎发票 ZIP(${tickets.length}单)` : '📤 导出云鼎发票' : `📤 导出 ${COURIERS[courier].name} Excel`)), tickets.length > BASKET_PAGE_SIZE && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
