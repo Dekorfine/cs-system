@@ -398,6 +398,45 @@ function storeFromOrder(o, field) {
   }
   return '未知';
 }
+// 🆕 按后台备注自动识别该单报哪盏灯:备注里有 "K115960-2=Estelle Alabaster Wall Sconce" 形式的子单→产品映射
+function noteProductMap(note) {
+  const map = {};
+  String(note || '').split(/[\n\r·;；]+/).forEach(line => {
+    const m = line.match(/([A-Za-z]{1,4}\d{2,}(?:-\d+)?)\s*[=＝]\s*([^=＝\n]+?)(?:\s*[=＝].*)?$/);
+    if (m) {
+      const k = m[1].toUpperCase().replace(/\s/g, '');
+      const v = m[2].trim();
+      if (v && !/^(已发|已回|贴|超|加纸箱)/.test(v) && /[A-Za-z]/.test(v)) map[k] = v;
+    }
+  });
+  return map;
+}
+function applyNoteSelection(items, note, orderNum) {
+  if (!items || items.length < 2 || !note || !orderNum) return null;
+  const map = noteProductMap(note);
+  const key = String(orderNum).toUpperCase().replace(/\s/g, '');
+  const want = map[key];
+  if (!want) return null;
+  const wwords = want.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+  let best = -1,
+    bestScore = 0;
+  items.forEach((it, i) => {
+    const t = ((it.title || '') + ' ' + (it.lampEn || '')).toLowerCase();
+    let s = 0;
+    wwords.forEach(w => {
+      if (t.includes(w)) s++;
+    });
+    if (s > bestScore) {
+      bestScore = s;
+      best = i;
+    }
+  });
+  if (best >= 0 && bestScore >= 2) {
+    items.forEach((it, i) => it.selected = i === best);
+    return want;
+  }
+  return null;
+}
 function parseOrder(o, field) {
   let addr = o.shipping_address;
   if (typeof addr === 'string') {
@@ -448,6 +487,23 @@ function parseOrder(o, field) {
     });
     items = mg;
   }
+  // 🆕 多产品订单:默认只选中「数量最多」的主产品报关(手动样板每票只报1个产品),其余客服可勾选;单产品默认选中
+  if (items.length > 1) {
+    let mi = 0,
+      mq = -1;
+    items.forEach((it, i) => {
+      const q = parseInt(it.quantity) || 0;
+      if (q > mq) {
+        mq = q;
+        mi = i;
+      }
+    });
+    items.forEach((it, i) => {
+      it.selected = i === mi;
+    });
+  } else items.forEach(it => {
+    it.selected = true;
+  });
   // 🆕 fix87/89: 客户备注 — 显式字段 + 兜底扫描任意含 note/备注 的列 + 原始订单 JSON 里的 note + note_attributes
   let na = o.note_attributes;
   if (typeof na === 'string') {
@@ -520,7 +576,10 @@ const CH_HEADERS = [...CH_BASE, ...chProd(), '运单备注'];
 function buildChanghuiRow(t) {
   const a = t.address || {};
   const row = new Array(CH_HEADERS.length).fill('');
-  const totalQty = t.items.reduce((s, it) => s + (parseInt(it.quantity) || 1), 0); // 🆕 fix88: 个数 = 整单数量总和
+  const sel = t.items.filter(it => it.selected !== false); // 🆕 只报选中的产品(多产品默认只选主产品)
+  const totalQty = sel.reduce((s, it) => s + (parseInt(it.quantity) || 1), 0); // 个数 = 选中产品单位总数
+  const isSmall = /小包/.test(t.channel || ''); // 海运小包 = 一票一件
+  const recvPieces = parseInt(t.pieceCount) || parseInt(t.packageCount) || 0; // 北简实际件数
   row[0] = t.orderNumber || t.carrierRef;
   row[1] = t.channel || '';
   row[2] = a.country_code || a.country || 'US'; // 🆕 fix89: 客户订单号以我们的订单号(MH4490)为准
@@ -537,11 +596,15 @@ function buildChanghuiRow(t) {
   row[10] = a.address1 || '';
   row[12] = a.phone || t.customerPhone || '';
   row[14] = t.customerEmail || '';
-  t.items.slice(0, 5).forEach((it, bi) => {
+  sel.slice(0, 5).forEach((it, bi) => {
     const first = bi === 0;
     const start = 16 + (first ? 0 : 12 + (bi - 1) * 11);
     let c = start;
-    const qty = parseInt(it.quantity) || 1;
+    // 🆕 申报数量:小包固定1;单一产品按北简实际件数;多产品保留各自订单数量
+    let qty = parseInt(it.quantity) || 1;
+    if (sel.length === 1) {
+      qty = isSmall ? 1 : recvPieces || qty;
+    }
     row[c++] = it.lampEn;
     row[c++] = it.lampCn;
     row[c++] = DECLARE.unitPriceEach * qty;
@@ -934,7 +997,8 @@ function MakeInvoice() {
       const refCol = find(/客户参考号/, /参考号/, /reference/i); // 北简 XM8T
       const channelCol = find(/收货渠道/, /渠道/, /channel/i);
       const weightCol = find(/收货结算重/, /结算重/, /重量/, /weight/i); // 结算重优先
-      const piecesCol = find(/总件数/, /件数/, /箱数/, /pieces/i); // 总件数优先
+      const piecesCol = find(/总件数/, /件数/, /箱数/, /pieces/i); // 总件数优先 → 外包装件数
+      const pieceColExact = find(/^件数$/, /^件数/); // 北简「件数」(实际收货件数)→ 申报数量
       const noteCol = find(/^备注$/, /备注/, /remark/i);
       let startRow = 1;
       if (orderCol < 0 && refCol < 0) {
@@ -957,6 +1021,7 @@ function MakeInvoice() {
           channel: get(r, channelCol),
           weight: get(r, weightCol),
           pieces: get(r, piecesCol),
+          pieceCount: get(r, pieceColExact),
           note: get(r, noteCol)
         });
       }
@@ -979,12 +1044,14 @@ function MakeInvoice() {
           ...it
         })));
         t.carrierRef = inp.carrierRef || '';
+        applyNoteSelection(t.items, t.note, inp.orderNumber); // 🆕 按后台备注自动选该子单对应的灯(多产品)
         if (isReshipKey(inp.orderNumber) || isReshipKey(inp.carrierRef)) {
           t.isReship = true;
         }
         if (inp.channel) t.channel = inp.channel;
         if (inp.weight) t.weight = inp.weight;
         if (inp.pieces) t.packageCount = inp.pieces;
+        if (inp.pieceCount) t.pieceCount = inp.pieceCount; // 🆕 北简实际件数 → 申报数量
         if (inp.note) t.prepNote = inp.note;
         newTickets.push(t);
       });
@@ -1544,9 +1611,25 @@ function MakeInvoice() {
       placeholder: "\u5B9E\u91CD\u590D\u6D4B/\u6539\u52A0\u73ED\u8239\u2026"
     }))), /*#__PURE__*/React.createElement("div", {
       className: "scroll-x"
-    }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "\u82F1\u6587"), /*#__PURE__*/React.createElement("th", null, "\u4E2D\u6587"), /*#__PURE__*/React.createElement("th", null, "HS\u7F16\u7801"), /*#__PURE__*/React.createElement("th", null, "\u6570\u91CF"), /*#__PURE__*/React.createElement("th", null, "\u6750\u8D28"), /*#__PURE__*/React.createElement("th", null, "\u7528\u9014"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, t.items.map((it, ii) => /*#__PURE__*/React.createElement("tr", {
-      key: ii
-    }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+    }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+      title: "\u52FE\u9009\u8981\u62A5\u5173\u7684\u4EA7\u54C1(\u591A\u4EA7\u54C1\u9ED8\u8BA4\u53EA\u62A5\u6570\u91CF\u6700\u591A\u7684\u4E3B\u4EA7\u54C1)"
+    }, "\u9009\u5165"), /*#__PURE__*/React.createElement("th", null, "\u82F1\u6587"), /*#__PURE__*/React.createElement("th", null, "\u4E2D\u6587"), /*#__PURE__*/React.createElement("th", null, "HS\u7F16\u7801"), /*#__PURE__*/React.createElement("th", null, "\u6570\u91CF"), /*#__PURE__*/React.createElement("th", null, "\u6750\u8D28"), /*#__PURE__*/React.createElement("th", null, "\u7528\u9014"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, t.items.map((it, ii) => /*#__PURE__*/React.createElement("tr", {
+      key: ii,
+      style: {
+        opacity: it.selected === false ? 0.4 : 1
+      }
+    }, /*#__PURE__*/React.createElement("td", {
+      style: {
+        textAlign: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: it.selected !== false,
+      onChange: e => upItem(t.id, ii, {
+        selected: e.target.checked
+      }),
+      title: "\u9009\u5165\u53D1\u7968"
+    })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
       value: it.lampEn,
       onChange: e => upItem(t.id, ii, {
         lampEn: e.target.value
@@ -1622,13 +1705,13 @@ function MakeInvoice() {
         fontSize: 11,
         marginTop: 5
       }
-    }, "\uD83D\uDCB0 \u7533\u62A5\u5355\u4EF7 = 500 \xD7 \u6570\u91CF(\u5BFC\u51FA\u65F6\u7B97)\xB7 \u7528\u9014 illuminating"), t.items.length > 5 && /*#__PURE__*/React.createElement("div", {
+    }, "\uD83D\uDCB0 \u7533\u62A5\u5355\u4EF7 = 500 \xD7 \u6570\u91CF(\u5BFC\u51FA\u65F6\u7B97)\xB7 \u7528\u9014 illuminating", t.items.length > 1 && ` · 多产品:已自动选「${(t.items.find(x => x.selected !== false) || {}).lampCn || '主产品'}」,可改勾选`), t.items.filter(it => it.selected !== false).length > 5 && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 11,
         color: '#b91c1c',
         marginTop: 4
       }
-    }, "\u26A0 \u8D85 5 \u4E2A\u4EA7\u54C1,\u660C\u6656\u6BCF\u7968\u6700\u591A 5 \u4E2A,\u8BF7\u62C6\u7968"));
+    }, "\u26A0 \u9009\u5165\u8D85 5 \u4E2A\u4EA7\u54C1,\u660C\u6656\u6BCF\u7968\u6700\u591A 5 \u4E2A,\u8BF7\u53D6\u6D88\u52FE\u9009\u6216\u62C6\u7968"));
   })), /*#__PURE__*/React.createElement("div", {
     className: "card"
   }, /*#__PURE__*/React.createElement("div", {
