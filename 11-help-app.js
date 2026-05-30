@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-95
-// APP_VERSION: 2026.05.29-fix95
+// 📖 手册 + App(fix81) · fix28-96
+// APP_VERSION: 2026.05.29-fix96
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-95
-// APP_VERSION: 2026.05.29-fix95
+// 📖 手册 + App(fix81) · fix28-96
+// APP_VERSION: 2026.05.29-fix96
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -391,22 +391,6 @@ var HelpSectionModules = function HelpSectionModules(_ref9) {
     summary: '生成正式报价单',
     what: '给客户生成标准格式的报价单。',
     why: '之前用 Word,格式不一致。'
-  }, {
-    key: 'finance',
-    icon: '🧮',
-    name: '财务计算器',
-    summary: '13 承运商 + 售价建议 + 对账',
-    what: '输入产品尺寸+实重+目的国 → 13 承运商对比 → 建议售价 → 账单对账。',
-    why: '选错承运商一单亏几百;算错售价一批货亏几千。这里集中计算 + 推演运费保证售价稳定。',
-    how: ['输入产品尺寸 + 实重 + 数量 + 目的国', '看 13 个承运商对比(价格 + 节省 + 利润率)', '选 #1 推荐的发货', '月底用"实际承运商账单"对账,验证没被多收'],
-    tips: ['明扬加班船最近改为 19/18/17 元/kg(美东/中/西)', '超规(>68kg 或 >300cm 单边 或 >420cm 围长)自动标"不接收"']
-  }, {
-    key: 'freight',
-    icon: '🚚',
-    name: '运费支付',
-    summary: '财务对账 + 快递公司管理 (财务/主管)',
-    what: '支付记录 + 快递公司管理 + 月度统计。',
-    why: '对账过程留痕,避免重复支付。'
   }, {
     key: 'cross_dept',
     icon: '📨',
@@ -1655,7 +1639,7 @@ var App = function App() {
       if (initialTab === 'report') initialTab = 'cross_dept';
       if (initialTab) return initialTab;
       // 财务人员默认进入财务 tab（user 可能为 null - 未登录状态）
-      if (user && user.role === 'finance') return 'finance';
+      if (user && user.role === 'finance') return 'freight_calc'; // 财务计算器/运费支付已迁出,财务默认进运费精算器
       return 'cs';
     }),
     _useState20 = _slicedToArray(_useState19, 2),
@@ -1688,14 +1672,14 @@ var App = function App() {
   var _useState21 = useState(function () {
       var s = new Set();
       // 如果初始 tab 是 iframe 类，也算访问过
-      if (['finance', 'quote', 'kb', 'ai_reviews'].includes(activeTab)) s.add(activeTab);
+      if (['quote', 'kb', 'ai_reviews'].includes(activeTab)) s.add(activeTab);
       return s;
     }),
     _useState22 = _slicedToArray(_useState21, 2),
     visitedTabs = _useState22[0],
     setVisitedTabs = _useState22[1];
   useEffect(function () {
-    if (['finance', 'quote', 'kb', 'ai_reviews'].includes(activeTab) && !visitedTabs.has(activeTab)) {
+    if (['quote', 'kb', 'ai_reviews'].includes(activeTab) && !visitedTabs.has(activeTab)) {
       setVisitedTabs(function (prev) {
         return new Set([].concat(_toConsumableArray(prev), [activeTab]));
       });
@@ -2323,11 +2307,6 @@ var App = function App() {
       icon: '📝',
       group: 'resources'
     }, {
-      key: 'finance',
-      label: '🧮 财务计算器',
-      icon: '🧮',
-      group: 'resources'
-    }, {
       key: 'help',
       label: '📖 使用手册',
       icon: '📖',
@@ -2339,12 +2318,10 @@ var App = function App() {
       label: '🐛 反馈中心',
       icon: '🐛',
       group: 'resources'
-    }].concat(_toConsumableArray(isFinanceVisible ? [{
-      key: 'freight',
-      label: '🚚 运费支付',
-      icon: '🚚',
-      group: 'resources'
-    }] : []), [{
+    },
+    // 🆕 fix14: bug 反馈
+    // 🆕 fix11-hotfix2: ai_reviews 不再作为独立 tab — 已合并进 ⭐ 产品评价 内部
+    {
       key: 'freight_calc',
       label: '🚚 运费精算器',
       icon: '🚚',
@@ -2382,7 +2359,7 @@ var App = function App() {
       label: '📢 会议纪要',
       icon: '📢',
       group: 'collab'
-    }], _toConsumableArray(isAdmin ? [{
+    }].concat(_toConsumableArray(isAdmin ? [{
       key: 'admin_overview',
       label: '📊 主管汇总',
       icon: '📊',
@@ -3123,14 +3100,7 @@ var App = function App() {
   }), activeTab === 'suppliers' && /*#__PURE__*/React.createElement(SuppliersManagement, {
     toast: toast,
     user: user
-  }), visitedTabs.has('finance') && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: activeTab === 'finance' ? 'block' : 'none'
-    }
-  }, /*#__PURE__*/React.createElement(FinanceModule, {
-    user: user,
-    toast: toast
-  })), visitedTabs.has('quote') && /*#__PURE__*/React.createElement("div", {
+  }), visitedTabs.has('quote') && /*#__PURE__*/React.createElement("div", {
     style: {
       display: activeTab === 'quote' ? 'block' : 'none'
     }
@@ -3150,10 +3120,6 @@ var App = function App() {
   })), activeTab === 'email_templates' && /*#__PURE__*/React.createElement(EmailTemplatesModule, {
     user: user,
     toast: toast
-  }), activeTab === 'freight' && /*#__PURE__*/React.createElement(FreightModule, {
-    user: user,
-    toast: toast,
-    cloudOn: cloudOn
   }), activeTab === 'freight_calc' && /*#__PURE__*/React.createElement(FreightCalcModule, {
     user: user,
     toast: toast
@@ -3243,7 +3209,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.05.29-fix95';
+var APP_VERSION = '2026.05.29-fix96';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
