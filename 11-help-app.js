@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-96
-// APP_VERSION: 2026.05.29-fix96
+// 📖 手册 + App(fix81) · fix28-98
+// APP_VERSION: 2026.05.29-fix98
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-96
-// APP_VERSION: 2026.05.29-fix96
+// 📖 手册 + App(fix81) · fix28-98
+// APP_VERSION: 2026.05.29-fix98
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -1385,9 +1385,13 @@ var App = function App() {
     _useState16 = _slicedToArray(_useState15, 2),
     records = _useState16[0],
     setRecords = _useState16[1];
-  // 写入 localStorage（永久兜底）
+  // 写入 localStorage（永久兜底）：先存完整(含图);超配额再退化为剥图版(图仍在云端 Supabase)
   useEffect(function () {
-    STORE.set('cs_records', records);
+    try {
+      localStorage.setItem(STORE.k('cs_records'), JSON.stringify(records));
+    } catch (e) {
+      STORE.set('cs_records', slimRecordsForCache(records));
+    }
   }, [records]);
 
   // 云同步：启用时把云端记录拉下来覆盖本地视图（首次加载）
@@ -3209,7 +3213,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.05.29-fix96';
+var APP_VERSION = '2026.05.29-fix98';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

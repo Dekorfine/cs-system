@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-96
-// APP_VERSION: 2026.05.29-fix96
+// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-98
+// APP_VERSION: 2026.05.29-fix98
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
@@ -26,8 +26,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-96
-// APP_VERSION: 2026.05.29-fix96
+// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-98
+// APP_VERSION: 2026.05.29-fix98
 // ════════════════════════════════════════════════════════════════════
 
 // ============================================================
@@ -6220,7 +6220,7 @@ var CdmDetailModal = function CdmDetailModal(_ref33) {
   }();
   var setStatus = /*#__PURE__*/function () {
     var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(newStatus) {
-      var client, userName, updates, _yield$client$from$up2, error, _t11;
+      var client, userName, updates, _yield$client$from$se2, latest, curThread, topAtts, threadAtts, seen, merged, attNames, _yield$client$from$up2, error, _t11, _t12;
       return _regenerator().w(function (_context19) {
         while (1) switch (_context19.p = _context19.n) {
           case 0:
@@ -6237,28 +6237,73 @@ var CdmDetailModal = function CdmDetailModal(_ref33) {
               status: newStatus,
               updated_at: new Date().toISOString()
             };
-            if (newStatus === 'done') {
-              updates.completed_at_ms = Date.now();
-              updates.completed_by_id = user.id;
-              updates.completed_by_name = userName;
-            } else {
-              // 撤销完成 — 清空完成字段
-              updates.completed_at_ms = null;
-              updates.completed_by_id = null;
-              updates.completed_by_name = null;
+            if (!(newStatus === 'done')) {
+              _context19.n = 6;
+              break;
             }
+            updates.completed_at_ms = Date.now();
+            updates.completed_by_id = user.id;
+            updates.completed_by_name = userName;
+            // 🆕 跨部门完成协议(对齐美工/跟单):聚合本系统在 thread 里发过的附件到顶层 attachments + thread 追加完成说明
             _context19.p = 2;
             _context19.n = 3;
-            return client.from('cross_dept_messages').update(updates).eq('id', msg.id);
+            return client.from('cross_dept_messages').select('thread, attachments').eq('id', msg.id).maybeSingle();
           case 3:
+            _yield$client$from$se2 = _context19.v;
+            latest = _yield$client$from$se2.data;
+            curThread = latest && Array.isArray(latest.thread) ? latest.thread : Array.isArray(msg.thread) ? msg.thread : [];
+            topAtts = latest && Array.isArray(latest.attachments) ? latest.attachments : Array.isArray(msg.attachments) ? msg.attachments : [];
+            threadAtts = [];
+            curThread.forEach(function (t) {
+              if (t && t.system === MY_SYSTEM && Array.isArray(t.attachments)) threadAtts.push.apply(threadAtts, _toConsumableArray(t.attachments));
+            });
+            seen = new Set();
+            merged = [];
+            [].concat(_toConsumableArray(topAtts), threadAtts).forEach(function (a) {
+              var u = a && (a.url || a.dataUrl);
+              if (u && !seen.has(u)) {
+                seen.add(u);
+                merged.push(a);
+              }
+            });
+            updates.attachments = merged;
+            attNames = merged.map(function (a) {
+              return a && (a.name || '附件');
+            }).filter(Boolean);
+            updates.thread = [].concat(_toConsumableArray(curThread), [{
+              user_id: user.id,
+              user_name: userName,
+              system: MY_SYSTEM,
+              ts: Date.now(),
+              content: '✅ 已完成' + (attNames.length ? ' · 详见附件:' + attNames.join('、') : '')
+            }]);
+            _context19.n = 5;
+            break;
+          case 4:
+            _context19.p = 4;
+            _t11 = _context19.v;
+            console.warn('[CDM] 完成聚合失败', _t11);
+          case 5:
+            _context19.n = 7;
+            break;
+          case 6:
+            // 撤销完成 — 清空完成字段
+            updates.completed_at_ms = null;
+            updates.completed_by_id = null;
+            updates.completed_by_name = null;
+          case 7:
+            _context19.p = 7;
+            _context19.n = 8;
+            return client.from('cross_dept_messages').update(updates).eq('id', msg.id);
+          case 8:
             _yield$client$from$up2 = _context19.v;
             error = _yield$client$from$up2.error;
             if (!error) {
-              _context19.n = 4;
+              _context19.n = 9;
               break;
             }
             throw error;
-          case 4:
+          case 9:
             toast("\u2713 \u72B6\u6001\u5DF2\u66F4\u65B0\u4E3A ".concat(findCdm(CDM_STATUSES, newStatus).label));
             // 🆕 v22-CW: 完成时 → 桌面通知(给当前操作者本人,确认完成动作)
             if (newStatus === 'done') {
@@ -6272,16 +6317,16 @@ var CdmDetailModal = function CdmDetailModal(_ref33) {
               } catch (_unused6) {}
             }
             onChanged && onChanged();
-            _context19.n = 6;
+            _context19.n = 11;
             break;
-          case 5:
-            _context19.p = 5;
-            _t11 = _context19.v;
-            alert('更新失败: ' + (_t11.message || _t11));
-          case 6:
+          case 10:
+            _context19.p = 10;
+            _t12 = _context19.v;
+            alert('更新失败: ' + (_t12.message || _t12));
+          case 11:
             return _context19.a(2);
         }
-      }, _callee16, null, [[2, 5]]);
+      }, _callee16, null, [[7, 10], [2, 4]]);
     }));
     return function setStatus(_x8) {
       return _ref38.apply(this, arguments);
@@ -6291,7 +6336,7 @@ var CdmDetailModal = function CdmDetailModal(_ref33) {
   // 🆕 v22-CW: 主管分派工单给手下
   var assignTo = /*#__PURE__*/function () {
     var _ref39 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(userId, userName) {
-      var client, myName, _yield$client$from$se2, latest, newThread, _t12;
+      var client, myName, _yield$client$from$se3, latest, newThread, _t13;
       return _regenerator().w(function (_context20) {
         while (1) switch (_context20.p = _context20.n) {
           case 0:
@@ -6319,8 +6364,8 @@ var CdmDetailModal = function CdmDetailModal(_ref33) {
             _context20.n = 3;
             return client.from('cross_dept_messages').select('thread').eq('id', msg.id).maybeSingle();
           case 3:
-            _yield$client$from$se2 = _context20.v;
-            latest = _yield$client$from$se2.data;
+            _yield$client$from$se3 = _context20.v;
+            latest = _yield$client$from$se3.data;
             newThread = [].concat(_toConsumableArray((latest === null || latest === void 0 ? void 0 : latest.thread) || []), [{
               user_id: user.id,
               user_name: myName,
@@ -6340,8 +6385,8 @@ var CdmDetailModal = function CdmDetailModal(_ref33) {
             break;
           case 5:
             _context20.p = 5;
-            _t12 = _context20.v;
-            alert('分派失败: ' + (_t12.message || _t12));
+            _t13 = _context20.v;
+            alert('分派失败: ' + (_t13.message || _t13));
           case 6:
             return _context20.a(2);
         }
@@ -6355,7 +6400,7 @@ var CdmDetailModal = function CdmDetailModal(_ref33) {
   // 🆕 v22-CW: 切换 watcher (加/移除关注人)
   var toggleWatcher = /*#__PURE__*/function () {
     var _ref40 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(uid, uname) {
-      var client, _yield$client$from$se3, latest, current, isWatching, next, _t13;
+      var client, _yield$client$from$se4, latest, current, isWatching, next, _t14;
       return _regenerator().w(function (_context21) {
         while (1) switch (_context21.p = _context21.n) {
           case 0:
@@ -6371,8 +6416,8 @@ var CdmDetailModal = function CdmDetailModal(_ref33) {
             _context21.n = 2;
             return client.from('cross_dept_messages').select('watchers').eq('id', msg.id).maybeSingle();
           case 2:
-            _yield$client$from$se3 = _context21.v;
-            latest = _yield$client$from$se3.data;
+            _yield$client$from$se4 = _context21.v;
+            latest = _yield$client$from$se4.data;
             current = (latest === null || latest === void 0 ? void 0 : latest.watchers) || [];
             isWatching = current.includes(uid);
             next = isWatching ? current.filter(function (x) {
@@ -6390,8 +6435,8 @@ var CdmDetailModal = function CdmDetailModal(_ref33) {
             break;
           case 4:
             _context21.p = 4;
-            _t13 = _context21.v;
-            alert('更新失败: ' + (_t13.message || _t13));
+            _t14 = _context21.v;
+            alert('更新失败: ' + (_t14.message || _t14));
           case 5:
             return _context21.a(2);
         }
@@ -7192,21 +7237,21 @@ var ShopOwnersManager = function ShopOwnersManager(_ref41) {
     setOrgDir = _useState156[1];
   useEffect(function () {
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
-      var _t14, _t15;
+      var _t15, _t16;
       return _regenerator().w(function (_context22) {
         while (1) switch (_context22.p = _context22.n) {
           case 0:
             _context22.p = 0;
-            _t14 = setOrgDir;
+            _t15 = setOrgDir;
             _context22.n = 1;
             return window.loadOrgDirectory();
           case 1:
-            _t14(_context22.v);
+            _t15(_context22.v);
             _context22.n = 3;
             break;
           case 2:
             _context22.p = 2;
-            _t15 = _context22.v;
+            _t16 = _context22.v;
             setOrgDir([]);
           case 3:
             return _context22.a(2);
@@ -7264,7 +7309,7 @@ var ShopOwnersManager = function ShopOwnersManager(_ref41) {
   }, [employees]);
   var saveOwner = /*#__PURE__*/function () {
     var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(record) {
-      var client, row, _yield$client$from$up3, error, _t16;
+      var client, row, _yield$client$from$up3, error, _t17;
       return _regenerator().w(function (_context23) {
         while (1) switch (_context23.p = _context23.n) {
           case 0:
@@ -7307,8 +7352,8 @@ var ShopOwnersManager = function ShopOwnersManager(_ref41) {
             break;
           case 4:
             _context23.p = 4;
-            _t16 = _context23.v;
-            alert('保存失败: ' + (_t16.message || _t16));
+            _t17 = _context23.v;
+            alert('保存失败: ' + (_t17.message || _t17));
           case 5:
             return _context23.a(2);
         }
@@ -7322,7 +7367,7 @@ var ShopOwnersManager = function ShopOwnersManager(_ref41) {
   // 🆕 fix23: 批量矩阵添加 — N 网站 × M 人 × 1 角色 = N*M 条记录,自动去重
   var saveOwnersBatch = /*#__PURE__*/function () {
     var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(_ref44) {
-      var shopNames, userIds, role, notes, client, existingKeys, rows, skipped, _yield$client$from$in2, error, _t17;
+      var shopNames, userIds, role, notes, client, existingKeys, rows, skipped, _yield$client$from$in2, error, _t18;
       return _regenerator().w(function (_context24) {
         while (1) switch (_context24.p = _context24.n) {
           case 0:
@@ -7393,8 +7438,8 @@ var ShopOwnersManager = function ShopOwnersManager(_ref41) {
             break;
           case 5:
             _context24.p = 5;
-            _t17 = _context24.v;
-            alert('批量保存失败: ' + (_t17.message || _t17));
+            _t18 = _context24.v;
+            alert('批量保存失败: ' + (_t18.message || _t18));
           case 6:
             return _context24.a(2);
         }
@@ -7406,7 +7451,7 @@ var ShopOwnersManager = function ShopOwnersManager(_ref41) {
   }();
   var deleteOwner = /*#__PURE__*/function () {
     var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(owner) {
-      var client, _yield$client$from$de, error, _t18;
+      var client, _yield$client$from$de, error, _t19;
       return _regenerator().w(function (_context25) {
         while (1) switch (_context25.p = _context25.n) {
           case 0:
@@ -7448,8 +7493,8 @@ var ShopOwnersManager = function ShopOwnersManager(_ref41) {
             break;
           case 6:
             _context25.p = 6;
-            _t18 = _context25.v;
-            alert('删除失败: ' + (_t18.message || _t18));
+            _t19 = _context25.v;
+            alert('删除失败: ' + (_t19.message || _t19));
           case 7:
             return _context25.a(2);
         }
@@ -8578,7 +8623,7 @@ var TimeoutSettingsModal = function TimeoutSettingsModal(_ref52) {
   };
   var save = /*#__PURE__*/function () {
     var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25() {
-      var client, _yield$client$from$se4, data, latest, merged, _yield$client$from$up4, error, _t19;
+      var client, _yield$client$from$se5, data, latest, merged, _yield$client$from$up4, error, _t20;
       return _regenerator().w(function (_context28) {
         while (1) switch (_context28.p = _context28.n) {
           case 0:
@@ -8595,8 +8640,8 @@ var TimeoutSettingsModal = function TimeoutSettingsModal(_ref52) {
             _context28.n = 3;
             return client.from('app_config').select('value').eq('key', 'cdm_timeout_config').maybeSingle();
           case 3:
-            _yield$client$from$se4 = _context28.v;
-            data = _yield$client$from$se4.data;
+            _yield$client$from$se5 = _context28.v;
+            data = _yield$client$from$se5.data;
             latest = (data === null || data === void 0 ? void 0 : data.value) || {};
             merged = _objectSpread(_objectSpread({}, latest), {}, _defineProperty({}, MY_SYSTEM, config));
             _context28.n = 4;
@@ -8619,8 +8664,8 @@ var TimeoutSettingsModal = function TimeoutSettingsModal(_ref52) {
             break;
           case 6:
             _context28.p = 6;
-            _t19 = _context28.v;
-            alert('保存失败: ' + (_t19.message || _t19));
+            _t20 = _context28.v;
+            alert('保存失败: ' + (_t20.message || _t20));
           case 7:
             setSaving(false);
           case 8:
@@ -9135,7 +9180,7 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref54) {
   var refresh = /*#__PURE__*/function () {
     var _ref55 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26() {
       var _window$isWtkpiConfig2, _window2;
-      var data, _t20;
+      var data, _t21;
       return _regenerator().w(function (_context29) {
         while (1) switch (_context29.p = _context29.n) {
           case 0:
@@ -9160,9 +9205,9 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref54) {
             break;
           case 4:
             _context29.p = 4;
-            _t20 = _context29.v;
-            console.error('[PhotoReq] 加载失败', _t20);
-            toast('加载拍摄需求失败:' + (_t20.message || ''));
+            _t21 = _context29.v;
+            console.error('[PhotoReq] 加载失败', _t21);
+            toast('加载拍摄需求失败:' + (_t21.message || ''));
           case 5:
             setLoading(false);
           case 6:
@@ -10000,7 +10045,7 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref57) {
   };
   var uploadFiles = /*#__PURE__*/function () {
     var _ref58 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(files) {
-      var imgs, newAttachments, _iterator6, _step6, f, a, _t21, _t22;
+      var imgs, newAttachments, _iterator6, _step6, f, a, _t22, _t23;
       return _regenerator().w(function (_context30) {
         while (1) switch (_context30.p = _context30.n) {
           case 0:
@@ -10034,8 +10079,8 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref57) {
             break;
           case 6:
             _context30.p = 6;
-            _t21 = _context30.v;
-            toast('上传 ' + (f.name || '图片') + ' 失败:' + _t21.message);
+            _t22 = _context30.v;
+            toast('上传 ' + (f.name || '图片') + ' 失败:' + _t22.message);
           case 7:
             _context30.n = 3;
             break;
@@ -10044,8 +10089,8 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref57) {
             break;
           case 9:
             _context30.p = 9;
-            _t22 = _context30.v;
-            _iterator6.e(_t22);
+            _t23 = _context30.v;
+            _iterator6.e(_t23);
           case 10:
             _context30.p = 10;
             _iterator6.f();
@@ -10127,7 +10172,7 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref57) {
   };
   var submit = /*#__PURE__*/function () {
     var _ref60 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29() {
-      var _t23;
+      var _t24;
       return _regenerator().w(function (_context32) {
         while (1) switch (_context32.p = _context32.n) {
           case 0:
@@ -10176,9 +10221,9 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref57) {
             break;
           case 6:
             _context32.p = 6;
-            _t23 = _context32.v;
-            console.error('[PhotoReq] 提交失败', _t23);
-            alert('提交失败:\n\n' + (_t23.message || JSON.stringify(_t23)) + '\n\n常见原因:\n• 配置的 URL/Key 错了\n• Supabase RLS 拒绝写入 (联系拍摄部主管配 policy)\n• 网络问题');
+            _t24 = _context32.v;
+            console.error('[PhotoReq] 提交失败', _t24);
+            alert('提交失败:\n\n' + (_t24.message || JSON.stringify(_t24)) + '\n\n常见原因:\n• 配置的 URL/Key 错了\n• Supabase RLS 拒绝写入 (联系拍摄部主管配 policy)\n• 网络问题');
           case 7:
             setSubmitting(false);
           case 8:
@@ -10908,7 +10953,7 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref62) {
   };
   var handleFiles = /*#__PURE__*/function () {
     var _ref63 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(e) {
-      var files, news, _i2, _files, f, a, _t24;
+      var files, news, _i2, _files, f, a, _t25;
       return _regenerator().w(function (_context33) {
         while (1) switch (_context33.p = _context33.n) {
           case 0:
@@ -10938,8 +10983,8 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref62) {
             break;
           case 5:
             _context33.p = 5;
-            _t24 = _context33.v;
-            toast('上传 ' + f.name + ' 失败:' + _t24.message);
+            _t25 = _context33.v;
+            toast('上传 ' + f.name + ' 失败:' + _t25.message);
           case 6:
             _i2++;
             _context33.n = 2;
@@ -10961,7 +11006,7 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref62) {
   }();
   var save = /*#__PURE__*/function () {
     var _ref64 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee31() {
-      var _t25;
+      var _t26;
       return _regenerator().w(function (_context34) {
         while (1) switch (_context34.p = _context34.n) {
           case 0:
@@ -11000,9 +11045,9 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref62) {
             break;
           case 5:
             _context34.p = 5;
-            _t25 = _context34.v;
-            console.error('[PhotoReq Edit] 保存失败', _t25);
-            alert('保存失败:\n\n' + (_t25.message || JSON.stringify(_t25)));
+            _t26 = _context34.v;
+            console.error('[PhotoReq Edit] 保存失败', _t26);
+            alert('保存失败:\n\n' + (_t26.message || JSON.stringify(_t26)));
           case 6:
             setSaving(false);
           case 7:
@@ -11397,7 +11442,7 @@ var RowAttachments = function RowAttachments(_ref65) {
   var fileInputRef = useRef(null);
   var handleFiles = /*#__PURE__*/function () {
     var _ref66 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee32(files) {
-      var list, news, _iterator8, _step8, f, a, _t26, _t27;
+      var list, news, _iterator8, _step8, f, a, _t27, _t28;
       return _regenerator().w(function (_context35) {
         while (1) switch (_context35.p = _context35.n) {
           case 0:
@@ -11431,8 +11476,8 @@ var RowAttachments = function RowAttachments(_ref65) {
             break;
           case 6:
             _context35.p = 6;
-            _t26 = _context35.v;
-            toast('上传 ' + f.name + ' 失败:' + (_t26.message || ''));
+            _t27 = _context35.v;
+            toast('上传 ' + f.name + ' 失败:' + (_t27.message || ''));
           case 7:
             _context35.n = 3;
             break;
@@ -11441,8 +11486,8 @@ var RowAttachments = function RowAttachments(_ref65) {
             break;
           case 9:
             _context35.p = 9;
-            _t27 = _context35.v;
-            _iterator8.e(_t27);
+            _t28 = _context35.v;
+            _iterator8.e(_t28);
           case 10:
             _context35.p = 10;
             _iterator8.f();
@@ -11766,7 +11811,7 @@ var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref69) {
   }, 0);
   var submit = /*#__PURE__*/function () {
     var _ref70 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee35() {
-      var result, _t28;
+      var result, _t29;
       return _regenerator().w(function (_context38) {
         while (1) switch (_context38.p = _context38.n) {
           case 0:
@@ -11803,9 +11848,9 @@ var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref69) {
             break;
           case 5:
             _context38.p = 5;
-            _t28 = _context38.v;
-            console.error('[PhotoReq Batch] 失败', _t28);
-            alert('批量提交失败:\n\n' + (_t28.message || JSON.stringify(_t28)));
+            _t29 = _context38.v;
+            console.error('[PhotoReq Batch] 失败', _t29);
+            alert('批量提交失败:\n\n' + (_t29.message || JSON.stringify(_t29)));
           case 6:
             setSubmitting(false);
           case 7:
