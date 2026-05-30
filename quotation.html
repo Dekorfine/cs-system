@@ -1269,6 +1269,17 @@ fieldset legend {
         <div class="form-row"><label data-lang-key="ship_to_name_address">Ship To Name & Address</label><textarea id="shipping_info" rows="5"></textarea></div>
         <div class="form-row" style="margin-top:6px;"><label data-lang-key="shipping_tel">Shipping Tel</label><input type="text" id="shipping_tel"></div>
         <div class="form-row" style="margin-top:6px;"><label data-lang-key="freight_cost">Freight Cost (in USD)</label><input type="number" id="freight_cost" value="0" min="0" step="0.01"></div>
+        <div class="form-row" style="margin-top:6px;"><label data-lang-key="shipping_method">Shipping Method</label>
+          <select id="shipping_method">
+            <option value="none">— 不显示 / Not Shown</option>
+            <option value="air">✈️ By Air / 空运</option>
+            <option value="sea">🚢 By Sea / 海运</option>
+            <option value="rail">🚆 By Rail / 铁路</option>
+            <option value="express">📦 By Express / 快递</option>
+            <option value="truck">🚚 By Truck / 卡车陆运</option>
+            <option value="multimodal">🌐 Multimodal / 多式联运</option>
+          </select>
+        </div>
       </fieldset>
     </div>
 
@@ -1500,7 +1511,7 @@ fieldset legend {
         <div class="total-section">
           <p><span data-doc-key="subtotal">SUBTOTAL</span>: <span id="quote-currency-symbol-1"></span><span id="quote-subtotal">0.00</span></p>
           <p id="quote-discount-line"><span data-doc-key="discount">Discount</span> (<span id="quote-discount-perc">0</span>%): − <span id="quote-currency-symbol-2"></span><span id="quote-discount-amount">0.00</span></p>
-          <p><span data-doc-key="freight">Freight</span>: <span id="quote-currency-symbol-3"></span><span id="quote-freight">0.00</span></p>
+          <p><span data-doc-key="freight">Freight</span><span id="quote-freight-method"></span>: <span id="quote-currency-symbol-3"></span><span id="quote-freight">0.00</span></p>
           <p class="grand"><strong><span data-doc-key="total">TOTAL</span>: <span id="quote-currency-symbol-4"></span><span id="quote-total">0.00</span></strong></p>
           <p id="quote-deposit-line" style="display:none;color:#0071e3;margin-top:6px;padding-top:6px;border-top:1px dashed #ccc;">
             <span data-doc-key="deposit">Deposit</span> <span id="quote-deposit-perc-wrap">(<span id="quote-deposit-perc">0</span>%)</span>: <span id="quote-currency-symbol-5"></span><span id="quote-deposit-amount">0.00</span>
@@ -1545,7 +1556,7 @@ fieldset legend {
         <div class="total-section">
           <p><span data-doc-key="subtotal">SUBTOTAL</span>: <span id="po-currency-symbol-1"></span><span id="po-subtotal">0.00</span></p>
           <p id="po-discount-line"><span data-doc-key="discount">Discount</span> (<span id="po-discount-perc">0</span>%): − <span id="po-currency-symbol-2"></span><span id="po-discount-amount">0.00</span></p>
-          <p><span data-doc-key="freight">Freight</span>: <span id="po-currency-symbol-3"></span><span id="po-freight">0.00</span></p>
+          <p><span data-doc-key="freight">Freight</span><span id="po-freight-method"></span>: <span id="po-currency-symbol-3"></span><span id="po-freight">0.00</span></p>
           <p class="grand"><strong><span data-doc-key="total">TOTAL</span>: <span id="po-currency-symbol-4"></span><span id="po-total">0.00</span></strong></p>
           <p id="po-deposit-line" style="display:none;color:#0071e3;margin-top:6px;padding-top:6px;border-top:1px dashed #ccc;">
             <span data-doc-key="deposit">Deposit</span> <span id="po-deposit-perc-wrap">(<span id="po-deposit-perc">0</span>%)</span>: <span id="po-currency-symbol-5"></span><span id="po-deposit-amount">0.00</span>
@@ -1590,7 +1601,7 @@ fieldset legend {
         <div class="total-section">
           <p><span data-doc-key="subtotal">SUBTOTAL</span>: <span id="pi-currency-symbol-1"></span><span id="pi-subtotal">0.00</span></p>
           <p id="pi-discount-line"><span data-doc-key="discount">Discount</span> (<span id="pi-discount-perc">0</span>%): − <span id="pi-currency-symbol-2"></span><span id="pi-discount-amount">0.00</span></p>
-          <p><span data-doc-key="freight">Freight</span>: <span id="pi-currency-symbol-3"></span><span id="pi-freight">0.00</span></p>
+          <p><span data-doc-key="freight">Freight</span><span id="pi-freight-method"></span>: <span id="pi-currency-symbol-3"></span><span id="pi-freight">0.00</span></p>
           <p class="grand"><strong><span data-doc-key="total_due">TOTAL AMOUNT DUE</span>: <span id="pi-currency-symbol-4"></span><span id="pi-total">0.00</span></strong></p>
           <p id="pi-deposit-line" style="display:none;color:#0071e3;margin-top:6px;padding-top:6px;border-top:1px dashed #ccc;font-size:14px;">
             <span data-doc-key="deposit">Deposit</span> <span id="pi-deposit-perc-wrap">(<span id="pi-deposit-perc">0</span>%)</span>: <span id="pi-currency-symbol-5"></span><span id="pi-deposit-amount">0.00</span>
@@ -1702,7 +1713,7 @@ const translations = {
     select_seller:"Select Seller Website", order_info:"Order Information", quote_no:"Quote No.", invoice_no:"Invoice No.", po_no:"PO No.",
     date_of_issue:"Date of Issue", valid_until:"Valid Until", currency:"Currency",
     buyer_info:"Buyer Information", buyer_name_address:"Buyer Name & Address", buyer_email:"Buyer Email",
-    shipping_info:"Shipping Information", ship_to_name_address:"Ship To Name & Address", shipping_tel:"Shipping Tel", freight_cost:"Freight Cost (in USD)",
+    shipping_info:"Shipping Information", ship_to_name_address:"Ship To Name & Address", shipping_tel:"Shipping Tel", freight_cost:"Freight Cost (in USD)", shipping_method:"Shipping Method",
     seller_info_editable:"Seller Information (Editable)", seller_name:"Seller Name", seller_address:"Seller Address", seller_phone:"Seller Phone", seller_email:"Seller Email", seller_website:"Seller Website",
     product_items_packing:"Product Items & Packing Details", th_sku:"SKU", th_description:"Description", th_image:"Image", th_qty:"Qty",
     th_unit_price_usd:"Unit Price", th_carton_no:"Carton No.", th_nw:"N.W. (kgs)", th_gw:"G.W. (kgs)", th_meas:"Meas (cbm)",
@@ -1713,7 +1724,7 @@ const translations = {
     select_seller:"Select Seller Website / 选择卖家网站", order_info:"Order Information / 订单信息", quote_no:"Quote No. / 报价单号", invoice_no:"Invoice No. / 发票号", po_no:"PO No. / 采购订单号",
     date_of_issue:"Date of Issue / 签发日期", valid_until:"Valid Until / 有效期至", currency:"Currency / 货币",
     buyer_info:"Buyer Information / 买家信息", buyer_name_address:"Buyer Name & Address / 买家名称和地址", buyer_email:"Buyer Email / 买家邮箱",
-    shipping_info:"Shipping Information / 运输信息", ship_to_name_address:"Ship To Name & Address / 收货人名称和地址", shipping_tel:"Shipping Tel / 收货电话", freight_cost:"Freight Cost (in USD) / 运费 (美元)",
+    shipping_info:"Shipping Information / 运输信息", ship_to_name_address:"Ship To Name & Address / 收货人名称和地址", shipping_tel:"Shipping Tel / 收货电话", freight_cost:"Freight Cost (in USD) / 运费 (美元)", shipping_method:"Shipping Method / 运输方式",
     seller_info_editable:"Seller Information (Editable) / 卖家信息 (可编辑)", seller_name:"Seller Name / 卖家名称", seller_address:"Seller Address / 卖家地址", seller_phone:"Seller Phone / 卖家电话", seller_email:"Seller Email / 卖家邮箱", seller_website:"Seller Website / 卖家网站",
     product_items_packing:"Product Items & Packing Details / 产品项目和包装细节", th_sku:"SKU / 产品编号", th_description:"Description / 描述", th_image:"Image / 图片", th_qty:"Qty / 数量",
     th_unit_price_usd:"Unit Price / 单价", th_carton_no:"Carton No. / 箱号", th_nw:"N.W. (kgs) / 净重 (公斤)", th_gw:"G.W. (kgs) / 毛重 (公斤)", th_meas:"Meas (cbm) / 体积 (立方米)",
@@ -2180,6 +2191,25 @@ function exportPDF(which) {
   });
 }
 
+/* 🆕 运输方式 · 7 语言(单据 Freight 行括号内显示;none=不显示) */
+const SHIP_METHODS = {
+  none:       { en:'', bilingual:'', es:'', de:'', fr:'', ar:'', ru:'' },
+  air:        { en:'By Air',     bilingual:'By Air / 空运',        es:'Por Aire',         de:'Per Luftfracht', fr:'Par Air',     ar:'بالطائرة',            ru:'Авиа' },
+  sea:        { en:'By Sea',     bilingual:'By Sea / 海运',        es:'Por Mar',          de:'Per Seefracht',  fr:'Par Mer',     ar:'بحراً',               ru:'Морем' },
+  rail:       { en:'By Rail',    bilingual:'By Rail / 铁路',       es:'Por Ferrocarril',  de:'Per Bahn',       fr:'Par Rail',    ar:'بالسكك الحديدية',     ru:'Ж/д' },
+  express:    { en:'By Express', bilingual:'By Express / 快递',    es:'Por Express',      de:'Per Express',    fr:'Par Express', ar:'بالشحن السريع',       ru:'Экспресс' },
+  truck:      { en:'By Truck',   bilingual:'By Truck / 卡车',      es:'Por Camión',       de:'Per LKW',        fr:'Par Camion',  ar:'بالشاحنة',            ru:'Авто' },
+  multimodal: { en:'Multimodal', bilingual:'Multimodal / 多式联运', es:'Multimodal',       de:'Multimodal',     fr:'Multimodal',  ar:'نقل متعدد الوسائط',  ru:'Мультимодальная' },
+};
+function shipMethodLabel(val, lang){ const m = SHIP_METHODS[val]; if(!m || val==='none') return ''; return m[lang] || m.en || ''; }
+function updateShippingMethodDoc(){
+  const val = ($('shipping_method')||{}).value || 'none';
+  const lang = ($('language_select')||{}).value || 'en';
+  const lbl = shipMethodLabel(val, lang);
+  const txt = lbl ? ' (' + lbl + ')' : '';
+  ['quote','po','pi'].forEach(doc => { const el = $(`${doc}-freight-method`); if(el) el.innerText = txt; });
+}
+
 /* 🆕 fix36: 运费标签跟随货币 + 当前语言动态更新 */
 const CURRENCY_DISPLAY = {
   USD: 'USD', CNY: 'RMB', EUR: 'EUR', GBP: 'GBP', AUD: 'AUD', CAD: 'CAD'
@@ -2232,6 +2262,7 @@ function setLanguage(lang) {
   }
   syncAndCalculate();
   updateFreightLabel();  // 🆕 fix36: 语言切换时也刷新运费标签
+  updateShippingMethodDoc();  // 🆕 语言切换时刷新单据运输方式标签
 }
 
 /* ============================================================
@@ -2471,6 +2502,7 @@ function syncAndCalculate() {
       discLine.style.display = 'none';
     }
     $(`${doc}-freight`).innerText = convFreight.toFixed(2);
+    { const _smv=($('shipping_method')||{}).value||'none'; const _sml=shipMethodLabel(_smv, lang); const _e=$(`${doc}-freight-method`); if(_e) _e.innerText = _sml ? ' ('+_sml+')' : ''; }
     $(`${doc}-total`).innerText = convTotal.toFixed(2);
     for (let i = 1; i <= 6; i++) {
       const sym = $(`${doc}-currency-symbol-${i}`);
@@ -2779,6 +2811,7 @@ function collectFormData() {
     shipping_info:      $('shipping_info').value,
     shipping_tel:       $('shipping_tel').value,
     freight_cost:       $('freight_cost').value,
+    shipping_method:    ($('shipping_method')||{}).value || 'none',
     seller_name:        $('seller_name').value,
     seller_address:     $('seller_address').value,
     seller_phone:       $('seller_phone').value,
@@ -4245,6 +4278,8 @@ function attachListeners() {
     const el = $(id);
     if (el) el.addEventListener('change', () => { scheduleSync(); updatePreview(); });
   });
+  // 🆕 运输方式选择 → 重算 + 刷新单据 + 存草稿
+  { const sm = $('shipping_method'); if (sm) sm.addEventListener('change', () => { scheduleSync(); updatePreview(); }); }
 
   // Paste handler on the items table
   $('master-items').addEventListener('paste', handlePaste);
