@@ -179,6 +179,96 @@ function guessShopDomain(orderNo) {
 const EDGE_BASE = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co/functions/v1';
 const _liveCache = {};
 const LIVE_TTL = 5 * 60 * 1000;
+// 🆕 兼容 normalizer(跟单提供):把 Edge Function 返回的 order 统一成"表行形状"(吃表行/Shopify原始/Woo原始)
+function normalizeOrderShape(raw, shopDomain) {
+  if (!raw) return null;
+  // 已是表行形状
+  if (raw.shopify_order_number !== undefined && raw.shop_domain !== undefined) return raw;
+  // WooCommerce 原始
+  if (raw.number !== undefined && (raw.billing || raw.shipping)) {
+    const billing = raw.billing || {},
+      shipping = raw.shipping || {};
+    const fullName = n => ((n.first_name || '') + ' ' + (n.last_name || '')).trim();
+    return {
+      shopify_order_number: raw.number || String(raw.id),
+      shopify_order_id: raw.id,
+      shop_domain: shopDomain || 'mooielight.com',
+      platform: 'woo',
+      customer_name: fullName(billing) || fullName(shipping),
+      customer_email: billing.email || '',
+      customer_phone: billing.phone || shipping.phone || '',
+      total_price: raw.total,
+      currency: raw.currency,
+      shipping_address: {
+        name: fullName(shipping) || fullName(billing),
+        company: shipping.company || billing.company || '',
+        address1: shipping.address_1 || billing.address_1 || '',
+        address2: shipping.address_2 || billing.address_2 || '',
+        city: shipping.city || billing.city || '',
+        province: shipping.state || billing.state || '',
+        country: shipping.country || billing.country || '',
+        country_code: shipping.country || billing.country || '',
+        zip: shipping.postcode || billing.postcode || '',
+        phone: billing.phone || shipping.phone || ''
+      },
+      line_items: (raw.line_items || []).map(li => ({
+        sku: li.sku || '',
+        title: li.name || '',
+        variant_title: (li.meta_data || []).filter(m => m.key && !m.key.startsWith('_') && m.display_value).map(m => `${m.display_key || m.key}: ${m.display_value}`).join(' / '),
+        quantity: li.quantity || 1,
+        price: li.price || 0
+      })),
+      shopify_created_at: raw.date_created_gmt ? raw.date_created_gmt + 'Z' : raw.date_created,
+      note: raw.customer_note || raw.note || null,
+      raw_payload: raw
+    };
+  }
+  // Shopify REST 原始
+  if (raw.name !== undefined || raw.order_number !== undefined) {
+    const sa = raw.shipping_address || raw.billing_address || {},
+      customer = raw.customer || {};
+    return {
+      shopify_order_number: (raw.name || '').replace(/^#/, '') || String(raw.order_number || raw.id),
+      shopify_order_id: raw.id,
+      shop_domain: shopDomain || raw.shop_domain || '',
+      platform: 'shopify',
+      customer_name: sa.name || ((customer.first_name || '') + ' ' + (customer.last_name || '')).trim(),
+      customer_email: raw.email || customer.email || '',
+      customer_phone: sa.phone || raw.phone || customer.phone || '',
+      total_price: raw.total_price,
+      currency: raw.currency,
+      financial_status: raw.financial_status,
+      shipping_address: {
+        name: sa.name || '',
+        company: sa.company || '',
+        address1: sa.address1 || '',
+        address2: sa.address2 || '',
+        city: sa.city || '',
+        province: sa.province || '',
+        province_code: sa.province_code || '',
+        country: sa.country || '',
+        country_code: sa.country_code || '',
+        zip: sa.zip || '',
+        phone: sa.phone || ''
+      },
+      line_items: (raw.line_items || []).map(li => ({
+        sku: li.sku || '',
+        title: li.title || li.name || '',
+        variant_title: li.variant_title || '',
+        quantity: li.quantity || 1,
+        price: li.price || 0,
+        properties: li.properties || [],
+        image_url: li.image && li.image.src || li.image_url || ''
+      })),
+      shopify_created_at: raw.created_at,
+      note: raw.note,
+      note_attributes: raw.note_attributes || [],
+      raw_payload: raw
+    };
+  }
+  console.warn('[normalizeOrderShape] 未识别的订单形状', raw);
+  return raw;
+}
 async function lookupShopifyLive(orderNo, shopDomain) {
   const base = normOrderKey(orderNo);
   if (!base) return null;
@@ -218,9 +308,12 @@ async function lookupShopifyLive(orderNo, shopDomain) {
       });
       if (!res.ok) continue;
       const json = await res.json().catch(() => null);
+      try {
+        console.debug('[shopify-api raw]', shopDomain, nm, json && JSON.stringify(json).slice(0, 400));
+      } catch {}
       const arr = json && (json.orders || json.data || []);
       if (json && json.ok !== false && Array.isArray(arr) && arr.length) {
-        const o = arr[0];
+        const o = normalizeOrderShape(arr[0], shopDomain);
         const p = parseOrder(o, detectStoreField(o));
         _liveCache[ck] = {
           ts: Date.now(),
