@@ -136,7 +136,7 @@ function getItemHs(item) {
   return null;
 }
 function getLampInfo(item) {
-  const t = ((item.title || '') + ' ' + (item.variant_title || '')).toLowerCase();
+  const t = ((item.title || '') + ' ' + (item.variant_title || '') + ' ' + (item.sku || '')).toLowerCase();
   const f = LAMP_TYPES.find(l => l.re.test(t)) || LAMP_TYPES[1];
   const material = detectMaterial(t);
   const hs = getItemHs(item) || f.hs; // 有库里的 HS 就用库里的,否则按灯具类型
@@ -151,6 +151,13 @@ const DECLARE = {
   unitPriceEach: 500,
   usage: 'illuminating'
 };
+// 🆕 订单号归一:结尾 BU = 补发配件(查库时只用基础单号查地址/订单);结尾 -N = 子单,剥离
+function normOrderKey(k) {
+  return String(k || '').trim().replace(/\s+/g, '').replace(/BU$/i, '').replace(/-\d+$/, '');
+}
+function isReshipKey(k) {
+  return /BU\s*$/i.test(String(k || '').trim());
+}
 const CHANNELS = ['美森加班海运小包', '美森普通海运小包'];
 
 // 店铺字段探测 + 规范名映射(跟单已确认:店铺字段=shop_domain,方案A加 store_label/store_code)
@@ -243,6 +250,7 @@ function parseOrder(o, field) {
       lampCn: lt.cn,
       hs: lt.hs,
       material: lt.material,
+      usage: DECLARE.usage,
       spec: it.variant_title || ''
     };
   });
@@ -324,6 +332,7 @@ function buildChanghuiRow(t) {
   row[2] = a.country_code || a.country || 'US'; // 🆕 fix89: 客户订单号以我们的订单号(MH4490)为准
   row[3] = t.packageCount || '';
   row[4] = t.weight || '';
+  row[5] = a.company || '';
   row[6] = a.name || t.customerName || '';
   row[7] = a.province || '';
   row[8] = a.city || '';
@@ -331,7 +340,7 @@ function buildChanghuiRow(t) {
     v: a.zip || '',
     t: 's'
   };
-  row[10] = [a.address1, a.address2].filter(Boolean).join(' ');
+  row[10] = a.address1 || '';
   row[12] = a.phone || t.customerPhone || '';
   row[14] = t.customerEmail || '';
   t.items.slice(0, 5).forEach((it, bi) => {
@@ -350,7 +359,7 @@ function buildChanghuiRow(t) {
     row[c++] = it.material || 'Plastic + metal';
     if (first) row[c++] = totalQty;
     row[c++] = '';
-    row[c++] = DECLARE.usage;
+    row[c++] = it.usage || DECLARE.usage;
   });
   // 🆕 fix88: 北简对单用「客户参考号」作客户订单号时,把我们的订单号(MH4490)写进运单备注
   // 🆕 fix89: MH4490 已在客户订单号[0],运单备注只放北简备注(如超长/超重)
@@ -654,7 +663,14 @@ function MakeInvoice() {
     const map = {};
     let field = storeField;
     const CH = 20;
-    const uniq = [...new Set(keys.filter(Boolean).map(k => String(k).trim()))];
+    const expanded = [];
+    keys.filter(Boolean).forEach(k => {
+      const s = String(k).trim();
+      if (s) expanded.push(s);
+      const n = normOrderKey(s);
+      if (n && n !== s) expanded.push(n);
+    });
+    const uniq = [...new Set(expanded)];
     for (let i = 0; i < uniq.length; i += CH) {
       const chunk = uniq.slice(i, i + CH);
       const orExpr = chunk.map(n => `shopify_order_number.eq.${n},shopify_order_id.eq.${n}`).join(',');
@@ -741,7 +757,7 @@ function MakeInvoice() {
       const newTickets = [];
       const unmatched = [];
       inputs.forEach(inp => {
-        const o = map[inp.orderNumber] || map[inp.carrierRef];
+        const o = map[inp.orderNumber] || map[normOrderKey(inp.orderNumber)] || map[inp.carrierRef] || map[normOrderKey(inp.carrierRef)];
         if (!o) {
           unmatched.push(inp.orderNumber || inp.carrierRef);
           return;
@@ -750,6 +766,10 @@ function MakeInvoice() {
           ...it
         })));
         t.carrierRef = inp.carrierRef || '';
+        if (isReshipKey(inp.orderNumber) || isReshipKey(inp.carrierRef)) {
+          t.isReship = true;
+          t.orderNumber = inp.orderNumber || t.orderNumber;
+        }
         if (inp.channel) t.channel = inp.channel;
         if (inp.weight) t.weight = inp.weight;
         if (inp.pieces) t.packageCount = inp.pieces;
@@ -1039,7 +1059,13 @@ function MakeInvoice() {
         background: '#e0f2fe',
         color: '#075985'
       }
-    }, "\uD83C\uDFEA ", t.store), /*#__PURE__*/React.createElement("span", {
+    }, "\uD83C\uDFEA ", t.store), t.isReship && /*#__PURE__*/React.createElement("span", {
+      className: "pill",
+      style: {
+        background: '#fef3c7',
+        color: '#92400e'
+      }
+    }, "\u267B \u8865\u53D1\u914D\u4EF6"), /*#__PURE__*/React.createElement("span", {
       className: "muted"
     }, a.name || t.customerName, " \xB7 ", a.city, " ", a.province, " ", a.zip), miss.length > 0 && /*#__PURE__*/React.createElement("span", {
       className: "pill",
@@ -1119,17 +1145,17 @@ function MakeInvoice() {
       })
     })), /*#__PURE__*/React.createElement("div", {
       style: {
-        flex: '1 1 120px'
+        flex: '1 1 130px'
       }
     }, /*#__PURE__*/React.createElement("span", {
       className: "lbl"
-    }, "\u95E8\u724C/\u5355\u5143(address2)"), /*#__PURE__*/React.createElement("input", {
+    }, "\u516C\u53F8\u540D(\u9009\u586B)"), /*#__PURE__*/React.createElement("input", {
       className: "inp",
-      value: a.address2 || '',
+      value: a.company || '',
       onChange: e => upTicket(t.id, {
         address: {
           ...a,
-          address2: e.target.value
+          company: e.target.value
         }
       })
     })), /*#__PURE__*/React.createElement("div", {
@@ -1149,12 +1175,15 @@ function MakeInvoice() {
       })
     })), /*#__PURE__*/React.createElement("div", {
       style: {
-        flex: '0 1 70px'
+        flex: '0 1 130px'
       }
     }, /*#__PURE__*/React.createElement("span", {
       className: "lbl"
     }, "\u5DDE"), /*#__PURE__*/React.createElement("input", {
       className: "inp",
+      style: {
+        minWidth: 90
+      },
       value: a.province || '',
       onChange: e => upTicket(t.id, {
         address: {
@@ -1278,7 +1307,7 @@ function MakeInvoice() {
       placeholder: "\u5B9E\u91CD\u590D\u6D4B/\u6539\u52A0\u73ED\u8239\u2026"
     }))), /*#__PURE__*/React.createElement("div", {
       className: "scroll-x"
-    }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "\u82F1\u6587"), /*#__PURE__*/React.createElement("th", null, "\u4E2D\u6587"), /*#__PURE__*/React.createElement("th", null, "HS\u7F16\u7801"), /*#__PURE__*/React.createElement("th", null, "\u6570\u91CF"), /*#__PURE__*/React.createElement("th", null, "\u6750\u8D28"))), /*#__PURE__*/React.createElement("tbody", null, t.items.map((it, ii) => /*#__PURE__*/React.createElement("tr", {
+    }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "\u82F1\u6587"), /*#__PURE__*/React.createElement("th", null, "\u4E2D\u6587"), /*#__PURE__*/React.createElement("th", null, "HS\u7F16\u7801"), /*#__PURE__*/React.createElement("th", null, "\u6570\u91CF"), /*#__PURE__*/React.createElement("th", null, "\u6750\u8D28"), /*#__PURE__*/React.createElement("th", null, "\u7528\u9014"))), /*#__PURE__*/React.createElement("tbody", null, t.items.map((it, ii) => /*#__PURE__*/React.createElement("tr", {
       key: ii
     }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
       value: it.lampEn,
@@ -1318,6 +1347,15 @@ function MakeInvoice() {
       style: {
         minWidth: 90
       }
+    })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+      value: it.usage || '',
+      onChange: e => upItem(t.id, ii, {
+        usage: e.target.value
+      }),
+      style: {
+        minWidth: 90
+      },
+      placeholder: "illuminating"
     }))))))), /*#__PURE__*/React.createElement("div", {
       className: "muted",
       style: {
