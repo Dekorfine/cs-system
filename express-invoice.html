@@ -153,15 +153,22 @@ const DECLARE = {
 };
 // 🆕 订单号归一:结尾 BU = 补发配件(查库时只用基础单号查地址/订单);结尾 -N = 子单,剥离
 function normOrderKey(k) {
-  return String(k || '').trim().replace(/\s+/g, '').replace(/BU$/i, '').replace(/-\d+$/, '');
+  let s = String(k || '').trim().replace(/\s+/g, '');
+  const m = s.match(/BU-([A-Za-z0-9]+)$/i); // XBU-Y(补发并换新单号)→ 用新单号 Y(如 V95907BU-K113962 → K113962)
+  if (m) return m[1];
+  s = s.replace(/BU$/i, ''); // XBU(补发,无新号)→ 基础单号 X(如 V105631BU → V105631)
+  s = s.replace(/-\d+$/, ''); // X-N(子单)→ X(如 K112846-1 → K112846)
+  return s;
 }
 function isReshipKey(k) {
-  return /BU\s*$/i.test(String(k || '').trim());
+  return /BU(-|\s*$)/i.test(String(k || '').trim());
 }
 
 // 🆕 订单实时单查(本地未命中 → 调跟单 Edge Function · 用订单库 anon key · auto_save:false · 不入库)
 const PREFIX_TO_DOMAIN = {
+  V: 'vakkerlight.myshopify.com',
   VK: 'vakkerlight.myshopify.com',
+  K: 'vakkerlight.myshopify.com',
   PL: 'pinlighting.myshopify.com',
   MH: 'mooiehome.myshopify.com',
   RD: 'radilum.myshopify.com',
@@ -173,8 +180,10 @@ const PREFIX_TO_DOMAIN = {
   ML: 'mooielight.com'
 };
 function guessShopDomain(orderNo) {
-  const m = String(orderNo || '').toUpperCase().match(/^([A-Z]{2})/);
-  return m && PREFIX_TO_DOMAIN[m[1]] || null;
+  const m = String(orderNo || '').toUpperCase().match(/^([A-Z]+)/);
+  if (!m) return null;
+  const p = m[1];
+  return PREFIX_TO_DOMAIN[p] || PREFIX_TO_DOMAIN[p.slice(0, 2)] || PREFIX_TO_DOMAIN[p.slice(0, 1)] || null;
 }
 const EDGE_BASE = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co/functions/v1';
 const _liveCache = {};
@@ -423,6 +432,23 @@ function parseOrder(o, field) {
       spec: it.variant_title || ''
     };
   });
+  // 🆕 合并完全相同的产品(同 标题+SKU+规格)→ 数量累加,不分开展示
+  {
+    const mg = [],
+      idx = {};
+    items.forEach(it => {
+      const key = (it.title || '') + '|' + (it.sku || '') + '|' + (it.spec || '');
+      if (idx[key] !== undefined) {
+        mg[idx[key]].quantity = (parseInt(mg[idx[key]].quantity) || 0) + (parseInt(it.quantity) || 0);
+      } else {
+        idx[key] = mg.length;
+        mg.push({
+          ...it
+        });
+      }
+    });
+    items = mg;
+  }
   // 🆕 fix87/89: 客户备注 — 显式字段 + 兜底扫描任意含 note/备注 的列 + 原始订单 JSON 里的 note + note_attributes
   let na = o.note_attributes;
   if (typeof na === 'string') {
@@ -804,6 +830,10 @@ function MakeInvoice() {
       ...patch
     } : it)
   }));
+  const rmItem = (id, idx) => setTickets(p => p.map(t => t.id !== id ? t : {
+    ...t,
+    items: t.items.filter((_, i) => i !== idx)
+  })); // 🆕 人工删除多余产品
   const rmTicket = id => setTickets(p => p.filter(t => t.id !== id));
   const validate = t => {
     const m = [];
@@ -952,7 +982,6 @@ function MakeInvoice() {
         t.carrierRef = inp.carrierRef || '';
         if (isReshipKey(inp.orderNumber) || isReshipKey(inp.carrierRef)) {
           t.isReship = true;
-          t.orderNumber = inp.orderNumber || t.orderNumber;
         }
         if (inp.channel) t.channel = inp.channel;
         if (inp.weight) t.weight = inp.weight;
@@ -1491,7 +1520,7 @@ function MakeInvoice() {
       placeholder: "\u5B9E\u91CD\u590D\u6D4B/\u6539\u52A0\u73ED\u8239\u2026"
     }))), /*#__PURE__*/React.createElement("div", {
       className: "scroll-x"
-    }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "\u82F1\u6587"), /*#__PURE__*/React.createElement("th", null, "\u4E2D\u6587"), /*#__PURE__*/React.createElement("th", null, "HS\u7F16\u7801"), /*#__PURE__*/React.createElement("th", null, "\u6570\u91CF"), /*#__PURE__*/React.createElement("th", null, "\u6750\u8D28"), /*#__PURE__*/React.createElement("th", null, "\u7528\u9014"))), /*#__PURE__*/React.createElement("tbody", null, t.items.map((it, ii) => /*#__PURE__*/React.createElement("tr", {
+    }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", null, "\u82F1\u6587"), /*#__PURE__*/React.createElement("th", null, "\u4E2D\u6587"), /*#__PURE__*/React.createElement("th", null, "HS\u7F16\u7801"), /*#__PURE__*/React.createElement("th", null, "\u6570\u91CF"), /*#__PURE__*/React.createElement("th", null, "\u6750\u8D28"), /*#__PURE__*/React.createElement("th", null, "\u7528\u9014"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, t.items.map((it, ii) => /*#__PURE__*/React.createElement("tr", {
       key: ii
     }, /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
       value: it.lampEn,
@@ -1540,7 +1569,18 @@ function MakeInvoice() {
         minWidth: 90
       },
       placeholder: "illuminating"
-    }))))))), /*#__PURE__*/React.createElement("div", {
+    })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+      onClick: () => rmItem(t.id, ii),
+      title: "\u5220\u9664\u8FD9\u4EF6\u4EA7\u54C1(\u53EA\u53D1\u90E8\u5206\u65F6)",
+      style: {
+        border: 'none',
+        background: 'transparent',
+        color: '#dc2626',
+        cursor: 'pointer',
+        fontSize: 15,
+        padding: '0 4px'
+      }
+    }, "\u2715"))))))), /*#__PURE__*/React.createElement("div", {
       className: "muted",
       style: {
         fontSize: 11,
