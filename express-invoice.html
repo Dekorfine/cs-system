@@ -708,41 +708,132 @@ async function buildYundingWorkbook(t) {
   for (let c = 6; c <= 17; c++) ws.getColumn(c).width = 11;
   ws.getColumn(18).width = 14;
   ws.getColumn(19).width = 22;
+  const thin = {
+    style: 'thin',
+    color: {
+      argb: 'FFBFBFBF'
+    }
+  };
+  const box = {
+    top: thin,
+    left: thin,
+    bottom: thin,
+    right: thin
+  };
   ws.getCell('A1').value = 'FBA专线导入模版';
   ws.mergeCells('A1:N1');
+  ws.getCell('A1').font = {
+    bold: true,
+    size: 13
+  };
+  ws.getRow(1).height = 22;
   ws.getCell('A2').value = '订单信息';
   ws.getCell('D2').value = '收件人信息';
   ws.mergeCells('B2:C2');
   ws.mergeCells('E2:F2');
+  ws.getCell('A2').font = {
+    bold: true,
+    size: 12
+  };
+  ws.getCell('D2').font = {
+    bold: true,
+    size: 12
+  };
+  for (let c = 1; c <= 6; c++) ws.getCell(2, c).border = box;
+  // 右侧填表说明(红字,贴近模板 G 列)
+  const NOTES = ['1.所有单元格不能合并，只能做内容填充，不允许格式调整', '2.图片要完全压缩放在框内，不能超出框框', '3.填写需要注意事项已经在批注里面，如有不懂，请联系客服处理', '4.注意：*是必填项，品牌和型号没有可以不填'];
+  NOTES.forEach((n, i) => {
+    const c = ws.getCell(3 + i, 7);
+    c.value = n;
+    c.font = {
+      color: {
+        argb: 'FFCC0000'
+      },
+      size: 10
+    };
+  });
   const HL = [['客户参考号*（必填）', ref, 'FBA仓库*（FBA必填）', ''], ['收货渠道*（必填）', YD_CHANNEL, '收件人公司*（必填）', a.company || ''], ['目的地*（必填）', '美国', '收件人名称*（必填）', a.name || t.customerName || ''], ['预报实重', t.weight || '', '收件人电话*（必填）', a.phone || t.customerPhone || ''], ['报关类型*（必填）', '买单报关', '收件人邮编*（必填）', a.zip || ''], ['是否带电*（必填）', t.battery || '否', '收件人城市*（必填）', a.city || ''], ['是否投保*（必填）', '否', '收件人省州*（必填）', a.province || a.province_code || ''], ['投保金额*（只填数字，币种以人民币为准）', '/', '收件人地址1*（不可超过35个字符）', a.address1 || ''], ['FBA ID*（FBA必填）', '/', '收件人地址2', a.address2 || ''], ['Reference ID*（FBA必填）', '/', '收件人邮箱*（必填）', t.customerEmail || '']];
   HL.forEach((row, i) => {
     const r = 3 + i;
-    ws.getCell(r, 1).value = row[0];
+    const la = ws.getCell(r, 1);
+    la.value = row[0];
+    la.font = {
+      bold: true,
+      size: 10
+    };
+    la.alignment = {
+      wrapText: true,
+      vertical: 'middle'
+    };
     ws.getCell(r, 2).value = row[1];
     ws.mergeCells(r, 2, r, 3);
-    ws.getCell(r, 4).value = row[2];
+    ws.getCell(r, 2).alignment = {
+      vertical: 'middle',
+      wrapText: true
+    };
+    const ld = ws.getCell(r, 4);
+    ld.value = row[2];
+    ld.font = {
+      bold: true,
+      size: 10
+    };
+    ld.alignment = {
+      wrapText: true,
+      vertical: 'middle'
+    };
     ws.getCell(r, 5).value = row[3];
     ws.mergeCells(r, 5, r, 6);
+    ws.getCell(r, 5).alignment = {
+      vertical: 'middle',
+      wrapText: true
+    };
+    for (let c = 1; c <= 6; c++) ws.getCell(r, c).border = box;
   });
   ws.getCell('A13').value = '装箱单信息';
+  ws.getCell('A13').font = {
+    bold: true,
+    size: 12
+  };
   YD_HEADS.forEach((h, i) => {
     const cell = ws.getCell(14, i + 1);
     cell.value = h;
     cell.font = {
-      bold: true
+      bold: true,
+      size: 10
+    };
+    cell.alignment = {
+      wrapText: true,
+      vertical: 'middle',
+      horizontal: 'center'
+    };
+    cell.border = box;
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: {
+        argb: 'FFF2F2F2'
+      }
     };
   });
   let r = 15;
   for (const it of sel) {
     const qty = parseInt(it.quantity) || 1;
-    ws.getRow(r).height = 62;
+    ws.getRow(r).height = 64;
     ws.getCell(r, 1).value = ref; // 箱序号 = 订单号
-    ws.getCell(r, 4).value = it.lampCn || '吊灯'; // 中文名(灯型识别)
-    ws.getCell(r, 5).value = it.lampEn || 'Lamp'; // 英文名
-    ws.getCell(r, 6).value = YD_HS; // HS 固定 8539510000
+    ws.getCell(r, 4).value = it.lampCn || '吊灯'; // 中文名
+    ws.getCell(r, 5).value = it.lampEn || 'Chandelier'; // 英文名
+    ws.getCell(r, 6).value = YD_HS; // HS 固定
     ws.getCell(r, 7).value = qty; // 单箱数量
     ws.getCell(r, 8).value = 500 * qty; // 申报单价 = 500×件数
-    ws.getCell(r, 19).value = it.salesUrl || ''; // 销售链接(暂空)
+    ws.getCell(r, 19).value = it.salesUrl || '';
+    for (let c = 1; c <= 19; c++) {
+      ws.getCell(r, c).border = box;
+      ws.getCell(r, c).alignment = {
+        vertical: 'middle',
+        horizontal: c === 4 || c === 5 || c === 19 ? 'left' : 'center',
+        wrapText: true
+      };
+    }
     const img = await ydFetchImg(it.image_url);
     if (img) {
       try {
@@ -756,8 +847,8 @@ async function buildYundingWorkbook(t) {
             row: r - 1
           },
           ext: {
-            width: 82,
-            height: 82
+            width: 84,
+            height: 84
           }
         });
       } catch (e) {}
@@ -780,6 +871,33 @@ const COURIERS = {
     hs: YD_HS
   }
 };
+// 🆕 云鼎产品整理:默认申报 吊灯/Chandelier(超大件卡派基本是枝形吊灯,可逐行改)+ 同款合并成一行、数量累加、默认只一行
+function prepYundingItems(items) {
+  // 云鼎默认申报类型 = Chandelier(你们的口径),HS 固定;逐行可改
+  const norm = (items || []).map(it => ({
+    ...it,
+    lampCn: '吊灯',
+    lampEn: 'Chandelier',
+    hs: YD_HS,
+    selected: true
+  }));
+  const mg = [],
+    idx = {};
+  norm.forEach(it => {
+    const k = (it.lampCn || '') + '|' + (it.lampEn || '');
+    if (idx[k] !== undefined) {
+      const m = mg[idx[k]];
+      m.quantity = (parseInt(m.quantity) || 0) + (parseInt(it.quantity) || 0);
+      if (!m.image_url && it.image_url) m.image_url = it.image_url;
+    } else {
+      idx[k] = mg.length;
+      mg.push({
+        ...it
+      });
+    }
+  });
+  return mg;
+}
 const PAGE_SIZE = 24;
 function App() {
   return /*#__PURE__*/React.createElement("div", {
@@ -1036,9 +1154,9 @@ function MakeInvoice() {
     t.sheetOrderNo = quickResult.queryNum || ''; // 🆕 录入的原始单号
     if (isReshipKey(quickResult.queryNum)) t.isReship = true;
     if (courier === 'yunding') {
-      // 🆕 云鼎:客户参考号=订单号,默认全选产品,件数=产品总数量(可改)
+      // 🆕 云鼎:客户参考号=订单号,默认 Chandelier + 同款合并成一行,件数=产品总数量(可改)
       t.ydRef = quickResult.orderNumber || quickResult.queryNum || '';
-      t.items.forEach(it => it.selected = true);
+      t.items = prepYundingItems(t.items);
       t.pieceCount = String(t.items.reduce((s, it) => s + (parseInt(it.quantity) || 1), 0));
     }
     setTickets(p => [...p, t]);
@@ -1129,6 +1247,11 @@ function MakeInvoice() {
     XLSX.writeFile(wb, `昌晖发票_${dateStr}_${tickets.length}票.xlsx`);
   };
   const safeName = s => String(s || '订单').replace(/[\\/:*?"<>|]/g, '_').slice(0, 80);
+  const ydFileName = t => {
+    const ref = t.ydRef || t.orderNumber;
+    const pc = parseInt(t.pieceCount) || (t.items || []).filter(it => it.selected !== false).reduce((s, it) => s + (parseInt(it.quantity) || 0), 0);
+    return safeName(ref) + (pc ? ` 1票${pc}件` : '');
+  };
   const exportYunding = async () => {
     if (!window.ExcelJS) {
       setErr('ExcelJS 未加载,请刷新页面重试');
@@ -1140,14 +1263,13 @@ function MakeInvoice() {
       if (tickets.length === 1) {
         const wb = await buildYundingWorkbook(tickets[0]);
         const buf = await wb.xlsx.writeBuffer();
-        const ref = tickets[0].ydRef || tickets[0].orderNumber;
         const blob = new Blob([buf], {
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         });
         const url = URL.createObjectURL(blob);
         const aTag = document.createElement('a');
         aTag.href = url;
-        aTag.download = safeName(ref) + '.xlsx';
+        aTag.download = ydFileName(tickets[0]) + '.xlsx';
         aTag.click();
         URL.revokeObjectURL(url);
       } else {
@@ -1160,7 +1282,7 @@ function MakeInvoice() {
         for (const t of tickets) {
           const wb = await buildYundingWorkbook(t);
           const buf = await wb.xlsx.writeBuffer();
-          zip.file(safeName(t.ydRef || t.orderNumber) + '.xlsx', buf);
+          zip.file(ydFileName(t) + '.xlsx', buf);
         }
         const content = await zip.generateAsync({
           type: 'blob'
@@ -1411,25 +1533,8 @@ function MakeInvoice() {
         orders.forEach(o => (o.items || []).forEach(it => items.push({
           ...it,
           selected: true
-        }))); // 云鼎默认全选(整票产品都报)
-        // 🆕 合并单:跨订单的同款产品(同 品名+SKU+规格)合并、数量累加 → 一行
-        let merged = items;
-        if (orders.length > 1) {
-          const mg = [],
-            idx = {};
-          items.forEach(it => {
-            const k = (it.title || '') + '|' + (it.sku || '') + '|' + (it.spec || '');
-            if (idx[k] !== undefined) {
-              mg[idx[k]].quantity = (parseInt(mg[idx[k]].quantity) || 0) + (parseInt(it.quantity) || 0);
-            } else {
-              idx[k] = mg.length;
-              mg.push({
-                ...it
-              });
-            }
-          });
-          merged = mg;
-        }
+        })));
+        const merged = prepYundingItems(items); // 🆕 云鼎:默认 Chandelier + 同款合并成一行
         const t = makeTicket(orders[0], merged);
         t.ydRef = parts.join('-'); // 客户参考号/文件名:斜杠→连字符
         t.sheetOrderNo = row.rawNo;
@@ -1537,7 +1642,7 @@ function MakeInvoice() {
     }
   }, "\uD83D\uDD0E \u5FEB\u901F\u67E5\u5355"), /*#__PURE__*/React.createElement("span", {
     className: "muted"
-  }, "\u8F93\u5165\u8BA2\u5355\u53F7(\u5982 RD20846-1)\u2192 \u5B8C\u6574\u7EC6\u8282 + \u56FE\u7247 + \u7533\u62A5\u5EFA\u8BAE(\u6B64\u6846\u8DDF\u968F\u6EDA\u52A8,\u968F\u65F6\u53EF\u67E5)")), /*#__PURE__*/React.createElement("div", {
+  }, "\u8F93\u5165\u8BA2\u5355\u53F7(\u5982 RD20846-1)\u2192 \u5F39\u7A97\u663E\u793A\u5B8C\u6574\u7EC6\u8282 + \u56FE\u7247 + \u7533\u62A5\u5EFA\u8BAE(\u6B64\u6761\u8DDF\u968F\u6EDA\u52A8,\u968F\u65F6\u53EF\u67E5)")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 8,
@@ -1560,7 +1665,7 @@ function MakeInvoice() {
     className: "btn-pri btn",
     onClick: quickSearch,
     disabled: quickLoading
-  }, quickLoading ? '查询中…' : '🔍 查询'), quickResult && /*#__PURE__*/React.createElement("button", {
+  }, quickLoading ? '查询中…' : '🔍 查询'), (quickResult || quickQuery) && /*#__PURE__*/React.createElement("button", {
     className: "btn",
     onClick: () => {
       setQuickResult(null);
@@ -1573,26 +1678,45 @@ function MakeInvoice() {
       color: '#b91c1c',
       fontSize: 13
     }
-  }, "\u26A0 ", quickErr), quickResult && (() => {
+  }, "\u26A0 ", quickErr)), quickResult && (() => {
     const r = quickResult;
     const a = r.address || {};
     const sel = r.items.filter(it => it.selected !== false);
     return /*#__PURE__*/React.createElement("div", {
       style: {
-        marginTop: 12,
-        maxHeight: '58vh',
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,.45)',
+        zIndex: 200,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        padding: '4vh 16px',
+        overflowY: 'auto'
+      },
+      onClick: () => setQuickResult(null)
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "card",
+      style: {
+        maxWidth: 780,
+        width: '100%',
+        maxHeight: '90vh',
         overflow: 'auto',
-        border: '1px solid #e5e5ea',
-        borderRadius: 10,
-        padding: 14
-      }
+        margin: 0
+      },
+      onClick: e => e.stopPropagation()
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         alignItems: 'center',
         gap: 10,
         flexWrap: 'wrap',
-        marginBottom: 8
+        marginBottom: 10,
+        position: 'sticky',
+        top: 0,
+        background: '#fff',
+        paddingBottom: 8,
+        borderBottom: '1px solid #f0f0f2'
       }
     }, /*#__PURE__*/React.createElement("strong", {
       style: {
@@ -1618,7 +1742,14 @@ function MakeInvoice() {
         background: '#fef3c7',
         color: '#92400e'
       }
-    }, "\u267B \u8865\u53D1(\u67E5 ", r.queryNum, ")")), r.note && /*#__PURE__*/React.createElement("div", {
+    }, "\u267B \u8865\u53D1(\u67E5 ", r.queryNum, ")"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }), /*#__PURE__*/React.createElement("button", {
+      className: "btn btn-sm",
+      onClick: () => setQuickResult(null)
+    }, "\u2715 \u5173\u95ED")), r.note && /*#__PURE__*/React.createElement("div", {
       style: {
         background: '#fffbeb',
         border: '1px solid #fde68a',
@@ -1708,21 +1839,34 @@ function MakeInvoice() {
       }
     }, "\u7533\u62A5:", it.lampEn, " / ", it.lampCn, " / ", it.hs)))))), /*#__PURE__*/React.createElement("div", {
       style: {
-        marginTop: 10,
+        marginTop: 12,
         display: 'flex',
-        gap: 8
+        gap: 8,
+        alignItems: 'center',
+        position: 'sticky',
+        bottom: 0,
+        background: '#fff',
+        paddingTop: 10,
+        borderTop: '1px solid #f0f0f2'
       }
     }, /*#__PURE__*/React.createElement("button", {
       className: "btn-good btn",
-      onClick: addQuickToTickets
-    }, "\u2795 \u52A0\u5165\u53D1\u7968\u7BEE"), /*#__PURE__*/React.createElement("span", {
+      onClick: () => {
+        addQuickToTickets();
+        setQuickResult(null);
+        setQuickQuery('');
+        setQuickErr('');
+      }
+    }, "\u2795 \u52A0\u5165\u53D1\u7968\u7BEE"), /*#__PURE__*/React.createElement("button", {
+      className: "btn",
+      onClick: () => setQuickResult(null)
+    }, "\u5173\u95ED"), /*#__PURE__*/React.createElement("span", {
       className: "muted",
       style: {
-        fontSize: 12,
-        alignSelf: 'center'
+        fontSize: 12
       }
-    }, "\u6838\u5BF9\u5907\u6CE8 + \u5730\u5740 + \u7533\u62A5\u8981\u7D20\u540E\u518D\u52A0\u5165")));
-  })()), /*#__PURE__*/React.createElement("div", {
+    }, "\u6838\u5BF9\u5907\u6CE8 + \u5730\u5740 + \u7533\u62A5\u8981\u7D20\u540E\u518D\u52A0\u5165"))));
+  })(), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
       border: '1.5px dashed #0071e3',
