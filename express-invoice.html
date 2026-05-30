@@ -190,6 +190,19 @@ const EDGE_BASE = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co/functions/v1';
 const _liveCache = {};
 const LIVE_TTL = 5 * 60 * 1000;
 // 🆕 兼容 normalizer(跟单提供):把 Edge Function 返回的 order 统一成"表行形状"(吃表行/Shopify原始/Woo原始)
+// 🆕 稳健提取产品图片(兼容多种字段形状)
+function pickItemImage(li) {
+  if (!li) return '';
+  const cands = [li.image_url, li.imageUrl, li.img, li.img_url, li.thumbnail, li.thumb, li.product_image, li.featured_image, li.image];
+  for (const c of cands) {
+    if (typeof c === 'string' && c.trim()) return c.trim();
+    if (c && typeof c === 'object') {
+      const s = c.src || c.url || c.image_url;
+      if (s) return s;
+    }
+  }
+  return '';
+}
 function normalizeOrderShape(raw, shopDomain) {
   if (!raw) return null;
   // 已是表行形状
@@ -226,7 +239,8 @@ function normalizeOrderShape(raw, shopDomain) {
         title: li.name || '',
         variant_title: (li.meta_data || []).filter(m => m.key && !m.key.startsWith('_') && m.display_value).map(m => `${m.display_key || m.key}: ${m.display_value}`).join(' / '),
         quantity: li.quantity || 1,
-        price: li.price || 0
+        price: li.price || 0,
+        image_url: pickItemImage(li)
       })),
       shopify_created_at: raw.date_created_gmt ? raw.date_created_gmt + 'Z' : raw.date_created,
       note: raw.customer_note || raw.note || null,
@@ -268,7 +282,7 @@ function normalizeOrderShape(raw, shopDomain) {
         quantity: li.quantity || 1,
         price: li.price || 0,
         properties: li.properties || [],
-        image_url: li.image && li.image.src || li.image_url || ''
+        image_url: pickItemImage(li)
       })),
       shopify_created_at: raw.created_at,
       note: raw.note,
@@ -463,7 +477,7 @@ function parseOrder(o, field) {
       title: it.title || '',
       sku: it.sku || '',
       quantity: it.quantity || 1,
-      image_url: it.image_url || '',
+      image_url: pickItemImage(it),
       lampEn: lt.en,
       lampCn: lt.cn,
       hs: lt.hs,
@@ -663,6 +677,9 @@ function MakeInvoice() {
   const [quickResult, setQuickResult] = useState(null);
   const [quickLoading, setQuickLoading] = useState(false);
   const [quickErr, setQuickErr] = useState('');
+  // 🆕 ② 发票篮分页(大批量 500-800 时只渲染当前页,避免卡顿)
+  const [basketPage, setBasketPage] = useState(1);
+  const BASKET_PAGE_SIZE = 50;
   const handleErr = e => {
     setConn('fail');
     const m = e.message || String(e);
@@ -948,6 +965,10 @@ function MakeInvoice() {
     return m;
   };
   const allValid = tickets.length > 0 && tickets.every(t => validate(t).length === 0);
+  // 🆕 ② 当前页要渲染的票(>50 才分页)
+  const basketTotalPages = Math.max(1, Math.ceil(tickets.length / BASKET_PAGE_SIZE));
+  const basketPg = Math.min(basketPage, basketTotalPages);
+  const pagedTickets = tickets.length > BASKET_PAGE_SIZE ? tickets.slice((basketPg - 1) * BASKET_PAGE_SIZE, basketPg * BASKET_PAGE_SIZE) : tickets;
   const exportExcel = () => {
     const tpl = COURIERS[courier];
     const ws = XLSX.utils.aoa_to_sheet([tpl.headers, ...tickets.map(tpl.build)]);
@@ -971,16 +992,21 @@ function MakeInvoice() {
       if (n && n !== s) expanded.push(n);
     });
     const uniq = [...new Set(expanded)];
-    for (let i = 0; i < uniq.length; i += CH) {
-      const chunk = uniq.slice(i, i + CH);
-      const orExpr = chunk.map(n => `shopify_order_number.eq.${n},shopify_order_id.eq.${n}`).join(',');
-      const {
-        data,
-        error
-      } = await c.from('shopify_orders').select('*').or(orExpr).limit(chunk.length * 4);
-      if (error) throw error;
-      if (!field && (data || []).length) field = detectStoreField(data[0]);
-      (data || []).forEach(o => {
+    // 🆕 ④ 本地批量查并行:20个/批,每轮并发 5 批
+    const chunks = [];
+    for (let i = 0; i < uniq.length; i += CH) chunks.push(uniq.slice(i, i + CH));
+    const PAR = 5;
+    for (let i = 0; i < chunks.length; i += PAR) {
+      const group = chunks.slice(i, i + PAR);
+      const datas = await Promise.all(group.map(chunk => {
+        const orExpr = chunk.map(n => `shopify_order_number.eq.${n},shopify_order_id.eq.${n}`).join(',');
+        return c.from('shopify_orders').select('*').or(orExpr).limit(chunk.length * 4).then(r => {
+          if (r.error) throw r.error;
+          return r.data || [];
+        });
+      }));
+      datas.flat().forEach(o => {
+        if (!field) field = detectStoreField(o);
         const p = parseOrder(o, field);
         const k1 = String(o.shopify_order_number || '').trim(),
           k2 = String(o.shopify_order_id || '').trim();
@@ -989,20 +1015,25 @@ function MakeInvoice() {
       });
     }
     if (field && !storeField) setStoreField(field);
-    // 🆕 Shopify 实时兜底:本地没命中的(去重按基础单号),逐个调跟单 Edge Function · 限流 200ms
+    // 🆕 ① Shopify 实时兜底:本地没命中的(去重按基础单号),并发 6 个一批(原来逐个 200ms,大批量快 10 倍)
     const missing = uniq.filter(k => !map[k]);
     const missingBases = [...new Set(missing.map(k => normOrderKey(k)).filter(Boolean))];
-    for (const baseKey of missingBases) {
-      const p = await lookupShopifyLive(baseKey);
-      if (p) {
-        map[baseKey] = p;
-        const on = String(p.orderNumber || '').trim();
-        if (on) map[on] = p;
-        missing.forEach(mk => {
-          if (normOrderKey(mk) === baseKey) map[mk] = p;
-        });
-      }
-      await new Promise(r => setTimeout(r, 200));
+    const CONC = 6;
+    for (let i = 0; i < missingBases.length; i += CONC) {
+      const batch = missingBases.slice(i, i + CONC);
+      const results = await Promise.all(batch.map(bk => lookupShopifyLive(bk).catch(() => null)));
+      batch.forEach((baseKey, j) => {
+        const p = results[j];
+        if (p) {
+          map[baseKey] = p;
+          const on = String(p.orderNumber || '').trim();
+          if (on) map[on] = p;
+          missing.forEach(mk => {
+            if (normOrderKey(mk) === baseKey) map[mk] = p;
+          });
+        }
+      });
+      if (i + CONC < missingBases.length) await new Promise(r => setTimeout(r, 80)); // 批间小停,避免打爆接口
     }
     return map;
   };
@@ -1324,25 +1355,28 @@ function MakeInvoice() {
       src: it.image_url,
       alt: "",
       onClick: () => setLightboxImg(it.image_url),
+      title: "\u70B9\u51FB\u653E\u5927\u9884\u89C8",
       style: {
-        width: 60,
-        height: 60,
+        width: 90,
+        height: 90,
         objectFit: 'cover',
-        borderRadius: 6,
+        borderRadius: 8,
         cursor: 'zoom-in',
-        flexShrink: 0
+        flexShrink: 0,
+        border: '1px solid #e5e5ea'
       }
     }) : /*#__PURE__*/React.createElement("div", {
       style: {
-        width: 60,
-        height: 60,
+        width: 90,
+        height: 90,
         background: '#f0f0f2',
-        borderRadius: 6,
+        borderRadius: 8,
         flexShrink: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: 20
+        fontSize: 26,
+        color: '#c7c7cc'
       }
     }, "\uD83D\uDCA1"), /*#__PURE__*/React.createElement("div", {
       style: {
@@ -1549,7 +1583,33 @@ function MakeInvoice() {
     className: "btn-good btn",
     onClick: exportExcel,
     disabled: !allValid
-  }, "\uD83D\uDCE4 \u5BFC\u51FA ", COURIERS[courier].name, " Excel")), tickets.map(t => {
+  }, "\uD83D\uDCE4 \u5BFC\u51FA ", COURIERS[courier].name, " Excel")), tickets.length > BASKET_PAGE_SIZE && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 10,
+      flexWrap: 'wrap',
+      padding: '8px 10px',
+      background: '#f6f6f8',
+      borderRadius: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "muted"
+  }, "\u5171 ", tickets.length, " \u7968 \xB7 \u6BCF\u9875 ", BASKET_PAGE_SIZE, " \xB7 \u7B2C ", basketPg, "/", basketTotalPages, " \u9875"), /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-sm",
+    disabled: basketPg <= 1,
+    onClick: () => setBasketPage(basketPg - 1)
+  }, "\u2039 \u4E0A\u9875"), /*#__PURE__*/React.createElement("button", {
+    className: "btn btn-sm",
+    disabled: basketPg >= basketTotalPages,
+    onClick: () => setBasketPage(basketPg + 1)
+  }, "\u4E0B\u9875 \u203A"), /*#__PURE__*/React.createElement("span", {
+    className: "muted",
+    style: {
+      fontSize: 11
+    }
+  }, "(\u5BFC\u51FA\u4ECD\u662F\u5168\u90E8 ", tickets.length, " \u7968 \xB7 \u5206\u9875\u53EA\u4E3A\u7F16\u8F91\u6D41\u7545)")), pagedTickets.map(t => {
     const miss = validate(t);
     const a = t.address || {};
     const same = tickets.filter(x => x.sourceOrderId === t.sourceOrderId);
