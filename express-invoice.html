@@ -582,9 +582,9 @@ function buildChanghuiRow(t) {
   const totalQty = sel.reduce((s, it) => s + (parseInt(it.quantity) || 1), 0); // 个数 = 选中产品单位总数
   const isSmall = /小包/.test(t.channel || ''); // 海运小包 = 一票一件
   const recvPieces = parseInt(t.pieceCount) || parseInt(t.packageCount) || 0; // 北简实际件数
-  row[0] = t.orderNumber || t.carrierRef;
+  row[0] = t.carrierRef || t.orderNumber;
   row[1] = t.channel || '';
-  row[2] = a.country_code || a.country || 'US'; // 🆕 fix89: 客户订单号以我们的订单号(MH4490)为准
+  row[2] = a.country_code || a.country || 'US'; // 🆕 客户订单号列=客户参考号(XM8T,快递公司核对用,不能删);我们的订单号写进运单备注
   row[3] = t.packageCount || '';
   row[4] = t.weight || '';
   row[5] = a.company || '';
@@ -620,9 +620,9 @@ function buildChanghuiRow(t) {
     row[c++] = '';
     row[c++] = it.usage || DECLARE.usage;
   });
-  // 🆕 fix88: 北简对单用「客户参考号」作客户订单号时,把我们的订单号(MH4490)写进运单备注
-  // 🆕 fix89: MH4490 已在客户订单号[0],运单备注只放北简备注(如超长/超重)
-  row[row.length - 1] = t.prepNote || '';
+  // 🆕 我们的订单号「单独加上去」→ 写进运单备注(客户参考号 XM8T 已在客户订单号列供快递核对)
+  const ourNo = t.sheetOrderNo || t.orderNumber || '';
+  row[row.length - 1] = [ourNo ? '我方单号 ' + ourNo : '', t.prepNote || ''].filter(Boolean).join(' · ');
   return row;
 }
 const COURIERS = {
@@ -634,22 +634,9 @@ const COURIERS = {
 };
 const PAGE_SIZE = 24;
 function App() {
-  const [tab, setTab] = useState('make');
   return /*#__PURE__*/React.createElement("div", {
     className: "wrap"
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 8,
-      marginBottom: 16
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    className: `tab-btn ${tab === 'make' ? 'active' : ''}`,
-    onClick: () => setTab('make')
-  }, "\uD83D\uDCCB \u5236\u4F5C\u53D1\u7968"), /*#__PURE__*/React.createElement("button", {
-    className: `tab-btn ${tab === 'reconcile' ? 'active' : ''}`,
-    onClick: () => setTab('reconcile')
-  }, "\uD83D\uDCE5 \u6536\u8D27\u5BF9\u8D26")), tab === 'make' ? /*#__PURE__*/React.createElement(MakeInvoice, null) : /*#__PURE__*/React.createElement(Reconcile, null));
+  }, /*#__PURE__*/React.createElement(MakeInvoice, null));
 }
 function MakeInvoice() {
   const [courier, setCourier] = useState('changhui');
@@ -1153,30 +1140,9 @@ function MakeInvoice() {
     onChange: e => setDateStr(e.target.value)
   })), /*#__PURE__*/React.createElement("div", {
     style: {
-      flex: 1,
-      minWidth: 240
+      flex: 1
     }
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "lbl"
-  }, "\u641C\u7D22 \xB7 \u8BA2\u5355\u53F7 / \u5BA2\u6237\u540D / \u90AE\u7BB1(\u7559\u7A7A=\u6700\u8FD1\u8BA2\u5355)"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    className: "inp",
-    value: search,
-    onChange: e => setSearch(e.target.value),
-    placeholder: "XM8T31234602 / Karen / xxx@gmail.com",
-    onKeyDown: e => e.key === 'Enter' && doSearch()
-  }), /*#__PURE__*/React.createElement("button", {
-    className: "btn-pri btn",
-    onClick: doSearch,
-    disabled: loading,
-    style: {
-      whiteSpace: 'nowrap'
-    }
-  }, loading ? '⏳' : '🔍 搜索'))), /*#__PURE__*/React.createElement("div", null, conn === 'ok' && /*#__PURE__*/React.createElement("span", {
+  }), /*#__PURE__*/React.createElement("div", null, conn === 'ok' && /*#__PURE__*/React.createElement("span", {
     className: "dot",
     style: {
       background: '#dcfce7',
@@ -1208,6 +1174,211 @@ function MakeInvoice() {
   }, "\u26A0 ", err)), /*#__PURE__*/React.createElement("div", {
     className: "card",
     style: {
+      position: 'sticky',
+      top: 8,
+      zIndex: 50,
+      boxShadow: '0 4px 24px rgba(0,0,0,.12)',
+      border: '1.5px solid #0071e3'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 10,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("strong", {
+    style: {
+      fontSize: 16
+    }
+  }, "\uD83D\uDD0E \u5FEB\u901F\u67E5\u5355"), /*#__PURE__*/React.createElement("span", {
+    className: "muted"
+  }, "\u8F93\u5165\u8BA2\u5355\u53F7(\u5982 RD20846-1)\u2192 \u5B8C\u6574\u7EC6\u8282 + \u56FE\u7247 + \u7533\u62A5\u5EFA\u8BAE(\u6B64\u6846\u8DDF\u968F\u6EDA\u52A8,\u968F\u65F6\u53EF\u67E5)")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    className: "inp",
+    style: {
+      flex: 1,
+      minWidth: 200,
+      fontSize: 15
+    },
+    value: quickQuery,
+    placeholder: "\u8BA2\u5355\u7F16\u53F7 \u5982 K115960-2 / RD20846-1",
+    onChange: e => setQuickQuery(e.target.value),
+    onKeyDown: e => {
+      if (e.key === 'Enter') quickSearch();
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    className: "btn-pri btn",
+    onClick: quickSearch,
+    disabled: quickLoading
+  }, quickLoading ? '查询中…' : '🔍 查询'), quickResult && /*#__PURE__*/React.createElement("button", {
+    className: "btn",
+    onClick: () => {
+      setQuickResult(null);
+      setQuickQuery('');
+      setQuickErr('');
+    }
+  }, "\u6E05\u7A7A")), quickErr && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      color: '#b91c1c',
+      fontSize: 13
+    }
+  }, "\u26A0 ", quickErr), quickResult && (() => {
+    const r = quickResult;
+    const a = r.address || {};
+    const sel = r.items.filter(it => it.selected !== false);
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 12,
+        maxHeight: '58vh',
+        overflow: 'auto',
+        border: '1px solid #e5e5ea',
+        borderRadius: 10,
+        padding: 14
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        flexWrap: 'wrap',
+        marginBottom: 8
+      }
+    }, /*#__PURE__*/React.createElement("strong", {
+      style: {
+        fontSize: 18
+      }
+    }, r.orderNumber || r.queryNum), /*#__PURE__*/React.createElement("span", {
+      className: "pill",
+      style: {
+        background: '#eef2ff',
+        color: '#3730a3'
+      }
+    }, r.store), /*#__PURE__*/React.createElement("span", {
+      className: "muted"
+    }, r.customerName), r.carrierRef && /*#__PURE__*/React.createElement("span", {
+      className: "pill",
+      style: {
+        background: '#f3e8ff',
+        color: '#6b21a8'
+      }
+    }, "\u5BA2\u6237\u53C2\u8003\u53F7 ", r.carrierRef), r.isReship && /*#__PURE__*/React.createElement("span", {
+      className: "pill",
+      style: {
+        background: '#fef3c7',
+        color: '#92400e'
+      }
+    }, "\u267B \u8865\u53D1(\u67E5 ", r.queryNum, ")")), r.note && /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: '#fffbeb',
+        border: '1px solid #fde68a',
+        borderRadius: 8,
+        padding: '8px 12px',
+        marginBottom: 10,
+        fontSize: 13,
+        whiteSpace: 'pre-wrap'
+      }
+    }, "\uD83D\uDCDD \u5907\u6CE8(\u8BF7\u4EBA\u5DE5\u6838\u5BF9):", r.note), /*#__PURE__*/React.createElement("div", {
+      style: {
+        background: '#f6f6f8',
+        borderRadius: 8,
+        padding: '8px 12px',
+        marginBottom: 10,
+        fontSize: 13,
+        lineHeight: 1.7
+      }
+    }, "\uD83D\uDCCD ", /*#__PURE__*/React.createElement("b", null, a.name || r.customerName), " \xB7 ", a.phone || r.customerPhone, /*#__PURE__*/React.createElement("br", null), a.address1, " ", a.address2 || '', ", ", a.city, " ", a.province, " ", a.zip, " ", a.country_code || a.country || 'US'), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 600,
+        marginBottom: 6,
+        color: '#15803d',
+        fontSize: 14
+      }
+    }, "\u2705 \u5EFA\u8BAE\u7533\u62A5:", sel.length === 1 ? `${sel[0].lampEn} / ${sel[0].lampCn} / HS ${sel[0].hs} / ${sel[0].material}` : `多产品 — 已按备注/数量选中 ${sel.length} 项(可在篮子里改)`), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))',
+        gap: 10
+      }
+    }, r.items.map((it, i) => /*#__PURE__*/React.createElement("div", {
+      key: i,
+      style: {
+        border: '1px solid ' + (it.selected !== false ? '#16a34a' : '#e5e5ea'),
+        borderRadius: 8,
+        padding: 8,
+        background: it.selected !== false ? '#f0fdf4' : '#fff'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 8
+      }
+    }, it.image_url ? /*#__PURE__*/React.createElement("img", {
+      src: it.image_url,
+      alt: "",
+      onClick: () => setLightboxImg(it.image_url),
+      style: {
+        width: 60,
+        height: 60,
+        objectFit: 'cover',
+        borderRadius: 6,
+        cursor: 'zoom-in',
+        flexShrink: 0
+      }
+    }) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 60,
+        height: 60,
+        background: '#f0f0f2',
+        borderRadius: 6,
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 20
+      }
+    }, "\uD83D\uDCA1"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        lineHeight: 1.45,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontWeight: 600
+      }
+    }, it.selected !== false ? '✔ ' : '', it.title), /*#__PURE__*/React.createElement("div", {
+      className: "muted"
+    }, "\u6570\u91CF ", it.quantity, it.spec ? ` · ${it.spec}` : ''), /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: '#15803d'
+      }
+    }, "\u7533\u62A5:", it.lampEn, " / ", it.lampCn, " / ", it.hs)))))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 10,
+        display: 'flex',
+        gap: 8
+      }
+    }, /*#__PURE__*/React.createElement("button", {
+      className: "btn-good btn",
+      onClick: addQuickToTickets
+    }, "\u2795 \u52A0\u5165\u53D1\u7968\u7BEE"), /*#__PURE__*/React.createElement("span", {
+      className: "muted",
+      style: {
+        fontSize: 12,
+        alignSelf: 'center'
+      }
+    }, "\u6838\u5BF9\u5907\u6CE8 + \u5730\u5740 + \u7533\u62A5\u8981\u7D20\u540E\u518D\u52A0\u5165")));
+  })()), /*#__PURE__*/React.createElement("div", {
+    className: "card",
+    style: {
       border: '1.5px dashed #0071e3',
       background: '#f5faff'
     }
@@ -1228,7 +1399,7 @@ function MakeInvoice() {
       flex: 1,
       minWidth: 220
     }
-  }, "\u4E0A\u4F20\u5317\u7B80\u8868(\u5DF2\u624B\u586B\u300C\u8BA2\u5355\u7F16\u53F7\u300D\u5982 MH4490)\u2192 \u6309\u8BA2\u5355\u53F7\u67E5\u5E93\u81EA\u52A8\u5EFA\u7968:\u5730\u5740 / \u54C1\u540D / \u7533\u62A5\u5168\u81EA\u52A8;\u6E20\u9053 / \u603B\u4EF6\u6570 / \u6536\u8D27\u5B9E\u91CD / \u5907\u6CE8 \u53D6\u81EA\u5317\u7B80\u8868\u3002\u660C\u6656\u300C\u5BA2\u6237\u8BA2\u5355\u53F7\u300D= \u6211\u4EEC\u7684\u8BA2\u5355\u53F7(MH4490)\u3002"), /*#__PURE__*/React.createElement("button", {
+  }, "\u4E0A\u4F20\u5317\u7B80\u8868(\u5DF2\u624B\u586B\u300C\u8BA2\u5355\u7F16\u53F7\u300D\u5982 MH4490)\u2192 \u6309\u8BA2\u5355\u53F7\u67E5\u5E93\u81EA\u52A8\u5EFA\u7968:\u5730\u5740 / \u54C1\u540D / \u7533\u62A5\u5168\u81EA\u52A8;\u6E20\u9053 / \u603B\u4EF6\u6570 / \u6536\u8D27\u5B9E\u91CD / \u5907\u6CE8 \u53D6\u81EA\u5317\u7B80\u8868\u3002\u660C\u6656\u300C\u5BA2\u6237\u8BA2\u5355\u53F7\u300D\u5217\u586B\u5BA2\u6237\u53C2\u8003\u53F7(XM8T,\u5FEB\u9012\u6838\u5BF9\u7528);\u6211\u65B9\u8BA2\u5355\u53F7\u5199\u8FDB\u8FD0\u5355\u5907\u6CE8\u3002"), /*#__PURE__*/React.createElement("button", {
     className: "btn-pri btn",
     onClick: () => importRef.current?.click(),
     disabled: importing,
@@ -1782,205 +1953,7 @@ function MakeInvoice() {
         marginTop: 4
       }
     }, "\u26A0 \u9009\u5165\u8D85 5 \u4E2A\u4EA7\u54C1,\u660C\u6656\u6BCF\u7968\u6700\u591A 5 \u4E2A,\u8BF7\u53D6\u6D88\u52FE\u9009\u6216\u62C6\u7968"));
-  })), /*#__PURE__*/React.createElement("div", {
-    className: "card",
-    style: {
-      position: 'sticky',
-      top: 8,
-      zIndex: 50,
-      boxShadow: '0 4px 24px rgba(0,0,0,.10)'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      marginBottom: 10,
-      flexWrap: 'wrap'
-    }
-  }, /*#__PURE__*/React.createElement("strong", {
-    style: {
-      fontSize: 16
-    }
-  }, "\uD83D\uDD0E \u5FEB\u901F\u67E5\u5355"), /*#__PURE__*/React.createElement("span", {
-    className: "muted"
-  }, "\u8F93\u5165\u8BA2\u5355\u53F7(\u5982 RD20846-1)\u2192 \u5B8C\u6574\u7EC6\u8282 + \u56FE\u7247 + \u7533\u62A5\u5EFA\u8BAE")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 8,
-      flexWrap: 'wrap'
-    }
-  }, /*#__PURE__*/React.createElement("input", {
-    className: "inp",
-    style: {
-      flex: 1,
-      minWidth: 200,
-      fontSize: 15
-    },
-    value: quickQuery,
-    placeholder: "\u8BA2\u5355\u7F16\u53F7 \u5982 K115960-2 / RD20846-1",
-    onChange: e => setQuickQuery(e.target.value),
-    onKeyDown: e => {
-      if (e.key === 'Enter') quickSearch();
-    }
-  }), /*#__PURE__*/React.createElement("button", {
-    className: "btn-pri btn",
-    onClick: quickSearch,
-    disabled: quickLoading
-  }, quickLoading ? '查询中…' : '🔍 查询'), quickResult && /*#__PURE__*/React.createElement("button", {
-    className: "btn",
-    onClick: () => {
-      setQuickResult(null);
-      setQuickQuery('');
-      setQuickErr('');
-    }
-  }, "\u6E05\u7A7A")), quickErr && /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginTop: 8,
-      color: '#b91c1c',
-      fontSize: 13
-    }
-  }, "\u26A0 ", quickErr), quickResult && (() => {
-    const r = quickResult;
-    const a = r.address || {};
-    const sel = r.items.filter(it => it.selected !== false);
-    return /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 12,
-        maxHeight: '58vh',
-        overflow: 'auto',
-        border: '1px solid #e5e5ea',
-        borderRadius: 10,
-        padding: 14
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        flexWrap: 'wrap',
-        marginBottom: 8
-      }
-    }, /*#__PURE__*/React.createElement("strong", {
-      style: {
-        fontSize: 18
-      }
-    }, r.orderNumber || r.queryNum), /*#__PURE__*/React.createElement("span", {
-      className: "pill",
-      style: {
-        background: '#eef2ff',
-        color: '#3730a3'
-      }
-    }, r.store), /*#__PURE__*/React.createElement("span", {
-      className: "muted"
-    }, r.customerName), r.isReship && /*#__PURE__*/React.createElement("span", {
-      className: "pill",
-      style: {
-        background: '#fef3c7',
-        color: '#92400e'
-      }
-    }, "\u267B \u8865\u53D1(\u67E5 ", r.queryNum, ")")), r.note && /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: '#fffbeb',
-        border: '1px solid #fde68a',
-        borderRadius: 8,
-        padding: '8px 12px',
-        marginBottom: 10,
-        fontSize: 13,
-        whiteSpace: 'pre-wrap'
-      }
-    }, "\uD83D\uDCDD \u5907\u6CE8(\u8BF7\u4EBA\u5DE5\u6838\u5BF9):", r.note), /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: '#f6f6f8',
-        borderRadius: 8,
-        padding: '8px 12px',
-        marginBottom: 10,
-        fontSize: 13,
-        lineHeight: 1.7
-      }
-    }, "\uD83D\uDCCD ", /*#__PURE__*/React.createElement("b", null, a.name || r.customerName), " \xB7 ", a.phone || r.customerPhone, /*#__PURE__*/React.createElement("br", null), a.address1, " ", a.address2 || '', ", ", a.city, " ", a.province, " ", a.zip, " ", a.country_code || a.country || 'US'), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontWeight: 600,
-        marginBottom: 6,
-        color: '#15803d',
-        fontSize: 14
-      }
-    }, "\u2705 \u5EFA\u8BAE\u7533\u62A5:", sel.length === 1 ? `${sel[0].lampEn} / ${sel[0].lampCn} / HS ${sel[0].hs} / ${sel[0].material}` : `多产品 — 已按备注/数量选中 ${sel.length} 项(可在篮子里改)`), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))',
-        gap: 10
-      }
-    }, r.items.map((it, i) => /*#__PURE__*/React.createElement("div", {
-      key: i,
-      style: {
-        border: '1px solid ' + (it.selected !== false ? '#16a34a' : '#e5e5ea'),
-        borderRadius: 8,
-        padding: 8,
-        background: it.selected !== false ? '#f0fdf4' : '#fff'
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: 'flex',
-        gap: 8
-      }
-    }, it.image_url ? /*#__PURE__*/React.createElement("img", {
-      src: it.image_url,
-      alt: "",
-      onClick: () => setLightboxImg(it.image_url),
-      style: {
-        width: 60,
-        height: 60,
-        objectFit: 'cover',
-        borderRadius: 6,
-        cursor: 'zoom-in',
-        flexShrink: 0
-      }
-    }) : /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: 60,
-        height: 60,
-        background: '#f0f0f2',
-        borderRadius: 6,
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 20
-      }
-    }, "\uD83D\uDCA1"), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12,
-        lineHeight: 1.45,
-        minWidth: 0
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontWeight: 600
-      }
-    }, it.selected !== false ? '✔ ' : '', it.title), /*#__PURE__*/React.createElement("div", {
-      className: "muted"
-    }, "\u6570\u91CF ", it.quantity, it.spec ? ` · ${it.spec}` : ''), /*#__PURE__*/React.createElement("div", {
-      style: {
-        color: '#15803d'
-      }
-    }, "\u7533\u62A5:", it.lampEn, " / ", it.lampCn, " / ", it.hs)))))), /*#__PURE__*/React.createElement("div", {
-      style: {
-        marginTop: 10,
-        display: 'flex',
-        gap: 8
-      }
-    }, /*#__PURE__*/React.createElement("button", {
-      className: "btn-good btn",
-      onClick: addQuickToTickets
-    }, "\u2795 \u52A0\u5165\u53D1\u7968\u7BEE"), /*#__PURE__*/React.createElement("span", {
-      className: "muted",
-      style: {
-        fontSize: 12,
-        alignSelf: 'center'
-      }
-    }, "\u6838\u5BF9\u5907\u6CE8 + \u5730\u5740 + \u7533\u62A5\u8981\u7D20\u540E\u518D\u52A0\u5165")));
-  })()), lightboxImg && /*#__PURE__*/React.createElement("div", {
+  })), lightboxImg && /*#__PURE__*/React.createElement("div", {
     onClick: () => setLightboxImg(null),
     style: {
       position: 'fixed',
