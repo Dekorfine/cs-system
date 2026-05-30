@@ -453,6 +453,26 @@ function applyNoteSelection(items, note, orderNum) {
   }
   return null;
 }
+// 🆕 识别「非产品」行(保险 / 运费保障 / 小费 / 捐赠等增值服务),申报时排除,只留真实销售产品
+// 同时查 properties(如 OrderArmor 的 _protectionPlan: added 标记)
+function isNonProduct(item) {
+  if (!item) return false;
+  // 1) properties 里的保险/保障标记(最可靠)
+  let props = item.properties;
+  if (typeof props === 'string') {
+    try {
+      props = JSON.parse(props);
+    } catch (e) {
+      props = null;
+    }
+  }
+  const propStr = Array.isArray(props) ? props.map(p => ((p.name || p.key || '') + ' ' + (p.value || p.v || '')).toLowerCase()).join(' ') : '';
+  if (/protection\s*plan|_?protectionplan|orderarmor|order\s*armor|\broute\b|\binsurance\b|worry[\s-]?free|navidium|\bseel\b/.test(propStr)) return true;
+  // 2) 标题 / 名称 / SKU 关键词
+  const t = ((item.title || '') + ' ' + (item.name || '') + ' ' + (item.sku || '')).toLowerCase();
+  if (!t.trim()) return false;
+  return /order\s*armor|orderarmor|\broute\b|route insurance|route protection|shipping protection|package protection|order protection|delivery protection|shipping insurance|worry[\s-]?free|\binsurance\b|protection plan|\bnavidium\b|\bseel\b|\bcorso\b|\bonward\b|green shipping|carbon (offset|neutral)|eco[\s-]?friendly shipping|priority processing|rush (processing|order fee)|processing fee|\btip\b|gratuity|donation|round[\s-]?up/i.test(t);
+}
 function parseOrder(o, field) {
   let addr = o.shipping_address;
   if (typeof addr === 'string') {
@@ -469,6 +489,11 @@ function parseOrder(o, field) {
     } catch {
       items = [];
     }
+  }
+  // 🆕 先对原始订单行剔除非产品(OrderArmor 保险 / 运费保障 / 小费等;含 properties 标记);过滤后为空才保留原样
+  {
+    const real = (items || []).filter(li => !isNonProduct(li));
+    if (real.length) items = real;
   }
   items = (items || []).map((it, i) => {
     const lt = getLampInfo(it);
