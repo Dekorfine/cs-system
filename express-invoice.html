@@ -110,20 +110,14 @@ const LAMP_TYPES = [{
   cn: '配件',
   hs: '3917400000'
 }];
-// 🆕 fix91: 材质按标题关键词 — 有黄铜→Brass;否则 铁 + 玻璃/塑料/亚克力(看标题)
+// 🆕 材质按你们实际报关习惯:统一简化申报 — 含黄铜→Brass;其余一律 Plastic + metal(可在票里下拉改)
 function detectMaterial(t) {
   const brass = /brass|黄铜|纯铜|红铜|red copper|bronze/i.test(t);
-  const glass = /glass|玻璃|crystal|水晶|murano/i.test(t);
-  const acrylic = /acrylic|亚克力|perspex/i.test(t);
-  const plastic = /plastic|塑料|resin|树脂/i.test(t);
-  const sec = [];
-  if (glass) sec.push('Glass');
-  if (acrylic) sec.push('Acrylic');
-  if (plastic) sec.push('Plastic');
-  const metal = brass ? 'Brass' : 'Iron';
-  if (sec.length) return metal + ' + ' + sec.join(' + ');
-  return brass ? 'Brass' : 'Iron + Glass'; // 无副材料默认:黄铜→Brass;否则铁+玻璃(可在票里手改)
+  return brass ? 'Brass' : 'Plastic + metal';
 }
+// 🆕 预设(客服不确定时一键选;材质前两项是你们最常用的)
+const MATERIAL_PRESETS = ['Plastic + metal', 'Brass', 'Iron + Glass', 'Iron + Acrylic', 'Crystal', 'Wood', 'Marble', 'Aluminum', 'Ceramic', 'Stainless steel'];
+const HS_PRESETS = ['9405100000', '9405409000', '9405200090', '3917400000'];
 // 🆕 fix91: HS 优先取订单数据里自带的 HS 字段(产品简单,直接拉),没有再按灯具类型兜底
 function getItemHs(item) {
   for (const k of ['hs_code', 'hs', 'hsCode', 'harmonized_code', 'harmonized_system_code', 'customs_hs', 'tariff_code', 'hts_code']) {
@@ -1156,7 +1150,32 @@ function MakeInvoice() {
       marginTop: 6,
       color: '#b91c1c'
     }
-  }, "\u672A\u5728\u8BA2\u5355\u5E93\u627E\u5230(\u8BF7\u6838\u5BF9\u8BA2\u5355\u53F7):", importReport.unmatched.join('、')), /*#__PURE__*/React.createElement("div", {
+  }, "\u672A\u5728\u8BA2\u5355\u5E93\u627E\u5230(\u8BF7\u6838\u5BF9\u8BA2\u5355\u53F7):", importReport.unmatched.join('、'), /*#__PURE__*/React.createElement("button", {
+    onClick: () => {
+      const txt = importReport.unmatched.join('\n');
+      (navigator.clipboard && navigator.clipboard.writeText(txt) || Promise.reject()).then(() => alert('已复制 ' + importReport.unmatched.length + ' 个未找到单号,发给跟单回补')).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = txt;
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand('copy');
+          alert('已复制 ' + importReport.unmatched.length + ' 个单号');
+        } catch {}
+        document.body.removeChild(ta);
+      });
+    },
+    style: {
+      marginLeft: 8,
+      padding: '2px 8px',
+      fontSize: 11,
+      border: '1px solid #fca5a5',
+      borderRadius: 6,
+      background: '#fff',
+      color: '#b91c1c',
+      cursor: 'pointer'
+    }
+  }, "\uD83D\uDCCB \u590D\u5236\u672A\u627E\u5230\u6E05\u5355")), /*#__PURE__*/React.createElement("div", {
     className: "muted",
     style: {
       marginTop: 6
@@ -1540,15 +1559,21 @@ function MakeInvoice() {
       style: {
         minWidth: 55
       }
-    })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
-      value: it.hs,
+    })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("select", {
+      value: it.hs || '',
       onChange: e => upItem(t.id, ii, {
         hs: e.target.value
       }),
       style: {
-        minWidth: 90
+        minWidth: 120,
+        padding: '4px 6px',
+        border: '1px solid #d2d2d7',
+        borderRadius: 6
       }
-    })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+    }, [it.hs, ...HS_PRESETS].filter((v, i, a) => v && a.indexOf(v) === i).map(h => /*#__PURE__*/React.createElement("option", {
+      key: h,
+      value: h
+    }, h)))), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
       type: "number",
       value: it.quantity,
       onChange: e => upItem(t.id, ii, {
@@ -1557,15 +1582,21 @@ function MakeInvoice() {
       style: {
         minWidth: 45
       }
-    })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
-      value: it.material,
+    })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("select", {
+      value: it.material || '',
       onChange: e => upItem(t.id, ii, {
         material: e.target.value
       }),
       style: {
-        minWidth: 90
+        minWidth: 130,
+        padding: '4px 6px',
+        border: '1px solid #d2d2d7',
+        borderRadius: 6
       }
-    })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+    }, [it.material, ...MATERIAL_PRESETS].filter((v, i, a) => v && a.indexOf(v) === i).map(m => /*#__PURE__*/React.createElement("option", {
+      key: m,
+      value: m
+    }, m)))), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
       value: it.usage || '',
       onChange: e => upItem(t.id, ii, {
         usage: e.target.value
