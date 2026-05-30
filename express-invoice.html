@@ -158,6 +158,82 @@ function normOrderKey(k) {
 function isReshipKey(k) {
   return /BU\s*$/i.test(String(k || '').trim());
 }
+
+// 🆕 订单实时单查(本地未命中 → 调跟单 Edge Function · 用订单库 anon key · auto_save:false · 不入库)
+const PREFIX_TO_DOMAIN = {
+  VK: 'vakkerlight.myshopify.com',
+  PL: 'pinlighting.myshopify.com',
+  MH: 'mooiehome.myshopify.com',
+  RD: 'radilum.myshopify.com',
+  DF: 'dekorfine.myshopify.com',
+  DC: 'docos.myshopify.com',
+  LS: 'lumioshine.myshopify.com',
+  RS: 'rayonshine.myshopify.com',
+  MJ: 'mooijane.myshopify.com',
+  ML: 'mooielight.com'
+};
+function guessShopDomain(orderNo) {
+  const m = String(orderNo || '').toUpperCase().match(/^([A-Z]{2})/);
+  return m && PREFIX_TO_DOMAIN[m[1]] || null;
+}
+const EDGE_BASE = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co/functions/v1';
+const _liveCache = {};
+const LIVE_TTL = 5 * 60 * 1000;
+async function lookupShopifyLive(orderNo, shopDomain) {
+  const base = normOrderKey(orderNo);
+  if (!base) return null;
+  shopDomain = shopDomain || guessShopDomain(base);
+  if (!shopDomain) return null; // 没猜到店就不盲扫,避免乱打 Shopify API
+  const ck = shopDomain + '|' + base;
+  const hit = _liveCache[ck];
+  if (hit && Date.now() - hit.ts < LIVE_TTL) return hit.order;
+  const isWoo = /mooielight/i.test(shopDomain);
+  try {
+    for (const nm of [base, '#' + base]) {
+      const body = isWoo ? {
+        store_id: 'mooielight',
+        action: 'list_orders',
+        params: {
+          search: nm,
+          per_page: 5
+        }
+      } : {
+        shop: shopDomain,
+        action: 'list_orders',
+        params: {
+          name: nm,
+          status: 'any',
+          limit: 5,
+          auto_save: false
+        }
+      };
+      const res = await fetch(EDGE_BASE + '/' + (isWoo ? 'woo-api' : 'shopify-api'), {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + ORDERS_KEY,
+          'apikey': ORDERS_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) continue;
+      const json = await res.json().catch(() => null);
+      const arr = json && (json.orders || json.data || []);
+      if (json && json.ok !== false && Array.isArray(arr) && arr.length) {
+        const o = arr[0];
+        const p = parseOrder(o, detectStoreField(o));
+        _liveCache[ck] = {
+          ts: Date.now(),
+          order: p
+        };
+        return p;
+      }
+    }
+  } catch (e) {
+    console.warn('[Shopify兜底失败]', orderNo, e);
+  }
+  return null;
+}
 const CHANNELS = ['美森加班海运小包', '美森普通海运小包'];
 
 // 店铺字段探测 + 规范名映射(跟单已确认:店铺字段=shop_domain,方案A加 store_label/store_code)
@@ -689,6 +765,21 @@ function MakeInvoice() {
       });
     }
     if (field && !storeField) setStoreField(field);
+    // 🆕 Shopify 实时兜底:本地没命中的(去重按基础单号),逐个调跟单 Edge Function · 限流 200ms
+    const missing = uniq.filter(k => !map[k]);
+    const missingBases = [...new Set(missing.map(k => normOrderKey(k)).filter(Boolean))];
+    for (const baseKey of missingBases) {
+      const p = await lookupShopifyLive(baseKey);
+      if (p) {
+        map[baseKey] = p;
+        const on = String(p.orderNumber || '').trim();
+        if (on) map[on] = p;
+        missing.forEach(mk => {
+          if (normOrderKey(mk) === baseKey) map[mk] = p;
+        });
+      }
+      await new Promise(r => setTimeout(r, 200));
+    }
     return map;
   };
   // 🆕 fix86/88: 上传北简表 → 按「订单编号」(或客户参考号)查库自动建票
