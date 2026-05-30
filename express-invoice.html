@@ -714,7 +714,7 @@ async function buildYundingWorkbook(t) {
   ws.getCell('D2').value = '收件人信息';
   ws.mergeCells('B2:C2');
   ws.mergeCells('E2:F2');
-  const HL = [['客户参考号*（必填）', ref, 'FBA仓库*（FBA必填）', ''], ['收货渠道*（必填）', YD_CHANNEL, '收件人公司*（必填）', a.company || ''], ['目的地*（必填）', '美国', '收件人名称*（必填）', a.name || t.customerName || ''], ['预报实重', t.weight || '', '收件人电话*（必填）', a.phone || t.customerPhone || ''], ['报关类型*（必填）', '买单报关', '收件人邮编*（必填）', a.zip || ''], ['是否带电*（必填）', '否', '收件人城市*（必填）', a.city || ''], ['是否投保*（必填）', '否', '收件人省州*（必填）', a.province || a.province_code || ''], ['投保金额*（只填数字，币种以人民币为准）', '/', '收件人地址1*（不可超过35个字符）', a.address1 || ''], ['FBA ID*（FBA必填）', '/', '收件人地址2', a.address2 || ''], ['Reference ID*（FBA必填）', '/', '收件人邮箱*（必填）', t.customerEmail || '']];
+  const HL = [['客户参考号*（必填）', ref, 'FBA仓库*（FBA必填）', ''], ['收货渠道*（必填）', YD_CHANNEL, '收件人公司*（必填）', a.company || ''], ['目的地*（必填）', '美国', '收件人名称*（必填）', a.name || t.customerName || ''], ['预报实重', t.weight || '', '收件人电话*（必填）', a.phone || t.customerPhone || ''], ['报关类型*（必填）', '买单报关', '收件人邮编*（必填）', a.zip || ''], ['是否带电*（必填）', t.battery || '否', '收件人城市*（必填）', a.city || ''], ['是否投保*（必填）', '否', '收件人省州*（必填）', a.province || a.province_code || ''], ['投保金额*（只填数字，币种以人民币为准）', '/', '收件人地址1*（不可超过35个字符）', a.address1 || ''], ['FBA ID*（FBA必填）', '/', '收件人地址2', a.address2 || ''], ['Reference ID*（FBA必填）', '/', '收件人邮箱*（必填）', t.customerEmail || '']];
   HL.forEach((row, i) => {
     const r = 3 + i;
     ws.getCell(r, 1).value = row[0];
@@ -1098,8 +1098,12 @@ function MakeInvoice() {
     const a = t.address || {};
     if (courier === 'yunding') {
       if (!(a.name || t.customerName)) m.push('收件人');
+      if (!(a.phone || t.customerPhone)) m.push('电话');
       if (!a.zip) m.push('邮编');
+      if (!a.city) m.push('城市');
+      if (!a.province) m.push('省州');
       if (!a.address1) m.push('地址');
+      if (!t.customerEmail) m.push('邮箱');
       if (!(t.items || []).some(it => it.selected !== false)) m.push('产品');
       return m;
     }
@@ -1859,7 +1863,7 @@ function MakeInvoice() {
     style: {
       flex: 1
     }
-  }), /*#__PURE__*/React.createElement("div", {
+  }), courier !== 'yunding' && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -1890,7 +1894,7 @@ function MakeInvoice() {
   }, "\u5E94\u7528\u5168\u90E8")), /*#__PURE__*/React.createElement("button", {
     className: "btn btn-sm",
     onClick: () => setTickets([])
-  }, "\u6E05\u7A7A"), /*#__PURE__*/React.createElement("button", {
+  }, "\u6E05\u7A7A"), courier !== 'yunding' && /*#__PURE__*/React.createElement("button", {
     className: "btn",
     onClick: () => setShowPreview(true)
   }, "\uD83D\uDC41 \u9884\u89C8\u5168\u90E8"), /*#__PURE__*/React.createElement("button", {
@@ -1928,6 +1932,391 @@ function MakeInvoice() {
     const a = t.address || {};
     const same = tickets.filter(x => x.sourceOrderId === t.sourceOrderId);
     const idx = same.indexOf(t) + 1;
+    if (courier === 'yunding') {
+      const ref = t.ydRef || t.orderNumber;
+      const selQty = t.items.filter(it => it.selected !== false).reduce((s, it) => s + (parseInt(it.quantity) || 0), 0);
+      const mPieces = parseInt(t.pieceCount) || 0;
+      const addrLong = (a.address1 || '').length > 35;
+      return /*#__PURE__*/React.createElement("div", {
+        key: t.id,
+        style: {
+          border: '1px solid #e0e0e3',
+          borderRadius: 12,
+          padding: 12,
+          marginBottom: 10,
+          background: miss.length ? '#fffdf8' : 'white'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          marginBottom: 7
+        }
+      }, /*#__PURE__*/React.createElement("strong", {
+        style: {
+          fontSize: 14
+        }
+      }, "\uD83D\uDCE6 ", ref), /*#__PURE__*/React.createElement("span", {
+        className: "muted",
+        style: {
+          fontSize: 11
+        }
+      }, "\u5BA2\u6237\u53C2\u8003\u53F7(=\u8BA2\u5355\u53F7)"), /*#__PURE__*/React.createElement("span", {
+        className: "pill",
+        style: {
+          background: '#e0f2fe',
+          color: '#075985'
+        }
+      }, "\uD83C\uDFEA ", t.store), t.isMerged && /*#__PURE__*/React.createElement("span", {
+        className: "pill",
+        style: {
+          background: '#fce7f3',
+          color: '#9d174d'
+        }
+      }, "\uD83D\uDD17 \u5408\u5E76\u5355"), mPieces > 0 && /*#__PURE__*/React.createElement("span", {
+        className: "pill",
+        style: {
+          background: selQty === mPieces ? '#dcfce7' : '#fef3c7',
+          color: selQty === mPieces ? '#15803d' : '#92400e'
+        }
+      }, "\u4EA4\u63A5\u6E05\u5355 ", mPieces, " \u4EF6 / \u9009\u4E2D ", selQty, " \u4EF6", selQty === mPieces ? ' ✓' : ' ⚠核对数量'), miss.length > 0 && /*#__PURE__*/React.createElement("span", {
+        className: "pill",
+        style: {
+          background: '#fee2e2',
+          color: '#b91c1c'
+        }
+      }, "\u7F3A:", miss.join('/')), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1
+        }
+      }), /*#__PURE__*/React.createElement("button", {
+        className: "btn btn-sm",
+        onClick: () => rmTicket(t.id)
+      }, "\u79FB\u9664")), t.note && /*#__PURE__*/React.createElement("div", {
+        style: {
+          background: '#fffbeb',
+          border: '1px solid #fde68a',
+          borderRadius: 9,
+          padding: '8px 11px',
+          marginBottom: 8,
+          fontSize: 12,
+          lineHeight: 1.6,
+          color: '#92400e',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word'
+        }
+      }, "\uD83D\uDCDD \u5BA2\u6237\u5907\u6CE8:", t.note), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          gap: 6,
+          flexWrap: 'wrap',
+          marginBottom: 8,
+          fontSize: 12,
+          alignItems: 'center'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "pill",
+        style: {
+          background: '#f0f0f2',
+          color: '#3a3a3c'
+        }
+      }, "\u6536\u8D27\u6E20\u9053:YL-\u6D1B\u6749\u77F6\u76F4\u9001\u8D85\u5927\u4EF6\u5361\u6D3E"), /*#__PURE__*/React.createElement("span", {
+        className: "pill",
+        style: {
+          background: '#f0f0f2',
+          color: '#3a3a3c'
+        }
+      }, "\u76EE\u7684\u5730:\u7F8E\u56FD"), /*#__PURE__*/React.createElement("span", {
+        className: "pill",
+        style: {
+          background: '#f0f0f2',
+          color: '#3a3a3c'
+        }
+      }, "\u62A5\u5173\u7C7B\u578B:\u4E70\u5355\u62A5\u5173"), /*#__PURE__*/React.createElement("span", {
+        className: "pill",
+        style: {
+          background: '#f0f0f2',
+          color: '#3a3a3c'
+        }
+      }, "\u662F\u5426\u6295\u4FDD:\u5426"), /*#__PURE__*/React.createElement("label", {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          fontWeight: 600
+        }
+      }, "\u662F\u5426\u5E26\u7535:", /*#__PURE__*/React.createElement("select", {
+        className: "inp",
+        style: {
+          width: 64,
+          padding: '3px 6px'
+        },
+        value: t.battery || '否',
+        onChange: e => upTicket(t.id, {
+          battery: e.target.value
+        })
+      }, /*#__PURE__*/React.createElement("option", {
+        value: "\u5426"
+      }, "\u5426"), /*#__PURE__*/React.createElement("option", {
+        value: "\u662F"
+      }, "\u662F"))), /*#__PURE__*/React.createElement("span", {
+        className: "muted",
+        style: {
+          fontSize: 11
+        }
+      }, "(\u9ED8\u8BA4\u4E0D\u5E26\u7535;\u5E26\u7535\u4EA4\u63A5\u6E05\u5355\u4F1A\u6CE8\u660E)")), /*#__PURE__*/React.createElement("div", {
+        style: {
+          background: '#f8fafc',
+          borderRadius: 9,
+          padding: '9px 11px',
+          marginBottom: 8
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        className: "muted",
+        style: {
+          fontSize: 11,
+          marginBottom: 6,
+          fontWeight: 600
+        }
+      }, "\uD83D\uDCCD \u6536\u4EF6\u4EBA\u4FE1\u606F(\u5747\u5FC5\u586B,\u5BA2\u6237\u6539\u8FC7\u5730\u5740\u5728\u6B64\u4FEE\u6B63)"), /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          gap: 8,
+          flexWrap: 'wrap'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: '1 1 140px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "lbl"
+      }, "\u540D\u79F0 *"), /*#__PURE__*/React.createElement("input", {
+        className: "inp",
+        style: {
+          borderColor: a.name || t.customerName ? '#d8d8dc' : '#fca5a5'
+        },
+        value: a.name || t.customerName || '',
+        onChange: e => upTicket(t.id, {
+          address: {
+            ...a,
+            name: e.target.value
+          }
+        })
+      })), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: '1 1 130px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "lbl"
+      }, "\u7535\u8BDD *"), /*#__PURE__*/React.createElement("input", {
+        className: "inp",
+        style: {
+          borderColor: a.phone || t.customerPhone ? '#d8d8dc' : '#fca5a5'
+        },
+        value: a.phone || t.customerPhone || '',
+        onChange: e => upTicket(t.id, {
+          address: {
+            ...a,
+            phone: e.target.value
+          }
+        })
+      })), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: '0 1 100px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "lbl"
+      }, "\u90AE\u7F16 *"), /*#__PURE__*/React.createElement("input", {
+        className: "inp",
+        style: {
+          borderColor: a.zip ? '#d8d8dc' : '#fca5a5'
+        },
+        value: a.zip || '',
+        onChange: e => upTicket(t.id, {
+          address: {
+            ...a,
+            zip: e.target.value
+          }
+        })
+      })), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: '1 1 110px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "lbl"
+      }, "\u57CE\u5E02 *"), /*#__PURE__*/React.createElement("input", {
+        className: "inp",
+        style: {
+          borderColor: a.city ? '#d8d8dc' : '#fca5a5'
+        },
+        value: a.city || '',
+        onChange: e => upTicket(t.id, {
+          address: {
+            ...a,
+            city: e.target.value
+          }
+        })
+      })), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: '0 1 80px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "lbl"
+      }, "\u7701\u5DDE *"), /*#__PURE__*/React.createElement("input", {
+        className: "inp",
+        style: {
+          borderColor: a.province ? '#d8d8dc' : '#fca5a5'
+        },
+        value: a.province || '',
+        onChange: e => upTicket(t.id, {
+          address: {
+            ...a,
+            province: e.target.value
+          }
+        })
+      })), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: '2 1 240px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "lbl"
+      }, "\u5730\u57401 * ", /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: addrLong ? '#dc2626' : '#86868b'
+        }
+      }, "(", (a.address1 || '').length, "/35)")), /*#__PURE__*/React.createElement("input", {
+        className: "inp",
+        style: {
+          borderColor: addrLong || !a.address1 ? '#fca5a5' : '#d8d8dc'
+        },
+        value: a.address1 || '',
+        onChange: e => upTicket(t.id, {
+          address: {
+            ...a,
+            address1: e.target.value
+          }
+        })
+      })), /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: '1 1 170px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "lbl"
+      }, "\u90AE\u7BB1 *"), /*#__PURE__*/React.createElement("input", {
+        className: "inp",
+        style: {
+          borderColor: t.customerEmail ? '#d8d8dc' : '#fca5a5'
+        },
+        value: t.customerEmail || '',
+        onChange: e => upTicket(t.id, {
+          customerEmail: e.target.value
+        })
+      }))), addrLong && /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 11,
+          color: '#dc2626',
+          marginTop: 4
+        }
+      }, "\u26A0 \u5730\u57401 \u8D85\u8FC7 35 \u5B57\u7B26,\u4E91\u9F0E\u8981\u6C42\u4E0D\u53EF\u8D85\u8FC7 35,\u8BF7\u7CBE\u7B80")), /*#__PURE__*/React.createElement("div", {
+        className: "scroll-x"
+      }, /*#__PURE__*/React.createElement("table", null, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", null, /*#__PURE__*/React.createElement("th", {
+        title: "\u52FE\u9009\u8981\u62A5\u5173\u7684\u4EA7\u54C1"
+      }, "\u9009\u5165"), /*#__PURE__*/React.createElement("th", null, "\u56FE\u7247"), /*#__PURE__*/React.createElement("th", null, "\u7269\u54C1\u4E2D\u6587\u540D"), /*#__PURE__*/React.createElement("th", null, "\u7269\u54C1\u82F1\u6587\u540D"), /*#__PURE__*/React.createElement("th", null, "HS\u7F16\u7801"), /*#__PURE__*/React.createElement("th", null, "\u5355\u7BB1\u6570\u91CF"), /*#__PURE__*/React.createElement("th", null, "\u7533\u62A5\u5355\u4EF7(USD)"), /*#__PURE__*/React.createElement("th", null))), /*#__PURE__*/React.createElement("tbody", null, t.items.map((it, ii) => {
+        const q = parseInt(it.quantity) || 1;
+        return /*#__PURE__*/React.createElement("tr", {
+          key: ii,
+          style: {
+            opacity: it.selected === false ? 0.4 : 1
+          }
+        }, /*#__PURE__*/React.createElement("td", {
+          style: {
+            textAlign: 'center'
+          }
+        }, /*#__PURE__*/React.createElement("input", {
+          type: "checkbox",
+          checked: it.selected !== false,
+          onChange: e => upItem(t.id, ii, {
+            selected: e.target.checked
+          })
+        })), /*#__PURE__*/React.createElement("td", {
+          style: {
+            textAlign: 'center'
+          }
+        }, it.image_url ? /*#__PURE__*/React.createElement("img", {
+          src: it.image_url,
+          alt: "",
+          onClick: () => setLightboxImg(it.image_url),
+          style: {
+            width: 46,
+            height: 46,
+            objectFit: 'cover',
+            borderRadius: 5,
+            cursor: 'zoom-in'
+          }
+        }) : /*#__PURE__*/React.createElement("span", {
+          style: {
+            color: '#c7c7cc'
+          }
+        }, "\u2014")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+          value: it.lampCn,
+          onChange: e => upItem(t.id, ii, {
+            lampCn: e.target.value
+          }),
+          style: {
+            minWidth: 70
+          }
+        })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+          value: it.lampEn,
+          onChange: e => upItem(t.id, ii, {
+            lampEn: e.target.value
+          }),
+          style: {
+            minWidth: 95
+          }
+        })), /*#__PURE__*/React.createElement("td", {
+          style: {
+            textAlign: 'center',
+            color: '#86868b',
+            fontSize: 12,
+            whiteSpace: 'nowrap'
+          }
+        }, "8539510000"), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+          type: "number",
+          value: it.quantity,
+          onChange: e => upItem(t.id, ii, {
+            quantity: e.target.value
+          }),
+          style: {
+            minWidth: 55
+          }
+        })), /*#__PURE__*/React.createElement("td", {
+          style: {
+            textAlign: 'center',
+            color: '#15803d',
+            fontWeight: 600
+          }
+        }, 500 * q), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("button", {
+          onClick: () => rmItem(t.id, ii),
+          title: "\u5220\u9664(\u4E0D\u53D1\u4E91\u9F0E\u7684\u4EA7\u54C1)",
+          style: {
+            border: 'none',
+            background: 'transparent',
+            color: '#dc2626',
+            cursor: 'pointer',
+            fontSize: 15,
+            padding: '0 4px'
+          }
+        }, "\u2715")));
+      })))), /*#__PURE__*/React.createElement("div", {
+        className: "muted",
+        style: {
+          fontSize: 11,
+          marginTop: 5
+        }
+      }, "\u7BB1\u5E8F\u53F7 = \u8BA2\u5355\u53F7 \xB7 HS \u56FA\u5B9A 8539510000 \xB7 \u7533\u62A5\u5355\u4EF7 = 500 \xD7 \u5355\u7BB1\u6570\u91CF \xB7 \u4EA7\u54C1\u56FE\u5BFC\u51FA\u65F6\u81EA\u52A8\u5D4C\u5165\u6846\u5185", mPieces > 0 && selQty !== mPieces ? ` · ⚠ 选中总数 ${selQty} 与交接清单 ${mPieces} 不一致,请调整数量或勾选` : ''));
+    }
     return /*#__PURE__*/React.createElement("div", {
       key: t.id,
       style: {
