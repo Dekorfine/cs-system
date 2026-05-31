@@ -1,8 +1,11 @@
 // ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-107
-// APP_VERSION: 2026.05.30-fix107
+// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-108
+// APP_VERSION: 2026.05.30-fix108
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+var _excluded = ["payload"];
+function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var n = Object.getOwnPropertySymbols(e); for (r = 0; r < n.length; r++) o = n[r], -1 === t.indexOf(o) && {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -25,8 +28,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-107
-// APP_VERSION: 2026.05.30-fix107
+// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-108
+// APP_VERSION: 2026.05.30-fix108
 // ════════════════════════════════════════════════════════════════════
 
 var EventsModule = function EventsModule(_ref) {
@@ -1115,23 +1118,374 @@ var OrderRefLink = function OrderRefLink(_ref1) {
     }, style)
   }, orderNo);
 };
-var AftersalesTable = function AftersalesTable(_ref10) {
-  var items = _ref10.items,
-    employees = _ref10.employees,
-    suppliers = _ref10.suppliers,
+
+// 🆕 fix108: 售后 → 跟单介入桥接 —— 写共享 aftersales_events + 发带 payload.aftersales_event_id 的路由工单(to_system:'po')
+function pushAseToOrders(_x9, _x0) {
+  return _pushAseToOrders.apply(this, arguments);
+}
+function _pushAseToOrders() {
+  _pushAseToOrders = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(event, user) {
+    var opts,
+      client,
+      aseId,
+      atts,
+      isVid,
+      aseRow,
+      toUserId,
+      toUserName,
+      _yield$client$from$se,
+      data,
+      owner,
+      userName,
+      msg,
+      payload,
+      msg2,
+      _args13 = arguments,
+      _t4,
+      _t5,
+      _t6,
+      _t7;
+    return _regenerator().w(function (_context13) {
+      while (1) switch (_context13.p = _context13.n) {
+        case 0:
+          opts = _args13.length > 2 && _args13[2] !== undefined ? _args13[2] : {};
+          client = getCdmClient();
+          if (client) {
+            _context13.n = 1;
+            break;
+          }
+          alert('跨部门库未连接 — 请进 ⚙ 设置中心配置');
+          return _context13.a(2, false);
+        case 1:
+          aseId = event.id;
+          atts = event.attachments || [];
+          isVid = function isVid(a) {
+            return a.kind === 'video' || /\.(mp4|webm|mov|avi|m4v)(\?|$)/i.test(a.url || '');
+          };
+          aseRow = {
+            id: aseId,
+            order_no: event.order_ref || '',
+            store: event.site || '',
+            supplier: event.supplier_name || '',
+            category: '售后',
+            reason_tag: event.issue_type || '',
+            reason_detail: event.issue_detail || '',
+            product_name: event.product_name || '',
+            damage_part: event.damaged_part || '',
+            images: atts.filter(function (a) {
+              return !isVid(a);
+            }).map(function (a) {
+              return a.url;
+            }).filter(Boolean),
+            videos: atts.filter(function (a) {
+              return isVid(a);
+            }).map(function (a) {
+              return a.url;
+            }).filter(Boolean),
+            status: event.status || '待回货',
+            created_by: event.created_by_name || user && user.name || '',
+            created_role: 'cs',
+            created_at_ms: event.created_at_ms || Date.now(),
+            deleted: false,
+            updated_at: new Date().toISOString()
+          };
+          _context13.p = 2;
+          _context13.n = 3;
+          return client.from('aftersales_events').upsert(aseRow, {
+            onConflict: 'id'
+          });
+        case 3:
+          _context13.n = 5;
+          break;
+        case 4:
+          _context13.p = 4;
+          _t4 = _context13.v;
+          alert('写入售后共享表失败:' + (_t4.message || _t4) + '\n\n(请先在跨部门库跑 aftersales_events 建表 SQL)');
+          return _context13.a(2, false);
+        case 5:
+          // 路由:① 指定跟单 ② 否则该网站绑定的负责人 ③ 否则留空 → 跟单主管分配
+          toUserId = opts.assigneeId || null, toUserName = opts.assigneeName || null;
+          if (!(!toUserId && event.site)) {
+            _context13.n = 9;
+            break;
+          }
+          _context13.p = 6;
+          _context13.n = 7;
+          return client.from('shop_owners').select('*').eq('shop_name', event.site);
+        case 7:
+          _yield$client$from$se = _context13.v;
+          data = _yield$client$from$se.data;
+          owner = (data || []).find(function (o) {
+            return /po|跟单|order/i.test(o.system || o.dept || o.source_system || '');
+          }) || null;
+          if (owner) {
+            toUserId = owner.assigned_to_id || owner.user_id || owner.owner_id || null;
+            toUserName = owner.assigned_to_name || owner.owner_name || owner.user_name || null;
+          }
+          _context13.n = 9;
+          break;
+        case 8:
+          _context13.p = 8;
+          _t5 = _context13.v;
+        case 9:
+          userName = user ? user.name + (user.alias ? ' ' + user.alias : '') : '客服';
+          msg = {
+            from_system: MY_SYSTEM,
+            from_user_id: user && user.id,
+            from_user_name: userName,
+            to_system: 'po',
+            to_user_id: toUserId,
+            to_user_name: toUserName,
+            related_shop: event.site || null,
+            watchers: null,
+            category: 'general',
+            priority: 'normal',
+            title: "[\u552E\u540E\u8F6C\u8DDF\u5355] ".concat(event.order_ref || '').concat(event.site ? ' · ' + event.site : '', " \xB7 ").concat(event.product_name || ''),
+            body: ["\u552E\u540E\u539F\u56E0:".concat(event.issue_detail || event.issue_type || ''), event.damaged_part ? "\u635F\u574F\u90E8\u4F4D:".concat(event.damaged_part) : '', "\u4F9B\u5E94\u5546:".concat(event.supplier_name || '-'), '', '👉 请在工单顶部点「📋 查看售后详情」回填:产品改进意见 / 产品改进状态 / 沟通图片,并追加跟进。'].filter(Boolean).join('\n'),
+            payload: {
+              aftersales_event_id: aseId
+            },
+            related_type: 'aftersales',
+            related_ref: aseId,
+            attachments: atts,
+            status: 'pending',
+            thread: [],
+            read_by: [user && user.id].filter(Boolean),
+            created_at_ms: Date.now(),
+            updated_at: new Date().toISOString()
+          };
+          _context13.p = 10;
+          _context13.n = 11;
+          return client.from('cross_dept_messages').insert(msg);
+        case 11:
+          _context13.n = 18;
+          break;
+        case 12:
+          _context13.p = 12;
+          _t6 = _context13.v;
+          if (!/payload/i.test(_t6.message || '')) {
+            _context13.n = 17;
+            break;
+          }
+          // payload 列不存在 → 去掉重试(related_type/ref 仍可识别)
+          payload = msg.payload, msg2 = _objectWithoutProperties(msg, _excluded);
+          _context13.p = 13;
+          _context13.n = 14;
+          return client.from('cross_dept_messages').insert(msg2);
+        case 14:
+          _context13.n = 16;
+          break;
+        case 15:
+          _context13.p = 15;
+          _t7 = _context13.v;
+          alert('发工单失败:' + (_t7.message || _t7));
+          return _context13.a(2, false);
+        case 16:
+          _context13.n = 18;
+          break;
+        case 17:
+          alert('发工单失败:' + (_t6.message || _t6));
+          return _context13.a(2, false);
+        case 18:
+          return _context13.a(2, true);
+      }
+    }, _callee13, null, [[13, 15], [10, 12], [6, 8], [2, 4]]);
+  }));
+  return _pushAseToOrders.apply(this, arguments);
+}
+var AseToOrdersModal = function AseToOrdersModal(_ref10) {
+  var event = _ref10.event,
     user = _ref10.user,
-    isAdmin = _ref10.isAdmin,
-    onEdit = _ref10.onEdit,
-    onDelete = _ref10.onDelete,
-    onUpdateStatus = _ref10.onUpdateStatus;
-  var _useState35 = useState(null),
+    onClose = _ref10.onClose,
+    onDone = _ref10.onDone,
+    toast = _ref10.toast;
+  var _useState35 = useState([]),
     _useState36 = _slicedToArray(_useState35, 2),
-    openImageId = _useState36[0],
-    setOpenImageId = _useState36[1];
-  var _useState37 = useState(null),
+    poPeople = _useState36[0],
+    setPoPeople = _useState36[1];
+  var _useState37 = useState(''),
     _useState38 = _slicedToArray(_useState37, 2),
-    prodPreview = _useState38[0],
-    setProdPreview = _useState38[1];
+    assignee = _useState38[0],
+    setAssignee = _useState38[1];
+  var _useState39 = useState(false),
+    _useState40 = _slicedToArray(_useState39, 2),
+    sending = _useState40[0],
+    setSending = _useState40[1];
+  useEffect(function () {
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+      var c, _yield$c$from$select, data, _t2;
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
+          case 0:
+            c = getCdmClient();
+            if (c) {
+              _context6.n = 1;
+              break;
+            }
+            return _context6.a(2);
+          case 1:
+            _context6.p = 1;
+            _context6.n = 2;
+            return c.from('org_directory').select('*');
+          case 2:
+            _yield$c$from$select = _context6.v;
+            data = _yield$c$from$select.data;
+            setPoPeople((data || []).filter(function (o) {
+              return /po|跟单|order/i.test(o.system || o.dept || o.source_system || '');
+            }));
+            _context6.n = 4;
+            break;
+          case 3:
+            _context6.p = 3;
+            _t2 = _context6.v;
+          case 4:
+            return _context6.a(2);
+        }
+      }, _callee6, null, [[1, 3]]);
+    }))();
+  }, []);
+  var send = /*#__PURE__*/function () {
+    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+      var pick, ok;
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.n) {
+          case 0:
+            setSending(true);
+            pick = poPeople.find(function (p) {
+              return (p.user_id || p.id) === assignee;
+            });
+            _context7.n = 1;
+            return pushAseToOrders(event, user, pick ? {
+              assigneeId: pick.user_id || pick.id,
+              assigneeName: pick.display_name || pick.name
+            } : {});
+          case 1:
+            ok = _context7.v;
+            setSending(false);
+            if (ok) {
+              toast && toast('✓ 已转跟单 · 工单已发(含售后详情链接)');
+              onDone && onDone();
+            }
+          case 2:
+            return _context7.a(2);
+        }
+      }, _callee7);
+    }));
+    return function send() {
+      return _ref12.apply(this, arguments);
+    };
+  }();
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: onClose,
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,.45)',
+      zIndex: 100002,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick(e) {
+      return e.stopPropagation();
+    },
+    className: "paper rounded-2xl",
+    style: {
+      width: '100%',
+      maxWidth: 460,
+      padding: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 16,
+      fontWeight: 700,
+      marginBottom: 4
+    }
+  }, "\uD83D\uDD01 \u8F6C\u8DDF\u5355\u4ECB\u5165"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-3)',
+      marginBottom: 14
+    }
+  }, event.order_ref, " \xB7 ", event.product_name || event.issue_detail || ''), /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      color: 'var(--ink-2)',
+      display: 'block',
+      marginBottom: 6
+    }
+  }, "\u6307\u5B9A\u8DDF\u5355\u63A5\u6536\u4EBA"), /*#__PURE__*/React.createElement("select", {
+    value: assignee,
+    onChange: function onChange(e) {
+      return setAssignee(e.target.value);
+    },
+    style: {
+      width: '100%',
+      padding: '8px 10px',
+      fontSize: 14,
+      border: '1px solid var(--line)',
+      borderRadius: 8
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\uD83E\uDD16 \u81EA\u52A8(\u7559\u7A7A \u2192 \u8DDF\u5355\u4E3B\u7BA1\u5206\u914D;\u8BE5\u7F51\u7AD9\u6709\u8D1F\u8D23\u4EBA\u5219\u81EA\u52A8\u6D3E\u7ED9\u4ED6)"), poPeople.map(function (p) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: p.user_id || p.id,
+      value: p.user_id || p.id
+    }, p.display_name || p.name);
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-3)',
+      marginTop: 8,
+      lineHeight: 1.6
+    }
+  }, "\u4F1A\u628A\u552E\u540E\u4E8B\u4EF6\u5199\u5165\u5171\u4EAB\u8868,\u5E76\u53D1\u8DE8\u90E8\u95E8\u5DE5\u5355\u7ED9\u8DDF\u5355(\u5E26\u552E\u540E\u8BE6\u60C5\u94FE\u63A5)\u3002\u8DDF\u5355\u70B9\u5F00\u5373\u53EF\u56DE\u586B\u4EA7\u54C1\u6539\u8FDB\u610F\u89C1/\u72B6\u6001/\u6C9F\u901A\u56FE\u3002"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'flex-end',
+      gap: 8,
+      marginTop: 16
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    className: "btn-sec",
+    style: {
+      padding: '7px 14px'
+    }
+  }, "\u53D6\u6D88"), /*#__PURE__*/React.createElement("button", {
+    onClick: send,
+    disabled: sending,
+    className: "btn-pri",
+    style: {
+      padding: '7px 16px'
+    }
+  }, sending ? '发送中…' : '转跟单并发工单'))));
+};
+var AftersalesTable = function AftersalesTable(_ref13) {
+  var items = _ref13.items,
+    employees = _ref13.employees,
+    suppliers = _ref13.suppliers,
+    user = _ref13.user,
+    isAdmin = _ref13.isAdmin,
+    onEdit = _ref13.onEdit,
+    onDelete = _ref13.onDelete,
+    onUpdateStatus = _ref13.onUpdateStatus;
+  var _useState41 = useState(null),
+    _useState42 = _slicedToArray(_useState41, 2),
+    openImageId = _useState42[0],
+    setOpenImageId = _useState42[1];
+  var _useState43 = useState(null),
+    _useState44 = _slicedToArray(_useState43, 2),
+    prodPreview = _useState44[0],
+    setProdPreview = _useState44[1];
+  var _useState45 = useState(null),
+    _useState46 = _slicedToArray(_useState45, 2),
+    aseToOrders = _useState46[0],
+    setAseToOrders = _useState46[1];
   if (items.length === 0) return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-12 fade-in",
     style: {
@@ -1345,6 +1699,17 @@ var AftersalesTable = function AftersalesTable(_ref10) {
       title: "\u6807\u8BB0\u5DF2\u5B8C\u6210"
     }, "\u2713"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
+        return setAseToOrders(e);
+      },
+      className: "btn-ghost",
+      style: {
+        padding: '3px 6px',
+        fontSize: 11,
+        color: '#c2410c'
+      },
+      title: "\u8F6C\u8DDF\u5355\u4ECB\u5165(\u5199\u5171\u4EAB\u8868+\u53D1\u5DE5\u5355)"
+    }, "\uD83D\uDD01"), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
         return onEdit(e);
       },
       className: "btn-ghost",
@@ -1399,25 +1764,35 @@ var AftersalesTable = function AftersalesTable(_ref10) {
       borderRadius: 8,
       boxShadow: '0 10px 40px rgba(0,0,0,.5)'
     }
-  })));
+  })), aseToOrders && /*#__PURE__*/React.createElement(AseToOrdersModal, {
+    event: aseToOrders,
+    user: user,
+    onClose: function onClose() {
+      return setAseToOrders(null);
+    },
+    onDone: function onDone() {
+      return setAseToOrders(null);
+    },
+    toast: typeof toast !== 'undefined' ? toast : function (m) {}
+  }));
 };
 
 // ============================================================
 // 补件追踪表格
 // ============================================================
-var RefillsTable = function RefillsTable(_ref11) {
-  var items = _ref11.items,
-    employees = _ref11.employees,
-    suppliers = _ref11.suppliers,
-    user = _ref11.user,
-    isAdmin = _ref11.isAdmin,
-    onEdit = _ref11.onEdit,
-    onDelete = _ref11.onDelete,
-    onUpdateStatus = _ref11.onUpdateStatus;
-  var _useState39 = useState(null),
-    _useState40 = _slicedToArray(_useState39, 2),
-    openImageId = _useState40[0],
-    setOpenImageId = _useState40[1];
+var RefillsTable = function RefillsTable(_ref14) {
+  var items = _ref14.items,
+    employees = _ref14.employees,
+    suppliers = _ref14.suppliers,
+    user = _ref14.user,
+    isAdmin = _ref14.isAdmin,
+    onEdit = _ref14.onEdit,
+    onDelete = _ref14.onDelete,
+    onUpdateStatus = _ref14.onUpdateStatus;
+  var _useState47 = useState(null),
+    _useState48 = _slicedToArray(_useState47, 2),
+    openImageId = _useState48[0],
+    setOpenImageId = _useState48[1];
   if (items.length === 0) return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-12 fade-in",
     style: {
@@ -1627,20 +2002,20 @@ var RefillsTable = function RefillsTable(_ref11) {
 // ============================================================
 // 退款管理表格 + 两步审核
 // ============================================================
-var RefundsTable = function RefundsTable(_ref12) {
-  var items = _ref12.items,
-    employees = _ref12.employees,
-    suppliers = _ref12.suppliers,
-    user = _ref12.user,
-    isFinance = _ref12.isFinance,
-    canRefundReview = _ref12.canRefundReview,
-    onEdit = _ref12.onEdit,
-    onDelete = _ref12.onDelete,
-    onReview = _ref12.onReview;
-  var _useState41 = useState(null),
-    _useState42 = _slicedToArray(_useState41, 2),
-    openImageId = _useState42[0],
-    setOpenImageId = _useState42[1];
+var RefundsTable = function RefundsTable(_ref15) {
+  var items = _ref15.items,
+    employees = _ref15.employees,
+    suppliers = _ref15.suppliers,
+    user = _ref15.user,
+    isFinance = _ref15.isFinance,
+    canRefundReview = _ref15.canRefundReview,
+    onEdit = _ref15.onEdit,
+    onDelete = _ref15.onDelete,
+    onReview = _ref15.onReview;
+  var _useState49 = useState(null),
+    _useState50 = _slicedToArray(_useState49, 2),
+    openImageId = _useState50[0],
+    setOpenImageId = _useState50[1];
   // 顶部汇总
   var summary = useMemo(function () {
     var byStatus = items.reduce(function (acc, r) {
@@ -1983,19 +2358,19 @@ var RefundsTable = function RefundsTable(_ref12) {
 // ============================================================
 // 退款审核 modal (财务审批 + 完成)
 // ============================================================
-var RefundReviewModal = function RefundReviewModal(_ref13) {
-  var refund = _ref13.refund,
-    user = _ref13.user,
-    onClose = _ref13.onClose,
-    onSubmit = _ref13.onSubmit;
-  var _useState43 = useState(''),
-    _useState44 = _slicedToArray(_useState43, 2),
-    notes = _useState44[0],
-    setNotes = _useState44[1];
-  var _useState45 = useState(''),
-    _useState46 = _slicedToArray(_useState45, 2),
-    externalRefundId = _useState46[0],
-    setExternalRefundId = _useState46[1];
+var RefundReviewModal = function RefundReviewModal(_ref16) {
+  var refund = _ref16.refund,
+    user = _ref16.user,
+    onClose = _ref16.onClose,
+    onSubmit = _ref16.onSubmit;
+  var _useState51 = useState(''),
+    _useState52 = _slicedToArray(_useState51, 2),
+    notes = _useState52[0],
+    setNotes = _useState52[1];
+  var _useState53 = useState(''),
+    _useState54 = _slicedToArray(_useState53, 2),
+    externalRefundId = _useState54[0],
+    setExternalRefundId = _useState54[1];
   var isApproveStage = refund.status === 'pending';
   var isCompleteStage = refund.status === 'approved';
   var type = REFUND_TYPES.find(function (t) {
@@ -2250,13 +2625,13 @@ var RefundReviewModal = function RefundReviewModal(_ref13) {
 // ============================================================
 // 图片图廊 modal (点击图片缩略图后弹出大图浏览)
 // ============================================================
-var ImageGalleryModal = function ImageGalleryModal(_ref14) {
-  var event = _ref14.event,
-    onClose = _ref14.onClose;
-  var _useState47 = useState(0),
-    _useState48 = _slicedToArray(_useState47, 2),
-    activeIdx = _useState48[0],
-    setActiveIdx = _useState48[1];
+var ImageGalleryModal = function ImageGalleryModal(_ref17) {
+  var event = _ref17.event,
+    onClose = _ref17.onClose;
+  var _useState55 = useState(0),
+    _useState56 = _slicedToArray(_useState55, 2),
+    activeIdx = _useState56[0],
+    setActiveIdx = _useState56[1];
   if (!event || !event.attachments || event.attachments.length === 0) return null;
   var imgs = event.attachments;
   var current = imgs[activeIdx];
@@ -2373,22 +2748,22 @@ var ImageGalleryModal = function ImageGalleryModal(_ref14) {
 // 时间筛选: 3/7/14/30/90 天 + 季度 + 年 + 自定义
 // 显示: 总金额, 件数, 按网站分布, 按状态分布
 // ============================================================
-var AmountSummaryWidget = function AmountSummaryWidget(_ref15) {
-  var title = _ref15.title,
-    icon = _ref15.icon,
-    color = _ref15.color,
-    items = _ref15.items,
-    statusLabels = _ref15.statusLabels,
-    _ref15$statusKey = _ref15.statusKey,
-    statusKey = _ref15$statusKey === void 0 ? 'status' : _ref15$statusKey,
-    _ref15$amountKey = _ref15.amountKey,
-    amountKey = _ref15$amountKey === void 0 ? 'amount' : _ref15$amountKey,
-    getSite = _ref15.getSite,
-    onClickStats = _ref15.onClickStats;
-  var _useState49 = useState('7'),
-    _useState50 = _slicedToArray(_useState49, 2),
-    range = _useState50[0],
-    setRange = _useState50[1]; // 字符串: '3'/'7'/'14'/'30'/'90'/'quarter'/'year'/'all'
+var AmountSummaryWidget = function AmountSummaryWidget(_ref18) {
+  var title = _ref18.title,
+    icon = _ref18.icon,
+    color = _ref18.color,
+    items = _ref18.items,
+    statusLabels = _ref18.statusLabels,
+    _ref18$statusKey = _ref18.statusKey,
+    statusKey = _ref18$statusKey === void 0 ? 'status' : _ref18$statusKey,
+    _ref18$amountKey = _ref18.amountKey,
+    amountKey = _ref18$amountKey === void 0 ? 'amount' : _ref18$amountKey,
+    getSite = _ref18.getSite,
+    onClickStats = _ref18.onClickStats;
+  var _useState57 = useState('7'),
+    _useState58 = _slicedToArray(_useState57, 2),
+    range = _useState58[0],
+    setRange = _useState58[1]; // 字符串: '3'/'7'/'14'/'30'/'90'/'quarter'/'year'/'all'
 
   // 计算时间筛选范围
   var cutoffDate = useMemo(function () {
@@ -2441,10 +2816,10 @@ var AmountSummaryWidget = function AmountSummaryWidget(_ref15) {
       if (!m[site].totals[cur]) m[site].totals[cur] = 0;
       m[site].totals[cur] += amt;
     });
-    return Object.entries(m).map(function (_ref16) {
-      var _ref17 = _slicedToArray(_ref16, 2),
-        site = _ref17[0],
-        v = _ref17[1];
+    return Object.entries(m).map(function (_ref19) {
+      var _ref20 = _slicedToArray(_ref19, 2),
+        site = _ref20[0],
+        v = _ref20[1];
       return _objectSpread({
         site: site
       }, v);
@@ -2461,10 +2836,10 @@ var AmountSummaryWidget = function AmountSummaryWidget(_ref15) {
       if (!m[s]) m[s] = 0;
       m[s]++;
     });
-    return Object.entries(m).map(function (_ref18) {
-      var _ref19 = _slicedToArray(_ref18, 2),
-        k = _ref19[0],
-        v = _ref19[1];
+    return Object.entries(m).map(function (_ref21) {
+      var _ref22 = _slicedToArray(_ref21, 2),
+        k = _ref22[0],
+        v = _ref22[1];
       return {
         status: k,
         count: v
@@ -2586,10 +2961,10 @@ var AmountSummaryWidget = function AmountSummaryWidget(_ref15) {
       gap: 8,
       marginBottom: 12
     }
-  }, Object.entries(totalsByCurrency).map(function (_ref20) {
-    var _ref21 = _slicedToArray(_ref20, 2),
-      cur = _ref21[0],
-      amt = _ref21[1];
+  }, Object.entries(totalsByCurrency).map(function (_ref23) {
+    var _ref24 = _slicedToArray(_ref23, 2),
+      cur = _ref24[0],
+      amt = _ref24[1];
     var curItems = filtered.filter(function (f) {
       return (f.currency || 'USD').toUpperCase() === cur;
     });
@@ -2720,10 +3095,10 @@ var AmountSummaryWidget = function AmountSummaryWidget(_ref15) {
         color: 'var(--ink-3)',
         fontSize: 10
       }
-    }, Object.entries(w.totals).map(function (_ref22) {
-      var _ref23 = _slicedToArray(_ref22, 2),
-        c = _ref23[0],
-        a = _ref23[1];
+    }, Object.entries(w.totals).map(function (_ref25) {
+      var _ref26 = _slicedToArray(_ref25, 2),
+        c = _ref26[0],
+        a = _ref26[1];
       return formatAmount(c, a);
     }).join(' · ')));
   }))), byStatus.length > 0 && statusLabels && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
@@ -2800,20 +3175,20 @@ var AmountSummaryWidget = function AmountSummaryWidget(_ref15) {
 // ============================================================
 // 🆕 fix81: 通用事件清单弹窗 — 售后/补件/退款/拒付 数字点击后弹出
 // ============================================================
-var EventListModal = function EventListModal(_ref24) {
-  var events = _ref24.events,
-    title = _ref24.title,
-    accent = _ref24.accent,
-    icon = _ref24.icon,
-    kind = _ref24.kind,
-    employees = _ref24.employees,
-    suppliers = _ref24.suppliers,
-    onClose = _ref24.onClose,
-    onClickEvent = _ref24.onClickEvent;
-  var _useState51 = useState(''),
-    _useState52 = _slicedToArray(_useState51, 2),
-    search = _useState52[0],
-    setSearch = _useState52[1];
+var EventListModal = function EventListModal(_ref27) {
+  var events = _ref27.events,
+    title = _ref27.title,
+    accent = _ref27.accent,
+    icon = _ref27.icon,
+    kind = _ref27.kind,
+    employees = _ref27.employees,
+    suppliers = _ref27.suppliers,
+    onClose = _ref27.onClose,
+    onClickEvent = _ref27.onClickEvent;
+  var _useState59 = useState(''),
+    _useState60 = _slicedToArray(_useState59, 2),
+    search = _useState60[0],
+    setSearch = _useState60[1];
   var filtered = (events || []).filter(function (e) {
     if (!search.trim()) return true;
     var q = search.trim().toLowerCase();
@@ -3189,14 +3564,14 @@ var EventListModal = function EventListModal(_ref24) {
 // 展示最近 3/7/14/30/60 天的总数 + 已完成 + 完成率
 // 🆕 fix81: 数字全部可点 — 总数 / ✓完成 / ⏳未完成 都能点开列表
 // ============================================================
-var CompletionStatsBanner = function CompletionStatsBanner(_ref25) {
-  var items = _ref25.items,
-    title = _ref25.title,
-    icon = _ref25.icon,
-    color = _ref25.color,
-    completedStatuses = _ref25.completedStatuses,
-    onQuickComplete = _ref25.onQuickComplete,
-    onClickStats = _ref25.onClickStats;
+var CompletionStatsBanner = function CompletionStatsBanner(_ref28) {
+  var items = _ref28.items,
+    title = _ref28.title,
+    icon = _ref28.icon,
+    color = _ref28.color,
+    completedStatuses = _ref28.completedStatuses,
+    onQuickComplete = _ref28.onQuickComplete,
+    onClickStats = _ref28.onClickStats;
   var ranges = [3, 7, 14, 30, 60];
   var calcStats = function calcStats(days) {
     var cutoff = new Date();
@@ -3374,14 +3749,14 @@ var CompletionStatsBanner = function CompletionStatsBanner(_ref25) {
 // ============================================================
 // 月度汇总面板 + 图表
 // ============================================================
-var SummaryPanel = function SummaryPanel(_ref26) {
-  var stats = _ref26.stats,
-    filterMonth = _ref26.filterMonth,
-    setFilterMonth = _ref26.setFilterMonth,
-    aftersales = _ref26.aftersales,
-    refunds = _ref26.refunds,
-    refills = _ref26.refills,
-    suppliers = _ref26.suppliers;
+var SummaryPanel = function SummaryPanel(_ref29) {
+  var stats = _ref29.stats,
+    filterMonth = _ref29.filterMonth,
+    setFilterMonth = _ref29.setFilterMonth,
+    aftersales = _ref29.aftersales,
+    refunds = _ref29.refunds,
+    refills = _ref29.refills,
+    suppliers = _ref29.suppliers;
   // 计算供应商问题排行（按售后数 + 退款金额）
   var supplierRanking = useMemo(function () {
     var map = {};
@@ -3609,10 +3984,10 @@ var SummaryPanel = function SummaryPanel(_ref26) {
     }
   }, "\u672C\u6708\u6682\u65E0\u6570\u636E") : Object.entries(stats.aftersales.byIssue).sort(function (a, b) {
     return b[1] - a[1];
-  }).map(function (_ref27) {
-    var _ref28 = _slicedToArray(_ref27, 2),
-      k = _ref28[0],
-      n = _ref28[1];
+  }).map(function (_ref30) {
+    var _ref31 = _slicedToArray(_ref30, 2),
+      k = _ref31[0],
+      n = _ref31[1];
     var max = Math.max.apply(Math, _toConsumableArray(Object.values(stats.aftersales.byIssue)));
     var pct = n / max * 100;
     return /*#__PURE__*/React.createElement("div", {
@@ -3665,10 +4040,10 @@ var SummaryPanel = function SummaryPanel(_ref26) {
     }
   }, "\u672C\u6708\u6682\u65E0\u6570\u636E") : Object.entries(stats.refunds.byTypeAmount).sort(function (a, b) {
     return b[1] - a[1];
-  }).map(function (_ref29) {
-    var _ref30 = _slicedToArray(_ref29, 2),
-      k = _ref30[0],
-      amt = _ref30[1];
+  }).map(function (_ref32) {
+    var _ref33 = _slicedToArray(_ref32, 2),
+      k = _ref33[0],
+      amt = _ref33[1];
     var max = Math.max.apply(Math, _toConsumableArray(Object.values(stats.refunds.byTypeAmount)));
     var pct = amt / max * 100;
     var count = stats.refunds.byType[k] || 0;
@@ -3912,47 +4287,47 @@ var SummaryPanel = function SummaryPanel(_ref26) {
 // ============================================================
 // 导出报表 modal (Excel + PDF, 含图片)
 // ============================================================
-var ExportPanel = function ExportPanel(_ref31) {
-  var onClose = _ref31.onClose,
-    aftersales = _ref31.aftersales,
-    refills = _ref31.refills,
-    refunds = _ref31.refunds,
-    suppliers = _ref31.suppliers,
-    employees = _ref31.employees,
-    subTab = _ref31.subTab,
-    filterMonth = _ref31.filterMonth,
-    toast = _ref31.toast;
-  var _useState53 = useState(false),
-    _useState54 = _slicedToArray(_useState53, 2),
-    exporting = _useState54[0],
-    setExporting = _useState54[1];
-  var _useState55 = useState(true),
-    _useState56 = _slicedToArray(_useState55, 2),
-    includeImages = _useState56[0],
-    setIncludeImages = _useState56[1];
-  var _useState57 = useState(subTab === 'summary' ? 'all' : subTab),
-    _useState58 = _slicedToArray(_useState57, 2),
-    exportType = _useState58[0],
-    setExportType = _useState58[1];
-  var _useState59 = useState('excel'),
-    _useState60 = _slicedToArray(_useState59, 2),
-    format = _useState60[0],
-    setFormat = _useState60[1];
+var ExportPanel = function ExportPanel(_ref34) {
+  var onClose = _ref34.onClose,
+    aftersales = _ref34.aftersales,
+    refills = _ref34.refills,
+    refunds = _ref34.refunds,
+    suppliers = _ref34.suppliers,
+    employees = _ref34.employees,
+    subTab = _ref34.subTab,
+    filterMonth = _ref34.filterMonth,
+    toast = _ref34.toast;
+  var _useState61 = useState(false),
+    _useState62 = _slicedToArray(_useState61, 2),
+    exporting = _useState62[0],
+    setExporting = _useState62[1];
+  var _useState63 = useState(true),
+    _useState64 = _slicedToArray(_useState63, 2),
+    includeImages = _useState64[0],
+    setIncludeImages = _useState64[1];
+  var _useState65 = useState(subTab === 'summary' ? 'all' : subTab),
+    _useState66 = _slicedToArray(_useState65, 2),
+    exportType = _useState66[0],
+    setExportType = _useState66[1];
+  var _useState67 = useState('excel'),
+    _useState68 = _slicedToArray(_useState67, 2),
+    format = _useState68[0],
+    setFormat = _useState68[1];
 
   // Excel 导出
   var exportExcel = /*#__PURE__*/function () {
-    var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-      var XLSX, wb, addSheet, fname, _t2;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+    var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
+      var XLSX, wb, addSheet, fname, _t3;
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.p = _context8.n) {
           case 0:
             setExporting(true);
-            _context6.p = 1;
+            _context8.p = 1;
             if (window.XLSX) {
-              _context6.n = 2;
+              _context8.n = 2;
               break;
             }
-            _context6.n = 2;
+            _context8.n = 2;
             return new Promise(function (resolve, reject) {
               var script = document.createElement('script');
               script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -4066,20 +4441,20 @@ var ExportPanel = function ExportPanel(_ref31) {
             toast('✓ Excel 已下载');
             setExporting(false);
             setTimeout(onClose, 500);
-            _context6.n = 4;
+            _context8.n = 4;
             break;
           case 3:
-            _context6.p = 3;
-            _t2 = _context6.v;
-            toast('❌ 导出失败：' + _t2.message);
+            _context8.p = 3;
+            _t3 = _context8.v;
+            toast('❌ 导出失败：' + _t3.message);
             setExporting(false);
           case 4:
-            return _context6.a(2);
+            return _context8.a(2);
         }
-      }, _callee6, null, [[1, 3]]);
+      }, _callee8, null, [[1, 3]]);
     }));
     return function exportExcel() {
-      return _ref32.apply(this, arguments);
+      return _ref35.apply(this, arguments);
     };
   }();
 
@@ -4389,41 +4764,41 @@ var ExportPanel = function ExportPanel(_ref31) {
 // ============================================================
 // 汇报工单 Module - 员工汇报问题 / 主管处理
 // ============================================================
-var ReportModule = function ReportModule(_ref33) {
-  var user = _ref33.user,
-    employees = _ref33.employees,
-    toast = _ref33.toast,
-    cloudOn = _ref33.cloudOn;
-  var _useState61 = useState('inbox'),
-    _useState62 = _slicedToArray(_useState61, 2),
-    tab = _useState62[0],
-    setTab = _useState62[1]; // inbox | mine | new | all (admin)
-  var _useState63 = useState([]),
-    _useState64 = _slicedToArray(_useState63, 2),
-    tickets = _useState64[0],
-    setTickets = _useState64[1];
-  var _useState65 = useState(null),
-    _useState66 = _slicedToArray(_useState65, 2),
-    openTicket = _useState66[0],
-    setOpenTicket = _useState66[1];
-  var _useState67 = useState(null),
-    _useState68 = _slicedToArray(_useState67, 2),
-    draft = _useState68[0],
-    setDraft = _useState68[1];
+var ReportModule = function ReportModule(_ref36) {
+  var user = _ref36.user,
+    employees = _ref36.employees,
+    toast = _ref36.toast,
+    cloudOn = _ref36.cloudOn;
+  var _useState69 = useState('inbox'),
+    _useState70 = _slicedToArray(_useState69, 2),
+    tab = _useState70[0],
+    setTab = _useState70[1]; // inbox | mine | new | all (admin)
+  var _useState71 = useState([]),
+    _useState72 = _slicedToArray(_useState71, 2),
+    tickets = _useState72[0],
+    setTickets = _useState72[1];
+  var _useState73 = useState(null),
+    _useState74 = _slicedToArray(_useState73, 2),
+    openTicket = _useState74[0],
+    setOpenTicket = _useState74[1];
+  var _useState75 = useState(null),
+    _useState76 = _slicedToArray(_useState75, 2),
+    draft = _useState76[0],
+    setDraft = _useState76[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
 
   // 加载工单（云端优先）
   var loadTickets = /*#__PURE__*/function () {
-    var _ref34 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
       var cloud;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.n) {
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.n) {
           case 0:
             if (!(cloudOn && CLOUD.client)) {
-              _context7.n = 2;
+              _context9.n = 2;
               break;
             }
-            _context7.n = 1;
+            _context9.n = 1;
             return CLOUD.list('workspace_tickets', {
               order: {
                 col: 'updated_at',
@@ -4432,22 +4807,22 @@ var ReportModule = function ReportModule(_ref33) {
               limit: 500
             });
           case 1:
-            cloud = _context7.v;
+            cloud = _context9.v;
             if (!(cloud !== null)) {
-              _context7.n = 2;
+              _context9.n = 2;
               break;
             }
             setTickets(cloud);
-            return _context7.a(2);
+            return _context9.a(2);
           case 2:
             setTickets(STORE.get('tickets_local', []));
           case 3:
-            return _context7.a(2);
+            return _context9.a(2);
         }
-      }, _callee7);
+      }, _callee9);
     }));
     return function loadTickets() {
-      return _ref34.apply(this, arguments);
+      return _ref37.apply(this, arguments);
     };
   }();
   useEffect(function () {
@@ -4456,10 +4831,10 @@ var ReportModule = function ReportModule(_ref33) {
 
   // 保存工单
   var saveTicket = /*#__PURE__*/function () {
-    var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(ticket) {
+    var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(ticket) {
       var now, record, saved, local, idx;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.n) {
+      return _regenerator().w(function (_context0) {
+        while (1) switch (_context0.n) {
           case 0:
             now = nowISO();
             record = _objectSpread(_objectSpread({}, ticket), {}, {
@@ -4468,21 +4843,21 @@ var ReportModule = function ReportModule(_ref33) {
               created_at: ticket.created_at || now
             });
             if (!(cloudOn && CLOUD.client)) {
-              _context8.n = 4;
+              _context0.n = 4;
               break;
             }
-            _context8.n = 1;
+            _context0.n = 1;
             return CLOUD.upsert('workspace_tickets', record);
           case 1:
-            saved = _context8.v;
+            saved = _context0.v;
             if (!saved) {
-              _context8.n = 3;
+              _context0.n = 3;
               break;
             }
-            _context8.n = 2;
+            _context0.n = 2;
             return loadTickets();
           case 2:
-            return _context8.a(2, record);
+            return _context0.a(2, record);
           case 3:
             toast('⚠ 云端保存失败，已存至本地');
           case 4:
@@ -4493,21 +4868,21 @@ var ReportModule = function ReportModule(_ref33) {
             if (idx >= 0) local[idx] = record;else local.unshift(record);
             STORE.set('tickets_local', local);
             setTickets(local);
-            return _context8.a(2, record);
+            return _context0.a(2, record);
         }
-      }, _callee8);
+      }, _callee0);
     }));
-    return function saveTicket(_x9) {
-      return _ref35.apply(this, arguments);
+    return function saveTicket(_x1) {
+      return _ref38.apply(this, arguments);
     };
   }();
 
   // 新建工单
   var createTicket = /*#__PURE__*/function () {
-    var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(t) {
+    var _ref39 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(t) {
       var record;
-      return _regenerator().w(function (_context9) {
-        while (1) switch (_context9.n) {
+      return _regenerator().w(function (_context1) {
+        while (1) switch (_context1.n) {
           case 0:
             record = _objectSpread(_objectSpread({}, t), {}, {
               created_by_id: user.id,
@@ -4516,29 +4891,29 @@ var ReportModule = function ReportModule(_ref33) {
               comments: [],
               attachments: t.attachments || []
             });
-            _context9.n = 1;
+            _context1.n = 1;
             return saveTicket(record);
           case 1:
             setDraft(null);
             toast('✓ 工单已提交');
             setTab('mine');
           case 2:
-            return _context9.a(2);
+            return _context1.a(2);
         }
-      }, _callee9);
+      }, _callee1);
     }));
-    return function createTicket(_x0) {
-      return _ref36.apply(this, arguments);
+    return function createTicket(_x10) {
+      return _ref39.apply(this, arguments);
     };
   }();
 
   // 状态变更
   var updateStatus = /*#__PURE__*/function () {
-    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(ticket, newStatus) {
+    var _ref40 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(ticket, newStatus) {
       var _TICKET_STATUS$find;
       var comment, updated, saved;
-      return _regenerator().w(function (_context0) {
-        while (1) switch (_context0.n) {
+      return _regenerator().w(function (_context10) {
+        while (1) switch (_context10.n) {
           case 0:
             comment = {
               id: uid(),
@@ -4557,34 +4932,34 @@ var ReportModule = function ReportModule(_ref33) {
               comments: [].concat(_toConsumableArray(ticket.comments || []), [comment])
             });
             if (newStatus === 'resolved' || newStatus === 'rejected') updated.resolved_at = nowISO();
-            _context0.n = 1;
+            _context10.n = 1;
             return saveTicket(updated);
           case 1:
-            saved = _context0.v;
+            saved = _context10.v;
             setOpenTicket(saved);
             toast("\u2713 ".concat(comment.content));
           case 2:
-            return _context0.a(2);
+            return _context10.a(2);
         }
-      }, _callee0);
+      }, _callee10);
     }));
-    return function updateStatus(_x1, _x10) {
-      return _ref37.apply(this, arguments);
+    return function updateStatus(_x11, _x12) {
+      return _ref40.apply(this, arguments);
     };
   }();
 
   // 添加评论
   var addComment = /*#__PURE__*/function () {
-    var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(ticket, text) {
+    var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(ticket, text) {
       var comment, updated, saved;
-      return _regenerator().w(function (_context1) {
-        while (1) switch (_context1.n) {
+      return _regenerator().w(function (_context11) {
+        while (1) switch (_context11.n) {
           case 0:
             if (text.trim()) {
-              _context1.n = 1;
+              _context11.n = 1;
               break;
             }
-            return _context1.a(2);
+            return _context11.a(2);
           case 1:
             comment = {
               id: uid(),
@@ -4597,50 +4972,50 @@ var ReportModule = function ReportModule(_ref33) {
             updated = _objectSpread(_objectSpread({}, ticket), {}, {
               comments: [].concat(_toConsumableArray(ticket.comments || []), [comment])
             });
-            _context1.n = 2;
+            _context11.n = 2;
             return saveTicket(updated);
           case 2:
-            saved = _context1.v;
+            saved = _context11.v;
             setOpenTicket(saved);
           case 3:
-            return _context1.a(2);
+            return _context11.a(2);
         }
-      }, _callee1);
+      }, _callee11);
     }));
-    return function addComment(_x11, _x12) {
-      return _ref38.apply(this, arguments);
+    return function addComment(_x13, _x14) {
+      return _ref41.apply(this, arguments);
     };
   }();
 
   // 删除（仅创建人或主管）
   var deleteTicket = /*#__PURE__*/function () {
-    var _ref39 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(id) {
+    var _ref42 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(id) {
       var ok, local;
-      return _regenerator().w(function (_context10) {
-        while (1) switch (_context10.n) {
+      return _regenerator().w(function (_context12) {
+        while (1) switch (_context12.n) {
           case 0:
             if (confirm('永久删除此工单？')) {
-              _context10.n = 1;
+              _context12.n = 1;
               break;
             }
-            return _context10.a(2);
+            return _context12.a(2);
           case 1:
             if (!(cloudOn && CLOUD.client)) {
-              _context10.n = 4;
+              _context12.n = 4;
               break;
             }
-            _context10.n = 2;
+            _context12.n = 2;
             return CLOUD.del('workspace_tickets', id);
           case 2:
-            ok = _context10.v;
+            ok = _context12.v;
             if (!ok) {
-              _context10.n = 3;
+              _context12.n = 3;
               break;
             }
-            _context10.n = 3;
+            _context12.n = 3;
             return loadTickets();
           case 3:
-            _context10.n = 5;
+            _context12.n = 5;
             break;
           case 4:
             local = STORE.get('tickets_local', []).filter(function (t) {
@@ -4652,12 +5027,12 @@ var ReportModule = function ReportModule(_ref33) {
             setOpenTicket(null);
             toast('已删除');
           case 6:
-            return _context10.a(2);
+            return _context12.a(2);
         }
-      }, _callee10);
+      }, _callee12);
     }));
-    return function deleteTicket(_x13) {
-      return _ref39.apply(this, arguments);
+    return function deleteTicket(_x15) {
+      return _ref42.apply(this, arguments);
     };
   }();
 
@@ -4867,14 +5242,14 @@ var ReportModule = function ReportModule(_ref33) {
     }
   }));
 };
-var TicketDraftModal = function TicketDraftModal(_ref40) {
+var TicketDraftModal = function TicketDraftModal(_ref43) {
   var _draft$attachments;
-  var draft = _ref40.draft,
-    setDraft = _ref40.setDraft,
-    employees = _ref40.employees,
-    user = _ref40.user,
-    onCancel = _ref40.onCancel,
-    onSubmit = _ref40.onSubmit;
+  var draft = _ref43.draft,
+    setDraft = _ref43.setDraft,
+    employees = _ref43.employees,
+    user = _ref43.user,
+    onCancel = _ref43.onCancel,
+    onSubmit = _ref43.onSubmit;
   var fileInputRef = useRef(null);
   var handleFile = function handleFile(file) {
     if (!file) return;
@@ -5133,23 +5508,23 @@ var TicketDraftModal = function TicketDraftModal(_ref40) {
     }
   }, "\uD83D\uDCE8 \u63D0\u4EA4\u5DE5\u5355"))));
 };
-var TicketDetailModal = function TicketDetailModal(_ref41) {
+var TicketDetailModal = function TicketDetailModal(_ref44) {
   var _ticket$attachments, _ticket$comments, _ticket$comments2;
-  var ticket = _ref41.ticket,
-    user = _ref41.user,
-    employees = _ref41.employees,
-    onClose = _ref41.onClose,
-    onUpdateStatus = _ref41.onUpdateStatus,
-    onAddComment = _ref41.onAddComment,
-    onDelete = _ref41.onDelete;
-  var _useState69 = useState(''),
-    _useState70 = _slicedToArray(_useState69, 2),
-    newComment = _useState70[0],
-    setNewComment = _useState70[1];
-  var _useState71 = useState(null),
-    _useState72 = _slicedToArray(_useState71, 2),
-    viewImg = _useState72[0],
-    setViewImg = _useState72[1];
+  var ticket = _ref44.ticket,
+    user = _ref44.user,
+    employees = _ref44.employees,
+    onClose = _ref44.onClose,
+    onUpdateStatus = _ref44.onUpdateStatus,
+    onAddComment = _ref44.onAddComment,
+    onDelete = _ref44.onDelete;
+  var _useState77 = useState(''),
+    _useState78 = _slicedToArray(_useState77, 2),
+    newComment = _useState78[0],
+    setNewComment = _useState78[1];
+  var _useState79 = useState(null),
+    _useState80 = _slicedToArray(_useState79, 2),
+    viewImg = _useState80[0],
+    setViewImg = _useState80[1];
   var dept = DEPARTMENTS.find(function (d) {
     return d.key === ticket.department;
   });
