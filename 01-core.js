@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-127
-// APP_VERSION: 2026.05.30-fix127
+// 🧱 核心 · fix28-128
+// APP_VERSION: 2026.05.30-fix128
 // ════════════════════════════════════════════════════════════════════
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-127
-// APP_VERSION: 2026.05.30-fix127
+// 🧱 核心 · fix28-128
+// APP_VERSION: 2026.05.30-fix128
 // ════════════════════════════════════════════════════════════════════
 
 var _React = React,
@@ -1345,6 +1345,41 @@ var PREFIX_TO_SITE_WS = {
   MH: 'Mooiehome',
   PL: 'Pinlighting'
 };
+// 🆕 fix128: 全局"在新标签看原图" —— 不用任何浮层,物理上不可能被表单/弹窗压住(适配所有表单)
+function wsOpenImg(src) {
+  if (!src) return;
+  try {
+    if (/^data:/i.test(src)) {
+      var arr = String(src).split(',');
+      var mime = (arr[0].match(/:(.*?);/) || [])[1] || 'image/png';
+      var bstr = atob(arr[1] || '');
+      var n = bstr.length;
+      var u8 = new Uint8Array(n);
+      while (n--) u8[n] = bstr.charCodeAt(n);
+      var url = URL.createObjectURL(new Blob([u8], {
+        type: mime
+      }));
+      var w = window.open(url, '_blank');
+      if (!w) {
+        location.href = url;
+      }
+      setTimeout(function () {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {}
+      }, 60000);
+    } else {
+      window.open(src, '_blank', 'noopener');
+    }
+  } catch (e) {
+    try {
+      window.open(src, '_blank');
+    } catch (e2) {}
+  }
+}
+try {
+  window.wsOpenImg = wsOpenImg;
+} catch (e) {}
 function wsOrderSite(no) {
   var m = String(no || '').toUpperCase().match(/^([A-Z]+)/);
   if (!m) return null;

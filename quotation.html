@@ -1097,131 +1097,6 @@ fieldset legend {
 <!-- ============================================================
      SAVE & LOAD
      ============================================================ -->
-<div class="card card-collapsible collapsed">
-  <div class="card-header" onclick="toggleCard(this)">
-    <h2><span class="icon">💾</span> 保存 / 加载 · Save / Load <span id="autosave-mini" style="font-size:11px;color:#16a34a;font-weight:500;margin-left:8px;">● 草稿自动保存 · Draft auto-saved</span></h2>
-  </div>
-  <div class="card-body">
-    <div class="tabs">
-      <button class="active" id="tab-btn-cloud" onclick="switchTab('cloud',this)">☁️ 云端记录 · Cloud Records</button>
-      <button id="tab-btn-local" onclick="switchTab('local',this)">💻 本地浏览器 · Local Browser</button>
-    </div>
-
-    <!-- Cloud tab -->
-    <div id="tab-cloud" class="tab-pane">
-      <!-- View mode segmented control: My / Team / Trash -->
-      <div class="cloud-view-toggle">
-        <button class="view-mode-btn active" data-view="mine" onclick="setCloudViewMode('mine')">
-          👤 我的报价 · My <span class="count-badge" id="count-mine">0</span>
-        </button>
-        <button class="view-mode-btn" data-view="all" onclick="setCloudViewMode('all')">
-          👥 团队 · Team <span class="count-badge" id="count-all">0</span>
-        </button>
-        <button class="view-mode-btn trash-mode" data-view="trash" onclick="setCloudViewMode('trash')">
-          🗑 回收站 · Trash <span class="count-badge" id="count-trash">0</span>
-        </button>
-      </div>
-
-      <!-- Status filter chips -->
-      <div class="status-filter-row" id="status-filter-row">
-        <button class="status-chip active" data-status="" onclick="setStatusFilter('')">全部 · All</button>
-        <button class="status-chip" data-status="draft" onclick="setStatusFilter('draft')">草稿 · Draft</button>
-        <button class="status-chip" data-status="sent" onclick="setStatusFilter('sent')">已发送 · Sent</button>
-        <button class="status-chip" data-status="won" onclick="setStatusFilter('won')">成单 · Won</button>
-        <button class="status-chip" data-status="lost" onclick="setStatusFilter('lost')">丢单 · Lost</button>
-        <button class="status-chip" data-status="archived" onclick="setStatusFilter('archived')">归档 · Archived</button>
-        <button class="status-chip" id="chip-followup" onclick="toggleFollowupFilter()" style="border-color:#fcd34d;">⚑ 只看需跟进 · Follow-up</button>
-      </div>
-
-      <!-- 🎨 fix43: 大搜索框 — 独占一行,带图标 + 清空按钮 + 结果计数 -->
-      <div class="search-bar-large">
-        <span class="search-bar-icon">🔍</span>
-        <input
-          type="search"
-          id="cloud-search"
-          name="quote_filter_q"
-          placeholder="搜索客户 / PI / SKU / 状态(支持多关键词,空格分隔) · Search…"
-          autocomplete="off"
-          autocorrect="off"
-          autocapitalize="off"
-          spellcheck="false"
-          data-lpignore="true"
-          data-form-type="other"
-          aria-autocomplete="none"
-          oninput="renderCloudList()">
-        <button type="button" id="search-clear-btn" class="search-bar-clear" onclick="clearSearch()" title="清空 · Clear" style="display:none;">✕</button>
-        <span class="search-bar-count" id="search-result-count"></span>
-      </div>
-
-      <div class="cloud-filter-row">
-        <select id="cloud-date-filter" onchange="renderCloudList()" title="按日期筛选 · Filter by date">
-          <option value="all">📅 全部日期 · All dates</option>
-          <optgroup label="📅 单日 · Day">
-            <option value="today">今天 · Today</option>
-            <option value="yesterday">昨天 · Yesterday</option>
-          </optgroup>
-          <optgroup label="📆 周 · Week">
-            <option value="this_week">本周 · This week</option>
-            <option value="last_week">上周 · Last week</option>
-            <option value="week">最近 7 天 · Last 7 days</option>
-          </optgroup>
-          <optgroup label="📅 月 · Month">
-            <option value="this_month">本月 · This month</option>
-            <option value="last_month">上月 · Last month</option>
-            <option value="month">最近 30 天 · Last 30 days</option>
-          </optgroup>
-          <optgroup label="📊 季度 · Quarter">
-            <option value="this_quarter">本季度 · This quarter</option>
-            <option value="last_quarter">上季度 · Last quarter</option>
-          </optgroup>
-          <optgroup label="🗓 年 · Year">
-            <option value="this_year">本年 · This year</option>
-            <option value="last_year">去年 · Last year</option>
-          </optgroup>
-        </select>
-        <select id="cloud-user-filter" onchange="renderCloudList()" title="按团队成员筛选 · Filter by team member" style="display:none;">
-          <option value="">👥 全部成员 · All members</option>
-        </select>
-        <button class="btn-refresh" onclick="loadCloudList()" title="刷新 · Refresh">↺</button>
-      </div>
-
-      <!-- Action toolbar: Duplicate, Export, Empty Trash -->
-      <div class="cloud-toolbar">
-        <button class="toolbar-btn" onclick="duplicateAsNew()" title="将当前报价复制为新草稿（PI 自动递增） · Duplicate as new draft">📋 复制为新报价 · Duplicate as New</button>
-        <button class="toolbar-btn" onclick="exportCSV()" title="导出筛选列表到 CSV · Export filtered list to CSV">📊 导出 CSV · Export CSV</button>
-        <button class="toolbar-btn" id="btn-empty-trash" onclick="emptyTrash()" style="display:none;color:#b91c1c;">🗑 清空回收站 · Empty Trash</button>
-      </div>
-
-      <div class="cloud-list" id="cloud-list">
-        <div class="cloud-list-empty">点击 ↺ 从云端加载记录 · Click ↺ to load cloud records</div>
-      </div>
-      <div class="cloud-action-row">
-        <button class="btn-cloud-load" id="btn-cloud-load" onclick="cloudLoad()" disabled>⬇ 加载所选 · Load Selected</button>
-      </div>
-      <p class="cloud-status-msg" id="cloud-status"></p>
-    </div>
-
-    <!-- Local tab -->
-    <div id="tab-local" class="tab-pane" style="display:none;">
-      <div class="form-row" style="margin-bottom:8px;">
-        <label>筛选 · Filter</label>
-        <input type="text" id="save_search" placeholder="按名称筛选 · Filter by name" oninput="filterSaveSlots()">
-      </div>
-      <div class="local-row">
-        <div>
-          <label style="font-size:12px;font-weight:600;color:#475569;">已保存条目 · Saved Entries <span id="save-count-badge" class="save-count">0</span></label>
-          <select id="save_slots"></select>
-        </div>
-        <button id="load_button" class="btn-local load">加载 · Load</button>
-        <button id="save_button" class="btn-local save">保存 · Save</button>
-        <button id="delete_button" class="btn-local delete">删除 · Delete</button>
-      </div>
-      <p class="feedback-msg" id="feedback_message"></p>
-    </div>
-
-    <button class="btn-icon" style="background:#fff;color:#475569;border:1px solid #cbd5e1;margin-top:10px;" onclick="newQuote()">＋ 新建报价（清空当前） · New Quote (clear all)</button>
-  </div>
-</div>
 
 <!-- ============================================================
      MASTER FORM
@@ -1466,6 +1341,132 @@ fieldset legend {
     </div>
   </div>
 </div>
+<div class="card card-collapsible collapsed">
+  <div class="card-header" onclick="toggleCard(this)">
+    <h2><span class="icon">💾</span> 保存 / 加载 · Save / Load <span id="autosave-mini" style="font-size:11px;color:#16a34a;font-weight:500;margin-left:8px;">● 草稿自动保存 · Draft auto-saved</span></h2>
+  </div>
+  <div class="card-body">
+    <div class="tabs">
+      <button class="active" id="tab-btn-cloud" onclick="switchTab('cloud',this)">☁️ 云端记录 · Cloud Records</button>
+      <button id="tab-btn-local" onclick="switchTab('local',this)">💻 本地浏览器 · Local Browser</button>
+    </div>
+
+    <!-- Cloud tab -->
+    <div id="tab-cloud" class="tab-pane">
+      <!-- View mode segmented control: My / Team / Trash -->
+      <div class="cloud-view-toggle">
+        <button class="view-mode-btn active" data-view="mine" onclick="setCloudViewMode('mine')">
+          👤 我的报价 · My <span class="count-badge" id="count-mine">0</span>
+        </button>
+        <button class="view-mode-btn" data-view="all" onclick="setCloudViewMode('all')">
+          👥 团队 · Team <span class="count-badge" id="count-all">0</span>
+        </button>
+        <button class="view-mode-btn trash-mode" data-view="trash" onclick="setCloudViewMode('trash')">
+          🗑 回收站 · Trash <span class="count-badge" id="count-trash">0</span>
+        </button>
+      </div>
+
+      <!-- Status filter chips -->
+      <div class="status-filter-row" id="status-filter-row">
+        <button class="status-chip active" data-status="" onclick="setStatusFilter('')">全部 · All</button>
+        <button class="status-chip" data-status="draft" onclick="setStatusFilter('draft')">草稿 · Draft</button>
+        <button class="status-chip" data-status="sent" onclick="setStatusFilter('sent')">已发送 · Sent</button>
+        <button class="status-chip" data-status="won" onclick="setStatusFilter('won')">成单 · Won</button>
+        <button class="status-chip" data-status="lost" onclick="setStatusFilter('lost')">丢单 · Lost</button>
+        <button class="status-chip" data-status="archived" onclick="setStatusFilter('archived')">归档 · Archived</button>
+        <button class="status-chip" id="chip-followup" onclick="toggleFollowupFilter()" style="border-color:#fcd34d;">⚑ 只看需跟进 · Follow-up</button>
+      </div>
+
+      <!-- 🎨 fix43: 大搜索框 — 独占一行,带图标 + 清空按钮 + 结果计数 -->
+      <div class="search-bar-large">
+        <span class="search-bar-icon">🔍</span>
+        <input
+          type="search"
+          id="cloud-search"
+          name="quote_filter_q"
+          placeholder="搜索客户 / PI / SKU / 状态(支持多关键词,空格分隔) · Search…"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          data-lpignore="true"
+          data-form-type="other"
+          aria-autocomplete="none"
+          oninput="renderCloudList()">
+        <button type="button" id="search-clear-btn" class="search-bar-clear" onclick="clearSearch()" title="清空 · Clear" style="display:none;">✕</button>
+        <span class="search-bar-count" id="search-result-count"></span>
+      </div>
+
+      <div class="cloud-filter-row">
+        <select id="cloud-date-filter" onchange="renderCloudList()" title="按日期筛选 · Filter by date">
+          <option value="all">📅 全部日期 · All dates</option>
+          <optgroup label="📅 单日 · Day">
+            <option value="today">今天 · Today</option>
+            <option value="yesterday">昨天 · Yesterday</option>
+          </optgroup>
+          <optgroup label="📆 周 · Week">
+            <option value="this_week">本周 · This week</option>
+            <option value="last_week">上周 · Last week</option>
+            <option value="week">最近 7 天 · Last 7 days</option>
+          </optgroup>
+          <optgroup label="📅 月 · Month">
+            <option value="this_month">本月 · This month</option>
+            <option value="last_month">上月 · Last month</option>
+            <option value="month">最近 30 天 · Last 30 days</option>
+          </optgroup>
+          <optgroup label="📊 季度 · Quarter">
+            <option value="this_quarter">本季度 · This quarter</option>
+            <option value="last_quarter">上季度 · Last quarter</option>
+          </optgroup>
+          <optgroup label="🗓 年 · Year">
+            <option value="this_year">本年 · This year</option>
+            <option value="last_year">去年 · Last year</option>
+          </optgroup>
+        </select>
+        <select id="cloud-user-filter" onchange="renderCloudList()" title="按团队成员筛选 · Filter by team member" style="display:none;">
+          <option value="">👥 全部成员 · All members</option>
+        </select>
+        <button class="btn-refresh" onclick="loadCloudList()" title="刷新 · Refresh">↺</button>
+      </div>
+
+      <!-- Action toolbar: Duplicate, Export, Empty Trash -->
+      <div class="cloud-toolbar">
+        <button class="toolbar-btn" onclick="duplicateAsNew()" title="将当前报价复制为新草稿（PI 自动递增） · Duplicate as new draft">📋 复制为新报价 · Duplicate as New</button>
+        <button class="toolbar-btn" onclick="exportCSV()" title="导出筛选列表到 CSV · Export filtered list to CSV">📊 导出 CSV · Export CSV</button>
+        <button class="toolbar-btn" id="btn-empty-trash" onclick="emptyTrash()" style="display:none;color:#b91c1c;">🗑 清空回收站 · Empty Trash</button>
+      </div>
+
+      <div class="cloud-list" id="cloud-list">
+        <div class="cloud-list-empty">点击 ↺ 从云端加载记录 · Click ↺ to load cloud records</div>
+      </div>
+      <div class="cloud-action-row">
+        <button class="btn-cloud-load" id="btn-cloud-load" onclick="cloudLoad()" disabled>⬇ 加载所选 · Load Selected</button>
+      </div>
+      <p class="cloud-status-msg" id="cloud-status"></p>
+    </div>
+
+    <!-- Local tab -->
+    <div id="tab-local" class="tab-pane" style="display:none;">
+      <div class="form-row" style="margin-bottom:8px;">
+        <label>筛选 · Filter</label>
+        <input type="text" id="save_search" placeholder="按名称筛选 · Filter by name" oninput="filterSaveSlots()">
+      </div>
+      <div class="local-row">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#475569;">已保存条目 · Saved Entries <span id="save-count-badge" class="save-count">0</span></label>
+          <select id="save_slots"></select>
+        </div>
+        <button id="load_button" class="btn-local load">加载 · Load</button>
+        <button id="save_button" class="btn-local save">保存 · Save</button>
+        <button id="delete_button" class="btn-local delete">删除 · Delete</button>
+      </div>
+      <p class="feedback-msg" id="feedback_message"></p>
+    </div>
+
+    <button class="btn-icon" style="background:#fff;color:#475569;border:1px solid #cbd5e1;margin-top:10px;" onclick="newQuote()">＋ 新建报价（清空当前） · New Quote (clear all)</button>
+  </div>
+</div>
+
   <div class="qt-jump">
     <span style="font-size:12px;color:#94a3b8;">填完以上内容即可生成</span>
     <button class="qt-jump-btn" style="background:#0071e3;color:#fff;" onclick="setQtMode('preview')">👁 预览 &amp; 导出 →</button>

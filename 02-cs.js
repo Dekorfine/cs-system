@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-127
-// APP_VERSION: 2026.05.30-fix127
+// 📞 客服跟进 + 视频上传 · fix28-128
+// APP_VERSION: 2026.05.30-fix128
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
@@ -24,8 +24,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-127
-// APP_VERSION: 2026.05.30-fix127
+// 📞 客服跟进 + 视频上传 · fix28-128
+// APP_VERSION: 2026.05.30-fix128
 // ════════════════════════════════════════════════════════════════════
 
 var CSGridCard = function CSGridCard(_ref) {
@@ -5350,14 +5350,18 @@ var MultiFileUploader = function MultiFileUploader(_ref16) {
       style: {
         marginTop: 6
       }
-    }, /*#__PURE__*/React.createElement("a", {
-      href: f.url,
-      target: "_blank",
-      rel: "noreferrer",
+    }, /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return wsOpenImg(f.url);
+      },
       style: {
+        background: 'none',
+        border: 'none',
         fontSize: 11,
         color: '#7dd3fc',
-        textDecoration: 'none'
+        cursor: 'pointer',
+        padding: 0
       }
     }, "\u2197 \u5728\u65B0\u6807\u7B7E\u6253\u5F00\u539F\u56FE"))));
   }))));
@@ -6111,14 +6115,18 @@ var MultiImageUploader = function MultiImageUploader(_ref22) {
       cursor: 'pointer',
       fontSize: 11
     }
-  }, "\u2192")), /*#__PURE__*/React.createElement("a", {
-    href: attachments[previewIdx].url,
-    target: "_blank",
-    rel: "noreferrer",
+  }, "\u2192")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return wsOpenImg(attachments[previewIdx].url);
+    },
     style: {
+      background: 'none',
+      border: 'none',
       fontSize: 11,
       color: '#7dd3fc',
-      textDecoration: 'none'
+      cursor: 'pointer',
+      padding: 0
     }
   }, "\u2197 \u539F\u56FE"), /*#__PURE__*/React.createElement("button", {
     type: "button",
@@ -9714,14 +9722,18 @@ var FollowUpModal = function FollowUpModal(_ref30) {
       gap: 8,
       alignItems: 'center'
     }
-  }, /*#__PURE__*/React.createElement("a", {
-    href: viewingImg,
-    target: "_blank",
-    rel: "noreferrer",
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return wsOpenImg(viewingImg);
+    },
     style: {
+      background: 'none',
+      border: 'none',
       fontSize: 11,
       color: '#7dd3fc',
-      textDecoration: 'none'
+      cursor: 'pointer',
+      padding: 0
     }
   }, "\u2197 \u65B0\u6807\u7B7E\u770B\u539F\u56FE"), /*#__PURE__*/React.createElement("button", {
     type: "button",
