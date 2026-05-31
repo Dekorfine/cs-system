@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-98
-// APP_VERSION: 2026.05.29-fix98
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-104
+// APP_VERSION: 2026.05.30-fix104
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-98
-// APP_VERSION: 2026.05.29-fix98
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-104
+// APP_VERSION: 2026.05.30-fix104
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -3807,11 +3807,15 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
   }, [records, month]);
   var metrics = useMemo(function () {
     var m = {};
-    employees.forEach(function (e) {
+    // 🆕 fix104: 主管/老板要能看到并给【全员】打分 —— 列出所有在职客服(排除隐藏的老板账号),
+    // 本月没记录的也出现(指标显示 0),不再 skip,解决"主管看不到所有人绩效"。
+    var staff = (employees || []).filter(function (e) {
+      return !e.hideFromList && e.role !== 'super_admin';
+    });
+    staff.forEach(function (e) {
       var recs = monRecs.filter(function (r) {
         return r.ownerId === e.id;
       });
-      if (!recs.length) return;
       var un = recs.filter(function (r) {
         return r.status !== 'resolved';
       });
@@ -3828,9 +3832,9 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
         feedback: recs.filter(function (r) {
           return r.isFeedback;
         }).length,
-        avgMin: Math.round(recs.reduce(function (s, r) {
+        avgMin: recs.length ? Math.round(recs.reduce(function (s, r) {
           return s + (r.durationMin || 0);
-        }, 0) / recs.length)
+        }, 0) / recs.length) : 0
       };
     });
     return m;
