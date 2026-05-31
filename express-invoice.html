@@ -871,13 +871,12 @@ const COURIERS = {
     hs: YD_HS
   }
 };
-// 🆕 云鼎产品整理:默认申报 吊灯/Chandelier(超大件卡派基本是枝形吊灯,可逐行改)+ 同款合并成一行、数量累加、默认只一行
+// 🆕 云鼎产品整理:保留检测到的真实灯型(壁灯/吊灯/枝形吊灯…,和「建议申报」一致)· 只把 HS 固定为云鼎口径 8539510000 · 同灯型(中英文名相同)合并成一行、数量累加 · 逐行可改
 function prepYundingItems(items) {
-  // 云鼎默认申报类型 = Chandelier(你们的口径),HS 固定;逐行可改
   const norm = (items || []).map(it => ({
     ...it,
-    lampCn: '吊灯',
-    lampEn: 'Chandelier',
+    lampCn: it.lampCn || '吊灯',
+    lampEn: it.lampEn || 'Chandelier',
     hs: YD_HS,
     selected: true
   }));

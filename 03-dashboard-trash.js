@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-113
-// APP_VERSION: 2026.05.30-fix113
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-117
+// APP_VERSION: 2026.05.30-fix117
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-113
-// APP_VERSION: 2026.05.30-fix113
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-117
+// APP_VERSION: 2026.05.30-fix117
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -3820,29 +3820,41 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
       var un = recs.filter(function (r) {
         return r.status !== 'resolved';
       });
+      var ov = un.filter(function (r) {
+        return r.nextFollowUp && r.nextFollowUp < today;
+      });
+      var nf = un.filter(function (r) {
+        return !r.nextFollowUp;
+      });
+      var fb = recs.filter(function (r) {
+        return r.isFeedback;
+      });
       m[e.id] = {
         emp: e,
         total: recs.length,
         unresolved: un.length,
-        overdue: un.filter(function (r) {
-          return r.nextFollowUp && r.nextFollowUp < today;
-        }).length,
-        noFollow: un.filter(function (r) {
-          return !r.nextFollowUp;
-        }).length,
-        feedback: recs.filter(function (r) {
-          return r.isFeedback;
-        }).length,
+        overdue: ov.length,
+        noFollow: nf.length,
+        feedback: fb.length,
         avgMin: recs.length ? Math.round(recs.reduce(function (s, r) {
           return s + (r.durationMin || 0);
-        }, 0) / recs.length) : 0
-      };
+        }, 0) / recs.length) : 0,
+        _recs: recs,
+        _un: un,
+        _ov: ov,
+        _nf: nf,
+        _fb: fb
+      }; // 🆕 fix117: 明细数组,支持点击钻取
     });
     return m;
   }, [employees, monRecs, today]);
   var rows = Object.values(metrics).sort(function (a, b) {
     return b.total - a.total;
   });
+  var _useState55 = useState(null),
+    _useState56 = _slicedToArray(_useState55, 2),
+    drill = _useState56[0],
+    setDrill = _useState56[1]; // 🆕 fix117: 客观项点击 → 明细弹窗 {title, records}
   var getScore = function getScore(id, key, dflt) {
     var s = scores[id] || {};
     return s[key] !== undefined && s[key] !== '' ? s[key] : dflt;
@@ -3855,10 +3867,31 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
   var total = function total(m) {
     var t = 0;
     KPI_ITEMS.forEach(function (it) {
-      t += Number(getScore(m.emp.id, it.key, it.max)) || 0;
+      t += Number(getScore(m.emp.id, it.key, 0)) || 0;
     });
     t += Number(getScore(m.emp.id, 'bonus', m.feedback)) || 0;
     return t;
+  };
+  // 🆕 fix117: 自动建议(只填可量化的客观项 q1 邮件质量+时效 + bonus 问题反馈;主观项仍人工)
+  // q1 = 20 分起,按 逾期率/无跟进率 扣;公式透明,主管可再手动调整后保存。
+  var suggestObjective = function suggestObjective() {
+    if (readOnly) return;
+    setScores(function (prev) {
+      var next = _objectSpread({}, prev);
+      rows.forEach(function (m) {
+        var cur = _objectSpread({}, next[m.emp.id] || {});
+        var tot = m.total || 0;
+        var ovR = tot ? m.overdue / tot : 0;
+        var nfR = tot ? m.noFollow / tot : 0;
+        var q1 = Math.round(20 * (1 - 0.5 * ovR - 0.5 * nfR));
+        q1 = Math.max(0, Math.min(20, tot === 0 ? 0 : q1));
+        cur.q1 = q1;
+        cur.bonus = m.feedback; // 问题反馈奖
+        next[m.emp.id] = cur;
+      });
+      return next;
+    });
+    toast && toast('🪄 已按工作明细建议「邮件质量+时效」与「问题反馈奖」· 主观项仍需人工 · 确认后点保存');
   };
   var save = /*#__PURE__*/function () {
     var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
@@ -3945,7 +3978,20 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
       borderRadius: 6,
       fontWeight: 600
     }
-  }, "\uD83E\uDDD1\u200D\uD83D\uDCBC \u4EBA\u4E8B\u53EA\u8BFB") : /*#__PURE__*/React.createElement("button", {
+  }, "\uD83E\uDDD1\u200D\uD83D\uDCBC \u4EBA\u4E8B\u53EA\u8BFB") : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    onClick: suggestObjective,
+    title: "\u6309\u672C\u6708\u5DE5\u4F5C\u660E\u7EC6\u81EA\u52A8\u5EFA\u8BAE\u53EF\u91CF\u5316\u7684\u5BA2\u89C2\u9879(\u90AE\u4EF6\u8D28\u91CF+\u65F6\u6548\u3001\u95EE\u9898\u53CD\u9988\u5956),\u4E3B\u89C2\u9879\u4ECD\u9700\u4EBA\u5DE5,\u53EF\u518D\u8C03\u6574\u540E\u4FDD\u5B58",
+    style: {
+      padding: '5px 10px',
+      fontSize: 12,
+      border: '1px solid #c4b5fd',
+      borderRadius: 6,
+      background: '#f5f3ff',
+      color: '#6d28d9',
+      cursor: 'pointer',
+      fontWeight: 600
+    }
+  }, "\uD83E\uDE84 \u81EA\u52A8\u5EFA\u8BAE"), /*#__PURE__*/React.createElement("button", {
     onClick: save,
     disabled: saving,
     className: "btn-pri",
@@ -3953,7 +3999,7 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
       padding: '5px 12px',
       fontSize: 12
     }
-  }, saving ? '保存中…' : '💾 保存评分'))), rows.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, saving ? '保存中…' : '💾 保存评分')))), rows.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 24,
       textAlign: 'center',
@@ -4039,18 +4085,59 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
         padding: '8px',
         fontSize: 10,
         color: 'var(--ink-2)',
-        lineHeight: 1.6,
+        lineHeight: 1.8,
         minWidth: 210
       }
-    }, "\u90AE\u4EF6 ", /*#__PURE__*/React.createElement("b", null, m.total), " \xB7 \u672A\u89E3\u51B3 ", m.unresolved, " \xB7 ", /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: m.overdue ? '#dc2626' : 'inherit'
-      }
-    }, "\u903E\u671F ", m.overdue), " \xB7 \u65E0\u8DDF\u8FDB ", m.noFollow, /*#__PURE__*/React.createElement("br", null), "\u95EE\u9898\u53CD\u9988 ", /*#__PURE__*/React.createElement("b", {
-      style: {
-        color: '#059669'
-      }
-    }, m.feedback), " \xB7 \u5747\u65F6\u957F ", m.avgMin, "min"), KPI_ITEMS.map(function (it) {
+    }, function () {
+      var ds = function ds(label, list) {
+        return {
+          cursor: list.length ? 'pointer' : 'default',
+          textDecoration: list.length ? 'underline dotted' : 'none',
+          textUnderlineOffset: 2
+        };
+      };
+      var open = function open(label, list) {
+        if (list.length) setDrill({
+          title: "".concat(m.emp.name, " \xB7 ").concat(label, " (").concat(month, ")"),
+          records: list
+        });
+      };
+      return /*#__PURE__*/React.createElement(React.Fragment, null, "\u90AE\u4EF6 ", /*#__PURE__*/React.createElement("b", {
+        style: ds('邮件', m._recs),
+        onClick: function onClick() {
+          return open('全部邮件记录', m._recs);
+        },
+        title: "\u70B9\u51FB\u67E5\u770B\u660E\u7EC6"
+      }, m.total), " \xB7 ", /*#__PURE__*/React.createElement("span", {
+        style: ds('未解决', m._un),
+        onClick: function onClick() {
+          return open('未解决', m._un);
+        },
+        title: "\u70B9\u51FB\u67E5\u770B\u660E\u7EC6"
+      }, "\u672A\u89E3\u51B3 ", m.unresolved), " \xB7 ", /*#__PURE__*/React.createElement("span", {
+        style: _objectSpread(_objectSpread({}, ds('逾期', m._ov)), {}, {
+          color: m.overdue ? '#dc2626' : 'inherit'
+        }),
+        onClick: function onClick() {
+          return open('逾期', m._ov);
+        },
+        title: "\u70B9\u51FB\u67E5\u770B\u660E\u7EC6"
+      }, "\u903E\u671F ", m.overdue), " \xB7 ", /*#__PURE__*/React.createElement("span", {
+        style: ds('无跟进', m._nf),
+        onClick: function onClick() {
+          return open('无跟进', m._nf);
+        },
+        title: "\u70B9\u51FB\u67E5\u770B\u660E\u7EC6"
+      }, "\u65E0\u8DDF\u8FDB ", m.noFollow), /*#__PURE__*/React.createElement("br", null), "\u95EE\u9898\u53CD\u9988 ", /*#__PURE__*/React.createElement("b", {
+        style: _objectSpread(_objectSpread({}, ds('问题反馈', m._fb)), {}, {
+          color: '#059669'
+        }),
+        onClick: function onClick() {
+          return open('问题反馈', m._fb);
+        },
+        title: "\u70B9\u51FB\u67E5\u770B\u660E\u7EC6"
+      }, m.feedback), " \xB7 \u5747\u65F6\u957F ", m.avgMin, "min");
+    }()), KPI_ITEMS.map(function (it) {
       return /*#__PURE__*/React.createElement("td", {
         key: it.key,
         style: {
@@ -4061,7 +4148,7 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
         type: "number",
         min: "0",
         max: it.max,
-        value: getScore(m.emp.id, it.key, it.max),
+        value: getScore(m.emp.id, it.key, 0),
         onChange: function onChange(e) {
           return setScore(m.emp.id, it.key, e.target.value);
         },
@@ -4113,7 +4200,151 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
       marginTop: 8,
       lineHeight: 1.6
     }
-  }, "\u5BA2\u89C2\u9879(\u90AE\u4EF6\u91CF/\u903E\u671F/\u65E0\u8DDF\u8FDB/\u53CD\u9988/\u65F6\u957F)\u7531\u7CFB\u7EDF\u6309\u672C\u6708\u8BB0\u5F55\u81EA\u52A8\u7EDF\u8BA1,\u4EC5\u4F5C\u6253\u5206\u53C2\u8003;\u5404\u9879\u9ED8\u8BA4\u6EE1\u5206,\u4E3B\u7BA1\u6309\u5B9E\u9645\u4E0B\u8C03;\u300C\u5956\u60E9\u300D\u9ED8\u8BA4=\u95EE\u9898\u53CD\u9988\u5956(+\u53CD\u9988\u6570),\u53EF\u624B\u586B(\u552E\u540E\u6263\u5206 / \u4E92\u52A9\u52A0\u5206\u7B49)\u3002")));
+  }, "\u5BA2\u89C2\u9879(\u90AE\u4EF6\u91CF/\u903E\u671F/\u65E0\u8DDF\u8FDB/\u53CD\u9988/\u65F6\u957F)\u7531\u7CFB\u7EDF\u6309\u672C\u6708\u8BB0\u5F55\u81EA\u52A8\u7EDF\u8BA1 \xB7 \u70B9\u6570\u5B57\u53EF\u67E5\u660E\u7EC6;\u5404\u9879\u9ED8\u8BA4 0 \u5206,\u4E3B\u7BA1\u6309\u5B9E\u9645\u6253\u5206;\u300C\u5956\u60E9\u300D\u9ED8\u8BA4=\u95EE\u9898\u53CD\u9988\u5956(+\u53CD\u9988\u6570),\u53EF\u624B\u586B(\u552E\u540E\u6263\u5206 / \u4E92\u52A9\u52A0\u5206\u7B49)\u3002")), drill && /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick() {
+      return setDrill(null);
+    },
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,.5)',
+      zIndex: 100005,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick(e) {
+      return e.stopPropagation();
+    },
+    className: "paper rounded-2xl",
+    style: {
+      width: '100%',
+      maxWidth: 680,
+      maxHeight: '84vh',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '14px 18px',
+      borderBottom: '1px solid var(--line)',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      fontWeight: 700
+    }
+  }, drill.title, " \xB7 ", drill.records.length, " \u6761"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setDrill(null);
+    },
+    className: "btn-sec",
+    style: {
+      padding: '3px 10px'
+    }
+  }, "\xD7")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      overflowY: 'auto',
+      padding: '8px 0'
+    }
+  }, drill.records.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: 24,
+      textAlign: 'center',
+      color: 'var(--ink-3)',
+      fontSize: 13
+    }
+  }, "\u65E0\u8BB0\u5F55") : /*#__PURE__*/React.createElement("table", {
+    style: {
+      width: '100%',
+      fontSize: 12,
+      borderCollapse: 'collapse'
+    }
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    style: {
+      color: 'var(--ink-3)',
+      textAlign: 'left'
+    }
+  }, /*#__PURE__*/React.createElement("th", {
+    style: {
+      padding: '6px 12px'
+    }
+  }, "\u65E5\u671F"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      padding: '6px 8px'
+    }
+  }, "\u8BA2\u5355\u53F7"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      padding: '6px 8px'
+    }
+  }, "\u5BA2\u6237"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      padding: '6px 8px'
+    }
+  }, "\u4E8B\u9879"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      padding: '6px 8px'
+    }
+  }, "\u72B6\u6001"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      padding: '6px 8px'
+    }
+  }, "\u4E0B\u6B21\u8DDF\u8FDB"))), /*#__PURE__*/React.createElement("tbody", null, drill.records.map(function (r, i) {
+    return /*#__PURE__*/React.createElement("tr", {
+      key: r.id || i,
+      style: {
+        borderTop: '1px solid var(--line)'
+      }
+    }, /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: '6px 12px',
+        whiteSpace: 'nowrap'
+      }
+    }, (r.date || '').slice(5)), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: '6px 8px',
+        fontWeight: 600
+      }
+    }, r.orderRef ? /*#__PURE__*/React.createElement(OrderRefLink, {
+      orderNo: r.orderRef
+    }) : '-'), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: '6px 8px',
+        maxWidth: 140,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, r.customer || '-'), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: '6px 8px'
+      }
+    }, r.category || '-'), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: '6px 8px'
+      }
+    }, r.status === 'resolved' ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#16a34a'
+      }
+    }, "\u5DF2\u89E3\u51B3") : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#ca8a04'
+      }
+    }, "\u672A\u89E3\u51B3")), /*#__PURE__*/React.createElement("td", {
+      style: {
+        padding: '6px 8px',
+        color: r.nextFollowUp && r.nextFollowUp < today ? '#dc2626' : 'var(--ink-3)',
+        whiteSpace: 'nowrap'
+      }
+    }, r.nextFollowUp || (r.status === 'resolved' ? '—' : '未设')));
+  })))))));
 };
 
 // 📊 主管汇总面板 - 总览所有模块
@@ -4122,7 +4353,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
   var user = _ref29.user,
     employees = _ref29.employees,
     toast = _ref29.toast;
-  var _useState55 = useState({
+  var _useState57 = useState({
       chargebacks: [],
       offlineOrders: [],
       customInquiries: [],
@@ -4134,21 +4365,21 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
       records: [],
       deleteReqs: []
     }),
-    _useState56 = _slicedToArray(_useState55, 2),
-    data = _useState56[0],
-    setData = _useState56[1];
-  var _useState57 = useState(true),
     _useState58 = _slicedToArray(_useState57, 2),
-    loading = _useState58[0],
-    setLoading = _useState58[1];
-  var _useState59 = useState('all'),
+    data = _useState58[0],
+    setData = _useState58[1];
+  var _useState59 = useState(true),
     _useState60 = _slicedToArray(_useState59, 2),
-    filterEmployee = _useState60[0],
-    setFilterEmployee = _useState60[1];
-  var _useState61 = useState(null),
+    loading = _useState60[0],
+    setLoading = _useState60[1];
+  var _useState61 = useState('all'),
     _useState62 = _slicedToArray(_useState61, 2),
-    drill = _useState62[0],
-    setDrill = _useState62[1]; // 🆕 fix94: 点统计卡看明细 { title, rows }
+    filterEmployee = _useState62[0],
+    setFilterEmployee = _useState62[1];
+  var _useState63 = useState(null),
+    _useState64 = _slicedToArray(_useState63, 2),
+    drill = _useState64[0],
+    setDrill = _useState64[1]; // 🆕 fix94: 点统计卡看明细 { title, rows }
   var openDrill = function openDrill(title, rows) {
     return setDrill({
       title: title,
@@ -4985,7 +5216,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
 var AlertThresholdsSettings = function AlertThresholdsSettings(_ref32) {
   var user = _ref32.user,
     toast = _ref32.toast;
-  var _useState63 = useState({
+  var _useState65 = useState({
       cs_followup: 7,
       // 客服跟进超期天数
       chargeback: 3,
@@ -5002,17 +5233,17 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref32) {
       // 补件挂起天数
       refund: 7 // 退款待审天数
     }),
-    _useState64 = _slicedToArray(_useState63, 2),
-    thresholds = _useState64[0],
-    setThresholds = _useState64[1];
-  var _useState65 = useState(true),
     _useState66 = _slicedToArray(_useState65, 2),
-    loading = _useState66[0],
-    setLoading = _useState66[1];
-  var _useState67 = useState(false),
+    thresholds = _useState66[0],
+    setThresholds = _useState66[1];
+  var _useState67 = useState(true),
     _useState68 = _slicedToArray(_useState67, 2),
-    saving = _useState68[0],
-    setSaving = _useState68[1];
+    loading = _useState68[0],
+    setLoading = _useState68[1];
+  var _useState69 = useState(false),
+    _useState70 = _slicedToArray(_useState69, 2),
+    saving = _useState70[0],
+    setSaving = _useState70[1];
   var load = /*#__PURE__*/function () {
     var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
       var _yield$CLOUD$client$f3, data, _t13;
@@ -5395,30 +5626,30 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref36) {
     toast = _ref36.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   // 按网站映射 + 周六值班 + 周日值班
-  var _useState69 = useState({}),
-    _useState70 = _slicedToArray(_useState69, 2),
-    siteOwners = _useState70[0],
-    setSiteOwners = _useState70[1]; // site -> uid
-  var _useState71 = useState(''),
+  var _useState71 = useState({}),
     _useState72 = _slicedToArray(_useState71, 2),
-    defaultOwner = _useState72[0],
-    setDefaultOwner = _useState72[1]; // 其他网站默认负责人
+    siteOwners = _useState72[0],
+    setSiteOwners = _useState72[1]; // site -> uid
   var _useState73 = useState(''),
     _useState74 = _slicedToArray(_useState73, 2),
-    saturdayOwner = _useState74[0],
-    setSaturdayOwner = _useState74[1]; // 🆕 周六值班
+    defaultOwner = _useState74[0],
+    setDefaultOwner = _useState74[1]; // 其他网站默认负责人
   var _useState75 = useState(''),
     _useState76 = _slicedToArray(_useState75, 2),
-    sundayOwner = _useState76[0],
-    setSundayOwner = _useState76[1]; // 🆕 周日值班
-  var _useState77 = useState(true),
+    saturdayOwner = _useState76[0],
+    setSaturdayOwner = _useState76[1]; // 🆕 周六值班
+  var _useState77 = useState(''),
     _useState78 = _slicedToArray(_useState77, 2),
-    loading = _useState78[0],
-    setLoading = _useState78[1];
-  var _useState79 = useState(false),
+    sundayOwner = _useState78[0],
+    setSundayOwner = _useState78[1]; // 🆕 周日值班
+  var _useState79 = useState(true),
     _useState80 = _slicedToArray(_useState79, 2),
-    saving = _useState80[0],
-    setSaving = _useState80[1];
+    loading = _useState80[0],
+    setLoading = _useState80[1];
+  var _useState81 = useState(false),
+    _useState82 = _slicedToArray(_useState81, 2),
+    saving = _useState82[0],
+    setSaving = _useState82[1];
   var visibleEmployees = employees.filter(function (em) {
     return !em.hideFromList;
   });
@@ -5763,18 +5994,18 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref39) {
   var employees = _ref39.employees,
     user = _ref39.user,
     toast = _ref39.toast;
-  var _useState81 = useState(['u_miya', 'u_nicole', 'u_yulia']),
-    _useState82 = _slicedToArray(_useState81, 2),
-    selectedIds = _useState82[0],
-    setSelectedIds = _useState82[1];
-  var _useState83 = useState(true),
+  var _useState83 = useState(['u_miya', 'u_nicole', 'u_yulia']),
     _useState84 = _slicedToArray(_useState83, 2),
-    loading = _useState84[0],
-    setLoading = _useState84[1];
-  var _useState85 = useState(false),
+    selectedIds = _useState84[0],
+    setSelectedIds = _useState84[1];
+  var _useState85 = useState(true),
     _useState86 = _slicedToArray(_useState85, 2),
-    saving = _useState86[0],
-    setSaving = _useState86[1];
+    loading = _useState86[0],
+    setLoading = _useState86[1];
+  var _useState87 = useState(false),
+    _useState88 = _slicedToArray(_useState87, 2),
+    saving = _useState88[0],
+    setSaving = _useState88[1];
   var visibleEmployees = (employees || []).filter(function (em) {
     return !em.hideFromList;
   });
@@ -6041,22 +6272,22 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref39) {
 var SitesMaintenanceSection = function SitesMaintenanceSection(_ref42) {
   var user = _ref42.user,
     toast = _ref42.toast;
-  var _useState87 = useState([]),
-    _useState88 = _slicedToArray(_useState87, 2),
-    customSites = _useState88[0],
-    setCustomSites = _useState88[1];
-  var _useState89 = useState(true),
+  var _useState89 = useState([]),
     _useState90 = _slicedToArray(_useState89, 2),
-    loading = _useState90[0],
-    setLoading = _useState90[1];
-  var _useState91 = useState(false),
+    customSites = _useState90[0],
+    setCustomSites = _useState90[1];
+  var _useState91 = useState(true),
     _useState92 = _slicedToArray(_useState91, 2),
-    showNew = _useState92[0],
-    setShowNew = _useState92[1];
-  var _useState93 = useState(null),
+    loading = _useState92[0],
+    setLoading = _useState92[1];
+  var _useState93 = useState(false),
     _useState94 = _slicedToArray(_useState93, 2),
-    editing = _useState94[0],
-    setEditing = _useState94[1];
+    showNew = _useState94[0],
+    setShowNew = _useState94[1];
+  var _useState95 = useState(null),
+    _useState96 = _slicedToArray(_useState95, 2),
+    editing = _useState96[0],
+    setEditing = _useState96[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
     var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
@@ -6514,30 +6745,30 @@ var SiteEditorModal = function SiteEditorModal(_ref48) {
   var site = _ref48.site,
     onSave = _ref48.onSave,
     onClose = _ref48.onClose;
-  var _useState95 = useState((site === null || site === void 0 ? void 0 : site.code) || ''),
-    _useState96 = _slicedToArray(_useState95, 2),
-    code = _useState96[0],
-    setCode = _useState96[1];
-  var _useState97 = useState((site === null || site === void 0 ? void 0 : site.name) || ''),
+  var _useState97 = useState((site === null || site === void 0 ? void 0 : site.code) || ''),
     _useState98 = _slicedToArray(_useState97, 2),
-    name = _useState98[0],
-    setName = _useState98[1];
-  var _useState99 = useState((site === null || site === void 0 ? void 0 : site.brand) || ''),
+    code = _useState98[0],
+    setCode = _useState98[1];
+  var _useState99 = useState((site === null || site === void 0 ? void 0 : site.name) || ''),
     _useState100 = _slicedToArray(_useState99, 2),
-    brand = _useState100[0],
-    setBrand = _useState100[1];
-  var _useState101 = useState((site === null || site === void 0 ? void 0 : site.domain) || ''),
+    name = _useState100[0],
+    setName = _useState100[1];
+  var _useState101 = useState((site === null || site === void 0 ? void 0 : site.brand) || ''),
     _useState102 = _slicedToArray(_useState101, 2),
-    domain = _useState102[0],
-    setDomain = _useState102[1];
-  var _useState103 = useState((site === null || site === void 0 ? void 0 : site.color) || '#0369a1'),
+    brand = _useState102[0],
+    setBrand = _useState102[1];
+  var _useState103 = useState((site === null || site === void 0 ? void 0 : site.domain) || ''),
     _useState104 = _slicedToArray(_useState103, 2),
-    color = _useState104[0],
-    setColor = _useState104[1];
-  var _useState105 = useState((site === null || site === void 0 ? void 0 : site.prefix) || ''),
+    domain = _useState104[0],
+    setDomain = _useState104[1];
+  var _useState105 = useState((site === null || site === void 0 ? void 0 : site.color) || '#0369a1'),
     _useState106 = _slicedToArray(_useState105, 2),
-    prefix = _useState106[0],
-    setPrefix = _useState106[1];
+    color = _useState106[0],
+    setColor = _useState106[1];
+  var _useState107 = useState((site === null || site === void 0 ? void 0 : site.prefix) || ''),
+    _useState108 = _slicedToArray(_useState107, 2),
+    prefix = _useState108[0],
+    setPrefix = _useState108[1];
   var isEdit = !!site;
   var handleSave = function handleSave() {
     if (!code.trim() || !name.trim()) {
@@ -6828,34 +7059,34 @@ var getShopFromSiteCode = function getShopFromSiteCode(code) {
 var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref49) {
   var user = _ref49.user,
     toast = _ref49.toast;
-  var _useState107 = useState([]),
-    _useState108 = _slicedToArray(_useState107, 2),
-    products = _useState108[0],
-    setProducts = _useState108[1];
-  var _useState109 = useState(true),
+  var _useState109 = useState([]),
     _useState110 = _slicedToArray(_useState109, 2),
-    loading = _useState110[0],
-    setLoading = _useState110[1];
-  var _useState111 = useState(''),
+    products = _useState110[0],
+    setProducts = _useState110[1];
+  var _useState111 = useState(true),
     _useState112 = _slicedToArray(_useState111, 2),
-    search = _useState112[0],
-    setSearch = _useState112[1];
-  var _useState113 = useState('all'),
+    loading = _useState112[0],
+    setLoading = _useState112[1];
+  var _useState113 = useState(''),
     _useState114 = _slicedToArray(_useState113, 2),
-    filterCategory = _useState114[0],
-    setFilterCategory = _useState114[1];
+    search = _useState114[0],
+    setSearch = _useState114[1];
   var _useState115 = useState('all'),
     _useState116 = _slicedToArray(_useState115, 2),
-    filterSupplier = _useState116[0],
-    setFilterSupplier = _useState116[1];
-  var _useState117 = useState(null),
+    filterCategory = _useState116[0],
+    setFilterCategory = _useState116[1];
+  var _useState117 = useState('all'),
     _useState118 = _slicedToArray(_useState117, 2),
-    editing = _useState118[0],
-    setEditing = _useState118[1]; // null | 'new' | productObj
-  var _useState119 = useState([]),
+    filterSupplier = _useState118[0],
+    setFilterSupplier = _useState118[1];
+  var _useState119 = useState(null),
     _useState120 = _slicedToArray(_useState119, 2),
-    suppliers = _useState120[0],
-    setSuppliers = _useState120[1];
+    editing = _useState120[0],
+    setEditing = _useState120[1]; // null | 'new' | productObj
+  var _useState121 = useState([]),
+    _useState122 = _slicedToArray(_useState121, 2),
+    suppliers = _useState122[0],
+    setSuppliers = _useState122[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
     var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
@@ -7348,54 +7579,54 @@ var ProductEditorModal = function ProductEditorModal(_ref52) {
     categories = _ref52.categories,
     onClose = _ref52.onClose,
     onSaved = _ref52.onSaved;
-  var _useState121 = useState((product === null || product === void 0 ? void 0 : product.sku) || ''),
-    _useState122 = _slicedToArray(_useState121, 2),
-    sku = _useState122[0],
-    setSku = _useState122[1];
-  var _useState123 = useState((product === null || product === void 0 ? void 0 : product.name) || ''),
+  var _useState123 = useState((product === null || product === void 0 ? void 0 : product.sku) || ''),
     _useState124 = _slicedToArray(_useState123, 2),
-    name = _useState124[0],
-    setName = _useState124[1];
-  var _useState125 = useState((product === null || product === void 0 ? void 0 : product.category) || 'lighting'),
+    sku = _useState124[0],
+    setSku = _useState124[1];
+  var _useState125 = useState((product === null || product === void 0 ? void 0 : product.name) || ''),
     _useState126 = _slicedToArray(_useState125, 2),
-    category = _useState126[0],
-    setCategory = _useState126[1];
-  var _useState127 = useState((product === null || product === void 0 ? void 0 : product.supplier_id) || ''),
+    name = _useState126[0],
+    setName = _useState126[1];
+  var _useState127 = useState((product === null || product === void 0 ? void 0 : product.category) || 'lighting'),
     _useState128 = _slicedToArray(_useState127, 2),
-    supplierId = _useState128[0],
-    setSupplierId = _useState128[1];
-  var _useState129 = useState((product === null || product === void 0 ? void 0 : product.default_unit_price) || ''),
+    category = _useState128[0],
+    setCategory = _useState128[1];
+  var _useState129 = useState((product === null || product === void 0 ? void 0 : product.supplier_id) || ''),
     _useState130 = _slicedToArray(_useState129, 2),
-    defaultPrice = _useState130[0],
-    setDefaultPrice = _useState130[1];
-  var _useState131 = useState((product === null || product === void 0 ? void 0 : product.default_currency) || 'USD'),
+    supplierId = _useState130[0],
+    setSupplierId = _useState130[1];
+  var _useState131 = useState((product === null || product === void 0 ? void 0 : product.default_unit_price) || ''),
     _useState132 = _slicedToArray(_useState131, 2),
-    defaultCurrency = _useState132[0],
-    setDefaultCurrency = _useState132[1];
-  var _useState133 = useState((product === null || product === void 0 ? void 0 : product.image) || ''),
+    defaultPrice = _useState132[0],
+    setDefaultPrice = _useState132[1];
+  var _useState133 = useState((product === null || product === void 0 ? void 0 : product.default_currency) || 'USD'),
     _useState134 = _slicedToArray(_useState133, 2),
-    image = _useState134[0],
-    setImage = _useState134[1];
-  var _useState135 = useState((product === null || product === void 0 ? void 0 : product.url) || ''),
+    defaultCurrency = _useState134[0],
+    setDefaultCurrency = _useState134[1];
+  var _useState135 = useState((product === null || product === void 0 ? void 0 : product.image) || ''),
     _useState136 = _slicedToArray(_useState135, 2),
-    url = _useState136[0],
-    setUrl = _useState136[1];
-  var _useState137 = useState((product === null || product === void 0 ? void 0 : product.description) || ''),
+    image = _useState136[0],
+    setImage = _useState136[1];
+  var _useState137 = useState((product === null || product === void 0 ? void 0 : product.url) || ''),
     _useState138 = _slicedToArray(_useState137, 2),
-    description = _useState138[0],
-    setDescription = _useState138[1];
-  var _useState139 = useState((product === null || product === void 0 ? void 0 : product.tags) || ''),
+    url = _useState138[0],
+    setUrl = _useState138[1];
+  var _useState139 = useState((product === null || product === void 0 ? void 0 : product.description) || ''),
     _useState140 = _slicedToArray(_useState139, 2),
-    tags = _useState140[0],
-    setTags = _useState140[1];
-  var _useState141 = useState((product === null || product === void 0 ? void 0 : product.notes) || ''),
+    description = _useState140[0],
+    setDescription = _useState140[1];
+  var _useState141 = useState((product === null || product === void 0 ? void 0 : product.tags) || ''),
     _useState142 = _slicedToArray(_useState141, 2),
-    notes = _useState142[0],
-    setNotes = _useState142[1];
-  var _useState143 = useState(false),
+    tags = _useState142[0],
+    setTags = _useState142[1];
+  var _useState143 = useState((product === null || product === void 0 ? void 0 : product.notes) || ''),
     _useState144 = _slicedToArray(_useState143, 2),
-    saving = _useState144[0],
-    setSaving = _useState144[1];
+    notes = _useState144[0],
+    setNotes = _useState144[1];
+  var _useState145 = useState(false),
+    _useState146 = _slicedToArray(_useState145, 2),
+    saving = _useState146[0],
+    setSaving = _useState146[1];
   var isEdit = !!product;
   var handleSave = /*#__PURE__*/function () {
     var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {

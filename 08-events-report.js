@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-111
-// APP_VERSION: 2026.05.30-fix111
+// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-117
+// APP_VERSION: 2026.05.30-fix117
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 var _excluded = ["payload"];
@@ -28,8 +28,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-111
-// APP_VERSION: 2026.05.30-fix111
+// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-117
+// APP_VERSION: 2026.05.30-fix117
 // ════════════════════════════════════════════════════════════════════
 
 var EventsModule = function EventsModule(_ref) {
@@ -1012,7 +1012,7 @@ var EventsModule = function EventsModule(_ref) {
 // ============================================================
 // 售后清单表格
 // ============================================================
-// 🆕 fix107: 按订单号自动拉产品图缩略图(点击预览)+ 订单号跳转链接 —— 售后/各模块复用
+// 🆕 fix107/116: 按订单号自动拉产品图(点击预览)+ 多产品手动选 + 手动上传/换图 —— 售后/补件/退款/拒付复用
 var OrderProductThumb = function OrderProductThumb(_ref0) {
   var orderNo = _ref0.orderNo,
     onPreview = _ref0.onPreview;
@@ -1067,20 +1067,6 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
     };
   }, [orderNo]);
   if (!orderNo) return null;
-  if (st.loading) return /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 10,
-      color: 'var(--ink-4)'
-    }
-  }, "\u62C9\u53D6\u4E2D\u2026");
-  var prods = st.products || [];
-  if (!prods.length) return /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 10,
-      color: 'var(--ink-4)'
-    },
-    title: "\u672A\u5339\u914D\u5230\u8BA2\u5355\u4EA7\u54C1\u56FE"
-  }, "\u4EA7\u54C1\u56FE \u2014");
   var choose = function choose(p) {
     setPicked(p);
     try {
@@ -1088,7 +1074,71 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
     } catch (e) {}
     setShowPicker(false);
   };
-  // 单产品 → 直接显示;已手动选过 → 显示所选;多产品未选 → 不盲目显示第一张,提示选择(避免误导)
+  var clearPick = function clearPick() {
+    setPicked(null);
+    try {
+      localStorage.removeItem(pickKey);
+    } catch (e) {}
+  };
+  var onManualFile = function onManualFile(file) {
+    if (!file || !(file.type || '').startsWith('image/')) return;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var c = document.createElement('canvas');
+          var w = img.width,
+            h = img.height;
+          var M = 480;
+          if (w > M || h > M) {
+            if (w > h) {
+              h = Math.round(h * M / w);
+              w = M;
+            } else {
+              w = Math.round(w * M / h);
+              h = M;
+            }
+          }
+          c.width = w;
+          c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          choose({
+            image_url: c.toDataURL('image/jpeg', 0.82),
+            title: '手动添加',
+            manual: true
+          });
+        } catch (err) {
+          choose({
+            image_url: e.target.result,
+            title: '手动添加',
+            manual: true
+          });
+        }
+      };
+      img.onerror = function () {
+        return choose({
+          image_url: e.target.result,
+          title: '手动添加',
+          manual: true
+        });
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  var manualBtnStyle = {
+    padding: '5px 10px',
+    fontSize: 12,
+    border: 'none',
+    borderRadius: 6,
+    background: '#0071e3',
+    color: 'white',
+    cursor: 'pointer',
+    fontWeight: 600,
+    display: 'inline-block'
+  };
+  var prods = st.products || [];
   var single = prods.length === 1 ? prods[0] : null;
   var show = picked || single;
   return /*#__PURE__*/React.createElement("div", {
@@ -1097,7 +1147,12 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
       alignItems: 'center',
       gap: 4
     }
-  }, show ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("img", {
+  }, st.loading ? /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-4)'
+    }
+  }, "\u62C9\u53D6\u4E2D\u2026") : show ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("img", {
     src: show.image_url,
     alt: "",
     title: show.title || '',
@@ -1109,14 +1164,14 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
       height: 40,
       objectFit: 'cover',
       borderRadius: 5,
-      border: '1px solid #c7d2fe',
+      border: '1px solid ' + (show.manual ? '#86efac' : '#c7d2fe'),
       cursor: 'zoom-in'
     }
-  }), prods.length > 1 && /*#__PURE__*/React.createElement("button", {
+  }), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setShowPicker(true);
     },
-    title: "\u8BE5\u8BA2\u5355\u591A\u4E2A\u4EA7\u54C1 \xB7 \u70B9\u6B64\u91CD\u9009",
+    title: show.manual ? '手动图 · 点此换图/重选' : prods.length > 1 ? '多产品 · 点此重选' : '换图/手动上传',
     style: {
       padding: '2px 5px',
       fontSize: 9,
@@ -1127,7 +1182,7 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
       color: 'var(--ink-3)',
       fontWeight: 600
     }
-  }, "\u91CD\u9009 \xD7", prods.length)) : /*#__PURE__*/React.createElement("button", {
+  }, show.manual ? '换图' : prods.length > 1 ? '重选 ×' + prods.length : '换图')) : prods.length > 1 ? /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setShowPicker(true);
     },
@@ -1142,7 +1197,22 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
       color: '#b45309',
       fontWeight: 600
     }
-  }, "\u9009\u4EA7\u54C1 \xD7", prods.length), showPicker && /*#__PURE__*/React.createElement("div", {
+  }, "\u9009\u4EA7\u54C1 \xD7", prods.length) : /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setShowPicker(true);
+    },
+    title: "\u672A\u81EA\u52A8\u5339\u914D\u5230 \xB7 \u70B9\u6B64\u624B\u52A8\u52A0\u56FE",
+    style: {
+      padding: '4px 8px',
+      fontSize: 10,
+      border: '1px dashed var(--line)',
+      borderRadius: 5,
+      background: 'white',
+      cursor: 'pointer',
+      color: 'var(--ink-3)',
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCCE \u624B\u52A8\u52A0\u56FE"), showPicker && /*#__PURE__*/React.createElement("div", {
     onClick: function onClick() {
       return setShowPicker(false);
     },
@@ -1174,13 +1244,43 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
       fontWeight: 700,
       marginBottom: 2
     }
-  }, "\u9009\u62E9\u5339\u914D\u7684\u4EA7\u54C1"), /*#__PURE__*/React.createElement("div", {
+  }, "\u9009\u62E9 / \u624B\u52A8\u6DFB\u52A0\u4EA7\u54C1\u56FE"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12,
       color: 'var(--ink-3)',
       marginBottom: 12
     }
-  }, orderNo, " \xB7 \u5171 ", prods.length, " \u4E2A\u4EA7\u54C1,\u9009\u51FA\u6B64\u8BB0\u5F55\u5BF9\u5E94\u7684\u90A3\u4E2A(\u907F\u514D\u591A\u4EA7\u54C1\u8BEF\u5BFC)"), /*#__PURE__*/React.createElement("div", {
+  }, orderNo, " \xB7 \u81EA\u52A8\u62C9\u5230 ", prods.length, " \u4E2A\u4EA7\u54C1;\u9009\u4E00\u4E2A,\u6216\u81EA\u52A8\u6709\u8BEF\u65F6\u624B\u52A8\u4E0A\u4F20"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      alignItems: 'center',
+      marginBottom: 14,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: manualBtnStyle
+  }, "\uD83D\uDCCE \u624B\u52A8\u4E0A\u4F20\u56FE\u7247", /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    style: {
+      display: 'none'
+    },
+    onChange: function onChange(e) {
+      onManualFile(e.target.files && e.target.files[0]);
+      e.target.value = '';
+    }
+  })), picked && /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      clearPick();
+      setShowPicker(false);
+    },
+    className: "btn-sec",
+    style: {
+      padding: '5px 10px',
+      fontSize: 12
+    }
+  }, "\u6E05\u9664\u5F53\u524D\u56FE")), prods.length > 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fill,minmax(120px,1fr))',
@@ -1232,18 +1332,45 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
         color: 'var(--ink-3)'
       }
     }, "\xD7", p.quantity));
-  })))));
+  })) : /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-4)',
+      textAlign: 'center',
+      padding: '16px 0'
+    }
+  }, "\u672A\u81EA\u52A8\u5339\u914D\u5230\u8BE5\u8BA2\u5355\u7684\u4EA7\u54C1\u56FE,\u8BF7\u7528\u4E0A\u65B9\u300C\u624B\u52A8\u4E0A\u4F20\u56FE\u7247\u300D\u3002"), picked && picked.manual && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 12,
+      fontSize: 11,
+      color: '#15803d'
+    }
+  }, "\u2705 \u5F53\u524D\u7528\u624B\u52A8\u4E0A\u4F20\u7684\u56FE\u7247"))));
 };
 var OrderRefLink = function OrderRefLink(_ref1) {
   var orderNo = _ref1.orderNo,
     style = _ref1.style;
+  var _useState39 = useState(''),
+    _useState40 = _slicedToArray(_useState39, 2),
+    url = _useState40[0],
+    setUrl = _useState40[1];
+  useEffect(function () {
+    var alive = true;
+    if (!orderNo) return;
+    wsFetchOrderProducts(orderNo).then(function (v) {
+      if (alive && v && v.orderUrl) setUrl(v.orderUrl);
+    })["catch"](function () {});
+    return function () {
+      alive = false;
+    };
+  }, [orderNo]);
   if (!orderNo) return /*#__PURE__*/React.createElement("span", null, "-");
-  var url = wsOrderAdminUrl(orderNo);
-  return url ? /*#__PURE__*/React.createElement("a", {
-    href: url,
+  var href = url || wsOrderAdminUrl(orderNo); // 🆕 fix116: 优先真实订单页(含订单ID,直达),未拉到时退后台搜索
+  return href ? /*#__PURE__*/React.createElement("a", {
+    href: href,
     target: "_blank",
     rel: "noopener noreferrer",
-    title: "\u6253\u5F00\u8BA2\u5355\u540E\u53F0\u9875",
+    title: url ? '打开订单页' : '打开订单后台搜索',
     style: _objectSpread({
       color: 'var(--accent)',
       textDecoration: 'none',
@@ -1436,34 +1563,34 @@ var AseToOrdersModal = function AseToOrdersModal(_ref10) {
     onClose = _ref10.onClose,
     onDone = _ref10.onDone,
     toast = _ref10.toast;
-  var _useState39 = useState([]),
-    _useState40 = _slicedToArray(_useState39, 2),
-    poPeople = _useState40[0],
-    setPoPeople = _useState40[1];
-  var _useState41 = useState(''),
+  var _useState41 = useState([]),
     _useState42 = _slicedToArray(_useState41, 2),
-    assignee = _useState42[0],
-    setAssignee = _useState42[1];
-  var _useState43 = useState(false),
+    poPeople = _useState42[0],
+    setPoPeople = _useState42[1];
+  var _useState43 = useState(''),
     _useState44 = _slicedToArray(_useState43, 2),
-    sending = _useState44[0],
-    setSending = _useState44[1];
-  var _useState45 = useState(undefined),
+    assignee = _useState44[0],
+    setAssignee = _useState44[1];
+  var _useState45 = useState(false),
     _useState46 = _slicedToArray(_useState45, 2),
-    ase = _useState46[0],
-    setAse = _useState46[1]; // undefined=加载中, null=未转, obj=已转
-  var _useState47 = useState(''),
+    sending = _useState46[0],
+    setSending = _useState46[1];
+  var _useState47 = useState(undefined),
     _useState48 = _slicedToArray(_useState47, 2),
-    note = _useState48[0],
-    setNote = _useState48[1];
-  var _useState49 = useState(false),
+    ase = _useState48[0],
+    setAse = _useState48[1]; // undefined=加载中, null=未转, obj=已转
+  var _useState49 = useState(''),
     _useState50 = _slicedToArray(_useState49, 2),
-    busy = _useState50[0],
-    setBusy = _useState50[1];
-  var _useState51 = useState(null),
+    note = _useState50[0],
+    setNote = _useState50[1];
+  var _useState51 = useState(false),
     _useState52 = _slicedToArray(_useState51, 2),
-    preview = _useState52[0],
-    setPreview = _useState52[1];
+    busy = _useState52[0],
+    setBusy = _useState52[1];
+  var _useState53 = useState(null),
+    _useState54 = _slicedToArray(_useState53, 2),
+    preview = _useState54[0],
+    setPreview = _useState54[1];
   var loadAse = /*#__PURE__*/function () {
     var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
       var c, _yield$c$from$select$, data, _t2;
@@ -2063,18 +2190,18 @@ var AftersalesTable = function AftersalesTable(_ref16) {
     onEdit = _ref16.onEdit,
     onDelete = _ref16.onDelete,
     onUpdateStatus = _ref16.onUpdateStatus;
-  var _useState53 = useState(null),
-    _useState54 = _slicedToArray(_useState53, 2),
-    openImageId = _useState54[0],
-    setOpenImageId = _useState54[1];
   var _useState55 = useState(null),
     _useState56 = _slicedToArray(_useState55, 2),
-    prodPreview = _useState56[0],
-    setProdPreview = _useState56[1];
+    openImageId = _useState56[0],
+    setOpenImageId = _useState56[1];
   var _useState57 = useState(null),
     _useState58 = _slicedToArray(_useState57, 2),
-    aseToOrders = _useState58[0],
-    setAseToOrders = _useState58[1];
+    prodPreview = _useState58[0],
+    setProdPreview = _useState58[1];
+  var _useState59 = useState(null),
+    _useState60 = _slicedToArray(_useState59, 2),
+    aseToOrders = _useState60[0],
+    setAseToOrders = _useState60[1];
   if (items.length === 0) return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-12 fade-in",
     style: {
@@ -2378,10 +2505,14 @@ var RefillsTable = function RefillsTable(_ref17) {
     onEdit = _ref17.onEdit,
     onDelete = _ref17.onDelete,
     onUpdateStatus = _ref17.onUpdateStatus;
-  var _useState59 = useState(null),
-    _useState60 = _slicedToArray(_useState59, 2),
-    openImageId = _useState60[0],
-    setOpenImageId = _useState60[1];
+  var _useState61 = useState(null),
+    _useState62 = _slicedToArray(_useState61, 2),
+    openImageId = _useState62[0],
+    setOpenImageId = _useState62[1];
+  var _useState63 = useState(null),
+    _useState64 = _slicedToArray(_useState63, 2),
+    prodPreview = _useState64[0],
+    setProdPreview = _useState64[1];
   if (items.length === 0) return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-12 fade-in",
     style: {
@@ -2419,6 +2550,10 @@ var RefillsTable = function RefillsTable(_ref17) {
       width: '80px'
     }
   }, "\u56FE\u7247"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      width: '90px'
+    }
+  }, "\u4EA7\u54C1\u56FE"), /*#__PURE__*/React.createElement("th", {
     style: {
       width: '95px'
     }
@@ -2460,7 +2595,9 @@ var RefillsTable = function RefillsTable(_ref17) {
         fontSize: 12,
         fontWeight: 600
       }
-    }, e.order_ref), /*#__PURE__*/React.createElement("td", {
+    }, /*#__PURE__*/React.createElement(OrderRefLink, {
+      orderNo: e.order_ref
+    })), /*#__PURE__*/React.createElement("td", {
       style: {
         fontSize: 12
       }
@@ -2506,7 +2643,10 @@ var RefillsTable = function RefillsTable(_ref17) {
           fontFamily: 'inherit'
         }
       }, "\uD83D\uDCF7 ", e.attachments.length));
-    }() : '-'), /*#__PURE__*/React.createElement("td", {
+    }() : '-'), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(OrderProductThumb, {
+      orderNo: e.order_ref,
+      onPreview: setProdPreview
+    })), /*#__PURE__*/React.createElement("td", {
       style: {
         fontSize: 11,
         color: 'var(--ink-2)'
@@ -2601,11 +2741,15 @@ var RefundsTable = function RefundsTable(_ref18) {
     onEdit = _ref18.onEdit,
     onDelete = _ref18.onDelete,
     onReview = _ref18.onReview;
-  var _useState61 = useState(null),
-    _useState62 = _slicedToArray(_useState61, 2),
-    openImageId = _useState62[0],
-    setOpenImageId = _useState62[1];
+  var _useState65 = useState(null),
+    _useState66 = _slicedToArray(_useState65, 2),
+    openImageId = _useState66[0],
+    setOpenImageId = _useState66[1];
   // 顶部汇总
+  var _useState67 = useState(null),
+    _useState68 = _slicedToArray(_useState67, 2),
+    prodPreview = _useState68[0],
+    setProdPreview = _useState68[1];
   var summary = useMemo(function () {
     var byStatus = items.reduce(function (acc, r) {
       acc[r.status] = (acc[r.status] || 0) + 1;
@@ -2762,6 +2906,10 @@ var RefundsTable = function RefundsTable(_ref18) {
     }
   }, "\u56FE\u7247"), /*#__PURE__*/React.createElement("th", {
     style: {
+      width: '90px'
+    }
+  }, "\u4EA7\u54C1\u56FE"), /*#__PURE__*/React.createElement("th", {
+    style: {
       width: '95px'
     }
   }, "\u72B6\u6001"), /*#__PURE__*/React.createElement("th", {
@@ -2793,7 +2941,9 @@ var RefundsTable = function RefundsTable(_ref18) {
         fontSize: 12,
         fontWeight: 600
       }
-    }, r.order_ref), /*#__PURE__*/React.createElement("td", {
+    }, /*#__PURE__*/React.createElement(OrderRefLink, {
+      orderNo: r.order_ref
+    })), /*#__PURE__*/React.createElement("td", {
       style: {
         fontSize: 11,
         color: 'var(--ink-3)'
@@ -2878,7 +3028,10 @@ var RefundsTable = function RefundsTable(_ref18) {
           fontFamily: 'inherit'
         }
       }, "\uD83D\uDCF7 ", r.attachments.length));
-    }() : '-'), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+    }() : '-'), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(OrderProductThumb, {
+      orderNo: r.order_ref,
+      onPreview: setProdPreview
+    })), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
       style: {
         padding: '3px 8px',
         background: status === null || status === void 0 ? void 0 : status.bg,
@@ -2941,7 +3094,33 @@ var RefundsTable = function RefundsTable(_ref18) {
     onClose: function onClose() {
       return setOpenImageId(null);
     }
-  }));
+  }), prodPreview && /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick() {
+      return setProdPreview(null);
+    },
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,.85)',
+      zIndex: 100001,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20,
+      cursor: 'zoom-out'
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: prodPreview,
+    alt: "",
+    onClick: function onClick(e) {
+      return e.stopPropagation();
+    },
+    style: {
+      maxWidth: '92vw',
+      maxHeight: '92vh',
+      borderRadius: 8
+    }
+  })));
 };
 
 // ============================================================
@@ -2952,14 +3131,14 @@ var RefundReviewModal = function RefundReviewModal(_ref19) {
     user = _ref19.user,
     onClose = _ref19.onClose,
     onSubmit = _ref19.onSubmit;
-  var _useState63 = useState(''),
-    _useState64 = _slicedToArray(_useState63, 2),
-    notes = _useState64[0],
-    setNotes = _useState64[1];
-  var _useState65 = useState(''),
-    _useState66 = _slicedToArray(_useState65, 2),
-    externalRefundId = _useState66[0],
-    setExternalRefundId = _useState66[1];
+  var _useState69 = useState(''),
+    _useState70 = _slicedToArray(_useState69, 2),
+    notes = _useState70[0],
+    setNotes = _useState70[1];
+  var _useState71 = useState(''),
+    _useState72 = _slicedToArray(_useState71, 2),
+    externalRefundId = _useState72[0],
+    setExternalRefundId = _useState72[1];
   var isApproveStage = refund.status === 'pending';
   var isCompleteStage = refund.status === 'approved';
   var type = REFUND_TYPES.find(function (t) {
@@ -3217,10 +3396,10 @@ var RefundReviewModal = function RefundReviewModal(_ref19) {
 var ImageGalleryModal = function ImageGalleryModal(_ref20) {
   var event = _ref20.event,
     onClose = _ref20.onClose;
-  var _useState67 = useState(0),
-    _useState68 = _slicedToArray(_useState67, 2),
-    activeIdx = _useState68[0],
-    setActiveIdx = _useState68[1];
+  var _useState73 = useState(0),
+    _useState74 = _slicedToArray(_useState73, 2),
+    activeIdx = _useState74[0],
+    setActiveIdx = _useState74[1];
   if (!event || !event.attachments || event.attachments.length === 0) return null;
   var imgs = event.attachments;
   var current = imgs[activeIdx];
@@ -3349,10 +3528,10 @@ var AmountSummaryWidget = function AmountSummaryWidget(_ref21) {
     amountKey = _ref21$amountKey === void 0 ? 'amount' : _ref21$amountKey,
     getSite = _ref21.getSite,
     onClickStats = _ref21.onClickStats;
-  var _useState69 = useState('7'),
-    _useState70 = _slicedToArray(_useState69, 2),
-    range = _useState70[0],
-    setRange = _useState70[1]; // 字符串: '3'/'7'/'14'/'30'/'90'/'quarter'/'year'/'all'
+  var _useState75 = useState('7'),
+    _useState76 = _slicedToArray(_useState75, 2),
+    range = _useState76[0],
+    setRange = _useState76[1]; // 字符串: '3'/'7'/'14'/'30'/'90'/'quarter'/'year'/'all'
 
   // 计算时间筛选范围
   var cutoffDate = useMemo(function () {
@@ -3774,10 +3953,10 @@ var EventListModal = function EventListModal(_ref30) {
     suppliers = _ref30.suppliers,
     onClose = _ref30.onClose,
     onClickEvent = _ref30.onClickEvent;
-  var _useState71 = useState(''),
-    _useState72 = _slicedToArray(_useState71, 2),
-    search = _useState72[0],
-    setSearch = _useState72[1];
+  var _useState77 = useState(''),
+    _useState78 = _slicedToArray(_useState77, 2),
+    search = _useState78[0],
+    setSearch = _useState78[1];
   var filtered = (events || []).filter(function (e) {
     if (!search.trim()) return true;
     var q = search.trim().toLowerCase();
@@ -4162,32 +4341,46 @@ var CompletionStatsBanner = function CompletionStatsBanner(_ref31) {
     onQuickComplete = _ref31.onQuickComplete,
     onClickStats = _ref31.onClickStats;
   var ranges = [3, 7, 14, 30, 60];
+
+  // 🆕 fix117: 重做时间逻辑 —— "完成统计"按【完成时间】(≈最后更新)数本窗口真正完成的件数,
+  // 而不是按 created_at 数全部事件(那样所有窗口都等于近期新建总数,失去意义)。
+  var isDone = function isDone(it) {
+    return completedStatuses.includes(it.status);
+  };
+  var compTime = function compTime(it) {
+    return it.completed_at || it.completed_at_ms || it.updated_at || it.created_at;
+  };
   var calcStats = function calcStats(days) {
     var cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - days);
-    var inRange = (items || []).filter(function (it) {
+    var all = items || [];
+    var completedItems = all.filter(function (it) {
+      return isDone(it) && compTime(it) && new Date(compTime(it)) >= cutoff;
+    }); // 本窗口完成
+    var createdItems = all.filter(function (it) {
       return it.created_at && new Date(it.created_at) >= cutoff;
-    });
-    var completed = inRange.filter(function (it) {
-      return completedStatuses.includes(it.status);
-    });
-    var pending = inRange.filter(function (it) {
-      return !completedStatuses.includes(it.status);
-    });
+    }); // 本窗口新建
+    var pendingItems = createdItems.filter(function (it) {
+      return !isDone(it);
+    }); // 本窗口新建但未完成
+    var pct = createdItems.length === 0 ? 0 : Math.round(createdItems.filter(isDone).length / createdItems.length * 100);
     return {
-      total: inRange.length,
-      completed: completed.length,
-      pending: pending.length,
-      allItems: inRange,
-      completedItems: completed,
-      pendingItems: pending
+      total: completedItems.length,
+      completed: completedItems.length,
+      created: createdItems.length,
+      pending: pendingItems.length,
+      pct: pct,
+      allItems: completedItems,
+      completedItems: completedItems,
+      createdItems: createdItems,
+      pendingItems: pendingItems
     };
   };
 
   // 🆕 fix81: 点击触发
   var handleClick = function handleClick(days, mode, list) {
     if (!onClickStats || list.length === 0) return;
-    var suffix = mode === 'completed' ? ' · ✅ 已完成' : mode === 'pending' ? ' · ⏳ 未完成' : '';
+    var suffix = mode === 'completed' ? ' · ✅ 本窗口完成' : mode === 'created' ? ' · 🆕 本窗口新建' : mode === 'pending' ? ' · ⏳ 新建未完成' : '';
     onClickStats({
       records: list,
       title: "".concat(title, " \xB7 \u6700\u8FD1 ").concat(days, " \u5929").concat(suffix)
@@ -4228,7 +4421,7 @@ var CompletionStatsBanner = function CompletionStatsBanner(_ref31) {
       fontSize: 10,
       color: 'var(--ink-4)'
     }
-  }, "\u5DF2\u5B8C\u6210\u72B6\u6001: ", completedStatuses.join(' / '), " \xB7 \uD83D\uDCA1 \u70B9\u51FB\u6570\u5B57\u67E5\u770B\u660E\u7EC6")), /*#__PURE__*/React.createElement("div", {
+  }, "\u5927\u6570=\u672C\u7A97\u53E3\u5B8C\u6210\u6570(\u6309\u5B8C\u6210\u65F6\u95F4) \xB7 \u5DF2\u5B8C\u6210\u72B6\u6001: ", completedStatuses.join(' / '), " \xB7 \uD83D\uDCA1 \u70B9\u51FB\u6570\u5B57\u67E5\u770B\u660E\u7EC6")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: 'repeat(5, 1fr)',
@@ -4236,7 +4429,7 @@ var CompletionStatsBanner = function CompletionStatsBanner(_ref31) {
     }
   }, ranges.map(function (d) {
     var s = calcStats(d);
-    var pct = s.total === 0 ? 0 : Math.round(s.completed / s.total * 100);
+    var pct = s.pct;
     var totalClickable = s.total > 0 && !!onClickStats;
     return /*#__PURE__*/React.createElement("div", {
       key: d,
@@ -4256,28 +4449,28 @@ var CompletionStatsBanner = function CompletionStatsBanner(_ref31) {
       }
     }, "\u6700\u8FD1 ", d, " \u5929"), /*#__PURE__*/React.createElement("div", {
       onClick: function onClick() {
-        return handleClick(d, 'total', s.allItems);
+        return handleClick(d, 'completed', s.completedItems);
       },
       style: {
         fontSize: 20,
         fontWeight: 700,
-        color: color,
+        color: s.total > 0 ? '#16a34a' : 'var(--ink-4)',
         marginTop: 3,
         lineHeight: 1,
         cursor: totalClickable ? 'pointer' : 'default',
         textDecoration: totalClickable ? 'underline' : 'none',
         textDecorationStyle: 'dotted',
-        textDecorationColor: color + '60',
+        textDecorationColor: '#16a34a60',
         textUnderlineOffset: 3
       },
-      title: totalClickable ? "\u70B9\u51FB\u67E5\u770B\u6700\u8FD1 ".concat(d, " \u5929\u7684\u5168\u90E8\u8BB0\u5F55") : '',
+      title: totalClickable ? "\u70B9\u51FB\u67E5\u770B\u6700\u8FD1 ".concat(d, " \u5929\u5B8C\u6210\u7684 ").concat(s.total, " \u6761") : '本窗口暂无完成',
       onMouseEnter: totalClickable ? function (e) {
         return e.currentTarget.style.opacity = '0.75';
       } : undefined,
       onMouseLeave: totalClickable ? function (e) {
         return e.currentTarget.style.opacity = '1';
       } : undefined
-    }, s.total), /*#__PURE__*/React.createElement("div", {
+    }, "\u2713", s.total), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         justifyContent: 'center',
@@ -4288,16 +4481,16 @@ var CompletionStatsBanner = function CompletionStatsBanner(_ref31) {
     }, /*#__PURE__*/React.createElement("span", {
       onClick: function onClick(e) {
         e.stopPropagation();
-        handleClick(d, 'completed', s.completedItems);
+        handleClick(d, 'created', s.createdItems);
       },
       style: {
-        color: '#16a34a',
-        cursor: s.completed > 0 && onClickStats ? 'pointer' : 'default',
-        textDecoration: s.completed > 0 && onClickStats ? 'underline dotted' : 'none',
+        color: 'var(--ink-3)',
+        cursor: s.created > 0 && onClickStats ? 'pointer' : 'default',
+        textDecoration: s.created > 0 && onClickStats ? 'underline dotted' : 'none',
         textUnderlineOffset: 2
       },
-      title: s.completed > 0 && onClickStats ? "\u70B9\u51FB\u67E5\u770B ".concat(s.completed, " \u6761\u5DF2\u5B8C\u6210") : ''
-    }, "\u2713", s.completed), s.pending > 0 && /*#__PURE__*/React.createElement("span", {
+      title: s.created > 0 && onClickStats ? "\u70B9\u51FB\u67E5\u770B\u65B0\u5EFA ".concat(s.created, " \u6761") : ''
+    }, "\uD83C\uDD95", s.created), s.pending > 0 && /*#__PURE__*/React.createElement("span", {
       onClick: function onClick(e) {
         e.stopPropagation();
         handleClick(d, 'pending', s.pendingItems);
@@ -4309,7 +4502,7 @@ var CompletionStatsBanner = function CompletionStatsBanner(_ref31) {
         textUnderlineOffset: 2,
         fontWeight: 600
       },
-      title: onClickStats ? "\u70B9\u51FB\u67E5\u770B ".concat(s.pending, " \u6761\u672A\u5B8C\u6210") : ''
+      title: onClickStats ? "\u70B9\u51FB\u67E5\u770B ".concat(s.pending, " \u6761\u65B0\u5EFA\u672A\u5B8C\u6210") : ''
     }, "\u23F3", s.pending)), /*#__PURE__*/React.createElement("div", {
       style: {
         marginTop: 4,
@@ -4886,22 +5079,22 @@ var ExportPanel = function ExportPanel(_ref37) {
     subTab = _ref37.subTab,
     filterMonth = _ref37.filterMonth,
     toast = _ref37.toast;
-  var _useState73 = useState(false),
-    _useState74 = _slicedToArray(_useState73, 2),
-    exporting = _useState74[0],
-    setExporting = _useState74[1];
-  var _useState75 = useState(true),
-    _useState76 = _slicedToArray(_useState75, 2),
-    includeImages = _useState76[0],
-    setIncludeImages = _useState76[1];
-  var _useState77 = useState(subTab === 'summary' ? 'all' : subTab),
-    _useState78 = _slicedToArray(_useState77, 2),
-    exportType = _useState78[0],
-    setExportType = _useState78[1];
-  var _useState79 = useState('excel'),
+  var _useState79 = useState(false),
     _useState80 = _slicedToArray(_useState79, 2),
-    format = _useState80[0],
-    setFormat = _useState80[1];
+    exporting = _useState80[0],
+    setExporting = _useState80[1];
+  var _useState81 = useState(true),
+    _useState82 = _slicedToArray(_useState81, 2),
+    includeImages = _useState82[0],
+    setIncludeImages = _useState82[1];
+  var _useState83 = useState(subTab === 'summary' ? 'all' : subTab),
+    _useState84 = _slicedToArray(_useState83, 2),
+    exportType = _useState84[0],
+    setExportType = _useState84[1];
+  var _useState85 = useState('excel'),
+    _useState86 = _slicedToArray(_useState85, 2),
+    format = _useState86[0],
+    setFormat = _useState86[1];
 
   // Excel 导出
   var exportExcel = /*#__PURE__*/function () {
@@ -5358,22 +5551,22 @@ var ReportModule = function ReportModule(_ref39) {
     employees = _ref39.employees,
     toast = _ref39.toast,
     cloudOn = _ref39.cloudOn;
-  var _useState81 = useState('inbox'),
-    _useState82 = _slicedToArray(_useState81, 2),
-    tab = _useState82[0],
-    setTab = _useState82[1]; // inbox | mine | new | all (admin)
-  var _useState83 = useState([]),
-    _useState84 = _slicedToArray(_useState83, 2),
-    tickets = _useState84[0],
-    setTickets = _useState84[1];
-  var _useState85 = useState(null),
-    _useState86 = _slicedToArray(_useState85, 2),
-    openTicket = _useState86[0],
-    setOpenTicket = _useState86[1];
-  var _useState87 = useState(null),
+  var _useState87 = useState('inbox'),
     _useState88 = _slicedToArray(_useState87, 2),
-    draft = _useState88[0],
-    setDraft = _useState88[1];
+    tab = _useState88[0],
+    setTab = _useState88[1]; // inbox | mine | new | all (admin)
+  var _useState89 = useState([]),
+    _useState90 = _slicedToArray(_useState89, 2),
+    tickets = _useState90[0],
+    setTickets = _useState90[1];
+  var _useState91 = useState(null),
+    _useState92 = _slicedToArray(_useState91, 2),
+    openTicket = _useState92[0],
+    setOpenTicket = _useState92[1];
+  var _useState93 = useState(null),
+    _useState94 = _slicedToArray(_useState93, 2),
+    draft = _useState94[0],
+    setDraft = _useState94[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
 
   // 加载工单（云端优先）
@@ -6106,14 +6299,14 @@ var TicketDetailModal = function TicketDetailModal(_ref47) {
     onUpdateStatus = _ref47.onUpdateStatus,
     onAddComment = _ref47.onAddComment,
     onDelete = _ref47.onDelete;
-  var _useState89 = useState(''),
-    _useState90 = _slicedToArray(_useState89, 2),
-    newComment = _useState90[0],
-    setNewComment = _useState90[1];
-  var _useState91 = useState(null),
-    _useState92 = _slicedToArray(_useState91, 2),
-    viewImg = _useState92[0],
-    setViewImg = _useState92[1];
+  var _useState95 = useState(''),
+    _useState96 = _slicedToArray(_useState95, 2),
+    newComment = _useState96[0],
+    setNewComment = _useState96[1];
+  var _useState97 = useState(null),
+    _useState98 = _slicedToArray(_useState97, 2),
+    viewImg = _useState98[0],
+    setViewImg = _useState98[1];
   var dept = DEPARTMENTS.find(function (d) {
     return d.key === ticket.department;
   });
