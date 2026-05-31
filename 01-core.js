@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-106
-// APP_VERSION: 2026.05.30-fix106
+// 🧱 核心 · fix28-107
+// APP_VERSION: 2026.05.30-fix107
 // ════════════════════════════════════════════════════════════════════
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-106
-// APP_VERSION: 2026.05.30-fix106
+// 🧱 核心 · fix28-107
+// APP_VERSION: 2026.05.30-fix107
 // ════════════════════════════════════════════════════════════════════
 
 var _React = React,
@@ -1288,56 +1288,239 @@ var isWtkpiConfigured = function isWtkpiConfigured() {
   return !!(WTKPI_DEFAULT_URL && WTKPI_DEFAULT_KEY);
 };
 
-// 🆕 fix49: 上传附件到 WorkTrack-KPI Storage `attachments` bucket;fix106: 只压缩图片,视频/其他文件原样上传
-function uploadAttachmentToWtkpi(_x6) {
+// 🆕 fix107: 工作台共享 —— 按订单号实时拉产品图(复用跟单订单库 Edge Function,与发票同口径)
+var ORDERS_KEY_WS = 'sb_publishable_dFjk1WN_Hc0Te6IhXZysZg_SXvKQU4C';
+var EDGE_BASE_WS = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co/functions/v1';
+var PREFIX_TO_DOMAIN_WS = {
+  V: 'vakkerlighting.myshopify.com',
+  VK: 'vakkerlighting.myshopify.com',
+  K: 'vakkerlighting.myshopify.com',
+  PL: 'vkfrench.myshopify.com',
+  DF: 'dekorfine.myshopify.com',
+  DC: 'docolight.myshopify.com',
+  MH: 'vkwholesale.myshopify.com',
+  LS: 'docolamp.myshopify.com',
+  RD: 'vakkerge.myshopify.com',
+  RS: 'decormote.myshopify.com',
+  JD: 'janedecor.myshopify.com',
+  MJ: 'janedecor.myshopify.com',
+  ML: 'mooielight.com'
+};
+function wsGuessDomain(no) {
+  var m = String(no || '').toUpperCase().match(/^([A-Z]+)/);
+  if (!m) return null;
+  var p = m[1];
+  return PREFIX_TO_DOMAIN_WS[p] || PREFIX_TO_DOMAIN_WS[p.slice(0, 2)] || PREFIX_TO_DOMAIN_WS[p.slice(0, 1)] || null;
+}
+function wsNormKey(no) {
+  // 去 # / 取主号(忽略 /子单、-补发后缀)
+  return String(no || '').trim().replace(/^#/, '').split(/[\/\s]/)[0].replace(/-\d+$/, '').replace(/BU.*$/i, '').trim();
+}
+function wsPickImg(li) {
+  if (!li) return '';
+  var cands = [li.image_url, li.imageUrl, li.img, li.img_url, li.thumbnail, li.product_image, li.featured_image, li.image];
+  for (var _i = 0, _cands = cands; _i < _cands.length; _i++) {
+    var c = _cands[_i];
+    if (typeof c === 'string' && c.trim()) return c.trim();
+    if (c && _typeof(c) === 'object') {
+      var s = c.src || c.url || c.image_url;
+      if (s) return s;
+    }
+  }
+  return '';
+}
+// 订单后台搜索链接(无需额外请求,直接拼 Shopify admin 搜索)
+function wsOrderAdminUrl(no) {
+  var d = wsGuessDomain(no);
+  if (!d || /mooielight/i.test(d)) return '';
+  return "https://".concat(d, "/admin/orders?query=").concat(encodeURIComponent(wsNormKey(no)));
+}
+var _wsOrderCache = {};
+function wsFetchOrderProducts(_x6) {
+  return _wsFetchOrderProducts.apply(this, arguments);
+} // 🆕 fix49: 上传附件到 WorkTrack-KPI Storage `attachments` bucket;fix106: 只压缩图片,视频/其他文件原样上传
+function _wsFetchOrderProducts() {
+  _wsFetchOrderProducts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(orderNo) {
+    var base, domain, ck, hit, isWoo, _i2, _arr, nm, body, res, json, arr, o, li, products, oid, orderUrl, _v, v, _t9;
+    return _regenerator().w(function (_context1) {
+      while (1) switch (_context1.p = _context1.n) {
+        case 0:
+          base = wsNormKey(orderNo);
+          if (base) {
+            _context1.n = 1;
+            break;
+          }
+          return _context1.a(2, null);
+        case 1:
+          domain = wsGuessDomain(base);
+          if (domain) {
+            _context1.n = 2;
+            break;
+          }
+          return _context1.a(2, null);
+        case 2:
+          ck = domain + '|' + base;
+          hit = _wsOrderCache[ck];
+          if (!(hit && Date.now() - hit.ts < 5 * 60 * 1000)) {
+            _context1.n = 3;
+            break;
+          }
+          return _context1.a(2, hit.v);
+        case 3:
+          isWoo = /mooielight/i.test(domain);
+          _context1.p = 4;
+          _i2 = 0, _arr = [base, '#' + base];
+        case 5:
+          if (!(_i2 < _arr.length)) {
+            _context1.n = 10;
+            break;
+          }
+          nm = _arr[_i2];
+          body = isWoo ? {
+            store_id: 'mooielight',
+            action: 'list_orders',
+            params: {
+              search: nm,
+              per_page: 5
+            }
+          } : {
+            shop: domain,
+            action: 'list_orders',
+            params: {
+              name: nm,
+              status: 'any',
+              limit: 5,
+              auto_save: false
+            }
+          };
+          _context1.n = 6;
+          return fetch(EDGE_BASE_WS + '/' + (isWoo ? 'woo-api' : 'shopify-api'), {
+            method: 'POST',
+            headers: {
+              'Authorization': 'Bearer ' + ORDERS_KEY_WS,
+              'apikey': ORDERS_KEY_WS,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+          });
+        case 6:
+          res = _context1.v;
+          if (res.ok) {
+            _context1.n = 7;
+            break;
+          }
+          return _context1.a(3, 9);
+        case 7:
+          _context1.n = 8;
+          return res.json()["catch"](function () {
+            return null;
+          });
+        case 8:
+          json = _context1.v;
+          arr = json && (json.orders || json.data || []);
+          if (!(json && json.ok !== false && Array.isArray(arr) && arr.length)) {
+            _context1.n = 9;
+            break;
+          }
+          o = arr[0];
+          li = o.line_items || o.raw_payload && o.raw_payload.line_items || [];
+          products = li.map(function (it) {
+            return {
+              title: it.title || it.name || '',
+              image_url: wsPickImg(it),
+              quantity: it.quantity || 1
+            };
+          }).filter(function (p) {
+            return p.image_url || p.title;
+          });
+          oid = o.id || o.shopify_order_id;
+          orderUrl = oid && !isWoo ? "https://".concat(domain, "/admin/orders/").concat(oid) : wsOrderAdminUrl(orderNo);
+          _v = {
+            products: products,
+            orderUrl: orderUrl,
+            domain: domain
+          };
+          _wsOrderCache[ck] = {
+            ts: Date.now(),
+            v: _v
+          };
+          return _context1.a(2, _v);
+        case 9:
+          _i2++;
+          _context1.n = 5;
+          break;
+        case 10:
+          _context1.n = 12;
+          break;
+        case 11:
+          _context1.p = 11;
+          _t9 = _context1.v;
+          console.warn('wsFetchOrderProducts', orderNo, _t9);
+        case 12:
+          v = {
+            products: [],
+            orderUrl: wsOrderAdminUrl(orderNo),
+            domain: domain
+          };
+          _wsOrderCache[ck] = {
+            ts: Date.now(),
+            v: v
+          };
+          return _context1.a(2, v);
+      }
+    }, _callee1, null, [[4, 11]]);
+  }));
+  return _wsFetchOrderProducts.apply(this, arguments);
+}
+function uploadAttachmentToWtkpi(_x7) {
   return _uploadAttachmentToWtkpi.apply(this, arguments);
 } // 🆕 fix49: 通用图片压缩(类似 quotation 的 compressImageFile,但通用)
 function _uploadAttachmentToWtkpi() {
-  _uploadAttachmentToWtkpi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(file) {
-    var client, isImage, payload, ext, path, _yield$client$storage, error, _client$storage$from$, publicUrl, _t9;
-    return _regenerator().w(function (_context1) {
-      while (1) switch (_context1.n) {
+  _uploadAttachmentToWtkpi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(file) {
+    var client, isImage, payload, ext, path, _yield$client$storage, error, _client$storage$from$, publicUrl, _t0;
+    return _regenerator().w(function (_context10) {
+      while (1) switch (_context10.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context1.n = 1;
+            _context10.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置 — 请进 ⚙ 设置中心配置');
         case 1:
           isImage = (file.type || '').startsWith('image/'); // 🆕 fix106: 之前视频也被强行走 canvas 图片压缩 → new Image() 无法加载视频 → 失败。现在只有图片压缩,视频原样传。
           if (!isImage) {
-            _context1.n = 3;
+            _context10.n = 3;
             break;
           }
-          _context1.n = 2;
+          _context10.n = 2;
           return compressImageForUpload(file, 1600, 0.85);
         case 2:
-          _t9 = _context1.v;
-          _context1.n = 4;
+          _t0 = _context10.v;
+          _context10.n = 4;
           break;
         case 3:
-          _t9 = file;
+          _t0 = file;
         case 4:
-          payload = _t9;
+          payload = _t0;
           ext = (file.name || (isImage ? 'img.png' : 'file.bin')).split('.').pop() || (isImage ? 'png' : 'bin');
           path = "cs-requests/".concat(Date.now(), "-").concat(crypto.randomUUID().slice(0, 8), ".").concat(ext);
-          _context1.n = 5;
+          _context10.n = 5;
           return client.storage.from('attachments').upload(path, payload, {
             upsert: false,
             contentType: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream')
           });
         case 5:
-          _yield$client$storage = _context1.v;
+          _yield$client$storage = _context10.v;
           error = _yield$client$storage.error;
           if (!error) {
-            _context1.n = 6;
+            _context10.n = 6;
             break;
           }
           throw error;
         case 6:
           _client$storage$from$ = client.storage.from('attachments').getPublicUrl(path), publicUrl = _client$storage$from$.data.publicUrl;
-          return _context1.a(2, {
+          return _context10.a(2, {
             name: file.name || (isImage ? 'screenshot.png' : 'attachment'),
             url: publicUrl,
             mime: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
@@ -1346,19 +1529,19 @@ function _uploadAttachmentToWtkpi() {
             uploaded_at_ms: Date.now()
           });
       }
-    }, _callee1);
+    }, _callee10);
   }));
   return _uploadAttachmentToWtkpi.apply(this, arguments);
 }
-function compressImageForUpload(_x7, _x8, _x9) {
+function compressImageForUpload(_x8, _x9, _x0) {
   return _compressImageForUpload.apply(this, arguments);
 } // 🆕 fix49: 提交一个拍摄需求 — 写入 photo_logs 表
 function _compressImageForUpload() {
-  _compressImageForUpload = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(file, maxWidth, quality) {
-    return _regenerator().w(function (_context10) {
-      while (1) switch (_context10.n) {
+  _compressImageForUpload = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(file, maxWidth, quality) {
+    return _regenerator().w(function (_context11) {
+      while (1) switch (_context11.n) {
         case 0:
-          return _context10.a(2, new Promise(function (resolve, reject) {
+          return _context11.a(2, new Promise(function (resolve, reject) {
             var reader = new FileReader();
             reader.onload = function (e) {
               var img = new Image();
@@ -1390,24 +1573,24 @@ function _compressImageForUpload() {
             reader.readAsDataURL(file);
           }));
       }
-    }, _callee10);
+    }, _callee11);
   }));
   return _compressImageForUpload.apply(this, arguments);
 }
-function submitPhotoRequest(_x0) {
+function submitPhotoRequest(_x1) {
   return _submitPhotoRequest.apply(this, arguments);
 } // 🆕 fix49: 列出当前用户提的所有需求 / 全部需求(主管视角)
 // 🆕 fix53 v3: 列出全部 photo_logs(不过滤 source),客户端按 sub-tab 筛选
 function _submitPhotoRequest() {
-  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(_ref3) {
+  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(_ref3) {
     var productName, sku, productImage, applicableShops, currentUser, reason, urgency, attachments, externalRefId, client, now, row, _yield$client$from$in, data, error;
-    return _regenerator().w(function (_context11) {
-      while (1) switch (_context11.n) {
+    return _regenerator().w(function (_context12) {
+      while (1) switch (_context12.n) {
         case 0:
           productName = _ref3.productName, sku = _ref3.sku, productImage = _ref3.productImage, applicableShops = _ref3.applicableShops, currentUser = _ref3.currentUser, reason = _ref3.reason, urgency = _ref3.urgency, attachments = _ref3.attachments, externalRefId = _ref3.externalRefId;
           client = getWtkpiClient();
           if (client) {
-            _context11.n = 1;
+            _context12.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -1442,21 +1625,21 @@ function _submitPhotoRequest() {
             created_at_ms: now,
             updated_at: new Date().toISOString()
           };
-          _context11.n = 2;
+          _context12.n = 2;
           return client.from('photo_logs').insert(row).select().single();
         case 2:
-          _yield$client$from$in = _context11.v;
+          _yield$client$from$in = _context12.v;
           data = _yield$client$from$in.data;
           error = _yield$client$from$in.error;
           if (!error) {
-            _context11.n = 3;
+            _context12.n = 3;
             break;
           }
           throw error;
         case 3:
-          return _context11.a(2, data);
+          return _context12.a(2, data);
       }
-    }, _callee11);
+    }, _callee12);
   }));
   return _submitPhotoRequest.apply(this, arguments);
 }
@@ -1464,45 +1647,8 @@ function listPhotoRequests() {
   return _listPhotoRequests.apply(this, arguments);
 } // 🆕 fix53 v3: 协作编辑产品基础字段(merge,不覆盖)
 function _listPhotoRequests() {
-  _listPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+  _listPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
     var client, _yield$client$from$se2, data, error;
-    return _regenerator().w(function (_context12) {
-      while (1) switch (_context12.n) {
-        case 0:
-          client = getWtkpiClient();
-          if (client) {
-            _context12.n = 1;
-            break;
-          }
-          return _context12.a(2, []);
-        case 1:
-          _context12.n = 2;
-          return client.from('photo_logs').select('*').order('updated_at', {
-            ascending: false
-          }).limit(500);
-        case 2:
-          _yield$client$from$se2 = _context12.v;
-          data = _yield$client$from$se2.data;
-          error = _yield$client$from$se2.error;
-          if (!error) {
-            _context12.n = 3;
-            break;
-          }
-          console.error('[WTKPI] 拉需求列表失败', error);
-          return _context12.a(2, []);
-        case 3:
-          return _context12.a(2, data || []);
-      }
-    }, _callee12);
-  }));
-  return _listPhotoRequests.apply(this, arguments);
-}
-function updatePhotoRequestBasics(_x1, _x10) {
-  return _updatePhotoRequestBasics.apply(this, arguments);
-} // 🆕 fix53 v3: 追加附件/补充原因(merge external_request,不覆盖)
-function _updatePhotoRequestBasics() {
-  _updatePhotoRequestBasics = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(logId, basics) {
-    var client, allowed, clean, _i, _allowed, k, _yield$client$from$up2, error;
     return _regenerator().w(function (_context13) {
       while (1) switch (_context13.n) {
         case 0:
@@ -1511,39 +1657,35 @@ function _updatePhotoRequestBasics() {
             _context13.n = 1;
             break;
           }
-          throw new Error('拍摄部 Supabase 未配置');
+          return _context13.a(2, []);
         case 1:
-          allowed = ['product_name', 'sku', 'product_image', 'applicable_shops', 'product_type', 'product_notes'];
-          clean = {};
-          for (_i = 0, _allowed = allowed; _i < _allowed.length; _i++) {
-            k = _allowed[_i];
-            if (basics[k] !== undefined) clean[k] = basics[k];
-          }
-          clean.updated_at = new Date().toISOString();
           _context13.n = 2;
-          return client.from('photo_logs').update(clean).eq('id', logId);
+          return client.from('photo_logs').select('*').order('updated_at', {
+            ascending: false
+          }).limit(500);
         case 2:
-          _yield$client$from$up2 = _context13.v;
-          error = _yield$client$from$up2.error;
+          _yield$client$from$se2 = _context13.v;
+          data = _yield$client$from$se2.data;
+          error = _yield$client$from$se2.error;
           if (!error) {
             _context13.n = 3;
             break;
           }
-          throw error;
+          console.error('[WTKPI] 拉需求列表失败', error);
+          return _context13.a(2, []);
         case 3:
-          return _context13.a(2);
+          return _context13.a(2, data || []);
       }
     }, _callee13);
   }));
-  return _updatePhotoRequestBasics.apply(this, arguments);
+  return _listPhotoRequests.apply(this, arguments);
 }
-function appendToPhotoRequest(_x11, _x12) {
-  return _appendToPhotoRequest.apply(this, arguments);
-} // 🆕 fix53 v3: 批量录入 — 客服汇总员一次提交多条
-function _appendToPhotoRequest() {
-  _appendToPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(logId, additions) {
-    var _additions$attachment;
-    var client, _yield$client$from$se3, row, e1, current, merged, _yield$client$from$up3, e2;
+function updatePhotoRequestBasics(_x10, _x11) {
+  return _updatePhotoRequestBasics.apply(this, arguments);
+} // 🆕 fix53 v3: 追加附件/补充原因(merge external_request,不覆盖)
+function _updatePhotoRequestBasics() {
+  _updatePhotoRequestBasics = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(logId, basics) {
+    var client, allowed, clean, _i3, _allowed, k, _yield$client$from$up2, error;
     return _regenerator().w(function (_context14) {
       while (1) switch (_context14.n) {
         case 0:
@@ -1554,14 +1696,55 @@ function _appendToPhotoRequest() {
           }
           throw new Error('拍摄部 Supabase 未配置');
         case 1:
+          allowed = ['product_name', 'sku', 'product_image', 'applicable_shops', 'product_type', 'product_notes'];
+          clean = {};
+          for (_i3 = 0, _allowed = allowed; _i3 < _allowed.length; _i3++) {
+            k = _allowed[_i3];
+            if (basics[k] !== undefined) clean[k] = basics[k];
+          }
+          clean.updated_at = new Date().toISOString();
           _context14.n = 2;
+          return client.from('photo_logs').update(clean).eq('id', logId);
+        case 2:
+          _yield$client$from$up2 = _context14.v;
+          error = _yield$client$from$up2.error;
+          if (!error) {
+            _context14.n = 3;
+            break;
+          }
+          throw error;
+        case 3:
+          return _context14.a(2);
+      }
+    }, _callee14);
+  }));
+  return _updatePhotoRequestBasics.apply(this, arguments);
+}
+function appendToPhotoRequest(_x12, _x13) {
+  return _appendToPhotoRequest.apply(this, arguments);
+} // 🆕 fix53 v3: 批量录入 — 客服汇总员一次提交多条
+function _appendToPhotoRequest() {
+  _appendToPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(logId, additions) {
+    var _additions$attachment;
+    var client, _yield$client$from$se3, row, e1, current, merged, _yield$client$from$up3, e2;
+    return _regenerator().w(function (_context15) {
+      while (1) switch (_context15.n) {
+        case 0:
+          client = getWtkpiClient();
+          if (client) {
+            _context15.n = 1;
+            break;
+          }
+          throw new Error('拍摄部 Supabase 未配置');
+        case 1:
+          _context15.n = 2;
           return client.from('photo_logs').select('external_request').eq('id', logId).single();
         case 2:
-          _yield$client$from$se3 = _context14.v;
+          _yield$client$from$se3 = _context15.v;
           row = _yield$client$from$se3.data;
           e1 = _yield$client$from$se3.error;
           if (!e1) {
-            _context14.n = 3;
+            _context15.n = 3;
             break;
           }
           throw e1;
@@ -1575,38 +1758,38 @@ function _appendToPhotoRequest() {
             merged.reason = (current.reason || '') + "\n\n--- ".concat(new Date().toLocaleDateString('zh-CN'), " \u8865\u5145(").concat(additions.editor_name || '', ") ---\n") + additions.reason_append;
           }
           if (additions.urgency) merged.urgency = additions.urgency;
-          _context14.n = 4;
+          _context15.n = 4;
           return client.from('photo_logs').update({
             external_request: merged,
             updated_at: new Date().toISOString()
           }).eq('id', logId);
         case 4:
-          _yield$client$from$up3 = _context14.v;
+          _yield$client$from$up3 = _context15.v;
           e2 = _yield$client$from$up3.error;
           if (!e2) {
-            _context14.n = 5;
+            _context15.n = 5;
             break;
           }
           throw e2;
         case 5:
-          return _context14.a(2);
+          return _context15.a(2);
       }
-    }, _callee14);
+    }, _callee15);
   }));
   return _appendToPhotoRequest.apply(this, arguments);
 }
-function batchSubmitPhotoRequests(_x13, _x14, _x15) {
+function batchSubmitPhotoRequests(_x14, _x15, _x16) {
   return _batchSubmitPhotoRequests.apply(this, arguments);
 } // 暴露到 window,方便 React 组件调用
 function _batchSubmitPhotoRequests() {
-  _batchSubmitPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(rows, defaults, currentUser) {
+  _batchSubmitPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(rows, defaults, currentUser) {
     var client, now, batchId, inserts, results, succeeded, failed, errors;
-    return _regenerator().w(function (_context15) {
-      while (1) switch (_context15.n) {
+    return _regenerator().w(function (_context16) {
+      while (1) switch (_context16.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context15.n = 1;
+            _context16.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -1645,12 +1828,12 @@ function _batchSubmitPhotoRequests() {
               updated_at: new Date().toISOString()
             };
           });
-          _context15.n = 2;
+          _context16.n = 2;
           return Promise.allSettled(inserts.map(function (row) {
             return client.from('photo_logs').insert(row);
           }));
         case 2:
-          results = _context15.v;
+          results = _context16.v;
           succeeded = results.filter(function (r) {
             return r.status === 'fulfilled' && !r.value.error;
           }).length;
@@ -1662,14 +1845,14 @@ function _batchSubmitPhotoRequests() {
             var _r$reason, _r$value2;
             return ((_r$reason = r.reason) === null || _r$reason === void 0 ? void 0 : _r$reason.message) || ((_r$value2 = r.value) === null || _r$value2 === void 0 || (_r$value2 = _r$value2.error) === null || _r$value2 === void 0 ? void 0 : _r$value2.message) || 'unknown';
           });
-          return _context15.a(2, {
+          return _context16.a(2, {
             succeeded: succeeded,
             failed: failed,
             errors: errors,
             batchId: batchId
           });
       }
-    }, _callee15);
+    }, _callee16);
   }));
   return _batchSubmitPhotoRequests.apply(this, arguments);
 }
