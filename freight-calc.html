@@ -58,6 +58,28 @@
         .ring-blue-500 { --tw-ring-color: #0071e3 !important; }
         .focus\:ring-blue-500:focus { --tw-ring-color: #0071e3 !important; }
         .focus\:border-blue-500:focus { border-color: #0071e3 !important; }
+        /* 🆕 移动端适配 — 手机/iPad 上正常核算运费、退运费 */
+        #root { max-width: 100vw; overflow-x: hidden; }
+        @media (max-width: 640px) {
+            body { font-size: 14px; }
+            .top-nav { padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
+            .top-nav .title { font-size: 13px; margin-right: 8px; }
+            /* 5 列在手机收成 2 列,避免挤爆 */
+            #root .grid-cols-5 { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+            #root .max-w-6xl, #root .max-w-xl, #root .max-w-2xl, #root .max-w-3xl { max-width: 100% !important; }
+            /* 触摸友好 + 防 iOS 输入聚焦缩放(16px) */
+            #root input, #root select, #root textarea { font-size: 16px !important; min-height: 42px; }
+            #root button { min-height: 40px; }
+            #root .p-8 { padding: 16px !important; }
+            #root .p-6 { padding: 14px !important; }
+            #root .gap-6 { gap: 12px !important; }
+            /* 宽内容/表格横向可滚,不撑破屏幕 */
+            #root .overflow-x-auto, #root table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        }
+        @media (max-width: 430px) {
+            /* 极窄屏:2 列输入也堆成 1 列 */
+            #root .grid-cols-2 { grid-template-columns: 1fr !important; }
+        }
     </style>
 <script>
 /* 🚫 全局禁止浏览器自动填充(登录页除外)· 详见 全局禁止自动填充-贴到index.html.html */
