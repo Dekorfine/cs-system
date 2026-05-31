@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-126
-// APP_VERSION: 2026.05.30-fix126
+// 📞 客服跟进 + 视频上传 · fix28-127
+// APP_VERSION: 2026.05.30-fix127
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
@@ -24,8 +24,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-126
-// APP_VERSION: 2026.05.30-fix126
+// 📞 客服跟进 + 视频上传 · fix28-127
+// APP_VERSION: 2026.05.30-fix127
 // ════════════════════════════════════════════════════════════════════
 
 var CSGridCard = function CSGridCard(_ref) {
@@ -4638,9 +4638,12 @@ var StatCard = function StatCard(_ref14) {
 var getFileTypeInfo = function getFileTypeInfo(fileObj) {
   var _name$split$pop;
   var name = fileObj.name || '';
-  var mime = fileObj.type || '';
+  var mime = fileObj.type || fileObj.mime || '';
+  var urlStr = (fileObj.url || fileObj.dataUrl || '').toLowerCase();
   var ext = ((_name$split$pop = name.split('.').pop()) === null || _name$split$pop === void 0 ? void 0 : _name$split$pop.toLowerCase()) || '';
-  if (mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
+  var isImgUrl = /^data:image\//i.test(fileObj.url || fileObj.dataUrl || '') || /\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?|$)/i.test(urlStr);
+  var isVidUrl = /\.(mp4|webm|mov|avi|m4v)(\?|$)/i.test(urlStr);
+  if (fileObj.kind === 'image' || mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext) || isImgUrl) {
     return {
       kind: 'image',
       icon: '🖼',
@@ -4648,7 +4651,7 @@ var getFileTypeInfo = function getFileTypeInfo(fileObj) {
       label: '图片'
     };
   }
-  if (mime.startsWith('video/') || ['mp4', 'webm', 'mov', 'avi'].includes(ext)) {
+  if (fileObj.kind === 'video' || mime.startsWith('video/') || ['mp4', 'webm', 'mov', 'avi'].includes(ext) || isVidUrl) {
     return {
       kind: 'video',
       icon: '🎬',

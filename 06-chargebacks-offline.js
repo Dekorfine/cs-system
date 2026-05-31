@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-126
-// APP_VERSION: 2026.05.30-fix126
+// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-127
+// APP_VERSION: 2026.05.30-fix127
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
@@ -25,8 +25,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-126
-// APP_VERSION: 2026.05.30-fix126
+// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-127
+// APP_VERSION: 2026.05.30-fix127
 // ════════════════════════════════════════════════════════════════════
 
 var ChargebacksModule = function ChargebacksModule(_ref) {
@@ -1190,11 +1190,8 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
       return (a.url || a.dataUrl) === p.image_url;
     });
   };
-  var cbPickImg = function cbPickImg(p) {
-    if (!p.image_url) return;
-    if (cbIsImgSaved(p)) setEvidence((evidence || []).filter(function (a) {
-      return (a.url || a.dataUrl) !== p.image_url;
-    }));else setEvidence([].concat(_toConsumableArray(evidence || []), [{
+  var cbMakeImg = function cbMakeImg(p) {
+    return {
       id: 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
       url: p.image_url,
       label: '产品图',
@@ -1203,7 +1200,25 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
       name: (p.title || 'product') + '.jpg',
       from_order: true,
       uploaded_at: new Date().toISOString()
-    }]));
+    };
+  };
+  var cbPickImg = function cbPickImg(p) {
+    if (!p.image_url) return;
+    if (cbIsImgSaved(p)) setEvidence((evidence || []).filter(function (a) {
+      return (a.url || a.dataUrl) !== p.image_url;
+    }));else setEvidence([].concat(_toConsumableArray(evidence || []), [cbMakeImg(p)]));
+  };
+  // 🆕 fix127: 整单拒付 = 一键加入全部灯的图;单品拒付 = 单独点某个灯
+  var cbAddAll = function cbAddAll() {
+    var add = (cbPull.products || []).filter(function (p) {
+      return p.image_url && !cbIsImgSaved(p);
+    }).map(cbMakeImg);
+    if (add.length) setEvidence([].concat(_toConsumableArray(evidence || []), _toConsumableArray(add)));
+  };
+  var cbClearOrderImgs = function cbClearOrderImgs() {
+    return setEvidence((evidence || []).filter(function (a) {
+      return !a.from_order;
+    }));
   };
   var _useState51 = useState((cb === null || cb === void 0 ? void 0 : cb.status) || 'pending'),
     _useState52 = _slicedToArray(_useState51, 2),
@@ -1644,13 +1659,52 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
     }
   }, "\u6536\u8D77")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11,
-      color: 'var(--ink-3)',
-      marginBottom: 6,
-      display: 'flex',
-      justifyContent: 'space-between'
+      fontSize: 12,
+      color: 'var(--ink-2)',
+      marginBottom: 8,
+      lineHeight: 1.6
     }
-  }, /*#__PURE__*/React.createElement("span", null, "\u62C9\u5230 ", cbPull.products.length, " \u4E2A\u4EA7\u54C1 \xB7 \u70B9\u9009\u5B58\u5165\u8BC1\u636E(\u518D\u70B9\u53D6\u6D88)"), /*#__PURE__*/React.createElement("button", {
+  }, "\u62C9\u5230 ", /*#__PURE__*/React.createElement("strong", null, cbPull.products.length), " \u4E2A\u4EA7\u54C1 \xB7 \u9009\u62E9\u8981\u9644\u5230\u62D2\u4ED8\u7684\u706F\u56FE:", /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-4)',
+      marginTop: 2
+    }
+  }, "\uD83D\uDFE2 ", /*#__PURE__*/React.createElement("strong", null, "\u6574\u5355\u62D2\u4ED8"), " \u2192 \u70B9\u300C\u5168\u90E8\u52A0\u5165\u300D\xA0\xA0\uFF5C\xA0\xA0\uD83D\uDD35 ", /*#__PURE__*/React.createElement("strong", null, "\u67D0\u4E2A\u4EA7\u54C1\u62D2\u4ED8"), " \u2192 \u53EA\u70B9\u90A3\u76CF\u706F\u7684\u300C\u52A0\u5165\u300D")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginBottom: 10,
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: cbAddAll,
+    style: {
+      padding: '6px 14px',
+      border: 'none',
+      borderRadius: 7,
+      background: '#16a34a',
+      color: 'white',
+      fontSize: 12,
+      fontWeight: 700,
+      cursor: 'pointer'
+    }
+  }, "\u2795 \u5168\u90E8\u52A0\u5165(\u6574\u5355\u62D2\u4ED8)"), (evidence || []).filter(function (a) {
+    return a.from_order;
+  }).length > 0 && /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: cbClearOrderImgs,
+    style: {
+      padding: '6px 12px',
+      border: '1px solid var(--line)',
+      borderRadius: 7,
+      background: 'white',
+      color: 'var(--ink-3)',
+      fontSize: 12,
+      cursor: 'pointer'
+    }
+  }, "\u6E05\u7A7A\u5DF2\u52A0\u5165"), /*#__PURE__*/React.createElement("button", {
     type: "button",
     onClick: function onClick() {
       return setCbPull({
@@ -1659,64 +1713,61 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
       });
     },
     style: {
+      marginLeft: 'auto',
       border: 'none',
       background: 'none',
       color: 'var(--accent)',
       cursor: 'pointer',
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: 600
     }
   }, "\u5B8C\u6210 \u2713")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill,minmax(90px,1fr))',
-      gap: 8
+      gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))',
+      gap: 10
     }
   }, cbPull.products.map(function (p, i) {
     var saved = cbIsImgSaved(p);
     return /*#__PURE__*/React.createElement("div", {
       key: i,
-      onClick: function onClick() {
-        return cbPickImg(p);
-      },
       title: p.title || '',
       style: {
         position: 'relative',
         border: saved ? '2px solid #16a34a' : '1px solid var(--line)',
         borderRadius: 8,
-        padding: 5,
-        cursor: 'pointer',
+        overflow: 'hidden',
         textAlign: 'center',
         background: saved ? '#f0fdf4' : 'white'
       }
     }, saved && /*#__PURE__*/React.createElement("div", {
       style: {
         position: 'absolute',
-        top: -7,
-        right: -7,
-        width: 20,
-        height: 20,
+        top: 6,
+        right: 6,
+        width: 22,
+        height: 22,
         borderRadius: '50%',
         background: '#16a34a',
         color: 'white',
-        fontSize: 12,
+        fontSize: 13,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontWeight: 700
+        fontWeight: 700,
+        zIndex: 1
       }
     }, "\u2713"), p.image_url ? /*#__PURE__*/React.createElement("img", {
       src: p.image_url,
       alt: "",
       style: {
         width: '100%',
-        height: 60,
-        objectFit: 'cover',
-        borderRadius: 5
+        height: 90,
+        objectFit: 'cover'
       }
     }) : /*#__PURE__*/React.createElement("div", {
       style: {
-        height: 60,
+        height: 90,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -1727,24 +1778,42 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
       style: {
         fontSize: 10,
         color: 'var(--ink-2)',
-        marginTop: 4,
+        padding: '4px 6px 0',
         lineHeight: 1.2,
-        maxHeight: 24,
+        maxHeight: 26,
         overflow: 'hidden'
       }
-    }, p.title || ''));
+    }, p.title || ''), /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick() {
+        return cbPickImg(p);
+      },
+      disabled: !p.image_url,
+      style: {
+        width: '100%',
+        marginTop: 4,
+        padding: '6px 0',
+        border: 'none',
+        borderTop: '1px solid var(--line)',
+        cursor: p.image_url ? 'pointer' : 'not-allowed',
+        fontSize: 11,
+        fontWeight: 700,
+        background: saved ? '#dcfce7' : '#e0f2fe',
+        color: saved ? '#15803d' : '#0369a1'
+      }
+    }, saved ? '✓ 已加入(点取消)' : '➕ 加入证据'));
   })), (evidence || []).filter(function (a) {
     return a.from_order;
   }).length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
-      marginTop: 8,
-      fontSize: 11,
+      marginTop: 10,
+      fontSize: 12,
       color: '#15803d',
-      fontWeight: 600
+      fontWeight: 700
     }
-  }, "\u2705 \u5DF2\u5B58\u5165\u4E0B\u65B9\u300C\u8BC1\u636E\u6750\u6599\u300D", (evidence || []).filter(function (a) {
+  }, "\u2705 \u5DF2\u52A0\u5165 ", (evidence || []).filter(function (a) {
     return a.from_order;
-  }).length, " \u5F20 \xB7 \u4FDD\u5B58\u4FEE\u6539\u540E\u751F\u6548")))), /*#__PURE__*/React.createElement("div", {
+  }).length, " \u5F20\u706F\u56FE \u2192 \u663E\u793A\u5728\u4E0B\u65B9\u300C\u8BC1\u636E\u6750\u6599\u300D\xB7 \u70B9\u300C\u521B\u5EFA\u62D2\u4ED8/\u4FDD\u5B58\u4FEE\u6539\u300D\u5373\u5B58\u5165")))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 12
     }
