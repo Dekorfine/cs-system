@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-124
-// APP_VERSION: 2026.05.30-fix124
+// 📞 客服跟进 + 视频上传 · fix28-126
+// APP_VERSION: 2026.05.30-fix126
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
@@ -24,8 +24,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-124
-// APP_VERSION: 2026.05.30-fix124
+// 📞 客服跟进 + 视频上传 · fix28-126
+// APP_VERSION: 2026.05.30-fix126
 // ════════════════════════════════════════════════════════════════════
 
 var CSGridCard = function CSGridCard(_ref) {
@@ -4983,8 +4983,8 @@ var MultiFileUploader = function MultiFileUploader(_ref16) {
     setUploading = _useState88[1];
   var _useState89 = useState(null),
     _useState90 = _slicedToArray(_useState89, 2),
-    previewFile = _useState90[0],
-    setPreviewFile = _useState90[1];
+    expandedId = _useState90[0],
+    setExpandedId = _useState90[1];
   var uploadOne = /*#__PURE__*/function () {
     var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(file) {
       var res, newFile, _t3;
@@ -5191,25 +5191,44 @@ var MultiFileUploader = function MultiFileUploader(_ref16) {
     }
   })), files && files.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
+      marginTop: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#15803d',
+      fontWeight: 600,
+      marginBottom: 6
+    }
+  }, "\u2705 \u5DF2\u6DFB\u52A0 ", files.length, " \u4E2A\u6587\u4EF6 \xB7 \u4FDD\u5B58\u8868\u5355\u65F6\u81EA\u52A8\u4E00\u5E76\u5B58\u5165 \xB7 \u70B9\u7F29\u7565\u56FE\u539F\u5730\u5C55\u5F00\u770B\u5927\u56FE"), /*#__PURE__*/React.createElement("div", {
+    style: {
       display: 'flex',
       flexDirection: 'column',
-      gap: 6,
-      marginTop: 10
+      gap: 6
     }
   }, files.map(function (f) {
     var info = getFileTypeInfo(f);
+    var isImg = info.kind === 'image';
+    var isOpen = expandedId === f.id;
+    var toggle = function toggle() {
+      if (isImg) setExpandedId(isOpen ? null : f.id);else window.open(f.url, '_blank');
+    };
     return /*#__PURE__*/React.createElement("div", {
       key: f.id,
+      style: {
+        background: 'white',
+        border: '1px solid var(--line)',
+        borderRadius: 8,
+        overflow: 'hidden'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         alignItems: 'center',
         gap: 10,
-        padding: 8,
-        background: 'white',
-        border: '1px solid var(--line)',
-        borderRadius: 8
+        padding: 8
       }
-    }, info.kind === 'image' ? /*#__PURE__*/React.createElement("img", {
+    }, isImg ? /*#__PURE__*/React.createElement("img", {
       src: f.url,
       style: {
         width: 40,
@@ -5219,9 +5238,7 @@ var MultiFileUploader = function MultiFileUploader(_ref16) {
         flexShrink: 0,
         cursor: 'pointer'
       },
-      onClick: function onClick() {
-        return setPreviewFile(f);
-      }
+      onClick: toggle
     }) : /*#__PURE__*/React.createElement("div", {
       style: {
         width: 40,
@@ -5235,18 +5252,14 @@ var MultiFileUploader = function MultiFileUploader(_ref16) {
         flexShrink: 0,
         cursor: 'pointer'
       },
-      onClick: function onClick() {
-        return setPreviewFile(f);
-      }
+      onClick: toggle
     }, info.icon), /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1,
         minWidth: 0,
         cursor: 'pointer'
       },
-      onClick: function onClick() {
-        return setPreviewFile(f);
-      }
+      onClick: toggle
     }, /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 13,
@@ -5270,10 +5283,8 @@ var MultiFileUploader = function MultiFileUploader(_ref16) {
         borderRadius: 3,
         fontWeight: 600
       }
-    }, info.label), ' · ', formatFileSize(f.size))), /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() {
-        return setPreviewFile(f);
-      },
+    }, info.label), ' · ', formatFileSize(f.size))), isImg ? /*#__PURE__*/React.createElement("button", {
+      onClick: toggle,
       style: {
         padding: '4px 10px',
         background: '#e0f2fe',
@@ -5286,7 +5297,22 @@ var MultiFileUploader = function MultiFileUploader(_ref16) {
         fontFamily: 'inherit',
         flexShrink: 0
       }
-    }, "\uD83D\uDC41 \u9884\u89C8"), /*#__PURE__*/React.createElement("button", {
+    }, isOpen ? '收起 ▲' : '👁 预览') : /*#__PURE__*/React.createElement("a", {
+      href: f.url,
+      target: "_blank",
+      rel: "noreferrer",
+      style: {
+        padding: '4px 10px',
+        background: '#e0f2fe',
+        color: '#0369a1',
+        border: '1px solid #7dd3fc',
+        borderRadius: 5,
+        fontSize: 11,
+        fontWeight: 600,
+        textDecoration: 'none',
+        flexShrink: 0
+      }
+    }, "\u2197 \u6253\u5F00"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return removeFile(f);
       },
@@ -5301,13 +5327,37 @@ var MultiFileUploader = function MultiFileUploader(_ref16) {
         fontFamily: 'inherit',
         flexShrink: 0
       }
-    }, "\u2715"));
-  })), previewFile && /*#__PURE__*/React.createElement(FilePreviewModal, {
-    file: previewFile,
-    onClose: function onClose() {
-      return setPreviewFile(null);
-    }
-  }));
+    }, "\u2715")), isOpen && isImg && /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: 10,
+        borderTop: '1px solid var(--line)',
+        background: '#111',
+        textAlign: 'center'
+      }
+    }, /*#__PURE__*/React.createElement("img", {
+      src: f.url,
+      alt: f.name,
+      style: {
+        maxWidth: '100%',
+        maxHeight: 380,
+        borderRadius: 6,
+        objectFit: 'contain'
+      }
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 6
+      }
+    }, /*#__PURE__*/React.createElement("a", {
+      href: f.url,
+      target: "_blank",
+      rel: "noreferrer",
+      style: {
+        fontSize: 11,
+        color: '#7dd3fc',
+        textDecoration: 'none'
+      }
+    }, "\u2197 \u5728\u65B0\u6807\u7B7E\u6253\u5F00\u539F\u56FE"))));
+  }))));
 };
 
 // ============================================================
@@ -6004,103 +6054,108 @@ var MultiImageUploader = function MultiImageUploader(_ref22) {
       }, l.label);
     })));
   })), previewIdx !== null && attachments[previewIdx] && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      border: '1px solid var(--line)',
+      borderRadius: 10,
+      overflow: 'hidden',
+      background: '#111'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '6px 10px',
+      background: '#1c1c1e'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: '#d1d5db',
+      fontSize: 11
+    }
+  }, previewIdx + 1, " / ", attachments.length, " \xB7 ", attachments[previewIdx].name || ''), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      alignItems: 'center'
+    }
+  }, attachments.length > 1 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setPreviewIdx((previewIdx - 1 + attachments.length) % attachments.length);
+    },
+    style: {
+      padding: '2px 8px',
+      background: 'rgba(255,255,255,.15)',
+      color: 'white',
+      border: 'none',
+      borderRadius: 5,
+      cursor: 'pointer',
+      fontSize: 11
+    }
+  }, "\u2190"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setPreviewIdx((previewIdx + 1) % attachments.length);
+    },
+    style: {
+      padding: '2px 8px',
+      background: 'rgba(255,255,255,.15)',
+      color: 'white',
+      border: 'none',
+      borderRadius: 5,
+      cursor: 'pointer',
+      fontSize: 11
+    }
+  }, "\u2192")), /*#__PURE__*/React.createElement("a", {
+    href: attachments[previewIdx].url,
+    target: "_blank",
+    rel: "noreferrer",
+    style: {
+      fontSize: 11,
+      color: '#7dd3fc',
+      textDecoration: 'none'
+    }
+  }, "\u2197 \u539F\u56FE"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
     onClick: function onClick() {
       return setPreviewIdx(null);
     },
     style: {
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,.92)',
-      zIndex: 100010,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 20,
+      padding: '2px 9px',
+      background: 'rgba(255,255,255,.15)',
+      color: 'white',
+      border: 'none',
+      borderRadius: 5,
       cursor: 'pointer',
-      flexDirection: 'column',
-      gap: 12
+      fontSize: 11
+    }
+  }, "\u6536\u8D77 \u25B2"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      padding: 10
     }
   }, isVideo(attachments[previewIdx]) ? /*#__PURE__*/React.createElement("video", {
     src: attachments[previewIdx].url,
     controls: true,
     autoPlay: true,
-    onClick: function onClick(e) {
-      return e.stopPropagation();
-    },
     style: {
-      maxWidth: '95%',
-      maxHeight: '88%',
+      maxWidth: '100%',
+      maxHeight: 380,
       background: 'black',
-      borderRadius: 8
+      borderRadius: 6
     }
   }) : /*#__PURE__*/React.createElement("img", {
     src: attachments[previewIdx].url,
-    onClick: function onClick(e) {
-      return e.stopPropagation();
-    },
+    alt: "",
     style: {
-      maxWidth: '95%',
-      maxHeight: '88%',
-      objectFit: 'contain'
+      maxWidth: '100%',
+      maxHeight: 380,
+      objectFit: 'contain',
+      borderRadius: 6
     }
-  }), attachments.length > 1 && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 10,
-      alignItems: 'center'
-    },
-    onClick: function onClick(e) {
-      return e.stopPropagation();
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setPreviewIdx((previewIdx - 1 + attachments.length) % attachments.length);
-    },
-    style: {
-      padding: '6px 14px',
-      background: 'rgba(255,255,255,.15)',
-      color: 'white',
-      border: 'none',
-      borderRadius: 6,
-      cursor: 'pointer',
-      fontSize: 13
-    }
-  }, "\u2190 \u4E0A\u4E00\u4E2A"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      color: 'white',
-      fontSize: 12
-    }
-  }, previewIdx + 1, " / ", attachments.length), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setPreviewIdx((previewIdx + 1) % attachments.length);
-    },
-    style: {
-      padding: '6px 14px',
-      background: 'rgba(255,255,255,.15)',
-      color: 'white',
-      border: 'none',
-      borderRadius: 6,
-      cursor: 'pointer',
-      fontSize: 13
-    }
-  }, "\u4E0B\u4E00\u4E2A \u2192")), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setPreviewIdx(null);
-    },
-    style: {
-      position: 'absolute',
-      top: 20,
-      right: 20,
-      background: 'rgba(255,255,255,.15)',
-      color: 'white',
-      border: 'none',
-      borderRadius: '50%',
-      width: 38,
-      height: 38,
-      cursor: 'pointer',
-      fontSize: 18
-    }
-  }, "\xD7")));
+  }))));
 };
 
 // ============================================================
@@ -9630,22 +9685,70 @@ var FollowUpModal = function FollowUpModal(_ref30) {
       color: 'var(--ink-4)'
     }
   }, "(\u53EA\u8BFB)")), viewingImg && /*#__PURE__*/React.createElement("div", {
-    className: "modal-backdrop",
     style: {
-      zIndex: 60
-    },
+      marginTop: 12,
+      border: '1px solid var(--line)',
+      borderRadius: 10,
+      overflow: 'hidden',
+      background: '#111'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: '6px 10px',
+      background: '#1c1c1e'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: '#d1d5db',
+      fontSize: 11
+    }
+  }, "\u56FE\u7247\u9884\u89C8"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    href: viewingImg,
+    target: "_blank",
+    rel: "noreferrer",
+    style: {
+      fontSize: 11,
+      color: '#7dd3fc',
+      textDecoration: 'none'
+    }
+  }, "\u2197 \u65B0\u6807\u7B7E\u770B\u539F\u56FE"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
     onClick: function onClick() {
       return setViewingImg(null);
+    },
+    style: {
+      padding: '2px 9px',
+      background: 'rgba(255,255,255,.15)',
+      color: 'white',
+      border: 'none',
+      borderRadius: 5,
+      cursor: 'pointer',
+      fontSize: 11
+    }
+  }, "\u6536\u8D77 \u25B2"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center',
+      padding: 10
     }
   }, /*#__PURE__*/React.createElement("img", {
     src: viewingImg,
     alt: "",
     style: {
-      maxWidth: '90vw',
-      maxHeight: '90vh',
-      borderRadius: '8px'
+      maxWidth: '100%',
+      maxHeight: 380,
+      objectFit: 'contain',
+      borderRadius: 6
     }
-  })))), document.body);
+  }))))), document.body);
 };
 
 // ════════════════════════════════════════════════════════════════════
