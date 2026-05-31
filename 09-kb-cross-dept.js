@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-122
-// APP_VERSION: 2026.05.30-fix122
+// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-123
+// APP_VERSION: 2026.05.30-fix123
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
@@ -26,8 +26,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-122
-// APP_VERSION: 2026.05.30-fix122
+// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-123
+// APP_VERSION: 2026.05.30-fix123
 // ════════════════════════════════════════════════════════════════════
 
 // ============================================================
@@ -5408,6 +5408,13 @@ var InfluencerModule = function InfluencerModule(_ref31) {
 // 美工/客服/跟单 三系统共享消息总线 (cross_dept_messages 表)
 // 数据由 App 注入(loadCdmMessages + cdmMessages),realtime 在 App 层订阅
 // ============================================================
+// 🆕 fix123: 附件是否图片 —— 不只看 mime(跨系统传来的附件常缺 mime),也按文件名后缀 / data:image 判断
+var cdmIsImg = function cdmIsImg(a) {
+  if (!a) return false;
+  if ((a.mime || '').startsWith('image/')) return true;
+  if (/^data:image\//i.test(a.dataUrl || a.url || '')) return true;
+  return /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test((a.name || a.url || a.dataUrl || '').toLowerCase());
+};
 var CrossDeptModule = function CrossDeptModule(_ref36) {
   var user = _ref36.user,
     employees = _ref36.employees,
@@ -8219,8 +8226,7 @@ var CdmDetailModal = function CdmDetailModal(_ref44) {
       marginBottom: 10
     }
   }, (msg.attachments || []).map(function (a, i) {
-    var _a$mime2;
-    return (_a$mime2 = a.mime) !== null && _a$mime2 !== void 0 && _a$mime2.startsWith('image/') ? /*#__PURE__*/React.createElement("img", {
+    return cdmIsImg(a) ? /*#__PURE__*/React.createElement("img", {
       key: i,
       src: a.dataUrl || a.url,
       alt: a.name,
@@ -8563,8 +8569,7 @@ var CdmDetailModal = function CdmDetailModal(_ref44) {
         marginTop: 6
       }
     }, (t.attachments || []).map(function (a, j) {
-      var _a$mime3;
-      return (_a$mime3 = a.mime) !== null && _a$mime3 !== void 0 && _a$mime3.startsWith('image/') ? /*#__PURE__*/React.createElement("img", {
+      return cdmIsImg(a) ? /*#__PURE__*/React.createElement("img", {
         key: j,
         src: a.dataUrl || a.url,
         alt: a.name,
@@ -8631,7 +8636,7 @@ var CdmDetailModal = function CdmDetailModal(_ref44) {
       marginTop: 6
     }
   }, replyAttachments.map(function (a, i) {
-    var _a$mime4;
+    var _a$mime2;
     return /*#__PURE__*/React.createElement("div", {
       key: i,
       style: {
@@ -8644,7 +8649,7 @@ var CdmDetailModal = function CdmDetailModal(_ref44) {
         gap: 4,
         fontSize: 11
       }
-    }, (_a$mime4 = a.mime) !== null && _a$mime4 !== void 0 && _a$mime4.startsWith('image/') ? /*#__PURE__*/React.createElement("img", {
+    }, (_a$mime2 = a.mime) !== null && _a$mime2 !== void 0 && _a$mime2.startsWith('image/') ? /*#__PURE__*/React.createElement("img", {
       src: a.dataUrl,
       alt: a.name,
       style: {
@@ -8734,11 +8739,12 @@ var CdmDetailModal = function CdmDetailModal(_ref44) {
       position: 'fixed',
       inset: 0,
       background: 'rgba(0,0,0,.85)',
-      zIndex: 100001,
+      zIndex: 100020,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: 30
+      padding: 30,
+      cursor: 'zoom-out'
     }
   }, /*#__PURE__*/React.createElement("img", {
     src: imgPreview,
