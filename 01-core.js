@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-113
-// APP_VERSION: 2026.05.30-fix113
+// 🧱 核心 · fix28-114
+// APP_VERSION: 2026.05.30-fix114
 // ════════════════════════════════════════════════════════════════════
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-113
-// APP_VERSION: 2026.05.30-fix113
+// 🧱 核心 · fix28-114
+// APP_VERSION: 2026.05.30-fix114
 // ════════════════════════════════════════════════════════════════════
 
 var _React = React,
@@ -1169,8 +1169,12 @@ function _publishMyStaff() {
             var cn = s.name || ''; // 中文名
             var en = s.alias || ''; // 英文名(alias)
             var displayName = en && cn && en !== cn ? "".concat(en, "(").concat(cn, ")") : en || cn || s.name; // 🆕 双显:Nicole(李彬桦)
+            // 🆕 fix114: HR 用 system='hr'(cross-dept 库 CHECK 已支持)+ 跨系统一致 id(hr_zhaoxin),upsert 合并同一行
+            var isHr = s.role === 'hr';
+            var sysVal = isHr ? 'hr' : ORG_SYSTEM;
+            var idVal = isHr ? 'hr_' + String(s.id).replace(/^u_(hr_)?/, '') : "".concat(ORG_SYSTEM, "_").concat(s.id);
             return {
-              id: "".concat(ORG_SYSTEM, "_").concat(s.id),
+              id: idVal,
               staff_id: s.id,
               name: displayName,
               // name 也存双显,兼容旧读法
@@ -1180,9 +1184,9 @@ function _publishMyStaff() {
               // 🆕
               display_name: displayName,
               // 🆕
-              system: ORG_SYSTEM,
-              role: s.title || (s.role === 'super_admin' ? '客服部主管' : s.role === 'admin' ? '客服主管' : s.role === 'finance' ? '财务' : '客服'),
-              department: s.team || s.sites || null,
+              system: sysVal,
+              role: s.title || (isHr ? '人事 · HR' : s.role === 'super_admin' ? '客服部主管' : s.role === 'admin' ? '客服主管' : s.role === 'finance' ? '财务' : '客服'),
+              department: isHr ? '人事' : s.team || s.sites || null,
               active: s.active !== false && !s.disabled,
               sort_order: i,
               updated_at: new Date().toISOString(),
