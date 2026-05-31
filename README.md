@@ -1,11 +1,10 @@
-# cs-system 完整代码包(版本 2026.05.30-fix120)
-仓库 dekorfine/cs-system · https://dekorfine.github.io/cs-system/
+# cs-system 完整代码包(版本 2026.05.30-fix122)
+仓库 dekorfine/cs-system · 部署:根目录覆盖,强刷(?v=2026.05.30-fix122)
+SQL(sql/ 各跑一次,幂等):aftersales_events/org_directory→跨部门库 · kpi_kv/chargebacks-加cs_fault列→cs库 · influencer_briefs
 
-## 部署:根目录文件覆盖,强刷(?v=2026.05.30-fix120)
-## SQL(sql/ 内各跑一次)— 跟单协作必须跑 aftersales_events!
-- aftersales_events → 跨部门库(含表+RLS for all using(true))· **不跑则"转跟单"后读不回、看不到协作流程**
-- org_directory → 跨部门库 · kpi_kv / chargebacks-加cs_fault列 → cs库 · influencer_briefs
-
-## fix120
-- 手动上传产品图:支持 Ctrl+V 粘贴 / 拖拽 / 点击,上传后即时预览(可点放大)
-- 跟单协作:加状态步骤条(已转跟单→跟单处理→跟单回填→客服确认完成),跟单与所有客服都能打开看进展;转单后若读不回共享表会明确提示去跑 SQL
+## fix122 售后月度汇总大升级
+- 时间范围:本周/本月/本季度/全部(原来只有指定月)
+- 新增「👤 客服处理量排行」:谁售后最多 + 各自问题类型占比 · 点击看明细
+- 新增「🌐 按网站分布」饼图 + 「🥧 问题类型占比」饼图 · 点扇区/图例看明细
+- 供应商排行 / 产品排行 / 客服排行 全部可点 → 钻取明细弹窗
+- 钻取明细含:日期 / 订单号(直达订单页)/ 产品图(自动抓取+可预览)/ 产品/问题 / 供应商 / 客服
