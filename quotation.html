@@ -170,6 +170,33 @@ select {
   .qt-right { position: static; max-height: none; overflow: visible; width: 100%; }
 }
 .qt-right .preview-stage { padding: 16px; }  /* 双栏下预览留白收窄,文档更大 */
+
+/* 🆕 fix127: 全宽模式切换 — 填写 / 预览 各占满整屏(预览表格不再被挤窄竖排) */
+.qt-mode-bar {
+  display: flex; gap: 6px; align-items: center; background: var(--bg-card, #fff);
+  border: 1px solid var(--line, #e5e7eb); border-radius: 12px; padding: 6px;
+  margin-bottom: 16px; position: sticky; top: 8px; z-index: 30;
+  box-shadow: 0 2px 10px rgba(0,0,0,.04);
+}
+.qt-mode-btn {
+  flex: 1; padding: 11px 14px; border: none; border-radius: 8px; cursor: pointer;
+  font-size: 14px; font-weight: 700; background: transparent; color: #64748b;
+  display: flex; align-items: center; justify-content: center; gap: 8px; transition: all .15s;
+}
+.qt-mode-btn.active { background: #0071e3; color: #fff; box-shadow: 0 2px 8px rgba(0,113,227,.3); }
+.qt-mode-hint { font-size: 11px; color: #94a3b8; padding: 0 10px; white-space: nowrap; }
+.qt-split.qt-mode-fill .qt-right { display: none; }
+.qt-split.qt-mode-fill .qt-left { flex: 1 1 100%; }
+.qt-split.qt-mode-preview .qt-left { display: none; }
+.qt-split.qt-mode-preview .qt-right {
+  flex: 1 1 100%; position: static; max-height: none; overflow: visible; width: 100%;
+}
+.qt-jump { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:16px; }
+.qt-jump-btn { padding:12px 22px; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; }
+@media (max-width: 1180px) {
+  /* 移动端也用模式切换(不再上下堆叠,避免预览挤) */
+  .qt-split.qt-mode-fill .qt-left, .qt-split.qt-mode-preview .qt-right { width: 100%; }
+}
 .alert-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
   background: var(--warn-soft); border: 1px solid rgba(255,149,0,.3); border-radius: var(--radius);
@@ -1058,7 +1085,13 @@ fieldset legend {
   <button class="btn-setup" onclick="openSettings()">现在设置 · Setup Now →</button>
 </div>
 
-<div class="qt-split">
+<!-- 🆕 fix127: 填写 / 预览 全宽模式切换 -->
+<div class="qt-mode-bar">
+  <button class="qt-mode-btn active" id="qtModeFill" onclick="setQtMode('fill')">✏️ 填写资料</button>
+  <button class="qt-mode-btn" id="qtModePreview" onclick="setQtMode('preview')">👁 预览 &amp; 导出</button>
+  <span class="qt-mode-hint">填好资料 → 切到预览查看 / 导出</span>
+</div>
+<div class="qt-split qt-mode-fill" id="qtSplit">
 <div class="qt-left">
 
 <!-- ============================================================
@@ -1212,14 +1245,14 @@ fieldset legend {
   <div class="card-body">
     <!-- Seller -->
     <div class="form-row" style="margin-bottom:14px;">
-      <label>选择卖方公司 · Select Seller</label>
+      <label>① 选择卖方公司 · Select Seller</label>
       <select id="seller_website"></select>
     </div>
 
     <!-- Order / Buyer / Shipping -->
     <div class="form-grid cols-3" style="margin-bottom:14px;">
       <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
-        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" >订单信息 · Order Information</legend>
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" >② 订单信息(单号/日期) · Order Info</legend>
         <div class="form-row"><label data-lang-key="quote_no">Quote No.</label><input type="text" id="quote_number"></div>
         <div class="form-row" style="margin-top:6px;"><label data-lang-key="invoice_no">Invoice No.</label><input type="text" id="pi_number"></div>
         <div class="form-row" style="margin-top:6px;"><label data-lang-key="po_no">PO No.</label><input type="text" id="po_number"></div>
@@ -1262,7 +1295,7 @@ fieldset legend {
       </fieldset>
 
       <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
-        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" >买方信息 · Buyer Information</legend>
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;" >③ 买方信息(客户) · Buyer Info</legend>
         <div class="form-row"><label data-lang-key="buyer_name_address">Buyer Name & Address</label><textarea id="buyer_info" rows="5"></textarea></div>
         <div class="form-row" style="margin-top:6px;">
           <label data-lang-key="buyer_email">Buyer Email</label>
@@ -1315,7 +1348,7 @@ fieldset legend {
 
     <!-- Items -->
     <div style="margin-bottom:14px;">
-      <h3 style="font-size:13px;font-weight:700;color:#334155;margin:0 0 8px;" data-lang-key="product_items_packing">📦 Product Items & Packing Details</h3>
+      <h3 style="font-size:13px;font-weight:700;color:#334155;margin:0 0 8px;" data-lang-key="product_items_packing">④ 产品明细 · Product Items & Packing Details</h3>
       <div style="display:flex; align-items:center; gap:18px; margin:8px 0; flex-wrap:wrap;">
         <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--ink-2); cursor:pointer;">
           <input type="checkbox" id="show_packing_cols" onchange="togglePackingCols()" style="cursor:pointer;">
@@ -1390,7 +1423,7 @@ fieldset legend {
       </fieldset>
 
       <fieldset style="border:1px solid #e2e8f0;border-radius:7px;padding:10px;">
-        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;">条款 · Terms & Conditions</legend>
+        <legend style="font-size:12px;font-weight:700;color:#334155;padding:0 6px;">⑤ 条款 / 折扣 / 定金 · Terms</legend>
         <div class="form-row">
           <label>选择模板 · Select a Preset</label>
           <select id="terms_preset" style="margin-bottom:6px;">
@@ -1433,9 +1466,17 @@ fieldset legend {
     </div>
   </div>
 </div>
+  <div class="qt-jump">
+    <span style="font-size:12px;color:#94a3b8;">填完以上内容即可生成</span>
+    <button class="qt-jump-btn" style="background:#0071e3;color:#fff;" onclick="setQtMode('preview')">👁 预览 &amp; 导出 →</button>
+  </div>
 
 </div><!-- /.qt-left -->
 <div class="qt-right">
+
+<div style="margin-bottom:12px;">
+  <button class="qt-jump-btn" style="background:#f1f5f9;color:#334155;padding:9px 16px;font-size:13px;" onclick="setQtMode('fill')">← 返回修改资料</button>
+</div>
 
 <!-- ============================================================
      PREVIEW WITH TABS  —  THE KEY UX
@@ -2057,6 +2098,19 @@ function switchTab(name, btn) {
 /* ============================================================
    PREVIEW TAB SWITCHING — the key new UX
    ============================================================ */
+// 🆕 fix127: 全宽模式切换(填写 / 预览)
+function setQtMode(mode) {
+  var split = document.getElementById('qtSplit');
+  if (!split) return;
+  var preview = (mode === 'preview');
+  split.classList.toggle('qt-mode-preview', preview);
+  split.classList.toggle('qt-mode-fill', !preview);
+  var bf = document.getElementById('qtModeFill'), bp = document.getElementById('qtModePreview');
+  if (bf) bf.classList.toggle('active', !preview);
+  if (bp) bp.classList.toggle('active', preview);
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+}
+
 function switchPreview(doc) {
   currentPreviewDoc = doc;
   document.querySelectorAll('.preview-tab').forEach(t => {
