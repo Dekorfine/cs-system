@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-98
-// APP_VERSION: 2026.05.29-fix98
+// 🧱 核心 · fix28-106
+// APP_VERSION: 2026.05.30-fix106
 // ════════════════════════════════════════════════════════════════════
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-98
-// APP_VERSION: 2026.05.29-fix98
+// 🧱 核心 · fix28-106
+// APP_VERSION: 2026.05.30-fix106
 // ════════════════════════════════════════════════════════════════════
 
 var _React = React,
@@ -536,6 +536,7 @@ var CLOUD = {
             _context5.p = 4;
             _t5 = _context5.v;
             console.error('CLOUD.uploadImage', _t5);
+            _this5._lastError = _t5;
             return _context5.a(2, null);
         }
       }, _callee5, null, [[1, 4]]);
@@ -1154,10 +1155,20 @@ function _publishMyStaff() {
           throw new Error('消息总线未初始化');
         case 1:
           rows = staffList.map(function (s, i) {
+            var cn = s.name || ''; // 中文名
+            var en = s.alias || ''; // 英文名(alias)
+            var displayName = en && cn && en !== cn ? "".concat(en, "(").concat(cn, ")") : en || cn || s.name; // 🆕 双显:Nicole(李彬桦)
             return {
               id: "".concat(ORG_SYSTEM, "_").concat(s.id),
               staff_id: s.id,
-              name: s.name + (s.alias ? ' ' + s.alias : ''),
+              name: displayName,
+              // name 也存双显,兼容旧读法
+              chinese_name: cn,
+              // 🆕
+              english_name: en,
+              // 🆕
+              display_name: displayName,
+              // 🆕
               system: ORG_SYSTEM,
               role: s.title || (s.role === 'super_admin' ? '客服部主管' : s.role === 'admin' ? '客服主管' : s.role === 'finance' ? '财务' : '客服'),
               department: s.team || s.sites || null,
@@ -1221,7 +1232,12 @@ function _loadOrgDirectory() {
             return {
               id: r.id,
               staffId: r.staff_id,
-              name: r.name,
+              name: r.display_name || r.name,
+              // 🆕 优先双显名
+              displayName: r.display_name || r.name,
+              // 🆕
+              chineseName: r.chinese_name || '',
+              englishName: r.english_name || '',
               system: r.system,
               role: r.role,
               department: r.department,
@@ -1272,13 +1288,13 @@ var isWtkpiConfigured = function isWtkpiConfigured() {
   return !!(WTKPI_DEFAULT_URL && WTKPI_DEFAULT_KEY);
 };
 
-// 🆕 fix49: 上传图片到 WorkTrack-KPI Storage `attachments` bucket,自动压缩 < 1600px
+// 🆕 fix49: 上传附件到 WorkTrack-KPI Storage `attachments` bucket;fix106: 只压缩图片,视频/其他文件原样上传
 function uploadAttachmentToWtkpi(_x6) {
   return _uploadAttachmentToWtkpi.apply(this, arguments);
 } // 🆕 fix49: 通用图片压缩(类似 quotation 的 compressImageFile,但通用)
 function _uploadAttachmentToWtkpi() {
   _uploadAttachmentToWtkpi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(file) {
-    var client, compressed, ext, path, _yield$client$storage, error, _client$storage$from$, publicUrl;
+    var client, isImage, payload, ext, path, _yield$client$storage, error, _client$storage$from$, publicUrl, _t9;
     return _regenerator().w(function (_context1) {
       while (1) switch (_context1.n) {
         case 0:
@@ -1289,33 +1305,44 @@ function _uploadAttachmentToWtkpi() {
           }
           throw new Error('拍摄部 Supabase 未配置 — 请进 ⚙ 设置中心配置');
         case 1:
+          isImage = (file.type || '').startsWith('image/'); // 🆕 fix106: 之前视频也被强行走 canvas 图片压缩 → new Image() 无法加载视频 → 失败。现在只有图片压缩,视频原样传。
+          if (!isImage) {
+            _context1.n = 3;
+            break;
+          }
           _context1.n = 2;
           return compressImageForUpload(file, 1600, 0.85);
         case 2:
-          compressed = _context1.v;
-          ext = (file.name || 'img.png').split('.').pop() || 'png';
-          path = "cs-requests/".concat(Date.now(), "-").concat(crypto.randomUUID().slice(0, 8), ".").concat(ext);
-          _context1.n = 3;
-          return client.storage.from('attachments').upload(path, compressed, {
-            upsert: false,
-            contentType: compressed.type || file.type || 'image/jpeg'
-          });
+          _t9 = _context1.v;
+          _context1.n = 4;
+          break;
         case 3:
+          _t9 = file;
+        case 4:
+          payload = _t9;
+          ext = (file.name || (isImage ? 'img.png' : 'file.bin')).split('.').pop() || (isImage ? 'png' : 'bin');
+          path = "cs-requests/".concat(Date.now(), "-").concat(crypto.randomUUID().slice(0, 8), ".").concat(ext);
+          _context1.n = 5;
+          return client.storage.from('attachments').upload(path, payload, {
+            upsert: false,
+            contentType: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream')
+          });
+        case 5:
           _yield$client$storage = _context1.v;
           error = _yield$client$storage.error;
           if (!error) {
-            _context1.n = 4;
+            _context1.n = 6;
             break;
           }
           throw error;
-        case 4:
+        case 6:
           _client$storage$from$ = client.storage.from('attachments').getPublicUrl(path), publicUrl = _client$storage$from$.data.publicUrl;
           return _context1.a(2, {
-            name: file.name || 'screenshot.png',
+            name: file.name || (isImage ? 'screenshot.png' : 'attachment'),
             url: publicUrl,
-            mime: compressed.type || file.type || 'image/jpeg',
+            mime: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
             // 🆕 fix72: 三方统一附件结构需要 mime
-            size: compressed.size || file.size || 0,
+            size: payload.size || file.size || 0,
             uploaded_at_ms: Date.now()
           });
       }
