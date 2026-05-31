@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-110
-// APP_VERSION: 2026.05.30-fix110
+// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-111
+// APP_VERSION: 2026.05.30-fix111
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 var _excluded = ["payload"];
@@ -28,8 +28,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-110
-// APP_VERSION: 2026.05.30-fix110
+// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-111
+// APP_VERSION: 2026.05.30-fix111
 // ════════════════════════════════════════════════════════════════════
 
 var EventsModule = function EventsModule(_ref) {
@@ -1016,6 +1016,7 @@ var EventsModule = function EventsModule(_ref) {
 var OrderProductThumb = function OrderProductThumb(_ref0) {
   var orderNo = _ref0.orderNo,
     onPreview = _ref0.onPreview;
+  var pickKey = 'ws_prod_pick_' + (orderNo || '');
   var _useState33 = useState({
       loading: false,
       products: null
@@ -1023,6 +1024,20 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
     _useState34 = _slicedToArray(_useState33, 2),
     st = _useState34[0],
     setSt = _useState34[1];
+  var _useState35 = useState(function () {
+      try {
+        return orderNo ? JSON.parse(localStorage.getItem(pickKey) || 'null') : null;
+      } catch (e) {
+        return null;
+      }
+    }),
+    _useState36 = _slicedToArray(_useState35, 2),
+    picked = _useState36[0],
+    setPicked = _useState36[1];
+  var _useState37 = useState(false),
+    _useState38 = _slicedToArray(_useState37, 2),
+    showPicker = _useState38[0],
+    setShowPicker = _useState38[1];
   useEffect(function () {
     var alive = true;
     if (!orderNo) {
@@ -1066,21 +1081,28 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
     },
     title: "\u672A\u5339\u914D\u5230\u8BA2\u5355\u4EA7\u54C1\u56FE"
   }, "\u4EA7\u54C1\u56FE \u2014");
-  var img = prods[0].image_url;
+  var choose = function choose(p) {
+    setPicked(p);
+    try {
+      localStorage.setItem(pickKey, JSON.stringify(p));
+    } catch (e) {}
+    setShowPicker(false);
+  };
+  // 单产品 → 直接显示;已手动选过 → 显示所选;多产品未选 → 不盲目显示第一张,提示选择(避免误导)
+  var single = prods.length === 1 ? prods[0] : null;
+  var show = picked || single;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
       gap: 4
-    },
-    title: prods.map(function (p) {
-      return p.title;
-    }).filter(Boolean).join(' · ')
-  }, img && /*#__PURE__*/React.createElement("img", {
-    src: img,
+    }
+  }, show ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("img", {
+    src: show.image_url,
     alt: "",
+    title: show.title || '',
     onClick: function onClick() {
-      return onPreview && onPreview(img);
+      return onPreview && onPreview(show.image_url);
     },
     style: {
       width: 40,
@@ -1090,12 +1112,127 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
       border: '1px solid #c7d2fe',
       cursor: 'zoom-in'
     }
-  }), prods.length > 1 && /*#__PURE__*/React.createElement("span", {
+  }), prods.length > 1 && /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setShowPicker(true);
+    },
+    title: "\u8BE5\u8BA2\u5355\u591A\u4E2A\u4EA7\u54C1 \xB7 \u70B9\u6B64\u91CD\u9009",
     style: {
-      fontSize: 10,
-      color: 'var(--ink-3)'
+      padding: '2px 5px',
+      fontSize: 9,
+      border: '1px solid var(--line)',
+      borderRadius: 4,
+      background: 'white',
+      cursor: 'pointer',
+      color: 'var(--ink-3)',
+      fontWeight: 600
     }
-  }, "\xD7", prods.length));
+  }, "\u91CD\u9009 \xD7", prods.length)) : /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setShowPicker(true);
+    },
+    title: "\u8BE5\u8BA2\u5355\u6709 ".concat(prods.length, " \u4E2A\u4EA7\u54C1,\u8BF7\u624B\u52A8\u9009\u5339\u914D\u7684"),
+    style: {
+      padding: '4px 8px',
+      fontSize: 10,
+      border: '1px dashed #f59e0b',
+      borderRadius: 5,
+      background: '#fffbeb',
+      cursor: 'pointer',
+      color: '#b45309',
+      fontWeight: 600
+    }
+  }, "\u9009\u4EA7\u54C1 \xD7", prods.length), showPicker && /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick() {
+      return setShowPicker(false);
+    },
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,.5)',
+      zIndex: 100004,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 16
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick(e) {
+      return e.stopPropagation();
+    },
+    className: "paper rounded-2xl",
+    style: {
+      width: '100%',
+      maxWidth: 520,
+      maxHeight: '82vh',
+      overflowY: 'auto',
+      padding: 18
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 15,
+      fontWeight: 700,
+      marginBottom: 2
+    }
+  }, "\u9009\u62E9\u5339\u914D\u7684\u4EA7\u54C1"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-3)',
+      marginBottom: 12
+    }
+  }, orderNo, " \xB7 \u5171 ", prods.length, " \u4E2A\u4EA7\u54C1,\u9009\u51FA\u6B64\u8BB0\u5F55\u5BF9\u5E94\u7684\u90A3\u4E2A(\u907F\u514D\u591A\u4EA7\u54C1\u8BEF\u5BFC)"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill,minmax(120px,1fr))',
+      gap: 10
+    }
+  }, prods.map(function (p, i) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: i,
+      onClick: function onClick() {
+        return choose(p);
+      },
+      style: {
+        border: picked && picked.image_url === p.image_url ? '2px solid #0071e3' : '1px solid var(--line)',
+        borderRadius: 8,
+        padding: 6,
+        cursor: 'pointer',
+        textAlign: 'center'
+      }
+    }, p.image_url ? /*#__PURE__*/React.createElement("img", {
+      src: p.image_url,
+      alt: "",
+      style: {
+        width: '100%',
+        height: 90,
+        objectFit: 'cover',
+        borderRadius: 5
+      }
+    }) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        height: 90,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'var(--ink-4)',
+        fontSize: 11
+      }
+    }, "\u65E0\u56FE"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-2)',
+        marginTop: 5,
+        lineHeight: 1.3,
+        maxHeight: 30,
+        overflow: 'hidden'
+      }
+    }, p.title || ''), p.quantity > 1 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: 'var(--ink-3)'
+      }
+    }, "\xD7", p.quantity));
+  })))));
 };
 var OrderRefLink = function OrderRefLink(_ref1) {
   var orderNo = _ref1.orderNo,
@@ -1299,34 +1436,34 @@ var AseToOrdersModal = function AseToOrdersModal(_ref10) {
     onClose = _ref10.onClose,
     onDone = _ref10.onDone,
     toast = _ref10.toast;
-  var _useState35 = useState([]),
-    _useState36 = _slicedToArray(_useState35, 2),
-    poPeople = _useState36[0],
-    setPoPeople = _useState36[1];
-  var _useState37 = useState(''),
-    _useState38 = _slicedToArray(_useState37, 2),
-    assignee = _useState38[0],
-    setAssignee = _useState38[1];
-  var _useState39 = useState(false),
+  var _useState39 = useState([]),
     _useState40 = _slicedToArray(_useState39, 2),
-    sending = _useState40[0],
-    setSending = _useState40[1];
-  var _useState41 = useState(undefined),
+    poPeople = _useState40[0],
+    setPoPeople = _useState40[1];
+  var _useState41 = useState(''),
     _useState42 = _slicedToArray(_useState41, 2),
-    ase = _useState42[0],
-    setAse = _useState42[1]; // undefined=加载中, null=未转, obj=已转
-  var _useState43 = useState(''),
+    assignee = _useState42[0],
+    setAssignee = _useState42[1];
+  var _useState43 = useState(false),
     _useState44 = _slicedToArray(_useState43, 2),
-    note = _useState44[0],
-    setNote = _useState44[1];
-  var _useState45 = useState(false),
+    sending = _useState44[0],
+    setSending = _useState44[1];
+  var _useState45 = useState(undefined),
     _useState46 = _slicedToArray(_useState45, 2),
-    busy = _useState46[0],
-    setBusy = _useState46[1];
-  var _useState47 = useState(null),
+    ase = _useState46[0],
+    setAse = _useState46[1]; // undefined=加载中, null=未转, obj=已转
+  var _useState47 = useState(''),
     _useState48 = _slicedToArray(_useState47, 2),
-    preview = _useState48[0],
-    setPreview = _useState48[1];
+    note = _useState48[0],
+    setNote = _useState48[1];
+  var _useState49 = useState(false),
+    _useState50 = _slicedToArray(_useState49, 2),
+    busy = _useState50[0],
+    setBusy = _useState50[1];
+  var _useState51 = useState(null),
+    _useState52 = _slicedToArray(_useState51, 2),
+    preview = _useState52[0],
+    setPreview = _useState52[1];
   var loadAse = /*#__PURE__*/function () {
     var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
       var c, _yield$c$from$select$, data, _t2;
@@ -1926,18 +2063,18 @@ var AftersalesTable = function AftersalesTable(_ref16) {
     onEdit = _ref16.onEdit,
     onDelete = _ref16.onDelete,
     onUpdateStatus = _ref16.onUpdateStatus;
-  var _useState49 = useState(null),
-    _useState50 = _slicedToArray(_useState49, 2),
-    openImageId = _useState50[0],
-    setOpenImageId = _useState50[1];
-  var _useState51 = useState(null),
-    _useState52 = _slicedToArray(_useState51, 2),
-    prodPreview = _useState52[0],
-    setProdPreview = _useState52[1];
   var _useState53 = useState(null),
     _useState54 = _slicedToArray(_useState53, 2),
-    aseToOrders = _useState54[0],
-    setAseToOrders = _useState54[1];
+    openImageId = _useState54[0],
+    setOpenImageId = _useState54[1];
+  var _useState55 = useState(null),
+    _useState56 = _slicedToArray(_useState55, 2),
+    prodPreview = _useState56[0],
+    setProdPreview = _useState56[1];
+  var _useState57 = useState(null),
+    _useState58 = _slicedToArray(_useState57, 2),
+    aseToOrders = _useState58[0],
+    setAseToOrders = _useState58[1];
   if (items.length === 0) return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-12 fade-in",
     style: {
@@ -2241,10 +2378,10 @@ var RefillsTable = function RefillsTable(_ref17) {
     onEdit = _ref17.onEdit,
     onDelete = _ref17.onDelete,
     onUpdateStatus = _ref17.onUpdateStatus;
-  var _useState55 = useState(null),
-    _useState56 = _slicedToArray(_useState55, 2),
-    openImageId = _useState56[0],
-    setOpenImageId = _useState56[1];
+  var _useState59 = useState(null),
+    _useState60 = _slicedToArray(_useState59, 2),
+    openImageId = _useState60[0],
+    setOpenImageId = _useState60[1];
   if (items.length === 0) return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-12 fade-in",
     style: {
@@ -2464,10 +2601,10 @@ var RefundsTable = function RefundsTable(_ref18) {
     onEdit = _ref18.onEdit,
     onDelete = _ref18.onDelete,
     onReview = _ref18.onReview;
-  var _useState57 = useState(null),
-    _useState58 = _slicedToArray(_useState57, 2),
-    openImageId = _useState58[0],
-    setOpenImageId = _useState58[1];
+  var _useState61 = useState(null),
+    _useState62 = _slicedToArray(_useState61, 2),
+    openImageId = _useState62[0],
+    setOpenImageId = _useState62[1];
   // 顶部汇总
   var summary = useMemo(function () {
     var byStatus = items.reduce(function (acc, r) {
@@ -2815,14 +2952,14 @@ var RefundReviewModal = function RefundReviewModal(_ref19) {
     user = _ref19.user,
     onClose = _ref19.onClose,
     onSubmit = _ref19.onSubmit;
-  var _useState59 = useState(''),
-    _useState60 = _slicedToArray(_useState59, 2),
-    notes = _useState60[0],
-    setNotes = _useState60[1];
-  var _useState61 = useState(''),
-    _useState62 = _slicedToArray(_useState61, 2),
-    externalRefundId = _useState62[0],
-    setExternalRefundId = _useState62[1];
+  var _useState63 = useState(''),
+    _useState64 = _slicedToArray(_useState63, 2),
+    notes = _useState64[0],
+    setNotes = _useState64[1];
+  var _useState65 = useState(''),
+    _useState66 = _slicedToArray(_useState65, 2),
+    externalRefundId = _useState66[0],
+    setExternalRefundId = _useState66[1];
   var isApproveStage = refund.status === 'pending';
   var isCompleteStage = refund.status === 'approved';
   var type = REFUND_TYPES.find(function (t) {
@@ -3080,10 +3217,10 @@ var RefundReviewModal = function RefundReviewModal(_ref19) {
 var ImageGalleryModal = function ImageGalleryModal(_ref20) {
   var event = _ref20.event,
     onClose = _ref20.onClose;
-  var _useState63 = useState(0),
-    _useState64 = _slicedToArray(_useState63, 2),
-    activeIdx = _useState64[0],
-    setActiveIdx = _useState64[1];
+  var _useState67 = useState(0),
+    _useState68 = _slicedToArray(_useState67, 2),
+    activeIdx = _useState68[0],
+    setActiveIdx = _useState68[1];
   if (!event || !event.attachments || event.attachments.length === 0) return null;
   var imgs = event.attachments;
   var current = imgs[activeIdx];
@@ -3212,10 +3349,10 @@ var AmountSummaryWidget = function AmountSummaryWidget(_ref21) {
     amountKey = _ref21$amountKey === void 0 ? 'amount' : _ref21$amountKey,
     getSite = _ref21.getSite,
     onClickStats = _ref21.onClickStats;
-  var _useState65 = useState('7'),
-    _useState66 = _slicedToArray(_useState65, 2),
-    range = _useState66[0],
-    setRange = _useState66[1]; // 字符串: '3'/'7'/'14'/'30'/'90'/'quarter'/'year'/'all'
+  var _useState69 = useState('7'),
+    _useState70 = _slicedToArray(_useState69, 2),
+    range = _useState70[0],
+    setRange = _useState70[1]; // 字符串: '3'/'7'/'14'/'30'/'90'/'quarter'/'year'/'all'
 
   // 计算时间筛选范围
   var cutoffDate = useMemo(function () {
@@ -3637,10 +3774,10 @@ var EventListModal = function EventListModal(_ref30) {
     suppliers = _ref30.suppliers,
     onClose = _ref30.onClose,
     onClickEvent = _ref30.onClickEvent;
-  var _useState67 = useState(''),
-    _useState68 = _slicedToArray(_useState67, 2),
-    search = _useState68[0],
-    setSearch = _useState68[1];
+  var _useState71 = useState(''),
+    _useState72 = _slicedToArray(_useState71, 2),
+    search = _useState72[0],
+    setSearch = _useState72[1];
   var filtered = (events || []).filter(function (e) {
     if (!search.trim()) return true;
     var q = search.trim().toLowerCase();
@@ -4749,22 +4886,22 @@ var ExportPanel = function ExportPanel(_ref37) {
     subTab = _ref37.subTab,
     filterMonth = _ref37.filterMonth,
     toast = _ref37.toast;
-  var _useState69 = useState(false),
-    _useState70 = _slicedToArray(_useState69, 2),
-    exporting = _useState70[0],
-    setExporting = _useState70[1];
-  var _useState71 = useState(true),
-    _useState72 = _slicedToArray(_useState71, 2),
-    includeImages = _useState72[0],
-    setIncludeImages = _useState72[1];
-  var _useState73 = useState(subTab === 'summary' ? 'all' : subTab),
+  var _useState73 = useState(false),
     _useState74 = _slicedToArray(_useState73, 2),
-    exportType = _useState74[0],
-    setExportType = _useState74[1];
-  var _useState75 = useState('excel'),
+    exporting = _useState74[0],
+    setExporting = _useState74[1];
+  var _useState75 = useState(true),
     _useState76 = _slicedToArray(_useState75, 2),
-    format = _useState76[0],
-    setFormat = _useState76[1];
+    includeImages = _useState76[0],
+    setIncludeImages = _useState76[1];
+  var _useState77 = useState(subTab === 'summary' ? 'all' : subTab),
+    _useState78 = _slicedToArray(_useState77, 2),
+    exportType = _useState78[0],
+    setExportType = _useState78[1];
+  var _useState79 = useState('excel'),
+    _useState80 = _slicedToArray(_useState79, 2),
+    format = _useState80[0],
+    setFormat = _useState80[1];
 
   // Excel 导出
   var exportExcel = /*#__PURE__*/function () {
@@ -5221,22 +5358,22 @@ var ReportModule = function ReportModule(_ref39) {
     employees = _ref39.employees,
     toast = _ref39.toast,
     cloudOn = _ref39.cloudOn;
-  var _useState77 = useState('inbox'),
-    _useState78 = _slicedToArray(_useState77, 2),
-    tab = _useState78[0],
-    setTab = _useState78[1]; // inbox | mine | new | all (admin)
-  var _useState79 = useState([]),
-    _useState80 = _slicedToArray(_useState79, 2),
-    tickets = _useState80[0],
-    setTickets = _useState80[1];
-  var _useState81 = useState(null),
+  var _useState81 = useState('inbox'),
     _useState82 = _slicedToArray(_useState81, 2),
-    openTicket = _useState82[0],
-    setOpenTicket = _useState82[1];
-  var _useState83 = useState(null),
+    tab = _useState82[0],
+    setTab = _useState82[1]; // inbox | mine | new | all (admin)
+  var _useState83 = useState([]),
     _useState84 = _slicedToArray(_useState83, 2),
-    draft = _useState84[0],
-    setDraft = _useState84[1];
+    tickets = _useState84[0],
+    setTickets = _useState84[1];
+  var _useState85 = useState(null),
+    _useState86 = _slicedToArray(_useState85, 2),
+    openTicket = _useState86[0],
+    setOpenTicket = _useState86[1];
+  var _useState87 = useState(null),
+    _useState88 = _slicedToArray(_useState87, 2),
+    draft = _useState88[0],
+    setDraft = _useState88[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
 
   // 加载工单（云端优先）
@@ -5969,14 +6106,14 @@ var TicketDetailModal = function TicketDetailModal(_ref47) {
     onUpdateStatus = _ref47.onUpdateStatus,
     onAddComment = _ref47.onAddComment,
     onDelete = _ref47.onDelete;
-  var _useState85 = useState(''),
-    _useState86 = _slicedToArray(_useState85, 2),
-    newComment = _useState86[0],
-    setNewComment = _useState86[1];
-  var _useState87 = useState(null),
-    _useState88 = _slicedToArray(_useState87, 2),
-    viewImg = _useState88[0],
-    setViewImg = _useState88[1];
+  var _useState89 = useState(''),
+    _useState90 = _slicedToArray(_useState89, 2),
+    newComment = _useState90[0],
+    setNewComment = _useState90[1];
+  var _useState91 = useState(null),
+    _useState92 = _slicedToArray(_useState91, 2),
+    viewImg = _useState92[0],
+    setViewImg = _useState92[1];
   var dept = DEPARTMENTS.find(function (d) {
     return d.key === ticket.department;
   });

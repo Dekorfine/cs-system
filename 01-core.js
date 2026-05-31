@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-107
-// APP_VERSION: 2026.05.30-fix107
+// 🧱 核心 · fix28-111
+// APP_VERSION: 2026.05.30-fix111
 // ════════════════════════════════════════════════════════════════════
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-107
-// APP_VERSION: 2026.05.30-fix107
+// 🧱 核心 · fix28-111
+// APP_VERSION: 2026.05.30-fix111
 // ════════════════════════════════════════════════════════════════════
 
 var _React = React,
@@ -1311,6 +1311,29 @@ function wsGuessDomain(no) {
   if (!m) return null;
   var p = m[1];
   return PREFIX_TO_DOMAIN_WS[p] || PREFIX_TO_DOMAIN_WS[p.slice(0, 2)] || PREFIX_TO_DOMAIN_WS[p.slice(0, 1)] || null;
+}
+// 🆕 fix111: 订单号前缀 → 网站简称(与发票 SHOP_PREFIX_MAP 同一套规则,客服团队通用)
+var PREFIX_TO_SITE_WS = {
+  VK: 'vakkerlight',
+  V: 'vakkerlight',
+  K: 'vakkerlight',
+  RD: 'Radium',
+  ML: 'Mooielight',
+  MO: 'Mooielight',
+  MJ: 'Mooijane',
+  JD: 'Mooijane',
+  DC: 'Docos',
+  DF: 'dekorfine',
+  LS: 'Lumioshine',
+  RS: 'Rayonshine',
+  MH: 'Mooiehome',
+  PL: 'Pinlighting'
+};
+function wsOrderSite(no) {
+  var m = String(no || '').toUpperCase().match(/^([A-Z]+)/);
+  if (!m) return null;
+  var p = m[1];
+  return PREFIX_TO_SITE_WS[p] || PREFIX_TO_SITE_WS[p.slice(0, 2)] || PREFIX_TO_SITE_WS[p.slice(0, 1)] || null;
 }
 function wsNormKey(no) {
   // 去 # / 取主号(忽略 /子单、-补发后缀)
