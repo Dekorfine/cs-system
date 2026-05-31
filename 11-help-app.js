@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-112
-// APP_VERSION: 2026.05.30-fix112
+// 📖 手册 + App(fix81) · fix28-113
+// APP_VERSION: 2026.05.30-fix113
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-112
-// APP_VERSION: 2026.05.30-fix112
+// 📖 手册 + App(fix81) · fix28-113
+// APP_VERSION: 2026.05.30-fix113
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -1644,6 +1644,7 @@ var App = function App() {
       if (initialTab) return initialTab;
       // 财务人员默认进入财务 tab（user 可能为 null - 未登录状态）
       if (user && user.role === 'finance') return 'freight_calc'; // 财务计算器/运费支付已迁出,财务默认进运费精算器
+      if (user && user.role === 'hr') return 'admin_overview'; // 🆕 fix113: 人事默认进绩效总览
       return 'cs';
     }),
     _useState20 = _slicedToArray(_useState19, 2),
@@ -2407,6 +2408,16 @@ var App = function App() {
       label: '⚙ 设置',
       icon: '⚙',
       group: 'admin'
+    }] : (user === null || user === void 0 ? void 0 : user.role) === 'hr' ? [{
+      key: 'admin_overview',
+      label: '📊 绩效总览',
+      icon: '📊',
+      group: 'admin'
+    }, {
+      key: 'dashboard',
+      label: '📈 数据看板',
+      icon: '📈',
+      group: 'admin'
     }] : [{
       key: 'dashboard',
       label: '📈 数据看板',
@@ -2420,6 +2431,13 @@ var App = function App() {
       badgeColor: '#86868b',
       group: 'admin'
     }]));
+    // 🆕 fix113: 人事(HR)只读聚焦视图 — 仅绩效总览 / 绩效考核 / 数据看板,不参与日常操作
+    if (user && user.role === 'hr') {
+      var hrAllow = ['admin_overview', 'kpi_scorer', 'dashboard'];
+      return tabs.filter(function (t) {
+        return hrAllow.includes(t.key);
+      });
+    }
     return tabs;
   }, [user === null || user === void 0 ? void 0 : user.id, user === null || user === void 0 ? void 0 : user.role, stats, cdmUnreadCount, cdmUrgentUnread]);
 
@@ -3176,7 +3194,7 @@ var App = function App() {
     user: user,
     employees: employees,
     records: records
-  }), activeTab === 'admin_overview' && (user.role === 'admin' || user.role === 'super_admin') && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(WorkSnapshotPanel, {
+  }), activeTab === 'admin_overview' && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'hr') && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(WorkSnapshotPanel, {
     user: user,
     employees: employees,
     records: records,
@@ -3237,7 +3255,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.05.30-fix112';
+var APP_VERSION = '2026.05.30-fix113';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

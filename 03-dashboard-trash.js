@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-104
-// APP_VERSION: 2026.05.30-fix104
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-113
+// APP_VERSION: 2026.05.30-fix113
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-104
-// APP_VERSION: 2026.05.30-fix104
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-113
+// APP_VERSION: 2026.05.30-fix113
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -3753,7 +3753,8 @@ var KPI_ITEMS = [{
 var KPIScoreboard = function KPIScoreboard(_ref26) {
   var employees = _ref26.employees,
     records = _ref26.records,
-    toast = _ref26.toast;
+    toast = _ref26.toast,
+    readOnly = _ref26.readOnly;
   var _useState49 = useState(new Date().toISOString().slice(0, 7)),
     _useState50 = _slicedToArray(_useState49, 2),
     month = _useState50[0],
@@ -3810,7 +3811,7 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
     // 🆕 fix104: 主管/老板要能看到并给【全员】打分 —— 列出所有在职客服(排除隐藏的老板账号),
     // 本月没记录的也出现(指标显示 0),不再 skip,解决"主管看不到所有人绩效"。
     var staff = (employees || []).filter(function (e) {
-      return !e.hideFromList && e.role !== 'super_admin';
+      return !e.hideFromList && e.role !== 'super_admin' && e.role !== 'hr' && e.role !== 'finance';
     });
     staff.forEach(function (e) {
       var recs = monRecs.filter(function (r) {
@@ -3935,7 +3936,16 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
       fontSize: 12,
       fontFamily: 'inherit'
     }
-  }), /*#__PURE__*/React.createElement("button", {
+  }), readOnly ? /*#__PURE__*/React.createElement("span", {
+    style: {
+      padding: '5px 10px',
+      fontSize: 11,
+      background: '#f3e8ff',
+      color: '#7c3aed',
+      borderRadius: 6,
+      fontWeight: 600
+    }
+  }, "\uD83E\uDDD1\u200D\uD83D\uDCBC \u4EBA\u4E8B\u53EA\u8BFB") : /*#__PURE__*/React.createElement("button", {
     onClick: save,
     disabled: saving,
     className: "btn-pri",
@@ -4055,6 +4065,7 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
         onChange: function onChange(e) {
           return setScore(m.emp.id, it.key, e.target.value);
         },
+        disabled: readOnly,
         style: {
           width: 46,
           padding: '3px',
@@ -4076,6 +4087,7 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
       onChange: function onChange(e) {
         return setScore(m.emp.id, 'bonus', e.target.value);
       },
+      disabled: readOnly,
       style: {
         width: 46,
         padding: '3px',
@@ -4539,7 +4551,8 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
   }, "\uD83D\uDD04 \u5237\u65B0")))), /*#__PURE__*/React.createElement(KPIScoreboard, {
     employees: employees,
     records: data.records,
-    toast: toast
+    toast: toast,
+    readOnly: user.role === 'hr'
   }), (stats.chargebacks.urgent > 0 || stats.refunds.pending > 0 || stats.followups.overdue > 0 || stats.deleteReqs.pending > 0) && /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-4",
     style: {

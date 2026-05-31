@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-111
-// APP_VERSION: 2026.05.30-fix111
+// 🧱 核心 · fix28-113
+// APP_VERSION: 2026.05.30-fix113
 // ════════════════════════════════════════════════════════════════════
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-111
-// APP_VERSION: 2026.05.30-fix111
+// 🧱 核心 · fix28-113
+// APP_VERSION: 2026.05.30-fix113
 // ════════════════════════════════════════════════════════════════════
 
 var _React = React,
@@ -966,6 +966,17 @@ var INITIAL_EMPLOYEES = [
   password: '123456',
   team: '北简',
   title: '北简 BJ_PD · 产品'
+},
+// 🧑‍💼 fix113: 人事(HR)— 跨团队绩效查看 + 设月度目标 · 不参与客服考核/不进排名
+{
+  id: 'u_hr_zhaoxin',
+  name: '赵欣',
+  alias: '',
+  sites: '人事',
+  role: 'hr',
+  password: 'hr2026',
+  title: '人事 · HR',
+  department: '人事'
 },
 // 🔒 老板 1（不在登录列表显示，需要从右下角"🔐 管理员"入口登录）
 {
@@ -3554,7 +3565,14 @@ var LoginScreen = function LoginScreen(_ref6) {
         marginTop: 2,
         fontWeight: 500
       }
-    }, "\uD83D\uDCB0 ", e.title || '财务 · Finance'), e.sites && /*#__PURE__*/React.createElement("div", {
+    }, "\uD83D\uDCB0 ", e.title || '财务 · Finance'), e.role === 'hr' && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: '11px',
+        color: '#7c3aed',
+        marginTop: 2,
+        fontWeight: 600
+      }
+    }, "\uD83E\uDDD1\u200D\uD83D\uDCBC ", e.title || '人事 · HR'), e.sites && /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: '11px',
         color: 'var(--ink-4)',
