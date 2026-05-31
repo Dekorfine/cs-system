@@ -610,14 +610,14 @@ fieldset legend {
    ============================================================ */
 .preview-card { padding: 0; overflow: visible; }
 .preview-tabs {
-  display: flex; align-items: stretch; gap: 0;
+  display: flex; align-items: stretch; flex-wrap: wrap; gap: 0 2px;
   background: var(--bg-card); border-bottom: 1px solid var(--line);
-  overflow-x: auto; padding: 0 16px;
+  padding: 0 12px;
 }
 .preview-tab {
-  position: relative; flex: 1; min-width: 110px;
+  position: relative; flex: 0 0 auto;
   background: none; border: none;
-  padding: 16px 18px; font-size: 14px; font-weight: 500;
+  padding: 12px 14px; font-size: 13px; font-weight: 500;
   color: var(--ink-3); transition: color 0.15s;
   border-bottom: 2px solid transparent;
   white-space: nowrap; cursor: pointer; letter-spacing: -.003em;

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-119
-// APP_VERSION: 2026.05.30-fix119
+// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-120
+// APP_VERSION: 2026.05.30-fix120
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 var _excluded = ["payload"];
@@ -28,8 +28,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-119
-// APP_VERSION: 2026.05.30-fix119
+// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-120
+// APP_VERSION: 2026.05.30-fix120
 // ════════════════════════════════════════════════════════════════════
 
 var EventsModule = function EventsModule(_ref) {
@@ -1066,13 +1066,34 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
       alive = false;
     };
   }, [orderNo]);
+  // 🆕 fix120: 弹窗打开时支持 Ctrl+V 粘贴图片
+  useEffect(function () {
+    if (!showPicker) return;
+    var onPaste = function onPaste(ev) {
+      var items = ev.clipboardData && ev.clipboardData.items || [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type && items[i].type.indexOf('image') === 0) {
+          var f = items[i].getAsFile();
+          if (f) {
+            onManualFile(f);
+            ev.preventDefault();
+            break;
+          }
+        }
+      }
+    };
+    document.addEventListener('paste', onPaste);
+    return function () {
+      return document.removeEventListener('paste', onPaste);
+    };
+  }, [showPicker]);
   if (!orderNo) return null;
-  var choose = function choose(p) {
+  var choose = function choose(p, keepOpen) {
     setPicked(p);
     try {
       localStorage.setItem(pickKey, JSON.stringify(p));
     } catch (e) {}
-    setShowPicker(false);
+    if (!keepOpen) setShowPicker(false);
   };
   var clearPick = function clearPick() {
     setPicked(null);
@@ -1107,13 +1128,13 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
             image_url: c.toDataURL('image/jpeg', 0.82),
             title: '手动添加',
             manual: true
-          });
+          }, true);
         } catch (err) {
           choose({
             image_url: e.target.result,
             title: '手动添加',
             manual: true
-          });
+          }, true);
         }
       };
       img.onerror = function () {
@@ -1121,7 +1142,7 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
           image_url: e.target.result,
           title: '手动添加',
           manual: true
-        });
+        }, true);
       };
       img.src = e.target.result;
     };
@@ -1250,17 +1271,95 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
       color: 'var(--ink-3)',
       marginBottom: 12
     }
-  }, orderNo, " \xB7 \u81EA\u52A8\u62C9\u5230 ", prods.length, " \u4E2A\u4EA7\u54C1;\u9009\u4E00\u4E2A,\u6216\u81EA\u52A8\u6709\u8BEF\u65F6\u624B\u52A8\u4E0A\u4F20"), /*#__PURE__*/React.createElement("div", {
+  }, orderNo, " \xB7 \u81EA\u52A8\u62C9\u5230 ", prods.length, " \u4E2A\u4EA7\u54C1;\u9009\u4E00\u4E2A,\u6216\u81EA\u52A8\u6709\u8BEF\u65F6\u624B\u52A8\u4E0A\u4F20/\u7C98\u8D34"), picked && picked.image_url && /*#__PURE__*/React.createElement("div", {
     style: {
+      marginBottom: 12,
+      padding: 10,
+      background: '#f0fdf4',
+      border: '1px solid #86efac',
+      borderRadius: 10,
       display: 'flex',
-      gap: 8,
       alignItems: 'center',
-      marginBottom: 14,
-      flexWrap: 'wrap'
+      gap: 10
     }
-  }, /*#__PURE__*/React.createElement("label", {
-    style: manualBtnStyle
-  }, "\uD83D\uDCCE \u624B\u52A8\u4E0A\u4F20\u56FE\u7247", /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement("img", {
+    src: picked.image_url,
+    alt: "",
+    onClick: function onClick() {
+      return onPreview && onPreview(picked.image_url);
+    },
+    style: {
+      width: 64,
+      height: 64,
+      objectFit: 'cover',
+      borderRadius: 8,
+      border: '1px solid #86efac',
+      cursor: 'zoom-in'
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      flex: 1,
+      minWidth: 0
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      fontWeight: 600,
+      color: '#15803d'
+    }
+  }, "\u2705 \u5F53\u524D\u5DF2\u9009", picked.manual ? '(手动)' : ''), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-3)',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap'
+    }
+  }, picked.title || ''), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      color: 'var(--ink-4)',
+      marginTop: 2
+    }
+  }, "\u70B9\u56FE\u53EF\u653E\u5927\u9884\u89C8")), /*#__PURE__*/React.createElement("button", {
+    onClick: clearPick,
+    className: "btn-sec",
+    style: {
+      padding: '4px 9px',
+      fontSize: 11
+    }
+  }, "\u6E05\u9664")), /*#__PURE__*/React.createElement("label", {
+    onDragOver: function onDragOver(e) {
+      e.preventDefault();
+    },
+    onDrop: function onDrop(e) {
+      e.preventDefault();
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) onManualFile(f);
+    },
+    style: {
+      display: 'block',
+      marginBottom: 14,
+      padding: '14px 12px',
+      border: '2px dashed #93c5fd',
+      borderRadius: 10,
+      background: '#f0f9ff',
+      cursor: 'pointer',
+      textAlign: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 600,
+      color: '#0369a1'
+    }
+  }, "\uD83D\uDCCE \u70B9\u51FB\u4E0A\u4F20 / \u62D6\u62FD / \uD83D\uDCCB \u7C98\u8D34 (Ctrl+V)"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-3)',
+      marginTop: 3
+    }
+  }, "\u652F\u6301\u622A\u56FE\u76F4\u63A5 Ctrl+V \u7C98\u8D34 \xB7 \u4E0A\u4F20\u540E\u4E0B\u65B9\u9884\u89C8"), /*#__PURE__*/React.createElement("input", {
     type: "file",
     accept: "image/*",
     style: {
@@ -1270,17 +1369,7 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
       onManualFile(e.target.files && e.target.files[0]);
       e.target.value = '';
     }
-  })), picked && /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      clearPick();
-      setShowPicker(false);
-    },
-    className: "btn-sec",
-    style: {
-      padding: '5px 10px',
-      fontSize: 12
-    }
-  }, "\u6E05\u9664\u5F53\u524D\u56FE")), prods.length > 0 ? /*#__PURE__*/React.createElement("div", {
+  })), prods.length > 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fill,minmax(120px,1fr))',
@@ -1337,15 +1426,24 @@ var OrderProductThumb = function OrderProductThumb(_ref0) {
       fontSize: 12,
       color: 'var(--ink-4)',
       textAlign: 'center',
-      padding: '16px 0'
+      padding: '8px 0'
     }
-  }, "\u672A\u81EA\u52A8\u5339\u914D\u5230\u8BE5\u8BA2\u5355\u7684\u4EA7\u54C1\u56FE,\u8BF7\u7528\u4E0A\u65B9\u300C\u624B\u52A8\u4E0A\u4F20\u56FE\u7247\u300D\u3002"), picked && picked.manual && /*#__PURE__*/React.createElement("div", {
+  }, "\u672A\u81EA\u52A8\u5339\u914D\u5230\u8BE5\u8BA2\u5355\u7684\u4EA7\u54C1\u56FE,\u8BF7\u7528\u4E0A\u65B9\u4E0A\u4F20 / \u7C98\u8D34\u3002"), /*#__PURE__*/React.createElement("div", {
     style: {
-      marginTop: 12,
-      fontSize: 11,
-      color: '#15803d'
+      display: 'flex',
+      justifyContent: 'flex-end',
+      marginTop: 14
     }
-  }, "\u2705 \u5F53\u524D\u7528\u624B\u52A8\u4E0A\u4F20\u7684\u56FE\u7247"))));
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setShowPicker(false);
+    },
+    className: "btn-pri",
+    style: {
+      padding: '6px 16px',
+      fontSize: 13
+    }
+  }, "\u5B8C\u6210")))));
 };
 var OrderRefLink = function OrderRefLink(_ref1) {
   var orderNo = _ref1.orderNo,
@@ -1603,7 +1701,7 @@ var AseToOrdersModal = function AseToOrdersModal(_ref10) {
               break;
             }
             setAse(null);
-            return _context6.a(2);
+            return _context6.a(2, null);
           case 1:
             _context6.p = 1;
             _context6.n = 2;
@@ -1612,14 +1710,12 @@ var AseToOrdersModal = function AseToOrdersModal(_ref10) {
             _yield$c$from$select$ = _context6.v;
             data = _yield$c$from$select$.data;
             setAse(data || null);
-            _context6.n = 4;
-            break;
+            return _context6.a(2, data || null);
           case 3:
             _context6.p = 3;
             _t2 = _context6.v;
             setAse(null);
-          case 4:
-            return _context6.a(2);
+            return _context6.a(2, null);
         }
       }, _callee6, null, [[1, 3]]);
     }));
@@ -1685,7 +1781,7 @@ var AseToOrdersModal = function AseToOrdersModal(_ref10) {
   }, [event.id]);
   var send = /*#__PURE__*/function () {
     var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
-      var pick, ok;
+      var pick, ok, row;
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.n) {
           case 0:
@@ -1702,13 +1798,16 @@ var AseToOrdersModal = function AseToOrdersModal(_ref10) {
             ok = _context8.v;
             setSending(false);
             if (!ok) {
-              _context8.n = 2;
+              _context8.n = 3;
               break;
             }
             toast && toast('✓ 已转跟单 · 工单已发(含售后详情链接)');
             _context8.n = 2;
             return loadAse();
           case 2:
+            row = _context8.v;
+            if (!row) alert('工单已发给跟单,但共享表里没读回这条售后。\n\n通常是「跨部门库」还没建 aftersales_events 表或读取权限(RLS)未开。请让主管在跨部门库跑 aftersales_events 建表 SQL 后重开本面板,即可看到完整协作流程(跟单回填/时间线/确认完成)。');
+          case 3:
             return _context8.a(2);
         }
       }, _callee8);
@@ -1934,7 +2033,79 @@ var AseToOrdersModal = function AseToOrdersModal(_ref10) {
     style: {
       padding: '7px 16px'
     }
-  }, sending ? '发送中…' : '转跟单并发工单'))) : /*#__PURE__*/React.createElement(React.Fragment, null, ase.completed && /*#__PURE__*/React.createElement("div", {
+  }, sending ? '发送中…' : '转跟单并发工单'))) : /*#__PURE__*/React.createElement(React.Fragment, null, function () {
+    var steps = [{
+      label: '已转跟单',
+      done: true
+    }, {
+      label: '跟单处理',
+      done: !!(ase.assignee_name || ase.assigned_to || ase.assigned_to_name)
+    }, {
+      label: '跟单回填意见',
+      done: !!(ase.improvement_suggestion || ase.improvement_status)
+    }, {
+      label: '客服确认完成',
+      done: !!ase.completed
+    }];
+    var curIdx = ase.completed ? 3 : steps[2].done ? 2 : steps[1].done ? 1 : 0;
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        marginBottom: 14
+      }
+    }, steps.map(function (s, i) {
+      return /*#__PURE__*/React.createElement(React.Fragment, {
+        key: i
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          flexShrink: 0
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          width: 24,
+          height: 24,
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 12,
+          fontWeight: 700,
+          background: s.done ? '#16a34a' : i === curIdx ? '#0071e3' : '#e5e7eb',
+          color: s.done || i === curIdx ? 'white' : 'var(--ink-4)'
+        }
+      }, s.done ? '✓' : i + 1), /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 9,
+          marginTop: 3,
+          color: s.done ? '#16a34a' : i === curIdx ? '#0071e3' : 'var(--ink-4)',
+          fontWeight: 600,
+          textAlign: 'center',
+          width: 56,
+          lineHeight: 1.2
+        }
+      }, s.label)), i < steps.length - 1 && /*#__PURE__*/React.createElement("div", {
+        style: {
+          flex: 1,
+          height: 2,
+          background: steps[i + 1].done ? '#16a34a' : '#e5e7eb',
+          marginTop: -14
+        }
+      }));
+    }));
+  }(), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-3)',
+      marginBottom: 10,
+      padding: '6px 10px',
+      background: '#f8fafc',
+      borderRadius: 7
+    }
+  }, "\uD83D\uDC65 \u63A5\u6536\u8DDF\u5355:", ase.assignee_name || ase.assigned_to_name || '跟单主管分配', " \xB7 \u8DDF\u5355\u4E0E\u6240\u6709\u5BA2\u670D\u90FD\u80FD\u6253\u5F00\u6B64\u9762\u677F\u770B\u8FDB\u5C55\u3001\u56DE\u586B\u3001\u7559\u8A00\u3002"), ase.completed && /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '7px 12px',
       background: '#dcfce7',
