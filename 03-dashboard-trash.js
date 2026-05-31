@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-117
-// APP_VERSION: 2026.05.30-fix117
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-118
+// APP_VERSION: 2026.05.30-fix118
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-117
-// APP_VERSION: 2026.05.30-fix117
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-118
+// APP_VERSION: 2026.05.30-fix118
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -3750,11 +3750,39 @@ var KPI_ITEMS = [{
   label: '企业文化管理',
   max: 5
 }];
+// 🆕 fix118: 奖惩自动计数权重(对应绩效打分器附加奖惩项)
+var KPI_BONUS_WEIGHTS = {
+  major: 1,
+  optimize: 0.3,
+  normal: 1,
+  cbFault: -3,
+  refill: -2,
+  photo: -1
+};
+// 问题反馈关键词分类(可继续补充):命中"重大"→重大反馈(+1);否则命中"产品优化"→产品优化奖(+0.3);其余=普通发现问题反馈(+1)
+var KPI_FB_MAJOR_KW = ['重大', '严重', '批量', '普遍', '系统性', '大量', '多个客户', '反复', '重复出现', '高频', '集中性', '安全隐患', '起火', '触电', '漏电', '召回', '重大质量', '大面积'];
+var KPI_FB_OPTIMIZE_KW = ['优化', '改进', '改良', '建议改', '设计建议', '工艺', '包装改进', '结构', '产品建议', '改善', '提升体验', '优化建议', '质量改进', '流程优化'];
+var kpiClassifyFeedback = function kpiClassifyFeedback(rec) {
+  var t = ((rec.note || '') + ' ' + (rec.category || '') + ' ' + (rec.feedbackNote || '') + ' ' + (rec.escalateReason || '')).toLowerCase();
+  if (KPI_FB_MAJOR_KW.some(function (k) {
+    return t.includes(k.toLowerCase());
+  })) return 'major';
+  if (KPI_FB_OPTIMIZE_KW.some(function (k) {
+    return t.includes(k.toLowerCase());
+  })) return 'optimize';
+  return 'normal';
+};
 var KPIScoreboard = function KPIScoreboard(_ref26) {
   var employees = _ref26.employees,
     records = _ref26.records,
     toast = _ref26.toast,
-    readOnly = _ref26.readOnly;
+    readOnly = _ref26.readOnly,
+    _ref26$chargebacks = _ref26.chargebacks,
+    chargebacks = _ref26$chargebacks === void 0 ? [] : _ref26$chargebacks,
+    _ref26$refills = _ref26.refills,
+    refills = _ref26$refills === void 0 ? [] : _ref26$refills,
+    _ref26$photos = _ref26.photos,
+    photos = _ref26$photos === void 0 ? [] : _ref26$photos;
   var _useState49 = useState(new Date().toISOString().slice(0, 7)),
     _useState50 = _slicedToArray(_useState49, 2),
     month = _useState50[0],
@@ -3813,6 +3841,16 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
     var staff = (employees || []).filter(function (e) {
       return !e.hideFromList && e.role !== 'super_admin' && e.role !== 'hr' && e.role !== 'finance';
     });
+    // 🆕 fix118: 本月的拒付失误标记 / 补件 / 实拍(按人月归集到奖惩)
+    var monCb = (chargebacks || []).filter(function (c) {
+      return c.cs_fault && (c.created_at || c.deadline || c.updated_at || '').slice(0, 7) === month;
+    });
+    var monRf = (refills || []).filter(function (r) {
+      return (r.created_at || '').slice(0, 7) === month;
+    });
+    var monPh = (photos || []).filter(function (p) {
+      return (p.created_at || '').slice(0, 7) === month;
+    });
     staff.forEach(function (e) {
       var recs = monRecs.filter(function (r) {
         return r.ownerId === e.id;
@@ -3829,6 +3867,26 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
       var fb = recs.filter(function (r) {
         return r.isFeedback;
       });
+      // 🆕 fix118: 问题反馈分类(重大/产品优化/普通)+ 拒付失误/补件/实拍 按人月计数 → 自动奖惩
+      var fbMajor = fb.filter(function (r) {
+        return kpiClassifyFeedback(r) === 'major';
+      });
+      var fbOpt = fb.filter(function (r) {
+        return kpiClassifyFeedback(r) === 'optimize' && !fbMajor.includes(r);
+      });
+      var fbNorm = fb.filter(function (r) {
+        return !fbMajor.includes(r) && !fbOpt.includes(r);
+      });
+      var cbFault = monCb.filter(function (c) {
+        return (c.cs_fault_emp || c.created_by) === e.id;
+      });
+      var myRf = monRf.filter(function (r) {
+        return r.created_by === e.id;
+      });
+      var myPh = monPh.filter(function (p) {
+        return p.created_by === e.id;
+      });
+      var bonusAuto = fbMajor.length * KPI_BONUS_WEIGHTS.major + fbOpt.length * KPI_BONUS_WEIGHTS.optimize + fbNorm.length * KPI_BONUS_WEIGHTS.normal + cbFault.length * KPI_BONUS_WEIGHTS.cbFault + myRf.length * KPI_BONUS_WEIGHTS.refill + myPh.length * KPI_BONUS_WEIGHTS.photo;
       m[e.id] = {
         emp: e,
         total: recs.length,
@@ -3843,11 +3901,18 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
         _un: un,
         _ov: ov,
         _nf: nf,
-        _fb: fb
-      }; // 🆕 fix117: 明细数组,支持点击钻取
+        _fb: fb,
+        _fbMajor: fbMajor,
+        _fbOpt: fbOpt,
+        _fbNorm: fbNorm,
+        _cbFault: cbFault,
+        _rf: myRf,
+        _ph: myPh,
+        bonusAuto: Math.round(bonusAuto * 10) / 10
+      }; // 🆕 fix118
     });
     return m;
-  }, [employees, monRecs, today]);
+  }, [employees, monRecs, today, chargebacks, refills, photos, month]);
   var rows = Object.values(metrics).sort(function (a, b) {
     return b.total - a.total;
   });
@@ -3869,7 +3934,7 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
     KPI_ITEMS.forEach(function (it) {
       t += Number(getScore(m.emp.id, it.key, 0)) || 0;
     });
-    t += Number(getScore(m.emp.id, 'bonus', m.feedback)) || 0;
+    t += Number(getScore(m.emp.id, 'bonus', m.bonusAuto)) || 0;
     return t;
   };
   // 🆕 fix117: 自动建议(只填可量化的客观项 q1 邮件质量+时效 + bonus 问题反馈;主观项仍人工)
@@ -3886,12 +3951,12 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
         var q1 = Math.round(20 * (1 - 0.5 * ovR - 0.5 * nfR));
         q1 = Math.max(0, Math.min(20, tot === 0 ? 0 : q1));
         cur.q1 = q1;
-        cur.bonus = m.feedback; // 问题反馈奖
+        cur.bonus = m.bonusAuto; // 🆕 fix118: 奖惩=自动计数(反馈分级 + 拒付失误 + 补件 + 实拍)
         next[m.emp.id] = cur;
       });
       return next;
     });
-    toast && toast('🪄 已按工作明细建议「邮件质量+时效」与「问题反馈奖」· 主观项仍需人工 · 确认后点保存');
+    toast && toast('🪄 已按工作明细建议「邮件质量+时效」与「奖惩」(反馈分级/拒付失误/补件/实拍)· 主观项仍需人工 · 确认后点保存');
   };
   var save = /*#__PURE__*/function () {
     var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
@@ -4136,7 +4201,54 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
           return open('问题反馈', m._fb);
         },
         title: "\u70B9\u51FB\u67E5\u770B\u660E\u7EC6"
-      }, m.feedback), " \xB7 \u5747\u65F6\u957F ", m.avgMin, "min");
+      }, m.feedback), " \xB7 \u5747\u65F6\u957F ", m.avgMin, "min", /*#__PURE__*/React.createElement("br", null), /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: 'var(--ink-4)'
+        }
+      }, "\u5956\u60E9\u81EA\u52A8:"), " ", /*#__PURE__*/React.createElement("span", {
+        style: ds('重大反馈', m._fbMajor),
+        onClick: function onClick() {
+          return open('重大反馈 +1', m._fbMajor);
+        },
+        title: "\u547D\u4E2D\u91CD\u5927\u5173\u952E\u8BCD"
+      }, "\u91CD\u5927", m._fbMajor.length), "\xB7", /*#__PURE__*/React.createElement("span", {
+        style: ds('产品优化', m._fbOpt),
+        onClick: function onClick() {
+          return open('产品优化 +0.3', m._fbOpt);
+        },
+        title: "\u547D\u4E2D\u4F18\u5316\u5173\u952E\u8BCD"
+      }, "\u4F18\u5316", m._fbOpt.length), "\xB7", /*#__PURE__*/React.createElement("span", {
+        style: ds('普通反馈', m._fbNorm),
+        onClick: function onClick() {
+          return open('普通反馈 +1', m._fbNorm);
+        }
+      }, "\u666E\u901A", m._fbNorm.length), "\xB7", /*#__PURE__*/React.createElement("span", {
+        style: _objectSpread(_objectSpread({}, ds('拒付失误', m._cbFault)), {}, {
+          color: m._cbFault.length ? '#dc2626' : 'inherit'
+        }),
+        onClick: function onClick() {
+          return open('拒付失误 -3', m._cbFault);
+        },
+        title: "\u62D2\u4ED8\u88AB\u6807\u8BB0\u5BA2\u670D\u5931\u8BEF"
+      }, "\u62D2\u4ED8\u5931\u8BEF", m._cbFault.length), "\xB7", /*#__PURE__*/React.createElement("span", {
+        style: _objectSpread(_objectSpread({}, ds('补件', m._rf)), {}, {
+          color: m._rf.length ? '#ea580c' : 'inherit'
+        }),
+        onClick: function onClick() {
+          return open('补发配件 -2', m._rf);
+        }
+      }, "\u8865\u4EF6", m._rf.length), "\xB7", /*#__PURE__*/React.createElement("span", {
+        style: _objectSpread(_objectSpread({}, ds('实拍', m._ph)), {}, {
+          color: m._ph.length ? '#be185d' : 'inherit'
+        }),
+        onClick: function onClick() {
+          return open('实拍发货 -1', m._ph);
+        }
+      }, "\u5B9E\u62CD", m._ph.length), " = ", /*#__PURE__*/React.createElement("b", {
+        style: {
+          color: m.bonusAuto >= 0 ? '#059669' : '#dc2626'
+        }
+      }, m.bonusAuto >= 0 ? '+' : '', m.bonusAuto));
     }()), KPI_ITEMS.map(function (it) {
       return /*#__PURE__*/React.createElement("td", {
         key: it.key,
@@ -4170,7 +4282,7 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
       }
     }, /*#__PURE__*/React.createElement("input", {
       type: "number",
-      value: getScore(m.emp.id, 'bonus', m.feedback),
+      value: getScore(m.emp.id, 'bonus', m.bonusAuto),
       onChange: function onChange(e) {
         return setScore(m.emp.id, 'bonus', e.target.value);
       },
@@ -4306,13 +4418,13 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
         padding: '6px 12px',
         whiteSpace: 'nowrap'
       }
-    }, (r.date || '').slice(5)), /*#__PURE__*/React.createElement("td", {
+    }, ((r.date || r.created_at || '') + '').slice(5, 10)), /*#__PURE__*/React.createElement("td", {
       style: {
         padding: '6px 8px',
         fontWeight: 600
       }
-    }, r.orderRef ? /*#__PURE__*/React.createElement(OrderRefLink, {
-      orderNo: r.orderRef
+    }, r.orderRef || r.order_no || r.order_ref ? /*#__PURE__*/React.createElement(OrderRefLink, {
+      orderNo: r.orderRef || r.order_no || r.order_ref
     }) : '-'), /*#__PURE__*/React.createElement("td", {
       style: {
         padding: '6px 8px',
@@ -4321,11 +4433,11 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
       }
-    }, r.customer || '-'), /*#__PURE__*/React.createElement("td", {
+    }, r.customer || r.customer_email || r.customer_name || '-'), /*#__PURE__*/React.createElement("td", {
       style: {
         padding: '6px 8px'
       }
-    }, r.category || '-'), /*#__PURE__*/React.createElement("td", {
+    }, r.category || r.product_name || r.issue_type || '-'), /*#__PURE__*/React.createElement("td", {
       style: {
         padding: '6px 8px'
       }
@@ -4333,17 +4445,17 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
       style: {
         color: '#16a34a'
       }
-    }, "\u5DF2\u89E3\u51B3") : /*#__PURE__*/React.createElement("span", {
+    }, "\u5DF2\u89E3\u51B3") : r.status ? /*#__PURE__*/React.createElement("span", {
       style: {
         color: '#ca8a04'
       }
-    }, "\u672A\u89E3\u51B3")), /*#__PURE__*/React.createElement("td", {
+    }, r.status) : '-'), /*#__PURE__*/React.createElement("td", {
       style: {
         padding: '6px 8px',
         color: r.nextFollowUp && r.nextFollowUp < today ? '#dc2626' : 'var(--ink-3)',
         whiteSpace: 'nowrap'
       }
-    }, r.nextFollowUp || (r.status === 'resolved' ? '—' : '未设')));
+    }, r.nextFollowUp || '—'));
   })))))));
 };
 
@@ -4783,7 +4895,10 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
     employees: employees,
     records: data.records,
     toast: toast,
-    readOnly: user.role === 'hr'
+    readOnly: user.role === 'hr',
+    chargebacks: data.chargebacks,
+    refills: data.refills,
+    photos: data.photoVerif
   }), (stats.chargebacks.urgent > 0 || stats.refunds.pending > 0 || stats.followups.overdue > 0 || stats.deleteReqs.pending > 0) && /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-4",
     style: {

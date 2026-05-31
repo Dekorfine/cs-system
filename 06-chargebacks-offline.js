@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-117
-// APP_VERSION: 2026.05.30-fix117
+// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-118
+// APP_VERSION: 2026.05.30-fix118
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
@@ -25,8 +25,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-117
-// APP_VERSION: 2026.05.30-fix117
+// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-118
+// APP_VERSION: 2026.05.30-fix118
 // ════════════════════════════════════════════════════════════════════
 
 var ChargebacksModule = function ChargebacksModule(_ref) {
@@ -701,6 +701,35 @@ var ChargebackCard = function ChargebackCard(_ref5) {
       return _ref6.apply(this, arguments);
     };
   }();
+  // 🆕 fix118: 手工标记"客服失误"(计入绩效奖惩 -3/次,按失误人月统计)· 需先在 chargebacks 表加 cs_fault/cs_fault_emp 列
+  var toggleFault = /*#__PURE__*/function () {
+    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+      var next, res;
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.n) {
+          case 0:
+            next = !cb.cs_fault;
+            _context4.n = 1;
+            return CLOUD.upsert('chargebacks', _objectSpread(_objectSpread({}, cb), {}, {
+              cs_fault: next,
+              cs_fault_emp: next ? cb.cs_fault_emp || cb.created_by : null,
+              updated_at: new Date().toISOString()
+            }));
+          case 1:
+            res = _context4.v;
+            if (res) {
+              toast(next ? '⚠️ 已标记客服失误 · 绩效 -3' : '已取消客服失误标记');
+              onReload && onReload();
+            }
+          case 2:
+            return _context4.a(2);
+        }
+      }, _callee4);
+    }));
+    return function toggleFault() {
+      return _ref7.apply(this, arguments);
+    };
+  }();
   return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl fade-in",
     style: {
@@ -927,7 +956,20 @@ var ChargebackCard = function ChargebackCard(_ref5) {
       fontSize: 11,
       fontWeight: 600
     }
-  }, "\u270F\uFE0F"), (isAdmin || cb.created_by === user.id) && /*#__PURE__*/React.createElement("button", {
+  }, "\u270F\uFE0F"), isAdmin && /*#__PURE__*/React.createElement("button", {
+    onClick: toggleFault,
+    title: "\u6807\u8BB0/\u53D6\u6D88\u300C\u5BA2\u670D\u5931\u8BEF\u300D\xB7 \u8BA1\u5165\u7EE9\u6548\u5956\u60E9 -3/\u6B21",
+    style: {
+      padding: '5px 10px',
+      borderRadius: 5,
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 600,
+      background: cb.cs_fault ? '#fef2f2' : 'white',
+      color: cb.cs_fault ? '#dc2626' : 'var(--ink-3)',
+      border: '1px solid ' + (cb.cs_fault ? '#fca5a5' : 'var(--line)')
+    }
+  }, cb.cs_fault ? '⚠️客服失误✓' : '标记失误'), (isAdmin || cb.created_by === user.id) && /*#__PURE__*/React.createElement("button", {
     onClick: onDelete,
     style: {
       padding: '5px 10px',
@@ -1028,13 +1070,13 @@ var ChargebackCard = function ChargebackCard(_ref5) {
     }
   }));
 };
-var ChargebackEditor = function ChargebackEditor(_ref7) {
-  var cb = _ref7.cb,
-    user = _ref7.user,
-    employees = _ref7.employees,
-    onClose = _ref7.onClose,
-    onSaved = _ref7.onSaved,
-    toast = _ref7.toast;
+var ChargebackEditor = function ChargebackEditor(_ref8) {
+  var cb = _ref8.cb,
+    user = _ref8.user,
+    employees = _ref8.employees,
+    onClose = _ref8.onClose,
+    onSaved = _ref8.onSaved,
+    toast = _ref8.toast;
   var isEdit = !!cb;
   var today = todayISO();
   var defaultDeadline = function () {
@@ -1192,17 +1234,17 @@ var ChargebackEditor = function ChargebackEditor(_ref7) {
       setAutoAssignInfo('');
       return;
     }
-    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
       var inferredSite, _yield$CLOUD$client$f, data, config, _autoAssignByConfig, ids, info, names, _t2;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
+      return _regenerator().w(function (_context5) {
+        while (1) switch (_context5.p = _context5.n) {
           case 0:
-            _context4.p = 0;
+            _context5.p = 0;
             inferredSite = inferSiteFromOrderNo(orderNo);
-            _context4.n = 1;
+            _context5.n = 1;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'chargeback_owners').single();
           case 1:
-            _yield$CLOUD$client$f = _context4.v;
+            _yield$CLOUD$client$f = _context5.v;
             data = _yield$CLOUD$client$f.data;
             config = (data === null || data === void 0 ? void 0 : data.value) || {};
             _autoAssignByConfig = autoAssignByConfig(inferredSite, config), ids = _autoAssignByConfig.ids, info = _autoAssignByConfig.info;
@@ -1219,59 +1261,59 @@ var ChargebackEditor = function ChargebackEditor(_ref7) {
               setAssignedTo([]);
               setAutoAssignInfo('⚠ 未配置拒付负责人,主管请在 ⚙ 设置 中配置');
             }
-            _context4.n = 3;
+            _context5.n = 3;
             break;
           case 2:
-            _context4.p = 2;
-            _t2 = _context4.v;
+            _context5.p = 2;
+            _t2 = _context5.v;
             setAutoAssignInfo('');
           case 3:
-            return _context4.a(2);
+            return _context5.a(2);
         }
-      }, _callee4, null, [[0, 2]]);
+      }, _callee5, null, [[0, 2]]);
     }))();
   }, [orderNo, isEdit]);
   var daysLeft = deadline ? daysUntil(deadline) : null;
   var handleSave = /*#__PURE__*/function () {
-    var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+    var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
       var userName, now, inferredSite, assignedNames, payload, res, _t3;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.p = _context5.n) {
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
           case 0:
             if (orderNo.trim()) {
-              _context5.n = 1;
+              _context6.n = 1;
               break;
             }
             alert('请填写订单编号');
-            return _context5.a(2);
+            return _context6.a(2);
           case 1:
             if (customerEmail.trim()) {
-              _context5.n = 2;
+              _context6.n = 2;
               break;
             }
             alert('请填写客户邮箱');
-            return _context5.a(2);
+            return _context6.a(2);
           case 2:
             if (!(!amount || parseFloat(amount) <= 0)) {
-              _context5.n = 3;
+              _context6.n = 3;
               break;
             }
             alert('请填写金额');
-            return _context5.a(2);
+            return _context6.a(2);
           case 3:
             if (openedAt) {
-              _context5.n = 4;
+              _context6.n = 4;
               break;
             }
             alert('请填写拒付日期');
-            return _context5.a(2);
+            return _context6.a(2);
           case 4:
             if (deadline) {
-              _context5.n = 5;
+              _context6.n = 5;
               break;
             }
             alert('请填写截止处理日期');
-            return _context5.a(2);
+            return _context6.a(2);
           case 5:
             setSaving(true);
             userName = user.name + (user.alias ? ' ' + user.alias : '');
@@ -1309,33 +1351,33 @@ var ChargebackEditor = function ChargebackEditor(_ref7) {
               created_by: (cb === null || cb === void 0 ? void 0 : cb.created_by) || user.id,
               created_by_name: (cb === null || cb === void 0 ? void 0 : cb.created_by_name) || userName
             });
-            _context5.p = 6;
-            _context5.n = 7;
+            _context6.p = 6;
+            _context6.n = 7;
             return CLOUD.upsert('chargebacks', payload);
           case 7:
-            res = _context5.v;
+            res = _context6.v;
             if (res) {
               toast(isEdit ? '✓ 已更新拒付' : '✓ 已创建拒付');
               onSaved();
             } else {
               alertSaveError(isEdit ? '更新拒付' : '创建拒付');
             }
-            _context5.n = 9;
+            _context6.n = 9;
             break;
           case 8:
-            _context5.p = 8;
-            _t3 = _context5.v;
+            _context6.p = 8;
+            _t3 = _context6.v;
             console.error('保存拒付失败:', _t3);
             alertSaveError(isEdit ? '更新拒付' : '创建拒付');
           case 9:
             setSaving(false);
           case 10:
-            return _context5.a(2);
+            return _context6.a(2);
         }
-      }, _callee5, null, [[6, 8]]);
+      }, _callee6, null, [[6, 8]]);
     }));
     return function handleSave() {
-      return _ref9.apply(this, arguments);
+      return _ref0.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
@@ -1797,10 +1839,10 @@ var ChargebackEditor = function ChargebackEditor(_ref7) {
 // ============================================================
 // 💳 线下单模块
 // ============================================================
-var OfflineOrdersModule = function OfflineOrdersModule(_ref0) {
-  var user = _ref0.user,
-    employees = _ref0.employees,
-    toast = _ref0.toast;
+var OfflineOrdersModule = function OfflineOrdersModule(_ref1) {
+  var user = _ref1.user,
+    employees = _ref1.employees,
+    toast = _ref1.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   var _useState57 = useState([]),
     _useState58 = _slicedToArray(_useState57, 2),
@@ -1859,14 +1901,14 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref0) {
     setDateFilter = _useState80[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
-    var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+    var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
       var data, _t4;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.p = _context7.n) {
           case 0:
             setLoading(true);
-            _context6.p = 1;
-            _context6.n = 2;
+            _context7.p = 1;
+            _context7.n = 2;
             return CLOUD.list('offline_orders', {
               order: {
                 col: 'created_at',
@@ -1875,38 +1917,38 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref0) {
               limit: 500
             });
           case 2:
-            data = _context6.v;
+            data = _context7.v;
             setList((data || []).filter(function (o) {
               return !o.deleted;
             }));
-            _context6.n = 4;
+            _context7.n = 4;
             break;
           case 3:
-            _context6.p = 3;
-            _t4 = _context6.v;
+            _context7.p = 3;
+            _t4 = _context7.v;
             toast('❌ ' + _t4.message);
           case 4:
             setLoading(false);
           case 5:
-            return _context6.a(2);
+            return _context7.a(2);
         }
-      }, _callee6, null, [[1, 3]]);
+      }, _callee7, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref1.apply(this, arguments);
+      return _ref10.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleDelete = /*#__PURE__*/function () {
-    var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(o) {
+    var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(o) {
       var summary;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.n) {
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.n) {
           case 0:
             summary = "".concat(o.order_no, " \xB7 ").concat(o.payment_currency || 'USD', " ").concat(o.payment_amount || 0, " \xB7 ").concat(o.customer_email || o.customer_name || '?');
-            _context7.n = 1;
+            _context8.n = 1;
             return requestDelete({
               user: user,
               tableName: 'offline_orders',
@@ -1917,12 +1959,12 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref0) {
               onSuccess: load
             });
           case 1:
-            return _context7.a(2);
+            return _context8.a(2);
         }
-      }, _callee7);
+      }, _callee8);
     }));
     return function handleDelete(_x3) {
-      return _ref10.apply(this, arguments);
+      return _ref11.apply(this, arguments);
     };
   }();
   var filtered = useMemo(function () {
@@ -2301,12 +2343,12 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref0) {
 // 🆕 fix18: 转单给跟单 modal — 一键把已付款的线下单转给跟单同事
 // 自动创建 cross_dept_messages,带订单号 / 收货 / 产品 / 付款凭证
 // ════════════════════════════════════════════════════════════════════
-var TransferToPoModal = function TransferToPoModal(_ref11) {
-  var order = _ref11.order,
-    user = _ref11.user,
-    onClose = _ref11.onClose,
-    onTransferred = _ref11.onTransferred,
-    toast = _ref11.toast;
+var TransferToPoModal = function TransferToPoModal(_ref12) {
+  var order = _ref12.order,
+    user = _ref12.user,
+    onClose = _ref12.onClose,
+    onTransferred = _ref12.onTransferred,
+    toast = _ref12.toast;
   var _useState81 = useState(''),
     _useState82 = _slicedToArray(_useState81, 2),
     poUserId = _useState82[0],
@@ -2338,23 +2380,23 @@ var TransferToPoModal = function TransferToPoModal(_ref11) {
 
   // 加载跟单员工(从 shop_owners 表里跟单系统的负责人)
   useEffect(function () {
-    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
       var client, _yield$client$from$se, data, owners, uniqueEmps, list, matched, _t5;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.p = _context8.n) {
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.p = _context9.n) {
           case 0:
             client = getCdmClient();
             if (client) {
-              _context8.n = 1;
+              _context9.n = 1;
               break;
             }
-            return _context8.a(2);
+            return _context9.a(2);
           case 1:
-            _context8.p = 1;
-            _context8.n = 2;
+            _context9.p = 1;
+            _context9.n = 2;
             return client.from('shop_owners').select('*').eq('system', 'po');
           case 2:
-            _yield$client$from$se = _context8.v;
+            _yield$client$from$se = _context9.v;
             data = _yield$client$from$se.data;
             owners = data || [];
             setShopOwners(owners);
@@ -2378,46 +2420,46 @@ var TransferToPoModal = function TransferToPoModal(_ref11) {
                 setPoUserName(matched.user_name);
               }
             }
-            _context8.n = 4;
+            _context9.n = 4;
             break;
           case 3:
-            _context8.p = 3;
-            _t5 = _context8.v;
+            _context9.p = 3;
+            _t5 = _context9.v;
             console.warn('加载跟单员工失败', _t5);
           case 4:
-            return _context8.a(2);
+            return _context9.a(2);
         }
-      }, _callee8, null, [[1, 3]]);
+      }, _callee9, null, [[1, 3]]);
     }))();
   }, [order.site]);
   var products = order.products || [];
   var dispatchText = order.follow_dispatch_text || generateDispatchText(order, products);
   var transfer = /*#__PURE__*/function () {
-    var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+    var _ref14 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
       var client, userName, body, attachments, msg, _yield$client$from$in, error, _t6;
-      return _regenerator().w(function (_context9) {
-        while (1) switch (_context9.p = _context9.n) {
+      return _regenerator().w(function (_context0) {
+        while (1) switch (_context0.p = _context0.n) {
           case 0:
             client = getCdmClient();
             if (client) {
-              _context9.n = 1;
+              _context0.n = 1;
               break;
             }
             alert('消息总线未连接,无法转单');
-            return _context9.a(2);
+            return _context0.a(2);
           case 1:
             if (!(!poUserId && !poUserName.trim())) {
-              _context9.n = 2;
+              _context0.n = 2;
               break;
             }
             if (confirm('未指定跟单负责人,确定全跟单部都能看到吗?')) {
-              _context9.n = 2;
+              _context0.n = 2;
               break;
             }
-            return _context9.a(2);
+            return _context0.a(2);
           case 2:
             setSending(true);
-            _context9.p = 3;
+            _context0.p = 3;
             userName = user.name + (user.alias ? ' ' + user.alias : '');
             body = ['📦 客服已转单 · 此订单客户已付款,请安排下单', '', "\u8BA2\u5355\u53F7: ".concat(order.order_no), "\u7F51\u7AD9: ".concat(order.site || '?'), "\u5BA2\u6237: ".concat(order.customer_name || order.customer_email || '?').concat(order.customer_email ? ' · ' + order.customer_email : ''), "\u4ED8\u6B3E: ".concat(order.payment_method || '?', " \xB7 ").concat(order.payment_currency || 'USD', " ").concat(order.payment_amount || 0).concat(order.received_amount ? ' (实收 ' + order.received_amount + ')' : ''), "\u4ED8\u6B3E\u65F6\u95F4: ".concat(order.paid_at || '未填'), '', '📍 收货地址:', order.ship_to_name || '', order.ship_to_address || '', [order.ship_to_city, order.ship_to_state, order.ship_to_zip].filter(Boolean).join(', '), order.ship_to_country || '', order.ship_to_phone ? '📞 ' + order.ship_to_phone : '', '', "\uD83D\uDECD\uFE0F \u4EA7\u54C1 (".concat(products.length, " \u4EF6):")].concat(_toConsumableArray(products.map(function (p) {
               return "  - ".concat(p.sku || '', " ").concat(p.name || '', " \xD7 ").concat(p.qty || 1).concat(p.unit_price ? ' @ ' + p.unit_price : '');
@@ -2445,18 +2487,18 @@ var TransferToPoModal = function TransferToPoModal(_ref11) {
               created_at_ms: Date.now(),
               updated_at: new Date().toISOString()
             };
-            _context9.n = 4;
+            _context0.n = 4;
             return client.from('cross_dept_messages').insert(msg);
           case 4:
-            _yield$client$from$in = _context9.v;
+            _yield$client$from$in = _context0.v;
             error = _yield$client$from$in.error;
             if (!error) {
-              _context9.n = 5;
+              _context0.n = 5;
               break;
             }
             throw error;
           case 5:
-            _context9.n = 6;
+            _context0.n = 6;
             return CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, order), {}, {
               transferred_to_po: true,
               transferred_to_id: poUserId || null,
@@ -2469,21 +2511,21 @@ var TransferToPoModal = function TransferToPoModal(_ref11) {
           case 6:
             toast('✓ 已转给跟单 · 跨部门消息已发送');
             onTransferred && onTransferred();
-            _context9.n = 8;
+            _context0.n = 8;
             break;
           case 7:
-            _context9.p = 7;
-            _t6 = _context9.v;
+            _context0.p = 7;
+            _t6 = _context0.v;
             alert('转单失败: ' + (_t6.message || _t6));
           case 8:
             setSending(false);
           case 9:
-            return _context9.a(2);
+            return _context0.a(2);
         }
-      }, _callee9, null, [[3, 7]]);
+      }, _callee0, null, [[3, 7]]);
     }));
     return function transfer() {
-      return _ref13.apply(this, arguments);
+      return _ref14.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
@@ -2718,14 +2760,14 @@ var TransferToPoModal = function TransferToPoModal(_ref11) {
     }
   }, sending ? '转单中...' : '📤 确认转单')))), document.body);
 };
-var OfflineOrderCard = function OfflineOrderCard(_ref14) {
-  var order = _ref14.order,
-    user = _ref14.user,
-    isAdmin = _ref14.isAdmin,
-    onEdit = _ref14.onEdit,
-    onDelete = _ref14.onDelete,
-    onReload = _ref14.onReload,
-    toast = _ref14.toast;
+var OfflineOrderCard = function OfflineOrderCard(_ref15) {
+  var order = _ref15.order,
+    user = _ref15.user,
+    isAdmin = _ref15.isAdmin,
+    onEdit = _ref15.onEdit,
+    onDelete = _ref15.onDelete,
+    onReload = _ref15.onReload,
+    toast = _ref15.toast;
   var _useState95 = useState(false),
     _useState96 = _slicedToArray(_useState95, 2),
     expanded = _useState96[0],
@@ -2744,11 +2786,11 @@ var OfflineOrderCard = function OfflineOrderCard(_ref14) {
   var products = order.products || [];
   var attachments = order.attachments || [];
   var setStatus = /*#__PURE__*/function () {
-    var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(newStatus) {
-      return _regenerator().w(function (_context0) {
-        while (1) switch (_context0.n) {
+    var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(newStatus) {
+      return _regenerator().w(function (_context1) {
+        while (1) switch (_context1.n) {
           case 0:
-            _context0.n = 1;
+            _context1.n = 1;
             return CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, order), {}, {
               status: newStatus,
               updated_at: new Date().toISOString()
@@ -2757,12 +2799,12 @@ var OfflineOrderCard = function OfflineOrderCard(_ref14) {
             toast('✓ 已更新');
             onReload();
           case 2:
-            return _context0.a(2);
+            return _context1.a(2);
         }
-      }, _callee0);
+      }, _callee1);
     }));
     return function setStatus(_x4) {
-      return _ref15.apply(this, arguments);
+      return _ref16.apply(this, arguments);
     };
   }();
   var copyDispatch = function copyDispatch() {
@@ -3140,10 +3182,10 @@ var OfflineOrderCard = function OfflineOrderCard(_ref14) {
 // 🆕 fix18: ProductImageSlot — 产品行的小图片上传/粘贴/拖拽位
 // 支持: 点击上传 / Ctrl+V 粘贴 / 拖入文件 / 自动压缩到 600px / 点击放大预览
 // ════════════════════════════════════════════════════════════════════
-var ProductImageSlot = function ProductImageSlot(_ref16) {
-  var value = _ref16.value,
-    onChange = _ref16.onChange,
-    productName = _ref16.productName;
+var ProductImageSlot = function ProductImageSlot(_ref17) {
+  var value = _ref17.value,
+    onChange = _ref17.onChange,
+    productName = _ref17.productName;
   var _useState101 = useState(false),
     _useState102 = _slicedToArray(_useState101, 2),
     zoom = _useState102[0],
@@ -3192,109 +3234,109 @@ var ProductImageSlot = function ProductImageSlot(_ref16) {
     });
   };
   var handleFiles = /*#__PURE__*/function () {
-    var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(files) {
+    var _ref18 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(files) {
       var file, dataUrl, _t7;
-      return _regenerator().w(function (_context1) {
-        while (1) switch (_context1.p = _context1.n) {
-          case 0:
-            if (!(!files || files.length === 0)) {
-              _context1.n = 1;
-              break;
-            }
-            return _context1.a(2);
-          case 1:
-            file = files[0];
-            _context1.p = 2;
-            _context1.n = 3;
-            return compressImage(file);
-          case 3:
-            dataUrl = _context1.v;
-            onChange(dataUrl);
-            _context1.n = 5;
-            break;
-          case 4:
-            _context1.p = 4;
-            _t7 = _context1.v;
-            alert('上传失败: ' + (_t7.message || '不支持的格式'));
-          case 5:
-            return _context1.a(2);
-        }
-      }, _callee1, null, [[2, 4]]);
-    }));
-    return function handleFiles(_x5) {
-      return _ref17.apply(this, arguments);
-    };
-  }();
-  var onPaste = /*#__PURE__*/function () {
-    var _ref18 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(e) {
-      var _e$clipboardData;
-      var items, _iterator2, _step2, it, f, _t8;
       return _regenerator().w(function (_context10) {
         while (1) switch (_context10.p = _context10.n) {
           case 0:
+            if (!(!files || files.length === 0)) {
+              _context10.n = 1;
+              break;
+            }
+            return _context10.a(2);
+          case 1:
+            file = files[0];
+            _context10.p = 2;
+            _context10.n = 3;
+            return compressImage(file);
+          case 3:
+            dataUrl = _context10.v;
+            onChange(dataUrl);
+            _context10.n = 5;
+            break;
+          case 4:
+            _context10.p = 4;
+            _t7 = _context10.v;
+            alert('上传失败: ' + (_t7.message || '不支持的格式'));
+          case 5:
+            return _context10.a(2);
+        }
+      }, _callee10, null, [[2, 4]]);
+    }));
+    return function handleFiles(_x5) {
+      return _ref18.apply(this, arguments);
+    };
+  }();
+  var onPaste = /*#__PURE__*/function () {
+    var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(e) {
+      var _e$clipboardData;
+      var items, _iterator2, _step2, it, f, _t8;
+      return _regenerator().w(function (_context11) {
+        while (1) switch (_context11.p = _context11.n) {
+          case 0:
             items = ((_e$clipboardData = e.clipboardData) === null || _e$clipboardData === void 0 ? void 0 : _e$clipboardData.items) || [];
             _iterator2 = _createForOfIteratorHelper(items);
-            _context10.p = 1;
+            _context11.p = 1;
             _iterator2.s();
           case 2:
             if ((_step2 = _iterator2.n()).done) {
-              _context10.n = 5;
+              _context11.n = 5;
               break;
             }
             it = _step2.value;
             if (!(it.kind === 'file' && it.type.startsWith('image/'))) {
-              _context10.n = 4;
+              _context11.n = 4;
               break;
             }
             e.preventDefault();
             f = it.getAsFile();
             if (!f) {
-              _context10.n = 3;
+              _context11.n = 3;
               break;
             }
-            _context10.n = 3;
+            _context11.n = 3;
             return handleFiles([f]);
           case 3:
-            return _context10.a(2);
+            return _context11.a(2);
           case 4:
-            _context10.n = 2;
+            _context11.n = 2;
             break;
           case 5:
-            _context10.n = 7;
+            _context11.n = 7;
             break;
           case 6:
-            _context10.p = 6;
-            _t8 = _context10.v;
+            _context11.p = 6;
+            _t8 = _context11.v;
             _iterator2.e(_t8);
           case 7:
-            _context10.p = 7;
+            _context11.p = 7;
             _iterator2.f();
-            return _context10.f(7);
+            return _context11.f(7);
           case 8:
-            return _context10.a(2);
+            return _context11.a(2);
         }
-      }, _callee10, null, [[1, 6, 7, 8]]);
+      }, _callee11, null, [[1, 6, 7, 8]]);
     }));
     return function onPaste(_x6) {
-      return _ref18.apply(this, arguments);
+      return _ref19.apply(this, arguments);
     };
   }();
   var onDrop = /*#__PURE__*/function () {
-    var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(e) {
-      return _regenerator().w(function (_context11) {
-        while (1) switch (_context11.n) {
+    var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(e) {
+      return _regenerator().w(function (_context12) {
+        while (1) switch (_context12.n) {
           case 0:
             e.preventDefault();
             setFocused(false);
-            _context11.n = 1;
+            _context12.n = 1;
             return handleFiles(Array.from(e.dataTransfer.files || []));
           case 1:
-            return _context11.a(2);
+            return _context12.a(2);
         }
-      }, _callee11);
+      }, _callee12);
     }));
     return function onDrop(_x7) {
-      return _ref19.apply(this, arguments);
+      return _ref20.apply(this, arguments);
     };
   }();
   var onDragOver = function onDragOver(e) {
@@ -3415,15 +3457,15 @@ var ProductImageSlot = function ProductImageSlot(_ref16) {
 // 🆕 fix22 联动 1: ProductAutocomplete — SKU/产品名联想下拉
 // 输入时实时匹配 products 主表的 SKU/名称,点击 → 自动填充产品名/图/供应商/价格
 // ════════════════════════════════════════════════════════════════════
-var ProductAutocomplete = function ProductAutocomplete(_ref20) {
-  var value = _ref20.value,
-    _onChange = _ref20.onChange,
-    onSelect = _ref20.onSelect,
-    products = _ref20.products,
-    placeholder = _ref20.placeholder,
-    _ref20$mode = _ref20.mode,
-    mode = _ref20$mode === void 0 ? 'sku' : _ref20$mode,
-    style = _ref20.style;
+var ProductAutocomplete = function ProductAutocomplete(_ref21) {
+  var value = _ref21.value,
+    _onChange = _ref21.onChange,
+    onSelect = _ref21.onSelect,
+    products = _ref21.products,
+    placeholder = _ref21.placeholder,
+    _ref21$mode = _ref21.mode,
+    mode = _ref21$mode === void 0 ? 'sku' : _ref21$mode,
+    style = _ref21.style;
   // mode: 'sku' = 按 SKU 主要匹配 / 'name' = 按产品名主要匹配
   var _useState105 = useState(false),
     _useState106 = _slicedToArray(_useState105, 2),
@@ -3609,13 +3651,13 @@ var ProductAutocomplete = function ProductAutocomplete(_ref20) {
     }
   }, "\u2191\u2193 \u9009\u62E9 \xB7 Enter \u786E\u8BA4 \xB7 Esc \u5173\u95ED")));
 };
-var OfflineOrderEditor = function OfflineOrderEditor(_ref21) {
-  var order = _ref21.order,
-    user = _ref21.user,
-    employees = _ref21.employees,
-    onClose = _ref21.onClose,
-    onSaved = _ref21.onSaved,
-    toast = _ref21.toast;
+var OfflineOrderEditor = function OfflineOrderEditor(_ref22) {
+  var order = _ref22.order,
+    user = _ref22.user,
+    employees = _ref22.employees,
+    onClose = _ref22.onClose,
+    onSaved = _ref22.onSaved,
+    toast = _ref22.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   var isEdit = !!order;
   var _useState109 = useState((order === null || order === void 0 ? void 0 : order.order_no) || ''),
@@ -3783,26 +3825,26 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref21) {
 
   // 🆕 切换网站时,扫描历史 + 显示下一个编号建议
   var handleSiteChange = /*#__PURE__*/function () {
-    var _ref22 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(newSite) {
+    var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(newSite) {
       var result, userHasNotEdited, _t9;
-      return _regenerator().w(function (_context12) {
-        while (1) switch (_context12.p = _context12.n) {
+      return _regenerator().w(function (_context13) {
+        while (1) switch (_context13.p = _context13.n) {
           case 0:
             setSite(newSite);
             if (!(!newSite || isEdit)) {
-              _context12.n = 1;
+              _context13.n = 1;
               break;
             }
-            return _context12.a(2);
+            return _context13.a(2);
           case 1:
             setGenerating(true);
-            _context12.p = 2;
-            _context12.n = 3;
+            _context13.p = 2;
+            _context13.n = 3;
             return generateOrderNo(newSite, {
               previewOnly: true
             });
           case 3:
-            result = _context12.v;
+            result = _context13.v;
             setPreviewNextNo(result);
             // 只有 orderNo 为空 或 用户没手动改过时,才自动填充
             userHasNotEdited = !orderNo.trim() || orderNo === autoFilledNo;
@@ -3811,54 +3853,12 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref21) {
               setAutoFilledNo(result.orderNo);
               toast("\u2713 \u5DF2\u626B\u63CF\u5386\u53F2\u8BA2\u5355 \xB7 \u4E0B\u4E00\u4E2A\u7F16\u53F7: ".concat(result.orderNo, " (\u5386\u53F2\u6700\u5927 ").concat(result.maxNo, ")"));
             }
-            _context12.n = 5;
-            break;
-          case 4:
-            _context12.p = 4;
-            _t9 = _context12.v;
-            toast('⚠ 扫描历史失败,请手动输入: ' + _t9.message);
-          case 5:
-            setGenerating(false);
-          case 6:
-            return _context12.a(2);
-        }
-      }, _callee12, null, [[2, 4]]);
-    }));
-    return function handleSiteChange(_x8) {
-      return _ref22.apply(this, arguments);
-    };
-  }();
-  var handleManualGenerate = /*#__PURE__*/function () {
-    var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
-      var result, _t0;
-      return _regenerator().w(function (_context13) {
-        while (1) switch (_context13.p = _context13.n) {
-          case 0:
-            if (site) {
-              _context13.n = 1;
-              break;
-            }
-            alert('请先选择网站');
-            return _context13.a(2);
-          case 1:
-            setGenerating(true);
-            _context13.p = 2;
-            _context13.n = 3;
-            return generateOrderNo(site, {
-              previewOnly: true
-            });
-          case 3:
-            result = _context13.v;
-            setPreviewNextNo(result);
-            setOrderNo(result.orderNo);
-            setAutoFilledNo(result.orderNo);
-            toast("\u2713 \u5DF2\u751F\u6210 ".concat(result.orderNo, "(\u5386\u53F2\u6700\u5927 ").concat(result.maxNo, ")"));
             _context13.n = 5;
             break;
           case 4:
             _context13.p = 4;
-            _t0 = _context13.v;
-            toast('⚠ ' + _t0.message);
+            _t9 = _context13.v;
+            toast('⚠ 扫描历史失败,请手动输入: ' + _t9.message);
           case 5:
             setGenerating(false);
           case 6:
@@ -3866,8 +3866,50 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref21) {
         }
       }, _callee13, null, [[2, 4]]);
     }));
-    return function handleManualGenerate() {
+    return function handleSiteChange(_x8) {
       return _ref23.apply(this, arguments);
+    };
+  }();
+  var handleManualGenerate = /*#__PURE__*/function () {
+    var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
+      var result, _t0;
+      return _regenerator().w(function (_context14) {
+        while (1) switch (_context14.p = _context14.n) {
+          case 0:
+            if (site) {
+              _context14.n = 1;
+              break;
+            }
+            alert('请先选择网站');
+            return _context14.a(2);
+          case 1:
+            setGenerating(true);
+            _context14.p = 2;
+            _context14.n = 3;
+            return generateOrderNo(site, {
+              previewOnly: true
+            });
+          case 3:
+            result = _context14.v;
+            setPreviewNextNo(result);
+            setOrderNo(result.orderNo);
+            setAutoFilledNo(result.orderNo);
+            toast("\u2713 \u5DF2\u751F\u6210 ".concat(result.orderNo, "(\u5386\u53F2\u6700\u5927 ").concat(result.maxNo, ")"));
+            _context14.n = 5;
+            break;
+          case 4:
+            _context14.p = 4;
+            _t0 = _context14.v;
+            toast('⚠ ' + _t0.message);
+          case 5:
+            setGenerating(false);
+          case 6:
+            return _context14.a(2);
+        }
+      }, _callee14, null, [[2, 4]]);
+    }));
+    return function handleManualGenerate() {
+      return _ref24.apply(this, arguments);
     };
   }();
   var handleLinkQuote = function handleLinkQuote(quote) {
@@ -3909,90 +3951,90 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref21) {
     });
   };
   var handleSave = /*#__PURE__*/function () {
-    var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
+    var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
       var _yield$CLOUD$client$f2, existing, userName, now, seqConfig, prefix, separator, m, n, dispatchText, payload, res, _t1, _t10;
-      return _regenerator().w(function (_context14) {
-        while (1) switch (_context14.p = _context14.n) {
+      return _regenerator().w(function (_context15) {
+        while (1) switch (_context15.p = _context15.n) {
           case 0:
             if (orderNo.trim()) {
-              _context14.n = 1;
+              _context15.n = 1;
               break;
             }
             alert('请填写订单编号或选择网站自动生成');
-            return _context14.a(2);
+            return _context15.a(2);
           case 1:
             if (site) {
-              _context14.n = 2;
+              _context15.n = 2;
               break;
             }
             alert('请选择网站');
-            return _context14.a(2);
+            return _context15.a(2);
           case 2:
             if (isEdit) {
-              _context14.n = 7;
+              _context15.n = 7;
               break;
             }
-            _context14.p = 3;
-            _context14.n = 4;
+            _context15.p = 3;
+            _context15.n = 4;
             return CLOUD.client.from('offline_orders').select('id, order_no').eq('order_no', orderNo.trim()).limit(1);
           case 4:
-            _yield$CLOUD$client$f2 = _context14.v;
+            _yield$CLOUD$client$f2 = _context15.v;
             existing = _yield$CLOUD$client$f2.data;
             if (!(existing && existing.length > 0)) {
-              _context14.n = 5;
+              _context15.n = 5;
               break;
             }
             if (confirm("\u26A0 \u8B66\u544A:\u8BA2\u5355\u7F16\u53F7 \"".concat(orderNo, "\" \u5DF2\u5B58\u5728!\n\n\u7EE7\u7EED\u4FDD\u5B58\u5C06\u521B\u5EFA\u91CD\u590D\u7F16\u53F7(\u53EF\u80FD\u5BFC\u81F4\u7BA1\u7406\u6DF7\u4E71)\u3002\n\n\u5EFA\u8BAE:\u70B9\u51FB\"\uD83D\uDD04 \u91CD\u65B0\u626B\u63CF+1\"\u83B7\u53D6\u552F\u4E00\u7F16\u53F7\u3002\n\n\u4ECD\u8981\u7EE7\u7EED\u4FDD\u5B58\u5417?"))) {
-              _context14.n = 5;
+              _context15.n = 5;
               break;
             }
-            return _context14.a(2);
+            return _context15.a(2);
           case 5:
-            _context14.n = 7;
+            _context15.n = 7;
             break;
           case 6:
-            _context14.p = 6;
-            _t1 = _context14.v;
+            _context15.p = 6;
+            _t1 = _context15.v;
           case 7:
             setSaving(true);
             userName = user.name + (user.alias ? ' ' + user.alias : '');
             now = new Date().toISOString(); // 🆕 新建保存成功后:把 sequence 更新到比当前编号大的位置
             if (isEdit) {
-              _context14.n = 12;
+              _context15.n = 12;
               break;
             }
-            _context14.p = 8;
-            _context14.n = 9;
+            _context15.p = 8;
+            _context15.n = 9;
             return CLOUD.client.from('site_order_sequences').select('*').eq('site', site).single();
           case 9:
-            seqConfig = _context14.v;
+            seqConfig = _context15.v;
             if (!seqConfig.data) {
-              _context14.n = 10;
+              _context15.n = 10;
               break;
             }
             prefix = seqConfig.data.prefix || site;
             separator = seqConfig.data.separator || '-';
             m = orderNo.trim().match(new RegExp('^' + prefix + (separator || '') + '?(\\d+)$'));
             if (!m) {
-              _context14.n = 10;
+              _context15.n = 10;
               break;
             }
             n = parseInt(m[1], 10);
             if (!(n > (seqConfig.data.current_no || 0))) {
-              _context14.n = 10;
+              _context15.n = 10;
               break;
             }
-            _context14.n = 10;
+            _context15.n = 10;
             return CLOUD.client.from('site_order_sequences').update({
               current_no: n,
               updated_at: now
             }).eq('site', site);
           case 10:
-            _context14.n = 12;
+            _context15.n = 12;
             break;
           case 11:
-            _context14.p = 11;
-            _t10 = _context14.v;
+            _context15.p = 11;
+            _t10 = _context15.v;
             console.warn('更新 sequence 失败(不影响订单保存):', _t10);
           case 12:
             dispatchText = generateDispatchText({
@@ -4034,10 +4076,10 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref21) {
               created_by: (order === null || order === void 0 ? void 0 : order.created_by) || user.id,
               created_by_name: (order === null || order === void 0 ? void 0 : order.created_by_name) || userName
             });
-            _context14.n = 13;
+            _context15.n = 13;
             return CLOUD.upsert('offline_orders', payload);
           case 13:
-            res = _context14.v;
+            res = _context15.v;
             if (res) {
               toast(isEdit ? '✓ 已更新' : '✓ 已创建线下单');
               onSaved();
@@ -4046,12 +4088,12 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref21) {
             }
             setSaving(false);
           case 14:
-            return _context14.a(2);
+            return _context15.a(2);
         }
-      }, _callee14, null, [[8, 11], [3, 6]]);
+      }, _callee15, null, [[8, 11], [3, 6]]);
     }));
     return function handleSave() {
-      return _ref24.apply(this, arguments);
+      return _ref25.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -4922,10 +4964,10 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref21) {
     toast: toast
   }));
 };
-var QuoteSearchModal = function QuoteSearchModal(_ref25) {
-  var onClose = _ref25.onClose,
-    onSelect = _ref25.onSelect,
-    toast = _ref25.toast;
+var QuoteSearchModal = function QuoteSearchModal(_ref26) {
+  var onClose = _ref26.onClose,
+    onSelect = _ref26.onSelect,
+    toast = _ref26.toast;
   var _useState167 = useState(''),
     _useState168 = _slicedToArray(_useState167, 2),
     query = _useState168[0],
@@ -4944,13 +4986,13 @@ var QuoteSearchModal = function QuoteSearchModal(_ref25) {
     setShowOnlyRecent = _useState174[1]; // 🆕 只显示最近 30 天
 
   useEffect(function () {
-    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
       var data, _t11;
-      return _regenerator().w(function (_context15) {
-        while (1) switch (_context15.p = _context15.n) {
+      return _regenerator().w(function (_context16) {
+        while (1) switch (_context16.p = _context16.n) {
           case 0:
-            _context15.p = 0;
-            _context15.n = 1;
+            _context16.p = 0;
+            _context16.n = 1;
             return CLOUD.list('workspace_quotes', {
               order: {
                 col: 'updated_at',
@@ -4959,22 +5001,22 @@ var QuoteSearchModal = function QuoteSearchModal(_ref25) {
               limit: 1000
             });
           case 1:
-            data = _context15.v;
+            data = _context16.v;
             setList((data || []).filter(function (q) {
               return !q.trashed;
             }));
-            _context15.n = 3;
+            _context16.n = 3;
             break;
           case 2:
-            _context15.p = 2;
-            _t11 = _context15.v;
+            _context16.p = 2;
+            _t11 = _context16.v;
             toast('加载报价单失败');
           case 3:
             setLoading(false);
           case 4:
-            return _context15.a(2);
+            return _context16.a(2);
         }
-      }, _callee15, null, [[0, 2]]);
+      }, _callee16, null, [[0, 2]]);
     }))();
   }, []);
 
@@ -5400,10 +5442,10 @@ var QuoteSearchModal = function QuoteSearchModal(_ref25) {
 // ============================================================
 // 🎨 定制 & 实拍合并模块
 // ============================================================
-var CustomPhotoModule = function CustomPhotoModule(_ref27) {
-  var user = _ref27.user,
-    employees = _ref27.employees,
-    toast = _ref27.toast;
+var CustomPhotoModule = function CustomPhotoModule(_ref28) {
+  var user = _ref28.user,
+    employees = _ref28.employees,
+    toast = _ref28.toast;
   var _useState175 = useState('custom'),
     _useState176 = _slicedToArray(_useState175, 2),
     subTab = _useState176[0],
@@ -5458,10 +5500,10 @@ var CustomPhotoModule = function CustomPhotoModule(_ref27) {
     toast: toast
   }));
 };
-var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref28) {
-  var user = _ref28.user,
-    employees = _ref28.employees,
-    toast = _ref28.toast;
+var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref29) {
+  var user = _ref29.user,
+    employees = _ref29.employees,
+    toast = _ref29.toast;
   var _useState177 = useState([]),
     _useState178 = _slicedToArray(_useState177, 2),
     list = _useState178[0],
@@ -5518,14 +5560,14 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref28) {
     dateFilter = _useState200[0],
     setDateFilter = _useState200[1];
   var load = /*#__PURE__*/function () {
-    var _ref29 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
+    var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
       var data, _t12;
-      return _regenerator().w(function (_context16) {
-        while (1) switch (_context16.p = _context16.n) {
+      return _regenerator().w(function (_context17) {
+        while (1) switch (_context17.p = _context17.n) {
           case 0:
             setLoading(true);
-            _context16.p = 1;
-            _context16.n = 2;
+            _context17.p = 1;
+            _context17.n = 2;
             return CLOUD.list('custom_inquiries', {
               order: {
                 col: 'created_at',
@@ -5534,38 +5576,38 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref28) {
               limit: 300
             });
           case 2:
-            data = _context16.v;
+            data = _context17.v;
             setList((data || []).filter(function (c) {
               return !c.deleted;
             }));
-            _context16.n = 4;
+            _context17.n = 4;
             break;
           case 3:
-            _context16.p = 3;
-            _t12 = _context16.v;
+            _context17.p = 3;
+            _t12 = _context17.v;
             toast('❌ ' + _t12.message);
           case 4:
             setLoading(false);
           case 5:
-            return _context16.a(2);
+            return _context17.a(2);
         }
-      }, _callee16, null, [[1, 3]]);
+      }, _callee17, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref29.apply(this, arguments);
+      return _ref30.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleDelete = /*#__PURE__*/function () {
-    var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(c) {
+    var _ref31 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(c) {
       var summary;
-      return _regenerator().w(function (_context17) {
-        while (1) switch (_context17.n) {
+      return _regenerator().w(function (_context18) {
+        while (1) switch (_context18.n) {
           case 0:
             summary = "".concat(c.customer_name || c.customer_email || '?', " \xB7 ").concat((c.requirement || '').slice(0, 50));
-            _context17.n = 1;
+            _context18.n = 1;
             return requestDelete({
               user: user,
               tableName: 'custom_inquiries',
@@ -5576,12 +5618,12 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref28) {
               onSuccess: load
             });
           case 1:
-            return _context17.a(2);
+            return _context18.a(2);
         }
-      }, _callee17);
+      }, _callee18);
     }));
     return function handleDelete(_x9) {
-      return _ref30.apply(this, arguments);
+      return _ref31.apply(this, arguments);
     };
   }();
   var filtered = useMemo(function () {
@@ -5928,13 +5970,13 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref28) {
     toast: toast
   }));
 };
-var CustomInquiryCard = function CustomInquiryCard(_ref31) {
-  var item = _ref31.item,
-    user = _ref31.user,
-    onEdit = _ref31.onEdit,
-    onDelete = _ref31.onDelete,
-    onReload = _ref31.onReload,
-    toast = _ref31.toast;
+var CustomInquiryCard = function CustomInquiryCard(_ref32) {
+  var item = _ref32.item,
+    user = _ref32.user,
+    onEdit = _ref32.onEdit,
+    onDelete = _ref32.onDelete,
+    onReload = _ref32.onReload,
+    toast = _ref32.toast;
   var _useState201 = useState(false),
     _useState202 = _slicedToArray(_useState201, 2),
     expanded = _useState202[0],
@@ -5950,19 +5992,19 @@ var CustomInquiryCard = function CustomInquiryCard(_ref31) {
   var photos = item.final_photos || [];
   var refImgs = item.reference_images || [];
   var advanceStage = /*#__PURE__*/function () {
-    var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
+    var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
       var idx, nextStage, now, timeMap, payload;
-      return _regenerator().w(function (_context18) {
-        while (1) switch (_context18.n) {
+      return _regenerator().w(function (_context19) {
+        while (1) switch (_context19.n) {
           case 0:
             idx = CUSTOM_STAGES.findIndex(function (s) {
               return s.key === item.stage;
             });
             if (!(idx < 0 || idx >= CUSTOM_STAGES.length - 2)) {
-              _context18.n = 1;
+              _context19.n = 1;
               break;
             }
-            return _context18.a(2);
+            return _context19.a(2);
           case 1:
             nextStage = CUSTOM_STAGES[idx + 1].key;
             now = new Date().toISOString();
@@ -5977,18 +6019,18 @@ var CustomInquiryCard = function CustomInquiryCard(_ref31) {
             payload = _objectSpread(_objectSpread({}, item), {}, _defineProperty(_defineProperty({
               stage: nextStage
             }, timeMap[nextStage] || 'updated_at', now), "updated_at", now));
-            _context18.n = 2;
+            _context19.n = 2;
             return CLOUD.upsert('custom_inquiries', payload);
           case 2:
             toast('✓ 已推进到:' + CUSTOM_STAGES[idx + 1].label);
             onReload();
           case 3:
-            return _context18.a(2);
+            return _context19.a(2);
         }
-      }, _callee18);
+      }, _callee19);
     }));
     return function advanceStage() {
-      return _ref32.apply(this, arguments);
+      return _ref33.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -6181,10 +6223,10 @@ var CustomInquiryCard = function CustomInquiryCard(_ref31) {
     }
   }));
 };
-var FileListSection = function FileListSection(_ref33) {
-  var title = _ref33.title,
-    files = _ref33.files,
-    onPreview = _ref33.onPreview;
+var FileListSection = function FileListSection(_ref34) {
+  var title = _ref34.title,
+    files = _ref34.files,
+    onPreview = _ref34.onPreview;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 8
@@ -6228,12 +6270,12 @@ var FileListSection = function FileListSection(_ref33) {
     });
   })));
 };
-var CustomInquiryEditor = function CustomInquiryEditor(_ref34) {
-  var item = _ref34.item,
-    user = _ref34.user,
-    onClose = _ref34.onClose,
-    onSaved = _ref34.onSaved,
-    toast = _ref34.toast;
+var CustomInquiryEditor = function CustomInquiryEditor(_ref35) {
+  var item = _ref35.item,
+    user = _ref35.user,
+    onClose = _ref35.onClose,
+    onSaved = _ref35.onSaved,
+    toast = _ref35.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   var isEdit = !!item;
   var _useState205 = useState((item === null || item === void 0 ? void 0 : item.customer_name) || ''),
@@ -6293,17 +6335,17 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref34) {
     saving = _useState232[0],
     setSaving = _useState232[1];
   var handleSave = /*#__PURE__*/function () {
-    var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
+    var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
       var userName, now, payload, res;
-      return _regenerator().w(function (_context19) {
-        while (1) switch (_context19.n) {
+      return _regenerator().w(function (_context20) {
+        while (1) switch (_context20.n) {
           case 0:
             if (!(!customerName.trim() && !customerEmail.trim())) {
-              _context19.n = 1;
+              _context20.n = 1;
               break;
             }
             alert('请至少填写客户姓名或邮箱');
-            return _context19.a(2);
+            return _context20.a(2);
           case 1:
             setSaving(true);
             userName = user.name + (user.alias ? ' ' + user.alias : '');
@@ -6328,22 +6370,22 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref34) {
               created_by_name: (item === null || item === void 0 ? void 0 : item.created_by_name) || userName,
               inquiry_at: (item === null || item === void 0 ? void 0 : item.inquiry_at) || now
             });
-            _context19.n = 2;
+            _context20.n = 2;
             return CLOUD.upsert('custom_inquiries', payload);
           case 2:
-            res = _context19.v;
+            res = _context20.v;
             if (res) {
               toast(isEdit ? '✓ 已更新' : '✓ 已创建');
               onSaved();
             } else alertSaveError('保存定制咨询');
             setSaving(false);
           case 3:
-            return _context19.a(2);
+            return _context20.a(2);
         }
-      }, _callee19);
+      }, _callee20);
     }));
     return function handleSave() {
-      return _ref35.apply(this, arguments);
+      return _ref36.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -6704,10 +6746,10 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref34) {
 // ============================================================
 // 📸 实拍核实子模块
 // ============================================================
-var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref36) {
-  var user = _ref36.user,
-    employees = _ref36.employees,
-    toast = _ref36.toast;
+var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref37) {
+  var user = _ref37.user,
+    employees = _ref37.employees,
+    toast = _ref37.toast;
   var _useState233 = useState([]),
     _useState234 = _slicedToArray(_useState233, 2),
     list = _useState234[0],
@@ -6760,14 +6802,14 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref36) {
     dateFilter = _useState254[0],
     setDateFilter = _useState254[1];
   var load = /*#__PURE__*/function () {
-    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
+    var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
       var data, _t13;
-      return _regenerator().w(function (_context20) {
-        while (1) switch (_context20.p = _context20.n) {
+      return _regenerator().w(function (_context21) {
+        while (1) switch (_context21.p = _context21.n) {
           case 0:
             setLoading(true);
-            _context20.p = 1;
-            _context20.n = 2;
+            _context21.p = 1;
+            _context21.n = 2;
             return CLOUD.list('photo_verifications', {
               order: {
                 col: 'created_at',
@@ -6776,38 +6818,38 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref36) {
               limit: 300
             });
           case 2:
-            data = _context20.v;
+            data = _context21.v;
             setList((data || []).filter(function (p) {
               return !p.deleted;
             }));
-            _context20.n = 4;
+            _context21.n = 4;
             break;
           case 3:
-            _context20.p = 3;
-            _t13 = _context20.v;
+            _context21.p = 3;
+            _t13 = _context21.v;
             toast('❌ ' + _t13.message);
           case 4:
             setLoading(false);
           case 5:
-            return _context20.a(2);
+            return _context21.a(2);
         }
-      }, _callee20, null, [[1, 3]]);
+      }, _callee21, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref37.apply(this, arguments);
+      return _ref38.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleDelete = /*#__PURE__*/function () {
-    var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(p) {
+    var _ref39 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(p) {
       var summary;
-      return _regenerator().w(function (_context21) {
-        while (1) switch (_context21.n) {
+      return _regenerator().w(function (_context22) {
+        while (1) switch (_context22.n) {
           case 0:
             summary = "".concat(p.sku || '', " ").concat(p.product_name || '', " \xB7 ").concat(p.supplier_name || '');
-            _context21.n = 1;
+            _context22.n = 1;
             return requestDelete({
               user: user,
               tableName: 'photo_verifications',
@@ -6818,12 +6860,12 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref36) {
               onSuccess: load
             });
           case 1:
-            return _context21.a(2);
+            return _context22.a(2);
         }
-      }, _callee21);
+      }, _callee22);
     }));
     return function handleDelete(_x0) {
-      return _ref38.apply(this, arguments);
+      return _ref39.apply(this, arguments);
     };
   }();
   var filtered = useMemo(function () {
@@ -7126,13 +7168,13 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref36) {
     toast: toast
   }));
 };
-var PhotoVerificationCard = function PhotoVerificationCard(_ref39) {
-  var item = _ref39.item,
-    user = _ref39.user,
-    onEdit = _ref39.onEdit,
-    onDelete = _ref39.onDelete,
-    onReload = _ref39.onReload,
-    toast = _ref39.toast;
+var PhotoVerificationCard = function PhotoVerificationCard(_ref40) {
+  var item = _ref40.item,
+    user = _ref40.user,
+    onEdit = _ref40.onEdit,
+    onDelete = _ref40.onDelete,
+    onReload = _ref40.onReload,
+    toast = _ref40.toast;
   var _useState255 = useState(false),
     _useState256 = _slicedToArray(_useState255, 2),
     expanded = _useState256[0],
@@ -7145,11 +7187,11 @@ var PhotoVerificationCard = function PhotoVerificationCard(_ref39) {
     return s.key === item.status;
   }) || PHOTO_STATUSES[0];
   var setStatus = /*#__PURE__*/function () {
-    var _ref40 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(newStatus) {
-      return _regenerator().w(function (_context22) {
-        while (1) switch (_context22.n) {
+    var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(newStatus) {
+      return _regenerator().w(function (_context23) {
+        while (1) switch (_context23.n) {
           case 0:
-            _context22.n = 1;
+            _context23.n = 1;
             return CLOUD.upsert('photo_verifications', _objectSpread(_objectSpread({}, item), {}, {
               status: newStatus,
               updated_at: new Date().toISOString()
@@ -7158,12 +7200,12 @@ var PhotoVerificationCard = function PhotoVerificationCard(_ref39) {
             toast('✓ 已更新');
             onReload();
           case 2:
-            return _context22.a(2);
+            return _context23.a(2);
         }
-      }, _callee22);
+      }, _callee23);
     }));
     return function setStatus(_x1) {
-      return _ref40.apply(this, arguments);
+      return _ref41.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -7398,13 +7440,13 @@ var PhotoVerificationCard = function PhotoVerificationCard(_ref39) {
     }
   }));
 };
-var PhotoVerificationEditor = function PhotoVerificationEditor(_ref41) {
+var PhotoVerificationEditor = function PhotoVerificationEditor(_ref42) {
   var _item$affected_orders;
-  var item = _ref41.item,
-    user = _ref41.user,
-    onClose = _ref41.onClose,
-    onSaved = _ref41.onSaved,
-    toast = _ref41.toast;
+  var item = _ref42.item,
+    user = _ref42.user,
+    onClose = _ref42.onClose,
+    onSaved = _ref42.onSaved,
+    toast = _ref42.toast;
   var isEdit = !!item;
   var userName = user.name + (user.alias ? ' ' + user.alias : '');
   // 🆕 fix7: 表单字段重新设计
@@ -7485,31 +7527,31 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref41) {
     saving = _useState286[0],
     setSaving = _useState286[1];
   var handleSave = /*#__PURE__*/function () {
-    var _ref42 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
+    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24() {
       var now, mergedOrders, latestReply, payload, res;
-      return _regenerator().w(function (_context23) {
-        while (1) switch (_context23.n) {
+      return _regenerator().w(function (_context24) {
+        while (1) switch (_context24.n) {
           case 0:
             if (orderRef.trim()) {
-              _context23.n = 1;
+              _context24.n = 1;
               break;
             }
             alert('请填写订单编号');
-            return _context23.a(2);
+            return _context24.a(2);
           case 1:
             if (productName.trim()) {
-              _context23.n = 2;
+              _context24.n = 2;
               break;
             }
             alert('请填写产品名');
-            return _context23.a(2);
+            return _context24.a(2);
           case 2:
             if (differenceDetail.trim()) {
-              _context23.n = 3;
+              _context24.n = 3;
               break;
             }
             alert('请填写差异说明');
-            return _context23.a(2);
+            return _context24.a(2);
           case 3:
             setSaving(true);
             now = new Date().toISOString(); // 同步把 orderRef 也存进 affected_orders 兼容老查询
@@ -7541,22 +7583,22 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref41) {
               created_by_name: (item === null || item === void 0 ? void 0 : item.created_by_name) || userName,
               status: (item === null || item === void 0 ? void 0 : item.status) || 'pending'
             });
-            _context23.n = 4;
+            _context24.n = 4;
             return CLOUD.upsert('photo_verifications', payload);
           case 4:
-            res = _context23.v;
+            res = _context24.v;
             if (res) {
               toast(isEdit ? '✓ 已更新' : '✓ 已创建');
               onSaved();
             } else alertSaveError('保存实拍核实');
             setSaving(false);
           case 5:
-            return _context23.a(2);
+            return _context24.a(2);
         }
-      }, _callee23);
+      }, _callee24);
     }));
     return function handleSave() {
-      return _ref42.apply(this, arguments);
+      return _ref43.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -7959,10 +8001,10 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref41) {
 };
 
 // 🆕 fix7: 客户回复留言板组件 — 支持文本 + 图片(粘贴/拖拽/选文件)+ 时间线展示
-var CustomerRepliesBoard = function CustomerRepliesBoard(_ref43) {
-  var replies = _ref43.replies,
-    setReplies = _ref43.setReplies,
-    user = _ref43.user;
+var CustomerRepliesBoard = function CustomerRepliesBoard(_ref44) {
+  var replies = _ref44.replies,
+    setReplies = _ref44.setReplies,
+    user = _ref44.user;
   var userName = user.name + (user.alias ? ' ' + user.alias : '');
   var _useState287 = useState(''),
     _useState288 = _slicedToArray(_useState287, 2),
@@ -7979,127 +8021,127 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref43) {
   var fileInputRef = useRef(null);
   var dropRef = useRef(null);
   var uploadOneFile = /*#__PURE__*/function () {
-    var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(file) {
+    var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25(file) {
       var res, _t14;
-      return _regenerator().w(function (_context24) {
-        while (1) switch (_context24.p = _context24.n) {
+      return _regenerator().w(function (_context25) {
+        while (1) switch (_context25.p = _context25.n) {
           case 0:
             if (file) {
-              _context24.n = 1;
+              _context25.n = 1;
               break;
             }
-            return _context24.a(2, null);
+            return _context25.a(2, null);
           case 1:
             if (!(file.size > 10 * 1024 * 1024)) {
-              _context24.n = 2;
+              _context25.n = 2;
               break;
             }
             alert('图片超过 10MB,请压缩');
-            return _context24.a(2, null);
+            return _context25.a(2, null);
           case 2:
             setUploading(true);
-            _context24.p = 3;
-            _context24.n = 4;
+            _context25.p = 3;
+            _context25.n = 4;
             return CLOUD.uploadImage('business-files', file, 'photoverif/reply/');
           case 4:
-            res = _context24.v;
+            res = _context25.v;
             if (res) {
-              _context24.n = 5;
+              _context25.n = 5;
               break;
             }
             throw new Error('上传失败');
           case 5:
-            return _context24.a(2, res);
+            return _context25.a(2, res);
           case 6:
-            _context24.p = 6;
-            _t14 = _context24.v;
+            _context25.p = 6;
+            _t14 = _context25.v;
             alert('上传失败: ' + _t14.message);
-            return _context24.a(2, null);
+            return _context25.a(2, null);
           case 7:
-            _context24.p = 7;
+            _context25.p = 7;
             setUploading(false);
-            return _context24.f(7);
+            return _context25.f(7);
           case 8:
-            return _context24.a(2);
+            return _context25.a(2);
         }
-      }, _callee24, null, [[3, 6, 7, 8]]);
+      }, _callee25, null, [[3, 6, 7, 8]]);
     }));
     return function uploadOneFile(_x10) {
-      return _ref44.apply(this, arguments);
+      return _ref45.apply(this, arguments);
     };
   }();
   var addFiles = /*#__PURE__*/function () {
-    var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25(files) {
+    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26(files) {
       var list, uploaded, _iterator5, _step5, f, r, _t15;
-      return _regenerator().w(function (_context25) {
-        while (1) switch (_context25.p = _context25.n) {
+      return _regenerator().w(function (_context26) {
+        while (1) switch (_context26.p = _context26.n) {
           case 0:
             list = Array.from(files || []).filter(function (f) {
               return f.type.startsWith('image/');
             });
             if (!(list.length === 0)) {
-              _context25.n = 1;
+              _context26.n = 1;
               break;
             }
-            return _context25.a(2);
+            return _context26.a(2);
           case 1:
             uploaded = [];
             _iterator5 = _createForOfIteratorHelper(list);
-            _context25.p = 2;
+            _context26.p = 2;
             _iterator5.s();
           case 3:
             if ((_step5 = _iterator5.n()).done) {
-              _context25.n = 6;
+              _context26.n = 6;
               break;
             }
             f = _step5.value;
-            _context25.n = 4;
+            _context26.n = 4;
             return uploadOneFile(f);
           case 4:
-            r = _context25.v;
+            r = _context26.v;
             if (r) uploaded.push(r);
           case 5:
-            _context25.n = 3;
+            _context26.n = 3;
             break;
           case 6:
-            _context25.n = 8;
+            _context26.n = 8;
             break;
           case 7:
-            _context25.p = 7;
-            _t15 = _context25.v;
+            _context26.p = 7;
+            _t15 = _context26.v;
             _iterator5.e(_t15);
           case 8:
-            _context25.p = 8;
+            _context26.p = 8;
             _iterator5.f();
-            return _context25.f(8);
+            return _context26.f(8);
           case 9:
             if (uploaded.length > 0) setNewImages(function (prev) {
               return [].concat(_toConsumableArray(prev), uploaded);
             });
           case 10:
-            return _context25.a(2);
+            return _context26.a(2);
         }
-      }, _callee25, null, [[2, 7, 8, 9]]);
+      }, _callee26, null, [[2, 7, 8, 9]]);
     }));
     return function addFiles(_x11) {
-      return _ref45.apply(this, arguments);
+      return _ref46.apply(this, arguments);
     };
   }();
 
   // 粘贴图片到留言区
   var onPaste = /*#__PURE__*/function () {
-    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26(e) {
+    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(e) {
       var _e$clipboardData2;
       var items, files, _iterator6, _step6, it, f;
-      return _regenerator().w(function (_context26) {
-        while (1) switch (_context26.n) {
+      return _regenerator().w(function (_context27) {
+        while (1) switch (_context27.n) {
           case 0:
             items = (_e$clipboardData2 = e.clipboardData) === null || _e$clipboardData2 === void 0 ? void 0 : _e$clipboardData2.items;
             if (items) {
-              _context26.n = 1;
+              _context27.n = 1;
               break;
             }
-            return _context26.a(2);
+            return _context27.a(2);
           case 1:
             files = [];
             _iterator6 = _createForOfIteratorHelper(items);
@@ -8117,42 +8159,42 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref43) {
               _iterator6.f();
             }
             if (!(files.length > 0)) {
-              _context26.n = 2;
+              _context27.n = 2;
               break;
             }
             e.preventDefault();
-            _context26.n = 2;
+            _context27.n = 2;
             return addFiles(files);
           case 2:
-            return _context26.a(2);
-        }
-      }, _callee26);
-    }));
-    return function onPaste(_x12) {
-      return _ref46.apply(this, arguments);
-    };
-  }();
-  var onDrop = /*#__PURE__*/function () {
-    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(e) {
-      var _dropRef$current, _e$dataTransfer$files;
-      return _regenerator().w(function (_context27) {
-        while (1) switch (_context27.n) {
-          case 0:
-            e.preventDefault();
-            (_dropRef$current = dropRef.current) === null || _dropRef$current === void 0 || _dropRef$current.classList.remove('drag-over');
-            if (!((_e$dataTransfer$files = e.dataTransfer.files) !== null && _e$dataTransfer$files !== void 0 && _e$dataTransfer$files.length)) {
-              _context27.n = 1;
-              break;
-            }
-            _context27.n = 1;
-            return addFiles(e.dataTransfer.files);
-          case 1:
             return _context27.a(2);
         }
       }, _callee27);
     }));
-    return function onDrop(_x13) {
+    return function onPaste(_x12) {
       return _ref47.apply(this, arguments);
+    };
+  }();
+  var onDrop = /*#__PURE__*/function () {
+    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28(e) {
+      var _dropRef$current, _e$dataTransfer$files;
+      return _regenerator().w(function (_context28) {
+        while (1) switch (_context28.n) {
+          case 0:
+            e.preventDefault();
+            (_dropRef$current = dropRef.current) === null || _dropRef$current === void 0 || _dropRef$current.classList.remove('drag-over');
+            if (!((_e$dataTransfer$files = e.dataTransfer.files) !== null && _e$dataTransfer$files !== void 0 && _e$dataTransfer$files.length)) {
+              _context28.n = 1;
+              break;
+            }
+            _context28.n = 1;
+            return addFiles(e.dataTransfer.files);
+          case 1:
+            return _context28.a(2);
+        }
+      }, _callee28);
+    }));
+    return function onDrop(_x13) {
+      return _ref48.apply(this, arguments);
     };
   }();
   var send = function send() {
