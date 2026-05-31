@@ -158,9 +158,18 @@ select {
    LAYOUT
    ============================================================ */
 .page {
-  /* 🎨 fix42: 整体紧凑 28 → 18 */
-  max-width: 1280px; margin: 0 auto; padding: 18px 22px;
+  /* 🎨 fix42: 整体紧凑 28 → 18 · fix103: 双栏加宽 */
+  max-width: 1640px; margin: 0 auto; padding: 18px 22px;
 }
+/* 🆕 fix103: 一屏双栏 — 左填表 / 右实时预览 */
+.qt-split { display: flex; gap: 18px; align-items: flex-start; }
+.qt-left  { flex: 1 1 55%; min-width: 0; }
+.qt-right { flex: 1 1 45%; min-width: 0; position: sticky; top: 14px; max-height: calc(100vh - 28px); overflow: auto; }
+@media (max-width: 1180px) {
+  .qt-split { flex-direction: column; }
+  .qt-right { position: static; max-height: none; overflow: visible; width: 100%; }
+}
+.qt-right .preview-stage { padding: 16px; }  /* 双栏下预览留白收窄,文档更大 */
 .alert-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
   background: var(--warn-soft); border: 1px solid rgba(255,149,0,.3); border-radius: var(--radius);
@@ -864,11 +873,13 @@ fieldset legend {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .topbar, .page > .card:not(.preview-card),
+  .topbar, .page > .card:not(.preview-card), .qt-left,
   .preview-tabs, .preview-toolbar,
   .alert-banner, .modal-overlay, .toast {
     display: none !important;
   }
+  .qt-split { display: block !important; }
+  .qt-right { position: static !important; max-height: none !important; overflow: visible !important; width: 100% !important; flex: none !important; }
   .preview-card, .preview-stage, .preview-doc-wrap {
     background: #fff !important; padding: 0 !important; margin: 0 !important;
     box-shadow: none !important; border: none !important;
@@ -1046,6 +1057,9 @@ fieldset legend {
   <span>⚠️ 请输入你的姓名以启用云端同步 · Please enter your name to enable cloud sync</span>
   <button class="btn-setup" onclick="openSettings()">现在设置 · Setup Now →</button>
 </div>
+
+<div class="qt-split">
+<div class="qt-left">
 
 <!-- ============================================================
      SAVE & LOAD
@@ -1420,6 +1434,9 @@ fieldset legend {
   </div>
 </div>
 
+</div><!-- /.qt-left -->
+<div class="qt-right">
+
 <!-- ============================================================
      PREVIEW WITH TABS  —  THE KEY UX
      ============================================================ -->
@@ -1676,6 +1693,9 @@ fieldset legend {
     </div>
   </div>
 </div>
+
+</div><!-- /.qt-right -->
+</div><!-- /.qt-split -->
 
 </div><!-- /.page -->
 
