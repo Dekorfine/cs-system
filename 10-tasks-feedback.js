@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄 + 任务 + 反馈 · fix28-118
-// APP_VERSION: 2026.05.30-fix118
+// 📷 拍摄 + 任务 + 反馈 · fix28-119
+// APP_VERSION: 2026.05.30-fix119
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _regeneratorValues(e) { if (null != e) { var t = e["function" == typeof Symbol && Symbol.iterator || "@@iterator"], r = 0; if (t) return t.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) return { next: function next() { return e && r >= e.length && (e = void 0), { value: e && e[r++], done: !e }; } }; } throw new TypeError(_typeof(e) + " is not iterable"); }
@@ -25,8 +25,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄 + 任务 + 反馈 · fix28-118
-// APP_VERSION: 2026.05.30-fix118
+// 📷 拍摄 + 任务 + 反馈 · fix28-119
+// APP_VERSION: 2026.05.30-fix119
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════

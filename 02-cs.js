@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-118
-// APP_VERSION: 2026.05.30-fix118
+// 📞 客服跟进 + 视频上传 · fix28-119
+// APP_VERSION: 2026.05.30-fix119
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
@@ -24,8 +24,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📞 客服跟进 + 视频上传 · fix28-118
-// APP_VERSION: 2026.05.30-fix118
+// 📞 客服跟进 + 视频上传 · fix28-119
+// APP_VERSION: 2026.05.30-fix119
 // ════════════════════════════════════════════════════════════════════
 
 var CSGridCard = function CSGridCard(_ref) {
@@ -6011,7 +6011,7 @@ var MultiImageUploader = function MultiImageUploader(_ref22) {
       position: 'fixed',
       inset: 0,
       background: 'rgba(0,0,0,.92)',
-      zIndex: 10000,
+      zIndex: 100010,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -6309,7 +6309,8 @@ var EventEditorModal = function EventEditorModal(_ref26) {
   // 🆕 fix117: 一键拉取订单产品(跟单库/Shopify),选对应产品直接填产品名 + 把产品图入附件(免手动上传)
   var _useState121 = useState({
       loading: false,
-      products: null
+      products: null,
+      meta: null
     }),
     _useState122 = _slicedToArray(_useState121, 2),
     orderPull = _useState122[0],
@@ -6330,7 +6331,8 @@ var EventEditorModal = function EventEditorModal(_ref26) {
           case 1:
             setOrderPull({
               loading: true,
-              products: null
+              products: null,
+              meta: null
             });
             _context7.p = 2;
             _context7.n = 3;
@@ -6339,8 +6341,14 @@ var EventEditorModal = function EventEditorModal(_ref26) {
             v = _context7.v;
             setOrderPull({
               loading: false,
-              products: v && v.products || []
+              products: v && v.products || [],
+              meta: v || null
             });
+            // 🆕 fix119: 自动填充客户(邮箱优先,其次姓名)+ 国家(空时才填,不覆盖已填)
+            if (v) {
+              if (!(customer || '').trim() && (v.email || v.customerName)) setCustomer(v.email || v.customerName);
+              if (!(country || '').trim() && v.country) setCountry(v.country);
+            }
             _context7.n = 5;
             break;
           case 4:
@@ -6348,7 +6356,8 @@ var EventEditorModal = function EventEditorModal(_ref26) {
             _t5 = _context7.v;
             setOrderPull({
               loading: false,
-              products: []
+              products: [],
+              meta: null
             });
           case 5:
             return _context7.a(2);
@@ -6359,27 +6368,32 @@ var EventEditorModal = function EventEditorModal(_ref26) {
       return _ref27.apply(this, arguments);
     };
   }();
+  var isProdSaved = function isProdSaved(p) {
+    return (attachments || []).some(function (a) {
+      return a.url === p.image_url;
+    });
+  };
   var pickPulledProduct = function pickPulledProduct(p) {
     if (p.title) setProductName(p.title);
     if (p.image_url) {
-      var exists = (attachments || []).some(function (a) {
-        return a.url === p.image_url;
-      });
-      if (!exists) setAttachments([].concat(_toConsumableArray(attachments || []), [{
-        id: 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-        url: p.image_url,
-        label: '产品图',
-        kind: 'image',
-        mime: 'image/jpeg',
-        name: (p.title || 'product') + '.jpg',
-        from_order: true,
-        uploaded_at: new Date().toISOString()
-      }]));
+      if (isProdSaved(p)) {
+        setAttachments((attachments || []).filter(function (a) {
+          return a.url !== p.image_url;
+        })); // 再点取消保存
+      } else {
+        setAttachments([].concat(_toConsumableArray(attachments || []), [{
+          id: 'a_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+          url: p.image_url,
+          label: '产品图',
+          kind: 'image',
+          mime: 'image/jpeg',
+          name: (p.title || 'product') + '.jpg',
+          from_order: true,
+          uploaded_at: new Date().toISOString()
+        }]));
+      }
     }
-    setOrderPull({
-      loading: false,
-      products: null
-    });
+    // 不关闭面板,让用户看到"已存"标记,可继续选/取消
   };
   var _useState123 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_detail) || ''),
     _useState124 = _slicedToArray(_useState123, 2),
@@ -6860,15 +6874,38 @@ var EventEditorModal = function EventEditorModal(_ref26) {
     style: {
       fontSize: 11,
       color: 'var(--ink-3)',
-      marginBottom: 6
+      marginBottom: 6,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
     }
-  }, "\u62C9\u5230 ", orderPull.products.length, " \u4E2A\u4EA7\u54C1 \xB7 \u70B9\u9009\u5BF9\u5E94\u7684(\u586B\u4EA7\u54C1\u540D + \u4EA7\u54C1\u56FE\u5165\u9644\u4EF6):"), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "\u62C9\u5230 ", orderPull.products.length, " \u4E2A\u4EA7\u54C1 \xB7 \u70B9\u9009 = \u586B\u4EA7\u54C1\u540D\u5E76\u5B58\u5165\u9644\u4EF6(\u518D\u70B9\u53D6\u6D88) \xB7 \u5DF2\u5B58 ", (attachments || []).filter(function (a) {
+    return a.from_order;
+  }).length, " \u5F20"), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: function onClick() {
+      return setOrderPull({
+        loading: false,
+        products: null,
+        meta: null
+      });
+    },
+    style: {
+      border: 'none',
+      background: 'none',
+      color: 'var(--accent)',
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 600
+    }
+  }, "\u5B8C\u6210 \u2713")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fill,minmax(96px,1fr))',
       gap: 8
     }
   }, orderPull.products.map(function (p, i) {
+    var saved = isProdSaved(p);
     return /*#__PURE__*/React.createElement("div", {
       key: i,
       onClick: function onClick() {
@@ -6876,14 +6913,32 @@ var EventEditorModal = function EventEditorModal(_ref26) {
       },
       title: p.title || '',
       style: {
-        border: '1px solid var(--line)',
+        position: 'relative',
+        border: saved ? '2px solid #16a34a' : '1px solid var(--line)',
         borderRadius: 8,
         padding: 5,
         cursor: 'pointer',
         textAlign: 'center',
-        background: 'white'
+        background: saved ? '#f0fdf4' : 'white'
       }
-    }, p.image_url ? /*#__PURE__*/React.createElement("img", {
+    }, saved && /*#__PURE__*/React.createElement("div", {
+      style: {
+        position: 'absolute',
+        top: -7,
+        right: -7,
+        width: 20,
+        height: 20,
+        borderRadius: '50%',
+        background: '#16a34a',
+        color: 'white',
+        fontSize: 12,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 700,
+        zIndex: 1
+      }
+    }, "\u2713"), p.image_url ? /*#__PURE__*/React.createElement("img", {
       src: p.image_url,
       alt: "",
       style: {
@@ -6910,12 +6965,14 @@ var EventEditorModal = function EventEditorModal(_ref26) {
         maxHeight: 26,
         overflow: 'hidden'
       }
-    }, p.title || ''), p.quantity > 1 && /*#__PURE__*/React.createElement("div", {
+    }, p.title || ''), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 9,
-        color: 'var(--ink-3)'
+        color: saved ? '#16a34a' : 'var(--ink-4)',
+        fontWeight: 600,
+        marginTop: 2
       }
-    }, "\xD7", p.quantity));
+    }, saved ? '已存入附件' : '点击存入'));
   }))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: {
       fontSize: 11,

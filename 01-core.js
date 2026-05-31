@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-118
-// APP_VERSION: 2026.05.30-fix118
+// 🧱 核心 · fix28-119
+// APP_VERSION: 2026.05.30-fix119
 // ════════════════════════════════════════════════════════════════════
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-118
-// APP_VERSION: 2026.05.30-fix118
+// 🧱 核心 · fix28-119
+// APP_VERSION: 2026.05.30-fix119
 // ════════════════════════════════════════════════════════════════════
 
 var _React = React,
@@ -1380,7 +1380,7 @@ function wsFetchOrderProducts(_x6) {
 } // 🆕 fix49: 上传附件到 WorkTrack-KPI Storage `attachments` bucket;fix106: 只压缩图片,视频/其他文件原样上传
 function _wsFetchOrderProducts() {
   _wsFetchOrderProducts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(orderNo) {
-    var base, domain, ck, hit, isWoo, _i2, _arr, nm, body, res, json, arr, o, li, products, oid, orderUrl, _v, v, _t9;
+    var base, domain, ck, hit, isWoo, _i2, _arr, nm, body, res, json, arr, _o$total_price_set, _o$total_price_set2, o, li, products, oid, orderUrl, cust, bill, email, cname, total, currency, country, _v, v, _t9;
     return _regenerator().w(function (_context1) {
       while (1) switch (_context1.p = _context1.n) {
         case 0:
@@ -1473,11 +1473,23 @@ function _wsFetchOrderProducts() {
             return p.image_url || p.title;
           });
           oid = o.id || o.shopify_order_id;
-          orderUrl = oid && !isWoo ? "https://".concat(domain, "/admin/orders/").concat(oid) : wsOrderAdminUrl(orderNo);
+          orderUrl = oid && !isWoo ? "https://".concat(domain, "/admin/orders/").concat(oid) : wsOrderAdminUrl(orderNo); // 🆕 fix119: 一并带回客户邮箱/名字 + 金额 + 币种(供表单自动填充)
+          cust = o.customer || {};
+          bill = o.billing || o.raw_payload && o.raw_payload.billing || {};
+          email = o.email || cust.email || bill.email || '';
+          cname = [cust.first_name || bill.first_name, cust.last_name || bill.last_name].filter(Boolean).join(' ').trim() || o.name || [bill.first_name, bill.last_name].filter(Boolean).join(' ').trim() || '';
+          total = o.current_total_price || o.total_price || o.total || ((_o$total_price_set = o.total_price_set) === null || _o$total_price_set === void 0 || (_o$total_price_set = _o$total_price_set.shop_money) === null || _o$total_price_set === void 0 ? void 0 : _o$total_price_set.amount) || '';
+          currency = o.currency || o.presentment_currency || ((_o$total_price_set2 = o.total_price_set) === null || _o$total_price_set2 === void 0 || (_o$total_price_set2 = _o$total_price_set2.shop_money) === null || _o$total_price_set2 === void 0 ? void 0 : _o$total_price_set2.currency_code) || 'USD';
+          country = o.shipping_address && o.shipping_address.country_code || cust.default_address && cust.default_address.country_code || bill.country || '' || '';
           _v = {
             products: products,
             orderUrl: orderUrl,
-            domain: domain
+            domain: domain,
+            email: email,
+            customerName: cname,
+            total: total ? String(total) : '',
+            currency: currency,
+            country: country
           };
           _wsOrderCache[ck] = {
             ts: Date.now(),
