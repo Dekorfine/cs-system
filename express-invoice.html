@@ -650,7 +650,7 @@ function buildChanghuiRow(t) {
     v: a.zip || '',
     t: 's'
   };
-  row[10] = a.address1 || '';
+  row[10] = [a.address1, a.address2].filter(Boolean).join(', ');
   row[12] = a.phone || t.customerPhone || '';
   row[14] = t.customerEmail || '';
   sel.slice(0, 5).forEach((it, bi) => {
@@ -2356,6 +2356,22 @@ function MakeInvoice() {
         })
       })), /*#__PURE__*/React.createElement("div", {
         style: {
+          flex: '1 1 150px'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        className: "lbl"
+      }, "\u5730\u57402(\u9009\u586B)"), /*#__PURE__*/React.createElement("input", {
+        className: "inp",
+        placeholder: "\u516C\u5BD3/\u5957\u95F4/\u95E8\u724C\u53F7 Apt/Suite",
+        value: a.address2 || '',
+        onChange: e => upTicket(t.id, {
+          address: {
+            ...a,
+            address2: e.target.value
+          }
+        })
+      })), /*#__PURE__*/React.createElement("div", {
+        style: {
           flex: '1 1 160px'
         }
       }, /*#__PURE__*/React.createElement("span", {
@@ -2621,6 +2637,22 @@ function MakeInvoice() {
         address: {
           ...a,
           address1: e.target.value
+        }
+      })
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: '1 1 150px'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      className: "lbl"
+    }, "\u5730\u5740 2(\u9009\u586B)"), /*#__PURE__*/React.createElement("input", {
+      className: "inp",
+      placeholder: "\u516C\u5BD3/\u5957\u95F4/\u95E8\u724C\u53F7 Apt/Suite",
+      value: a.address2 || '',
+      onChange: e => upTicket(t.id, {
+        address: {
+          ...a,
+          address2: e.target.value
         }
       })
     })), /*#__PURE__*/React.createElement("div", {
