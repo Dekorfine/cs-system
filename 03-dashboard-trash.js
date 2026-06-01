@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-131
-// APP_VERSION: 2026.05.30-fix131
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-132
+// APP_VERSION: 2026.05.30-fix132
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-131
-// APP_VERSION: 2026.05.30-fix131
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-132
+// APP_VERSION: 2026.05.30-fix132
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -4552,15 +4552,43 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
     _useState62 = _slicedToArray(_useState61, 2),
     filterEmployee = _useState62[0],
     setFilterEmployee = _useState62[1];
-  var _useState63 = useState(null),
+  var _useState63 = useState('month'),
     _useState64 = _slicedToArray(_useState63, 2),
-    drill = _useState64[0],
-    setDrill = _useState64[1]; // 🆕 fix94: 点统计卡看明细 { title, rows }
+    range = _useState64[0],
+    setRange = _useState64[1]; // 🆕 fix132 today/week/month/quarter/year/all/custom
+  var _useState65 = useState(''),
+    _useState66 = _slicedToArray(_useState65, 2),
+    cFrom = _useState66[0],
+    setCFrom = _useState66[1];
+  var _useState67 = useState(''),
+    _useState68 = _slicedToArray(_useState67, 2),
+    cTo = _useState68[0],
+    setCTo = _useState68[1];
+  var _useState69 = useState(null),
+    _useState70 = _slicedToArray(_useState69, 2),
+    drill = _useState70[0],
+    setDrill = _useState70[1]; // 🆕 fix94: 点统计卡看明细 { title, rows }
   var openDrill = function openDrill(title, rows) {
     return setDrill({
       title: title,
       rows: rows || []
     });
+  };
+  var inTime = function inTime(r) {
+    if (range === 'all') return true;
+    var ds = (r.created_at || r.date || r.createdAt || r.created || '').toString().slice(0, 10);
+    if (!ds) return false;
+    if (range === 'custom') {
+      if (cFrom && ds < cFrom) return false;
+      if (cTo && ds > cTo) return false;
+      return true;
+    }
+    var today = new Date().toISOString().slice(0, 10);
+    if (range === 'today') return ds === today;
+    var dt = new Date(ds),
+      c = new Date();
+    if (range === 'week') c.setDate(c.getDate() - 7);else if (range === 'month') c.setMonth(c.getMonth() - 1);else if (range === 'quarter') c.setMonth(c.getMonth() - 3);else if (range === 'year') c.setFullYear(c.getFullYear() - 1);
+    return dt >= c;
   };
   var load = /*#__PURE__*/function () {
     var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
@@ -4656,15 +4684,16 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
     load();
   }, []);
 
-  // 按员工筛选
+  // 按员工 + 时间筛选
   var filterByEmployee = function filterByEmployee(list) {
     var fields = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : ['created_by'];
-    if (filterEmployee === 'all') return list;
-    return list.filter(function (r) {
+    var l = (list || []).filter(inTime);
+    if (filterEmployee !== 'all') l = l.filter(function (r) {
       return fields.some(function (f) {
         return r[f] === filterEmployee;
       });
     });
+    return l;
   };
 
   // 统计
@@ -4768,7 +4797,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
         pending: drPending
       }
     };
-  }, [data, filterEmployee]);
+  }, [data, filterEmployee, range, cFrom, cTo]);
 
   // 🆕 fix94: 各统计卡对应的明细列表(点卡片弹窗用)
   var drillLists = useMemo(function () {
@@ -4823,7 +4852,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
       recordsOverdue: recordsOverdue,
       drPending: drPending
     };
-  }, [data, filterEmployee]);
+  }, [data, filterEmployee, range, cFrom, cTo]);
   if (loading) return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-12",
     style: {
@@ -4915,18 +4944,25 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
       color: 'var(--ink-3)',
       marginTop: 4
     }
-  }, "\u6240\u6709\u6A21\u5757\u603B\u89C8 \xB7 \u5B9E\u65F6\u6570\u636E")), /*#__PURE__*/React.createElement("div", {
+  }, "\u6240\u6709\u6A21\u5757\u603B\u89C8 \xB7 ", range === 'all' ? '全部时间' : range === 'custom' ? "".concat(cFrom || '…', " ~ ").concat(cTo || '…') : {
+    today: '今天',
+    week: '近7天',
+    month: '近一月',
+    quarter: '近一季度',
+    year: '近一年'
+  }[range], " \xB7 \u5B9E\u65F6\u6570\u636E")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 6,
-      alignItems: 'center'
+      alignItems: 'center',
+      flexWrap: 'wrap'
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11,
       color: 'var(--ink-3)'
     }
-  }, "\uD83D\uDC64 \u6309\u5458\u5DE5\u7B5B\u9009:"), /*#__PURE__*/React.createElement("select", {
+  }, "\uD83D\uDC64"), /*#__PURE__*/React.createElement("select", {
     value: filterEmployee,
     onChange: function onChange(e) {
       return setFilterEmployee(e.target.value);
@@ -4955,7 +4991,77 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
       padding: '5px 10px',
       fontSize: 11
     }
-  }, "\uD83D\uDD04 \u5237\u65B0")))), /*#__PURE__*/React.createElement(KPIScoreboard, {
+  }, "\uD83D\uDD04 \u5237\u65B0"))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 6,
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      marginTop: 12,
+      paddingTop: 12,
+      borderTop: '1px solid var(--line)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-3)',
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCC5 \u65F6\u95F4\u8303\u56F4:"), [['today', '今天'], ['week', '本周'], ['month', '本月'], ['quarter', '本季度'], ['year', '本年'], ['all', '全部'], ['custom', '自定义']].map(function (_ref34) {
+    var _ref35 = _slicedToArray(_ref34, 2),
+      k = _ref35[0],
+      lb = _ref35[1];
+    return /*#__PURE__*/React.createElement("button", {
+      key: k,
+      onClick: function onClick() {
+        return setRange(k);
+      },
+      style: {
+        padding: '4px 11px',
+        fontSize: 12,
+        borderRadius: 7,
+        cursor: 'pointer',
+        fontWeight: 600,
+        border: '1px solid ' + (range === k ? '#0071e3' : 'var(--line)'),
+        background: range === k ? '#0071e3' : 'white',
+        color: range === k ? 'white' : 'var(--ink-2)'
+      }
+    }, lb);
+  }), range === 'custom' && /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      gap: 6,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: cFrom,
+    onChange: function onChange(e) {
+      return setCFrom(e.target.value);
+    },
+    style: {
+      padding: '3px 7px',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontSize: 12
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--ink-4)'
+    }
+  }, "~"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: cTo,
+    onChange: function onChange(e) {
+      return setCTo(e.target.value);
+    },
+    style: {
+      padding: '3px 7px',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontSize: 12
+    }
+  })))), /*#__PURE__*/React.createElement(KPIScoreboard, {
     employees: employees,
     records: data.records,
     toast: toast,
@@ -5392,10 +5498,10 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
 // ============================================================
 // ⏰ 预警阈值配置 - 主管可调整每个模块的"超 N 天预警"
 // ============================================================
-var AlertThresholdsSettings = function AlertThresholdsSettings(_ref34) {
-  var user = _ref34.user,
-    toast = _ref34.toast;
-  var _useState65 = useState({
+var AlertThresholdsSettings = function AlertThresholdsSettings(_ref36) {
+  var user = _ref36.user,
+    toast = _ref36.toast;
+  var _useState71 = useState({
       cs_followup: 7,
       // 客服跟进超期天数
       chargeback: 3,
@@ -5412,19 +5518,19 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref34) {
       // 补件挂起天数
       refund: 7 // 退款待审天数
     }),
-    _useState66 = _slicedToArray(_useState65, 2),
-    thresholds = _useState66[0],
-    setThresholds = _useState66[1];
-  var _useState67 = useState(true),
-    _useState68 = _slicedToArray(_useState67, 2),
-    loading = _useState68[0],
-    setLoading = _useState68[1];
-  var _useState69 = useState(false),
-    _useState70 = _slicedToArray(_useState69, 2),
-    saving = _useState70[0],
-    setSaving = _useState70[1];
+    _useState72 = _slicedToArray(_useState71, 2),
+    thresholds = _useState72[0],
+    setThresholds = _useState72[1];
+  var _useState73 = useState(true),
+    _useState74 = _slicedToArray(_useState73, 2),
+    loading = _useState74[0],
+    setLoading = _useState74[1];
+  var _useState75 = useState(false),
+    _useState76 = _slicedToArray(_useState75, 2),
+    saving = _useState76[0],
+    setSaving = _useState76[1];
   var load = /*#__PURE__*/function () {
-    var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
       var _yield$CLOUD$client$f3, data, _t13;
       return _regenerator().w(function (_context10) {
         while (1) switch (_context10.p = _context10.n) {
@@ -5458,14 +5564,14 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref34) {
       }, _callee10, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref35.apply(this, arguments);
+      return _ref37.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleSave = /*#__PURE__*/function () {
-    var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+    var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
       var _yield$CLOUD$client$f4, error, _t14;
       return _regenerator().w(function (_context11) {
         while (1) switch (_context11.p = _context11.n) {
@@ -5503,11 +5609,11 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref34) {
       }, _callee11, null, [[1, 4]]);
     }));
     return function handleSave() {
-      return _ref36.apply(this, arguments);
+      return _ref38.apply(this, arguments);
     };
   }();
   var handleResetDefaults = /*#__PURE__*/function () {
-    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+    var _ref39 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
       return _regenerator().w(function (_context12) {
         while (1) switch (_context12.n) {
           case 0:
@@ -5536,17 +5642,17 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref34) {
       }, _callee12);
     }));
     return function handleResetDefaults() {
-      return _ref37.apply(this, arguments);
+      return _ref39.apply(this, arguments);
     };
   }();
-  var ThresholdInput = function ThresholdInput(_ref38) {
-    var icon = _ref38.icon,
-      title = _ref38.title,
-      desc = _ref38.desc,
-      value = _ref38.value,
-      _onChange = _ref38.onChange,
-      min = _ref38.min,
-      max = _ref38.max;
+  var ThresholdInput = function ThresholdInput(_ref40) {
+    var icon = _ref40.icon,
+      title = _ref40.title,
+      desc = _ref40.desc,
+      value = _ref40.value,
+      _onChange = _ref40.onChange,
+      min = _ref40.min,
+      max = _ref40.max;
     return /*#__PURE__*/React.createElement("div", {
       style: {
         padding: '12px 14px',
@@ -5819,41 +5925,41 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref34) {
     }
   }, saving ? '保存中...' : '✓ 保存配置'));
 };
-var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref39) {
-  var employees = _ref39.employees,
-    user = _ref39.user,
-    toast = _ref39.toast;
+var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref41) {
+  var employees = _ref41.employees,
+    user = _ref41.user,
+    toast = _ref41.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   // 按网站映射 + 周六值班 + 周日值班
-  var _useState71 = useState({}),
-    _useState72 = _slicedToArray(_useState71, 2),
-    siteOwners = _useState72[0],
-    setSiteOwners = _useState72[1]; // site -> uid
-  var _useState73 = useState(''),
-    _useState74 = _slicedToArray(_useState73, 2),
-    defaultOwner = _useState74[0],
-    setDefaultOwner = _useState74[1]; // 其他网站默认负责人
-  var _useState75 = useState(''),
-    _useState76 = _slicedToArray(_useState75, 2),
-    saturdayOwner = _useState76[0],
-    setSaturdayOwner = _useState76[1]; // 🆕 周六值班
-  var _useState77 = useState(''),
+  var _useState77 = useState({}),
     _useState78 = _slicedToArray(_useState77, 2),
-    sundayOwner = _useState78[0],
-    setSundayOwner = _useState78[1]; // 🆕 周日值班
-  var _useState79 = useState(true),
+    siteOwners = _useState78[0],
+    setSiteOwners = _useState78[1]; // site -> uid
+  var _useState79 = useState(''),
     _useState80 = _slicedToArray(_useState79, 2),
-    loading = _useState80[0],
-    setLoading = _useState80[1];
-  var _useState81 = useState(false),
+    defaultOwner = _useState80[0],
+    setDefaultOwner = _useState80[1]; // 其他网站默认负责人
+  var _useState81 = useState(''),
     _useState82 = _slicedToArray(_useState81, 2),
-    saving = _useState82[0],
-    setSaving = _useState82[1];
+    saturdayOwner = _useState82[0],
+    setSaturdayOwner = _useState82[1]; // 🆕 周六值班
+  var _useState83 = useState(''),
+    _useState84 = _slicedToArray(_useState83, 2),
+    sundayOwner = _useState84[0],
+    setSundayOwner = _useState84[1]; // 🆕 周日值班
+  var _useState85 = useState(true),
+    _useState86 = _slicedToArray(_useState85, 2),
+    loading = _useState86[0],
+    setLoading = _useState86[1];
+  var _useState87 = useState(false),
+    _useState88 = _slicedToArray(_useState87, 2),
+    saving = _useState88[0],
+    setSaving = _useState88[1];
   var visibleEmployees = employees.filter(function (em) {
     return !em.hideFromList;
   });
   var load = /*#__PURE__*/function () {
-    var _ref40 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+    var _ref42 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
       var _yield$CLOUD$client$f5, data, cfg, _t15;
       return _regenerator().w(function (_context13) {
         while (1) switch (_context13.p = _context13.n) {
@@ -5896,14 +6002,14 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref39) {
       }, _callee13, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref40.apply(this, arguments);
+      return _ref42.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleSave = /*#__PURE__*/function () {
-    var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
+    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
       var userName, allUids, allNames, _yield$CLOUD$client$f6, error, _t16;
       return _regenerator().w(function (_context14) {
         while (1) switch (_context14.p = _context14.n) {
@@ -5957,7 +6063,7 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref39) {
       }, _callee14, null, [[1, 4]]);
     }));
     return function handleSave() {
-      return _ref41.apply(this, arguments);
+      return _ref43.apply(this, arguments);
     };
   }();
   var renderEmployeeSelect = function renderEmployeeSelect(value, _onChange2, placeholder) {
@@ -6189,22 +6295,22 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref39) {
 // 🆕 fix9: 退款处理人配置 — 谁能审核/完成/上传退款截图
 // 默认 Miya (主管) / Nicole (总管) / Yulia (周末顶班)
 // 主管在 设置 → 退款处理人 改名单;名单里的人才能点退款表里的"审核 / 完成"按钮
-var RefundProcessorsSettings = function RefundProcessorsSettings(_ref42) {
-  var employees = _ref42.employees,
-    user = _ref42.user,
-    toast = _ref42.toast;
-  var _useState83 = useState(['u_miya', 'u_nicole', 'u_yulia']),
-    _useState84 = _slicedToArray(_useState83, 2),
-    selectedIds = _useState84[0],
-    setSelectedIds = _useState84[1];
-  var _useState85 = useState(true),
-    _useState86 = _slicedToArray(_useState85, 2),
-    loading = _useState86[0],
-    setLoading = _useState86[1];
-  var _useState87 = useState(false),
-    _useState88 = _slicedToArray(_useState87, 2),
-    saving = _useState88[0],
-    setSaving = _useState88[1];
+var RefundProcessorsSettings = function RefundProcessorsSettings(_ref44) {
+  var employees = _ref44.employees,
+    user = _ref44.user,
+    toast = _ref44.toast;
+  var _useState89 = useState(['u_miya', 'u_nicole', 'u_yulia']),
+    _useState90 = _slicedToArray(_useState89, 2),
+    selectedIds = _useState90[0],
+    setSelectedIds = _useState90[1];
+  var _useState91 = useState(true),
+    _useState92 = _slicedToArray(_useState91, 2),
+    loading = _useState92[0],
+    setLoading = _useState92[1];
+  var _useState93 = useState(false),
+    _useState94 = _slicedToArray(_useState93, 2),
+    saving = _useState94[0],
+    setSaving = _useState94[1];
   var visibleEmployees = (employees || []).filter(function (em) {
     return !em.hideFromList;
   });
@@ -6250,7 +6356,7 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref42) {
     });
   };
   var handleSave = /*#__PURE__*/function () {
-    var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
+    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
       var _window$__setRefundPr, _window;
       var userName, ok;
       return _regenerator().w(function (_context16) {
@@ -6277,7 +6383,7 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref42) {
       }, _callee16);
     }));
     return function handleSave() {
-      return _ref44.apply(this, arguments);
+      return _ref46.apply(this, arguments);
     };
   }();
   if (loading) return /*#__PURE__*/React.createElement("div", {
@@ -6468,28 +6574,28 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref42) {
 // 存储:Supabase system_settings 表,key='custom_sites',value=JSONB 数组
 // 默认显示内置 SITES + 已添加的自定义站点 · 可新增/编辑/停用
 // ════════════════════════════════════════════════════════════════════
-var SitesMaintenanceSection = function SitesMaintenanceSection(_ref45) {
-  var user = _ref45.user,
-    toast = _ref45.toast;
-  var _useState89 = useState([]),
-    _useState90 = _slicedToArray(_useState89, 2),
-    customSites = _useState90[0],
-    setCustomSites = _useState90[1];
-  var _useState91 = useState(true),
-    _useState92 = _slicedToArray(_useState91, 2),
-    loading = _useState92[0],
-    setLoading = _useState92[1];
-  var _useState93 = useState(false),
-    _useState94 = _slicedToArray(_useState93, 2),
-    showNew = _useState94[0],
-    setShowNew = _useState94[1];
-  var _useState95 = useState(null),
+var SitesMaintenanceSection = function SitesMaintenanceSection(_ref47) {
+  var user = _ref47.user,
+    toast = _ref47.toast;
+  var _useState95 = useState([]),
     _useState96 = _slicedToArray(_useState95, 2),
-    editing = _useState96[0],
-    setEditing = _useState96[1];
+    customSites = _useState96[0],
+    setCustomSites = _useState96[1];
+  var _useState97 = useState(true),
+    _useState98 = _slicedToArray(_useState97, 2),
+    loading = _useState98[0],
+    setLoading = _useState98[1];
+  var _useState99 = useState(false),
+    _useState100 = _slicedToArray(_useState99, 2),
+    showNew = _useState100[0],
+    setShowNew = _useState100[1];
+  var _useState101 = useState(null),
+    _useState102 = _slicedToArray(_useState101, 2),
+    editing = _useState102[0],
+    setEditing = _useState102[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
-    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
+    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
       var _data$value2, _yield$CLOUD$client$f8, data, _t18;
       return _regenerator().w(function (_context17) {
         while (1) switch (_context17.p = _context17.n) {
@@ -6521,14 +6627,14 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref45) {
       }, _callee17, null, [[1, 4]]);
     }));
     return function load() {
-      return _ref46.apply(this, arguments);
+      return _ref48.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var saveCustomSites = /*#__PURE__*/function () {
-    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(newList) {
+    var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(newList) {
       var _t19;
       return _regenerator().w(function (_context18) {
         while (1) switch (_context18.p = _context18.n) {
@@ -6563,11 +6669,11 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref45) {
       }, _callee18, null, [[1, 3]]);
     }));
     return function saveCustomSites(_x5) {
-      return _ref47.apply(this, arguments);
+      return _ref49.apply(this, arguments);
     };
   }();
   var addSite = /*#__PURE__*/function () {
-    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(site) {
+    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(site) {
       var exists, ok;
       return _regenerator().w(function (_context19) {
         while (1) switch (_context19.n) {
@@ -6607,11 +6713,11 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref45) {
       }, _callee19);
     }));
     return function addSite(_x6) {
-      return _ref48.apply(this, arguments);
+      return _ref50.apply(this, arguments);
     };
   }();
   var updateSite = /*#__PURE__*/function () {
-    var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(code, patch) {
+    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(code, patch) {
       var next, ok;
       return _regenerator().w(function (_context20) {
         while (1) switch (_context20.n) {
@@ -6640,11 +6746,11 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref45) {
       }, _callee20);
     }));
     return function updateSite(_x7, _x8) {
-      return _ref49.apply(this, arguments);
+      return _ref51.apply(this, arguments);
     };
   }();
   var deleteSite = /*#__PURE__*/function () {
-    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(code) {
+    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(code) {
       var ok;
       return _regenerator().w(function (_context21) {
         while (1) switch (_context21.n) {
@@ -6678,7 +6784,7 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref45) {
       }, _callee21);
     }));
     return function deleteSite(_x9) {
-      return _ref50.apply(this, arguments);
+      return _ref52.apply(this, arguments);
     };
   }();
 
@@ -6943,34 +7049,34 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref45) {
     }
   }));
 };
-var SiteEditorModal = function SiteEditorModal(_ref51) {
-  var site = _ref51.site,
-    onSave = _ref51.onSave,
-    onClose = _ref51.onClose;
-  var _useState97 = useState((site === null || site === void 0 ? void 0 : site.code) || ''),
-    _useState98 = _slicedToArray(_useState97, 2),
-    code = _useState98[0],
-    setCode = _useState98[1];
-  var _useState99 = useState((site === null || site === void 0 ? void 0 : site.name) || ''),
-    _useState100 = _slicedToArray(_useState99, 2),
-    name = _useState100[0],
-    setName = _useState100[1];
-  var _useState101 = useState((site === null || site === void 0 ? void 0 : site.brand) || ''),
-    _useState102 = _slicedToArray(_useState101, 2),
-    brand = _useState102[0],
-    setBrand = _useState102[1];
-  var _useState103 = useState((site === null || site === void 0 ? void 0 : site.domain) || ''),
+var SiteEditorModal = function SiteEditorModal(_ref53) {
+  var site = _ref53.site,
+    onSave = _ref53.onSave,
+    onClose = _ref53.onClose;
+  var _useState103 = useState((site === null || site === void 0 ? void 0 : site.code) || ''),
     _useState104 = _slicedToArray(_useState103, 2),
-    domain = _useState104[0],
-    setDomain = _useState104[1];
-  var _useState105 = useState((site === null || site === void 0 ? void 0 : site.color) || '#0369a1'),
+    code = _useState104[0],
+    setCode = _useState104[1];
+  var _useState105 = useState((site === null || site === void 0 ? void 0 : site.name) || ''),
     _useState106 = _slicedToArray(_useState105, 2),
-    color = _useState106[0],
-    setColor = _useState106[1];
-  var _useState107 = useState((site === null || site === void 0 ? void 0 : site.prefix) || ''),
+    name = _useState106[0],
+    setName = _useState106[1];
+  var _useState107 = useState((site === null || site === void 0 ? void 0 : site.brand) || ''),
     _useState108 = _slicedToArray(_useState107, 2),
-    prefix = _useState108[0],
-    setPrefix = _useState108[1];
+    brand = _useState108[0],
+    setBrand = _useState108[1];
+  var _useState109 = useState((site === null || site === void 0 ? void 0 : site.domain) || ''),
+    _useState110 = _slicedToArray(_useState109, 2),
+    domain = _useState110[0],
+    setDomain = _useState110[1];
+  var _useState111 = useState((site === null || site === void 0 ? void 0 : site.color) || '#0369a1'),
+    _useState112 = _slicedToArray(_useState111, 2),
+    color = _useState112[0],
+    setColor = _useState112[1];
+  var _useState113 = useState((site === null || site === void 0 ? void 0 : site.prefix) || ''),
+    _useState114 = _slicedToArray(_useState113, 2),
+    prefix = _useState114[0],
+    setPrefix = _useState114[1];
   var isEdit = !!site;
   var handleSave = function handleSave() {
     if (!code.trim() || !name.trim()) {
@@ -7258,40 +7364,40 @@ var getShopFromSiteCode = function getShopFromSiteCode(code) {
 // 存储:Supabase products 表 · 完整 CRUD + 搜索 + 适用网站标签
 // 将来在线下单 / 售后录入时可联想推荐
 // ════════════════════════════════════════════════════════════════════
-var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref52) {
-  var user = _ref52.user,
-    toast = _ref52.toast;
-  var _useState109 = useState([]),
-    _useState110 = _slicedToArray(_useState109, 2),
-    products = _useState110[0],
-    setProducts = _useState110[1];
-  var _useState111 = useState(true),
-    _useState112 = _slicedToArray(_useState111, 2),
-    loading = _useState112[0],
-    setLoading = _useState112[1];
-  var _useState113 = useState(''),
-    _useState114 = _slicedToArray(_useState113, 2),
-    search = _useState114[0],
-    setSearch = _useState114[1];
-  var _useState115 = useState('all'),
+var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref54) {
+  var user = _ref54.user,
+    toast = _ref54.toast;
+  var _useState115 = useState([]),
     _useState116 = _slicedToArray(_useState115, 2),
-    filterCategory = _useState116[0],
-    setFilterCategory = _useState116[1];
-  var _useState117 = useState('all'),
+    products = _useState116[0],
+    setProducts = _useState116[1];
+  var _useState117 = useState(true),
     _useState118 = _slicedToArray(_useState117, 2),
-    filterSupplier = _useState118[0],
-    setFilterSupplier = _useState118[1];
-  var _useState119 = useState(null),
+    loading = _useState118[0],
+    setLoading = _useState118[1];
+  var _useState119 = useState(''),
     _useState120 = _slicedToArray(_useState119, 2),
-    editing = _useState120[0],
-    setEditing = _useState120[1]; // null | 'new' | productObj
-  var _useState121 = useState([]),
+    search = _useState120[0],
+    setSearch = _useState120[1];
+  var _useState121 = useState('all'),
     _useState122 = _slicedToArray(_useState121, 2),
-    suppliers = _useState122[0],
-    setSuppliers = _useState122[1];
+    filterCategory = _useState122[0],
+    setFilterCategory = _useState122[1];
+  var _useState123 = useState('all'),
+    _useState124 = _slicedToArray(_useState123, 2),
+    filterSupplier = _useState124[0],
+    setFilterSupplier = _useState124[1];
+  var _useState125 = useState(null),
+    _useState126 = _slicedToArray(_useState125, 2),
+    editing = _useState126[0],
+    setEditing = _useState126[1]; // null | 'new' | productObj
+  var _useState127 = useState([]),
+    _useState128 = _slicedToArray(_useState127, 2),
+    suppliers = _useState128[0],
+    setSuppliers = _useState128[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
-    var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
+    var _ref55 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
       var list, supps, _t20;
       return _regenerator().w(function (_context22) {
         while (1) switch (_context22.p = _context22.n) {
@@ -7338,14 +7444,14 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref52) {
       }, _callee22, null, [[1, 4]]);
     }));
     return function load() {
-      return _ref53.apply(this, arguments);
+      return _ref55.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleDelete = /*#__PURE__*/function () {
-    var _ref54 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(p) {
+    var _ref56 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(p) {
       var ok;
       return _regenerator().w(function (_context23) {
         while (1) switch (_context23.n) {
@@ -7384,7 +7490,7 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref52) {
       }, _callee23);
     }));
     return function handleDelete(_x0) {
-      return _ref54.apply(this, arguments);
+      return _ref56.apply(this, arguments);
     };
   }();
   var filtered = useMemo(function () {
@@ -7777,64 +7883,64 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref52) {
     }
   }));
 };
-var ProductEditorModal = function ProductEditorModal(_ref55) {
-  var product = _ref55.product,
-    suppliers = _ref55.suppliers,
-    user = _ref55.user,
-    categories = _ref55.categories,
-    onClose = _ref55.onClose,
-    onSaved = _ref55.onSaved;
-  var _useState123 = useState((product === null || product === void 0 ? void 0 : product.sku) || ''),
-    _useState124 = _slicedToArray(_useState123, 2),
-    sku = _useState124[0],
-    setSku = _useState124[1];
-  var _useState125 = useState((product === null || product === void 0 ? void 0 : product.name) || ''),
-    _useState126 = _slicedToArray(_useState125, 2),
-    name = _useState126[0],
-    setName = _useState126[1];
-  var _useState127 = useState((product === null || product === void 0 ? void 0 : product.category) || 'lighting'),
-    _useState128 = _slicedToArray(_useState127, 2),
-    category = _useState128[0],
-    setCategory = _useState128[1];
-  var _useState129 = useState((product === null || product === void 0 ? void 0 : product.supplier_id) || ''),
+var ProductEditorModal = function ProductEditorModal(_ref57) {
+  var product = _ref57.product,
+    suppliers = _ref57.suppliers,
+    user = _ref57.user,
+    categories = _ref57.categories,
+    onClose = _ref57.onClose,
+    onSaved = _ref57.onSaved;
+  var _useState129 = useState((product === null || product === void 0 ? void 0 : product.sku) || ''),
     _useState130 = _slicedToArray(_useState129, 2),
-    supplierId = _useState130[0],
-    setSupplierId = _useState130[1];
-  var _useState131 = useState((product === null || product === void 0 ? void 0 : product.default_unit_price) || ''),
+    sku = _useState130[0],
+    setSku = _useState130[1];
+  var _useState131 = useState((product === null || product === void 0 ? void 0 : product.name) || ''),
     _useState132 = _slicedToArray(_useState131, 2),
-    defaultPrice = _useState132[0],
-    setDefaultPrice = _useState132[1];
-  var _useState133 = useState((product === null || product === void 0 ? void 0 : product.default_currency) || 'USD'),
+    name = _useState132[0],
+    setName = _useState132[1];
+  var _useState133 = useState((product === null || product === void 0 ? void 0 : product.category) || 'lighting'),
     _useState134 = _slicedToArray(_useState133, 2),
-    defaultCurrency = _useState134[0],
-    setDefaultCurrency = _useState134[1];
-  var _useState135 = useState((product === null || product === void 0 ? void 0 : product.image) || ''),
+    category = _useState134[0],
+    setCategory = _useState134[1];
+  var _useState135 = useState((product === null || product === void 0 ? void 0 : product.supplier_id) || ''),
     _useState136 = _slicedToArray(_useState135, 2),
-    image = _useState136[0],
-    setImage = _useState136[1];
-  var _useState137 = useState((product === null || product === void 0 ? void 0 : product.url) || ''),
+    supplierId = _useState136[0],
+    setSupplierId = _useState136[1];
+  var _useState137 = useState((product === null || product === void 0 ? void 0 : product.default_unit_price) || ''),
     _useState138 = _slicedToArray(_useState137, 2),
-    url = _useState138[0],
-    setUrl = _useState138[1];
-  var _useState139 = useState((product === null || product === void 0 ? void 0 : product.description) || ''),
+    defaultPrice = _useState138[0],
+    setDefaultPrice = _useState138[1];
+  var _useState139 = useState((product === null || product === void 0 ? void 0 : product.default_currency) || 'USD'),
     _useState140 = _slicedToArray(_useState139, 2),
-    description = _useState140[0],
-    setDescription = _useState140[1];
-  var _useState141 = useState((product === null || product === void 0 ? void 0 : product.tags) || ''),
+    defaultCurrency = _useState140[0],
+    setDefaultCurrency = _useState140[1];
+  var _useState141 = useState((product === null || product === void 0 ? void 0 : product.image) || ''),
     _useState142 = _slicedToArray(_useState141, 2),
-    tags = _useState142[0],
-    setTags = _useState142[1];
-  var _useState143 = useState((product === null || product === void 0 ? void 0 : product.notes) || ''),
+    image = _useState142[0],
+    setImage = _useState142[1];
+  var _useState143 = useState((product === null || product === void 0 ? void 0 : product.url) || ''),
     _useState144 = _slicedToArray(_useState143, 2),
-    notes = _useState144[0],
-    setNotes = _useState144[1];
-  var _useState145 = useState(false),
+    url = _useState144[0],
+    setUrl = _useState144[1];
+  var _useState145 = useState((product === null || product === void 0 ? void 0 : product.description) || ''),
     _useState146 = _slicedToArray(_useState145, 2),
-    saving = _useState146[0],
-    setSaving = _useState146[1];
+    description = _useState146[0],
+    setDescription = _useState146[1];
+  var _useState147 = useState((product === null || product === void 0 ? void 0 : product.tags) || ''),
+    _useState148 = _slicedToArray(_useState147, 2),
+    tags = _useState148[0],
+    setTags = _useState148[1];
+  var _useState149 = useState((product === null || product === void 0 ? void 0 : product.notes) || ''),
+    _useState150 = _slicedToArray(_useState149, 2),
+    notes = _useState150[0],
+    setNotes = _useState150[1];
+  var _useState151 = useState(false),
+    _useState152 = _slicedToArray(_useState151, 2),
+    saving = _useState152[0],
+    setSaving = _useState152[1];
   var isEdit = !!product;
   var handleSave = /*#__PURE__*/function () {
-    var _ref56 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24() {
+    var _ref58 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24() {
       var supplier, userName, id, record, ok, _t21;
       return _regenerator().w(function (_context24) {
         while (1) switch (_context24.p = _context24.n) {
@@ -7898,7 +8004,7 @@ var ProductEditorModal = function ProductEditorModal(_ref55) {
       }, _callee24, null, [[2, 5]]);
     }));
     return function handleSave() {
-      return _ref56.apply(this, arguments);
+      return _ref58.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
