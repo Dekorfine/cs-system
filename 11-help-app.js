@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-135
-// APP_VERSION: 2026.05.30-fix135
+// 📖 手册 + App(fix81) · fix28-136
+// APP_VERSION: 2026.05.30-fix136
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-135
-// APP_VERSION: 2026.05.30-fix135
+// 📖 手册 + App(fix81) · fix28-136
+// APP_VERSION: 2026.05.30-fix136
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -1959,7 +1959,7 @@ var App = function App() {
     setCdmTimeoutConfig = _useState32[1];
   var loadCdmMessages = /*#__PURE__*/function () {
     var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-      var client, cutoffMs, _yield$client$from$se, data, error, _t7;
+      var client, cutoffMs, CDM_LIST_COLS, _yield$client$from$se, data, error, _t7;
       return _regenerator().w(function (_context9) {
         while (1) switch (_context9.p = _context9.n) {
           case 0:
@@ -1980,10 +1980,11 @@ var App = function App() {
             cdmLoadingRef.current = true;
             setCdmLoading(true);
             _context9.p = 3;
-            // 拉最近 90 天 500 条
+            // 拉最近 90 天 500 条 · 🆕 fix136: 列表只取轻量列(不含 attachments/thread 巨型 base64),详情再按需取
             cutoffMs = Date.now() - 90 * 24 * 3600 * 1000;
+            CDM_LIST_COLS = 'id,from_system,from_user_id,from_user_name,to_system,to_user_id,to_user_name,category,priority,title,body,related_ref,related_type,related_shop,assigned_to_id,assigned_to_name,assigned_by_id,assigned_by_name,assigned_at_ms,watchers,status,read_by,created_at_ms,updated_at';
             _context9.n = 4;
-            return client.from('cross_dept_messages').select('*').gte('created_at_ms', cutoffMs).order('created_at_ms', {
+            return client.from('cross_dept_messages').select(CDM_LIST_COLS).gte('created_at_ms', cutoffMs).order('created_at_ms', {
               ascending: false
             }).limit(500);
           case 4:
@@ -3314,7 +3315,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.05.30-fix135';
+var APP_VERSION = '2026.05.30-fix136';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
