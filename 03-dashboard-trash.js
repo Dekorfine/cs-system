@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-132
-// APP_VERSION: 2026.05.30-fix132
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-133
+// APP_VERSION: 2026.05.30-fix133
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-132
-// APP_VERSION: 2026.05.30-fix132
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-133
+// APP_VERSION: 2026.05.30-fix133
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -4695,6 +4695,71 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
     });
     return l;
   };
+  // 🆕 fix133: 本期/上期窗口(环比)
+  var fmtD = function fmtD(d) {
+    return d.toISOString().slice(0, 10);
+  };
+  var periodBounds = useMemo(function () {
+    if (range === 'all') return {};
+    if (range === 'custom') {
+      if (cFrom && cTo) {
+        var days = Math.round((new Date(cTo) - new Date(cFrom)) / 86400000) + 1;
+        var pf = new Date(cFrom);
+        pf.setDate(pf.getDate() - days);
+        var _pt = new Date(cFrom);
+        _pt.setDate(_pt.getDate() - 1);
+        return {
+          prevFrom: fmtD(pf),
+          prevTo: fmtD(_pt)
+        };
+      }
+      return {};
+    }
+    var p = new Date(),
+      pt = new Date();
+    if (range === 'today') {
+      p.setDate(p.getDate() - 1);
+      return {
+        prevFrom: fmtD(p),
+        prevTo: fmtD(p)
+      };
+    }
+    if (range === 'week') {
+      p.setDate(p.getDate() - 14);
+      pt.setDate(pt.getDate() - 7);
+    } else if (range === 'month') {
+      p.setMonth(p.getMonth() - 2);
+      pt.setMonth(pt.getMonth() - 1);
+    } else if (range === 'quarter') {
+      p.setMonth(p.getMonth() - 6);
+      pt.setMonth(pt.getMonth() - 3);
+    } else if (range === 'year') {
+      p.setFullYear(p.getFullYear() - 2);
+      pt.setFullYear(pt.getFullYear() - 1);
+    }
+    return {
+      prevFrom: fmtD(p),
+      prevTo: fmtD(pt)
+    };
+  }, [range, cFrom, cTo]);
+  var dDate = function dDate(r) {
+    return (r.created_at || r.date || r.createdAt || r.created || '').toString().slice(0, 10);
+  };
+  var inPrev = function inPrev(r) {
+    var d = dDate(r);
+    if (!d || !periodBounds.prevFrom) return false;
+    return d >= periodBounds.prevFrom && d <= periodBounds.prevTo;
+  };
+  var filterPrev = function filterPrev(list) {
+    var fields = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : ['created_by'];
+    var l = (list || []).filter(inPrev);
+    if (filterEmployee !== 'all') l = l.filter(function (r) {
+      return fields.some(function (f) {
+        return r[f] === filterEmployee;
+      });
+    });
+    return l;
+  };
 
   // 统计
   var stats = useMemo(function () {
@@ -4853,19 +4918,265 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
       drPending: drPending
     };
   }, [data, filterEmployee, range, cFrom, cTo]);
-  if (loading) return /*#__PURE__*/React.createElement("div", {
-    className: "paper rounded-2xl p-12",
-    style: {
-      textAlign: 'center'
-    }
-  }, "\u23F3 \u52A0\u8F7D\u4E2D...");
-  var StatCard = function StatCard(_ref33) {
-    var icon = _ref33.icon,
-      title = _ref33.title,
-      value = _ref33.value,
-      color = _ref33.color,
-      sub = _ref33.sub,
-      onClick = _ref33.onClick;
+
+  // 🆕 fix133: 分析大屏 — KPI + 环比 + 客服排行 + 网站/类型分布
+  var TYPE_DEFS = [['跟进', data.records, ['ownerId']], ['售后', data.aftersales, ['created_by']], ['补件', data.refills, ['created_by']], ['退款', data.refunds, ['created_by']], ['拒付', data.chargebacks, ['created_by', 'cs_fault_emp']], ['定制', data.customInquiries, ['created_by']], ['实拍', data.photoVerif, ['created_by']], ['评价', data.reviews, ['created_by', 'claimed_by']]];
+  var analytics = useMemo(function () {
+    var build = function build(ff) {
+      var items = [];
+      TYPE_DEFS.forEach(function (_ref33) {
+        var _ref34 = _slicedToArray(_ref33, 3),
+          type = _ref34[0],
+          list = _ref34[1],
+          fields = _ref34[2];
+        ff(list || [], fields).forEach(function (r) {
+          return items.push({
+            type: type,
+            raw: r,
+            who: r.created_by || r.ownerId || r.claimed_by || '(未知)',
+            site: r.site || (typeof wsOrderSite === 'function' ? wsOrderSite(r.order_ref || r.order_no) : '') || '(未知)'
+          });
+        });
+      });
+      return items;
+    };
+    var cur = build(filterByEmployee),
+      prev = build(filterPrev);
+    var byType = function byType(arr) {
+      return arr.reduce(function (m, x) {
+        return m[x.type] = (m[x.type] || 0) + 1, m;
+      }, {});
+    };
+    var curT = byType(cur),
+      prevT = byType(prev);
+    var sum = function sum(list, f, cond) {
+      return filterByEmployee(list || []).filter(cond || function () {
+        return true;
+      }).reduce(function (s, r) {
+        return s + (parseFloat(r[f]) || 0);
+      }, 0);
+    };
+    var cbAmt = sum(data.chargebacks, 'amount');
+    var rfdAmt = sum(data.refunds, 'amount', function (r) {
+      return ['completed', 'approved'].includes(r.status);
+    });
+    var reviewsDone = filterByEmployee(data.reviews, ['created_by', 'claimed_by']).filter(function (r) {
+      return r.status === 'completed';
+    }).length;
+    var reviewsDonePrev = filterPrev(data.reviews, ['created_by', 'claimed_by']).filter(function (r) {
+      return r.status === 'completed';
+    }).length;
+    // 客服排行
+    var csMap = {};
+    cur.forEach(function (x) {
+      if (!csMap[x.who]) csMap[x.who] = {
+        who: x.who,
+        count: 0,
+        byType: {},
+        _list: []
+      };
+      csMap[x.who].count++;
+      csMap[x.who].byType[x.type] = (csMap[x.who].byType[x.type] || 0) + 1;
+      csMap[x.who]._list.push(x.raw);
+    });
+    var csRanking = Object.values(csMap).sort(function (a, b) {
+      return b.count - a.count;
+    });
+    // 网站分布 / 类型分布
+    var dist = function dist(arr, key) {
+      var m = {};
+      arr.forEach(function (x) {
+        var k = x[key] || '(未知)';
+        if (!m[k]) m[k] = {
+          name: k,
+          count: 0,
+          _list: []
+        };
+        m[k].count++;
+        m[k]._list.push(x.raw);
+      });
+      return Object.values(m).sort(function (a, b) {
+        return b.count - a.count;
+      });
+    };
+    return {
+      total: cur.length,
+      prevTotal: prev.length,
+      curT: curT,
+      prevT: prevT,
+      cbAmt: cbAmt,
+      rfdAmt: rfdAmt,
+      reviewsDone: reviewsDone,
+      reviewsDonePrev: reviewsDonePrev,
+      hasPrev: !!periodBounds.prevFrom,
+      csRanking: csRanking,
+      siteDist: dist(cur, 'site'),
+      typeDist: dist(cur, 'type')
+    };
+  }, [data, filterEmployee, range, cFrom, cTo]);
+  var empName = function empName(id) {
+    var e = employees.find(function (x) {
+      return x.id === id;
+    });
+    return e ? e.name + (e.alias ? ' ' + e.alias : '') : id === '(未知)' ? '(未知)' : id;
+  };
+  var pctChg = function pctChg(cur, prev) {
+    if (!analytics.hasPrev) return null;
+    if (!prev) return cur ? 100 : 0;
+    return Math.round((cur - prev) / prev * 100);
+  };
+  var PIE_COLORS = ['#0071e3', '#ea580c', '#16a34a', '#7c3aed', '#dc2626', '#d97706', '#0891b2', '#be185d', '#65a30d', '#9333ea'];
+  var Pie = function Pie(_ref35) {
+    var pdata = _ref35.data,
+      onSlice = _ref35.onSlice;
+    var tot = pdata.reduce(function (s, d) {
+      return s + d.count;
+    }, 0);
+    if (!tot) return /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: 'var(--ink-3)',
+        textAlign: 'center',
+        padding: '20px 0'
+      }
+    }, "\u6682\u65E0\u6570\u636E");
+    var acc = 0;
+    var R = 70,
+      C = 80;
+    var arc = function arc(f0, f1) {
+      var a0 = 2 * Math.PI * f0 - Math.PI / 2,
+        a1 = 2 * Math.PI * f1 - Math.PI / 2;
+      var x0 = C + R * Math.cos(a0),
+        y0 = C + R * Math.sin(a0),
+        x1 = C + R * Math.cos(a1),
+        y1 = C + R * Math.sin(a1);
+      var lg = f1 - f0 > 0.5 ? 1 : 0;
+      return "M".concat(C, ",").concat(C, " L").concat(x0, ",").concat(y0, " A").concat(R, ",").concat(R, " 0 ").concat(lg, " 1 ").concat(x1, ",").concat(y1, " Z");
+    };
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        flexWrap: 'wrap'
+      }
+    }, /*#__PURE__*/React.createElement("svg", {
+      width: "150",
+      height: "160",
+      viewBox: "0 0 160 160",
+      style: {
+        flexShrink: 0
+      }
+    }, pdata.map(function (d, i) {
+      var f0 = acc / tot;
+      acc += d.count;
+      var f1 = acc / tot;
+      return /*#__PURE__*/React.createElement("path", {
+        key: i,
+        d: arc(f0, f1),
+        fill: PIE_COLORS[i % PIE_COLORS.length],
+        stroke: "white",
+        strokeWidth: "1.5",
+        style: {
+          cursor: onSlice ? 'pointer' : 'default'
+        },
+        onClick: function onClick() {
+          return onSlice && onSlice(d);
+        }
+      }, /*#__PURE__*/React.createElement("title", null, d.name, ": ", d.count));
+    })), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 130
+      }
+    }, pdata.slice(0, 8).map(function (d, i) {
+      return /*#__PURE__*/React.createElement("div", {
+        key: i,
+        onClick: function onClick() {
+          return onSlice && onSlice(d);
+        },
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          fontSize: 12,
+          padding: '3px 0',
+          cursor: onSlice ? 'pointer' : 'default'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          width: 11,
+          height: 11,
+          borderRadius: 3,
+          background: PIE_COLORS[i % PIE_COLORS.length],
+          flexShrink: 0
+        }
+      }), /*#__PURE__*/React.createElement("span", {
+        style: {
+          flex: 1,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }
+      }, d.name), /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontWeight: 600
+        }
+      }, d.count), /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: 'var(--ink-4)',
+          width: 36,
+          textAlign: 'right'
+        }
+      }, Math.round(d.count / tot * 100), "%"));
+    })));
+  };
+  var KpiCard = function KpiCard(_ref36) {
+    var label = _ref36.label,
+      value = _ref36.value,
+      prev = _ref36.prev,
+      money = _ref36.money,
+      color = _ref36.color;
+    var chg = pctChg(typeof value === 'number' ? value : 0, prev);
+    return /*#__PURE__*/React.createElement("div", {
+      className: "paper rounded-2xl p-3",
+      style: {
+        borderTop: '3px solid ' + (color || '#0071e3')
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-3)',
+        fontWeight: 600
+      }
+    }, label), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 22,
+        fontWeight: 700,
+        color: color || 'var(--ink)',
+        marginTop: 4
+      }
+    }, money ? '$' : '', typeof value === 'number' ? value.toLocaleString() : value), chg !== null && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        marginTop: 2,
+        color: chg > 0 ? '#16a34a' : chg < 0 ? '#dc2626' : 'var(--ink-4)',
+        fontWeight: 600
+      }
+    }, chg > 0 ? '↑' : chg < 0 ? '↓' : '', " ", Math.abs(chg), "% ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--ink-4)',
+        fontWeight: 400
+      }
+    }, "\u73AF\u6BD4")));
+  };
+  var StatCard = function StatCard(_ref37) {
+    var icon = _ref37.icon,
+      title = _ref37.title,
+      value = _ref37.value,
+      color = _ref37.color,
+      sub = _ref37.sub,
+      onClick = _ref37.onClick;
     return /*#__PURE__*/React.createElement("div", {
       onClick: onClick,
       style: {
@@ -5007,10 +5318,10 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
       color: 'var(--ink-3)',
       fontWeight: 600
     }
-  }, "\uD83D\uDCC5 \u65F6\u95F4\u8303\u56F4:"), [['today', '今天'], ['week', '本周'], ['month', '本月'], ['quarter', '本季度'], ['year', '本年'], ['all', '全部'], ['custom', '自定义']].map(function (_ref34) {
-    var _ref35 = _slicedToArray(_ref34, 2),
-      k = _ref35[0],
-      lb = _ref35[1];
+  }, "\uD83D\uDCC5 \u65F6\u95F4\u8303\u56F4:"), [['today', '今天'], ['week', '本周'], ['month', '本月'], ['quarter', '本季度'], ['year', '本年'], ['all', '全部'], ['custom', '自定义']].map(function (_ref38) {
+    var _ref39 = _slicedToArray(_ref38, 2),
+      k = _ref39[0],
+      lb = _ref39[1];
     return /*#__PURE__*/React.createElement("button", {
       key: k,
       onClick: function onClick() {
@@ -5061,15 +5372,205 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
       borderRadius: 6,
       fontSize: 12
     }
-  })))), /*#__PURE__*/React.createElement(KPIScoreboard, {
-    employees: employees,
-    records: data.records,
-    toast: toast,
-    readOnly: user.role === 'hr',
-    chargebacks: data.chargebacks,
-    refills: data.refills,
-    photos: data.photoVerif
-  }), (stats.chargebacks.urgent > 0 || stats.refunds.pending > 0 || stats.followups.overdue > 0 || stats.deleteReqs.pending > 0) && /*#__PURE__*/React.createElement("div", {
+  })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement(KpiCard, {
+    label: "\u603B\u5DE5\u4F5C\u91CF",
+    value: analytics.total,
+    prev: analytics.prevTotal,
+    color: "#0071e3"
+  }), /*#__PURE__*/React.createElement(KpiCard, {
+    label: "\u552E\u540E\u603B\u6570",
+    value: analytics.curT['售后'] || 0,
+    prev: analytics.prevT['售后'] || 0,
+    color: "#ea580c"
+  }), /*#__PURE__*/React.createElement(KpiCard, {
+    label: "\u62D2\u4ED8\u7B14\u6570",
+    value: analytics.curT['拒付'] || 0,
+    prev: analytics.prevT['拒付'] || 0,
+    color: "#dc2626"
+  }), /*#__PURE__*/React.createElement(KpiCard, {
+    label: "\u62D2\u4ED8\u91D1\u989D",
+    value: Math.round(analytics.cbAmt),
+    money: true,
+    color: "#dc2626"
+  }), /*#__PURE__*/React.createElement(KpiCard, {
+    label: "\u9000\u6B3E\u91D1\u989D",
+    value: Math.round(analytics.rfdAmt),
+    money: true,
+    color: "#d97706"
+  }), /*#__PURE__*/React.createElement(KpiCard, {
+    label: "\u8865\u4EF6",
+    value: analytics.curT['补件'] || 0,
+    prev: analytics.prevT['补件'] || 0,
+    color: "#0891b2"
+  }), /*#__PURE__*/React.createElement(KpiCard, {
+    label: "\u5B9E\u62CD",
+    value: analytics.curT['实拍'] || 0,
+    prev: analytics.prevT['实拍'] || 0,
+    color: "#7c3aed"
+  }), /*#__PURE__*/React.createElement(KpiCard, {
+    label: "\u8BC4\u4EF7\u5B8C\u6210",
+    value: analytics.reviewsDone,
+    prev: analytics.reviewsDonePrev,
+    color: "#16a34a"
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+      gap: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "paper rounded-2xl p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-display",
+    style: {
+      fontSize: 14,
+      fontWeight: 600,
+      marginBottom: 10
+    }
+  }, "\uD83D\uDC65 \u5BA2\u670D\u5904\u7406\u91CF\u6392\u884C ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      fontWeight: 400,
+      color: 'var(--ink-3)'
+    }
+  }, "\xB7 \u70B9\u51FB\u770B\u660E\u7EC6")), analytics.csRanking.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-3)',
+      textAlign: 'center',
+      padding: '18px 0'
+    }
+  }, "\u6682\u65E0\u6570\u636E") : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6
+    }
+  }, analytics.csRanking.map(function (c, idx) {
+    var tops = Object.entries(c.byType).sort(function (a, b) {
+      return b[1] - a[1];
+    }).slice(0, 4);
+    var isTop = idx < 3;
+    return /*#__PURE__*/React.createElement("div", {
+      key: c.who,
+      onClick: function onClick() {
+        return openDrill("".concat(empName(c.who), " \xB7 \u672C\u671F\u5DE5\u4F5C\u660E\u7EC6"), c._list);
+      },
+      style: {
+        padding: '9px 12px',
+        background: isTop ? '#eff6ff' : 'var(--bg)',
+        borderRadius: 8,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        cursor: 'pointer',
+        borderLeft: '3px solid ' + (isTop ? '#0071e3' : 'transparent')
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: 26,
+        height: 26,
+        background: isTop ? '#0071e3' : 'var(--ink-3)',
+        color: 'white',
+        borderRadius: '50%',
+        fontSize: 12,
+        fontWeight: 700,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0
+      }
+    }, idx + 1), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        fontWeight: 600,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, empName(c.who)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-3)',
+        marginTop: 2,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, tops.map(function (_ref40) {
+      var _ref41 = _slicedToArray(_ref40, 2),
+        k = _ref41[0],
+        n = _ref41[1];
+      return "".concat(k).concat(n);
+    }).join(' · '))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flexShrink: 0,
+        textAlign: 'right'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 18,
+        fontWeight: 700,
+        color: isTop ? '#0071e3' : 'var(--ink)'
+      }
+    }, c.count), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 9,
+        color: 'var(--ink-3)'
+      }
+    }, "\u4EF6")));
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "paper rounded-2xl p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-display",
+    style: {
+      fontSize: 14,
+      fontWeight: 600,
+      marginBottom: 10
+    }
+  }, "\uD83C\uDF10 \u6309\u7F51\u7AD9\u5206\u5E03 ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      fontWeight: 400,
+      color: 'var(--ink-3)'
+    }
+  }, "\xB7 \u70B9\u51FB\u770B\u660E\u7EC6")), /*#__PURE__*/React.createElement(Pie, {
+    data: analytics.siteDist,
+    onSlice: function onSlice(d) {
+      return openDrill("\u7F51\u7AD9 ".concat(d.name, " \xB7 \u672C\u671F\u660E\u7EC6"), d._list);
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "paper rounded-2xl p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-display",
+    style: {
+      fontSize: 14,
+      fontWeight: 600,
+      marginBottom: 10
+    }
+  }, "\uD83E\uDD67 \u6309\u5DE5\u4F5C\u7C7B\u578B\u5206\u5E03 ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      fontWeight: 400,
+      color: 'var(--ink-3)'
+    }
+  }, "\xB7 \u70B9\u51FB\u770B\u660E\u7EC6")), /*#__PURE__*/React.createElement(Pie, {
+    data: analytics.typeDist,
+    onSlice: function onSlice(d) {
+      return openDrill("".concat(d.name, " \xB7 \u672C\u671F\u660E\u7EC6"), d._list);
+    }
+  }))), (stats.chargebacks.urgent > 0 || stats.refunds.pending > 0 || stats.followups.overdue > 0 || stats.deleteReqs.pending > 0) && /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-4",
     style: {
       background: 'linear-gradient(90deg, #fef2f2 0%, #fed7aa 100%)',
@@ -5498,9 +5999,9 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
 // ============================================================
 // ⏰ 预警阈值配置 - 主管可调整每个模块的"超 N 天预警"
 // ============================================================
-var AlertThresholdsSettings = function AlertThresholdsSettings(_ref36) {
-  var user = _ref36.user,
-    toast = _ref36.toast;
+var AlertThresholdsSettings = function AlertThresholdsSettings(_ref42) {
+  var user = _ref42.user,
+    toast = _ref42.toast;
   var _useState71 = useState({
       cs_followup: 7,
       // 客服跟进超期天数
@@ -5530,7 +6031,7 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref36) {
     saving = _useState76[0],
     setSaving = _useState76[1];
   var load = /*#__PURE__*/function () {
-    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
       var _yield$CLOUD$client$f3, data, _t13;
       return _regenerator().w(function (_context10) {
         while (1) switch (_context10.p = _context10.n) {
@@ -5564,14 +6065,14 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref36) {
       }, _callee10, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref37.apply(this, arguments);
+      return _ref43.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleSave = /*#__PURE__*/function () {
-    var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+    var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
       var _yield$CLOUD$client$f4, error, _t14;
       return _regenerator().w(function (_context11) {
         while (1) switch (_context11.p = _context11.n) {
@@ -5609,11 +6110,11 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref36) {
       }, _callee11, null, [[1, 4]]);
     }));
     return function handleSave() {
-      return _ref38.apply(this, arguments);
+      return _ref44.apply(this, arguments);
     };
   }();
   var handleResetDefaults = /*#__PURE__*/function () {
-    var _ref39 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+    var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
       return _regenerator().w(function (_context12) {
         while (1) switch (_context12.n) {
           case 0:
@@ -5642,17 +6143,17 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref36) {
       }, _callee12);
     }));
     return function handleResetDefaults() {
-      return _ref39.apply(this, arguments);
+      return _ref45.apply(this, arguments);
     };
   }();
-  var ThresholdInput = function ThresholdInput(_ref40) {
-    var icon = _ref40.icon,
-      title = _ref40.title,
-      desc = _ref40.desc,
-      value = _ref40.value,
-      _onChange = _ref40.onChange,
-      min = _ref40.min,
-      max = _ref40.max;
+  var ThresholdInput = function ThresholdInput(_ref46) {
+    var icon = _ref46.icon,
+      title = _ref46.title,
+      desc = _ref46.desc,
+      value = _ref46.value,
+      _onChange = _ref46.onChange,
+      min = _ref46.min,
+      max = _ref46.max;
     return /*#__PURE__*/React.createElement("div", {
       style: {
         padding: '12px 14px',
@@ -5925,10 +6426,10 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref36) {
     }
   }, saving ? '保存中...' : '✓ 保存配置'));
 };
-var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref41) {
-  var employees = _ref41.employees,
-    user = _ref41.user,
-    toast = _ref41.toast;
+var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref47) {
+  var employees = _ref47.employees,
+    user = _ref47.user,
+    toast = _ref47.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   // 按网站映射 + 周六值班 + 周日值班
   var _useState77 = useState({}),
@@ -5959,7 +6460,7 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref41) {
     return !em.hideFromList;
   });
   var load = /*#__PURE__*/function () {
-    var _ref42 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
       var _yield$CLOUD$client$f5, data, cfg, _t15;
       return _regenerator().w(function (_context13) {
         while (1) switch (_context13.p = _context13.n) {
@@ -6002,14 +6503,14 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref41) {
       }, _callee13, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref42.apply(this, arguments);
+      return _ref48.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleSave = /*#__PURE__*/function () {
-    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
+    var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
       var userName, allUids, allNames, _yield$CLOUD$client$f6, error, _t16;
       return _regenerator().w(function (_context14) {
         while (1) switch (_context14.p = _context14.n) {
@@ -6063,7 +6564,7 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref41) {
       }, _callee14, null, [[1, 4]]);
     }));
     return function handleSave() {
-      return _ref43.apply(this, arguments);
+      return _ref49.apply(this, arguments);
     };
   }();
   var renderEmployeeSelect = function renderEmployeeSelect(value, _onChange2, placeholder) {
@@ -6295,10 +6796,10 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref41) {
 // 🆕 fix9: 退款处理人配置 — 谁能审核/完成/上传退款截图
 // 默认 Miya (主管) / Nicole (总管) / Yulia (周末顶班)
 // 主管在 设置 → 退款处理人 改名单;名单里的人才能点退款表里的"审核 / 完成"按钮
-var RefundProcessorsSettings = function RefundProcessorsSettings(_ref44) {
-  var employees = _ref44.employees,
-    user = _ref44.user,
-    toast = _ref44.toast;
+var RefundProcessorsSettings = function RefundProcessorsSettings(_ref50) {
+  var employees = _ref50.employees,
+    user = _ref50.user,
+    toast = _ref50.toast;
   var _useState89 = useState(['u_miya', 'u_nicole', 'u_yulia']),
     _useState90 = _slicedToArray(_useState89, 2),
     selectedIds = _useState90[0],
@@ -6356,7 +6857,7 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref44) {
     });
   };
   var handleSave = /*#__PURE__*/function () {
-    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
+    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
       var _window$__setRefundPr, _window;
       var userName, ok;
       return _regenerator().w(function (_context16) {
@@ -6383,7 +6884,7 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref44) {
       }, _callee16);
     }));
     return function handleSave() {
-      return _ref46.apply(this, arguments);
+      return _ref52.apply(this, arguments);
     };
   }();
   if (loading) return /*#__PURE__*/React.createElement("div", {
@@ -6574,9 +7075,9 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref44) {
 // 存储:Supabase system_settings 表,key='custom_sites',value=JSONB 数组
 // 默认显示内置 SITES + 已添加的自定义站点 · 可新增/编辑/停用
 // ════════════════════════════════════════════════════════════════════
-var SitesMaintenanceSection = function SitesMaintenanceSection(_ref47) {
-  var user = _ref47.user,
-    toast = _ref47.toast;
+var SitesMaintenanceSection = function SitesMaintenanceSection(_ref53) {
+  var user = _ref53.user,
+    toast = _ref53.toast;
   var _useState95 = useState([]),
     _useState96 = _slicedToArray(_useState95, 2),
     customSites = _useState96[0],
@@ -6595,7 +7096,7 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref47) {
     setEditing = _useState102[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
-    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
+    var _ref54 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
       var _data$value2, _yield$CLOUD$client$f8, data, _t18;
       return _regenerator().w(function (_context17) {
         while (1) switch (_context17.p = _context17.n) {
@@ -6627,14 +7128,14 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref47) {
       }, _callee17, null, [[1, 4]]);
     }));
     return function load() {
-      return _ref48.apply(this, arguments);
+      return _ref54.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var saveCustomSites = /*#__PURE__*/function () {
-    var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(newList) {
+    var _ref55 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(newList) {
       var _t19;
       return _regenerator().w(function (_context18) {
         while (1) switch (_context18.p = _context18.n) {
@@ -6669,11 +7170,11 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref47) {
       }, _callee18, null, [[1, 3]]);
     }));
     return function saveCustomSites(_x5) {
-      return _ref49.apply(this, arguments);
+      return _ref55.apply(this, arguments);
     };
   }();
   var addSite = /*#__PURE__*/function () {
-    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(site) {
+    var _ref56 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(site) {
       var exists, ok;
       return _regenerator().w(function (_context19) {
         while (1) switch (_context19.n) {
@@ -6713,11 +7214,11 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref47) {
       }, _callee19);
     }));
     return function addSite(_x6) {
-      return _ref50.apply(this, arguments);
+      return _ref56.apply(this, arguments);
     };
   }();
   var updateSite = /*#__PURE__*/function () {
-    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(code, patch) {
+    var _ref57 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(code, patch) {
       var next, ok;
       return _regenerator().w(function (_context20) {
         while (1) switch (_context20.n) {
@@ -6746,11 +7247,11 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref47) {
       }, _callee20);
     }));
     return function updateSite(_x7, _x8) {
-      return _ref51.apply(this, arguments);
+      return _ref57.apply(this, arguments);
     };
   }();
   var deleteSite = /*#__PURE__*/function () {
-    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(code) {
+    var _ref58 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(code) {
       var ok;
       return _regenerator().w(function (_context21) {
         while (1) switch (_context21.n) {
@@ -6784,7 +7285,7 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref47) {
       }, _callee21);
     }));
     return function deleteSite(_x9) {
-      return _ref52.apply(this, arguments);
+      return _ref58.apply(this, arguments);
     };
   }();
 
@@ -7049,10 +7550,10 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref47) {
     }
   }));
 };
-var SiteEditorModal = function SiteEditorModal(_ref53) {
-  var site = _ref53.site,
-    onSave = _ref53.onSave,
-    onClose = _ref53.onClose;
+var SiteEditorModal = function SiteEditorModal(_ref59) {
+  var site = _ref59.site,
+    onSave = _ref59.onSave,
+    onClose = _ref59.onClose;
   var _useState103 = useState((site === null || site === void 0 ? void 0 : site.code) || ''),
     _useState104 = _slicedToArray(_useState103, 2),
     code = _useState104[0],
@@ -7364,9 +7865,9 @@ var getShopFromSiteCode = function getShopFromSiteCode(code) {
 // 存储:Supabase products 表 · 完整 CRUD + 搜索 + 适用网站标签
 // 将来在线下单 / 售后录入时可联想推荐
 // ════════════════════════════════════════════════════════════════════
-var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref54) {
-  var user = _ref54.user,
-    toast = _ref54.toast;
+var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref60) {
+  var user = _ref60.user,
+    toast = _ref60.toast;
   var _useState115 = useState([]),
     _useState116 = _slicedToArray(_useState115, 2),
     products = _useState116[0],
@@ -7397,7 +7898,7 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref54) {
     setSuppliers = _useState128[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
-    var _ref55 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
+    var _ref61 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
       var list, supps, _t20;
       return _regenerator().w(function (_context22) {
         while (1) switch (_context22.p = _context22.n) {
@@ -7444,14 +7945,14 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref54) {
       }, _callee22, null, [[1, 4]]);
     }));
     return function load() {
-      return _ref55.apply(this, arguments);
+      return _ref61.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleDelete = /*#__PURE__*/function () {
-    var _ref56 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(p) {
+    var _ref62 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(p) {
       var ok;
       return _regenerator().w(function (_context23) {
         while (1) switch (_context23.n) {
@@ -7490,7 +7991,7 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref54) {
       }, _callee23);
     }));
     return function handleDelete(_x0) {
-      return _ref56.apply(this, arguments);
+      return _ref62.apply(this, arguments);
     };
   }();
   var filtered = useMemo(function () {
@@ -7883,13 +8384,13 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref54) {
     }
   }));
 };
-var ProductEditorModal = function ProductEditorModal(_ref57) {
-  var product = _ref57.product,
-    suppliers = _ref57.suppliers,
-    user = _ref57.user,
-    categories = _ref57.categories,
-    onClose = _ref57.onClose,
-    onSaved = _ref57.onSaved;
+var ProductEditorModal = function ProductEditorModal(_ref63) {
+  var product = _ref63.product,
+    suppliers = _ref63.suppliers,
+    user = _ref63.user,
+    categories = _ref63.categories,
+    onClose = _ref63.onClose,
+    onSaved = _ref63.onSaved;
   var _useState129 = useState((product === null || product === void 0 ? void 0 : product.sku) || ''),
     _useState130 = _slicedToArray(_useState129, 2),
     sku = _useState130[0],
@@ -7940,7 +8441,7 @@ var ProductEditorModal = function ProductEditorModal(_ref57) {
     setSaving = _useState152[1];
   var isEdit = !!product;
   var handleSave = /*#__PURE__*/function () {
-    var _ref58 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24() {
+    var _ref64 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24() {
       var supplier, userName, id, record, ok, _t21;
       return _regenerator().w(function (_context24) {
         while (1) switch (_context24.p = _context24.n) {
@@ -8004,7 +8505,7 @@ var ProductEditorModal = function ProductEditorModal(_ref57) {
       }, _callee24, null, [[2, 5]]);
     }));
     return function handleSave() {
-      return _ref58.apply(this, arguments);
+      return _ref64.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
