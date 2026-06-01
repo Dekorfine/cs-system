@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🎨 实拍 + 评价 · fix28-130
-// APP_VERSION: 2026.05.30-fix130
+// 🎨 实拍 + 评价 · fix28-131
+// APP_VERSION: 2026.05.30-fix131
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🎨 实拍 + 评价 · fix28-130
-// APP_VERSION: 2026.05.30-fix130
+// 🎨 实拍 + 评价 · fix28-131
+// APP_VERSION: 2026.05.30-fix131
 // ════════════════════════════════════════════════════════════════════
 
 var ReviewsModule = function ReviewsModule(_ref) {
@@ -642,7 +642,23 @@ var ReviewTaskCard = function ReviewTaskCard(_ref6) {
       gap: 10,
       flexWrap: 'wrap'
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, review.product_image && /*#__PURE__*/React.createElement("img", {
+    src: review.product_image,
+    alt: "",
+    onClick: function onClick() {
+      return wsOpenImg(review.product_image);
+    },
+    title: "\u70B9\u51FB\u770B\u5927\u56FE",
+    style: {
+      width: 54,
+      height: 54,
+      objectFit: 'cover',
+      borderRadius: 8,
+      border: '1px solid var(--line)',
+      cursor: 'zoom-in',
+      flexShrink: 0
+    }
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       flex: 1,
       minWidth: 0
@@ -1384,10 +1400,100 @@ var ReviewEditor = function ReviewEditor(_ref9) {
     _useState40 = _slicedToArray(_useState39, 2),
     batchCount = _useState40[0],
     setBatchCount = _useState40[1]; // 一次创建多少个相同任务（每个 = 1 条评价）
-  var _useState41 = useState(false),
+  var _useState41 = useState(review !== null && review !== void 0 && review.product_image ? [{
+      id: 'pi0',
+      url: review.product_image,
+      name: '产品图',
+      kind: 'image',
+      mime: 'image/jpeg'
+    }] : []),
     _useState42 = _slicedToArray(_useState41, 2),
-    saving = _useState42[0],
-    setSaving = _useState42[1];
+    images = _useState42[0],
+    setImages = _useState42[1]; // 🆕 fix131 产品主图(上传/粘贴/抓取)
+  var _useState43 = useState(false),
+    _useState44 = _slicedToArray(_useState43, 2),
+    fetchingImg = _useState44[0],
+    setFetchingImg = _useState44[1];
+  var pullProductImg = /*#__PURE__*/function () {
+    var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+      var u, handle, r, p, img, _t3;
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
+          case 0:
+            if (productUrl.trim()) {
+              _context6.n = 1;
+              break;
+            }
+            alert('请先填产品链接');
+            return _context6.a(2);
+          case 1:
+            setFetchingImg(true);
+            _context6.p = 2;
+            u = new URL(productUrl.trim());
+            handle = (u.pathname.split('/products/')[1] || '').split(/[/?#]/)[0];
+            if (handle) {
+              _context6.n = 3;
+              break;
+            }
+            throw new Error('链接里找不到 /products/ 句柄');
+          case 3:
+            _context6.n = 4;
+            return fetch(u.origin + '/products/' + handle + '.js', {
+              headers: {
+                'Accept': 'application/json'
+              }
+            });
+          case 4:
+            r = _context6.v;
+            if (r.ok) {
+              _context6.n = 5;
+              break;
+            }
+            throw new Error('HTTP ' + r.status);
+          case 5:
+            _context6.n = 6;
+            return r.json();
+          case 6:
+            p = _context6.v;
+            img = p.featured_image || p.images && p.images[0] || p.media && p.media[0] && p.media[0].src;
+            if (img && img.indexOf('//') === 0) img = 'https:' + img;
+            if (img) {
+              _context6.n = 7;
+              break;
+            }
+            throw new Error('未找到产品图');
+          case 7:
+            setImages([{
+              id: 'pi' + Date.now(),
+              url: img,
+              name: (p.title || 'product') + '.jpg',
+              kind: 'image',
+              mime: 'image/jpeg',
+              from_url: true
+            }]);
+            if (!productName && p.title) setProductName(p.title);
+            toast('✓ 已抓取产品主图');
+            _context6.n = 9;
+            break;
+          case 8:
+            _context6.p = 8;
+            _t3 = _context6.v;
+            alert('自动抓取失败(可能是跨域限制),请手动上传或粘贴产品图。\n' + (_t3.message || ''));
+          case 9:
+            setFetchingImg(false);
+          case 10:
+            return _context6.a(2);
+        }
+      }, _callee6, null, [[2, 8]]);
+    }));
+    return function pullProductImg() {
+      return _ref0.apply(this, arguments);
+    };
+  }();
+  var _useState45 = useState(false),
+    _useState46 = _slicedToArray(_useState45, 2),
+    saving = _useState46[0],
+    setSaving = _useState46[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
 
   // 粘贴 URL 时自动识别产品名 + 网站
@@ -1397,17 +1503,17 @@ var ReviewEditor = function ReviewEditor(_ref9) {
     if (url && !site) setSite(extractSiteFromURL(url));
   };
   var handleSubmit = /*#__PURE__*/function () {
-    var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-      var now, userName, assignedEmp, payload, res, count, payloads, i, _yield$CLOUD$client$f, error, _t3;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+    var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+      var now, userName, assignedEmp, payload, res, count, payloads, i, _yield$CLOUD$client$f, error, _t4;
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.p = _context7.n) {
           case 0:
             if (productUrl.trim()) {
-              _context6.n = 1;
+              _context7.n = 1;
               break;
             }
             alert('请填写产品链接');
-            return _context6.a(2);
+            return _context7.a(2);
           case 1:
             setSaving(true);
             now = new Date().toISOString();
@@ -1416,13 +1522,14 @@ var ReviewEditor = function ReviewEditor(_ref9) {
               return e.id === assignedTo;
             }) : null;
             if (!isEdit) {
-              _context6.n = 3;
+              _context7.n = 3;
               break;
             }
             // 编辑模式
             payload = _objectSpread(_objectSpread({}, review), {}, {
               product_url: productUrl.trim(),
               product_name: productName.trim() || null,
+              product_image: images && images[0] && images[0].url || null,
               site: site || null,
               platform: platform || null,
               priority: priority,
@@ -1433,17 +1540,17 @@ var ReviewEditor = function ReviewEditor(_ref9) {
               assigned_by_name: assignedTo && !review.assigned_by_name ? userName : review.assigned_by_name,
               updated_at: now
             });
-            _context6.n = 2;
+            _context7.n = 2;
             return CLOUD.upsert('product_reviews', payload);
           case 2:
-            res = _context6.v;
+            res = _context7.v;
             if (res) {
               toast('✓ 已更新');
               onSaved();
             } else {
               alertSaveError('保存产品评价');
             }
-            _context6.n = 8;
+            _context7.n = 8;
             break;
           case 3:
             // 新建（可批量）
@@ -1453,6 +1560,7 @@ var ReviewEditor = function ReviewEditor(_ref9) {
               payloads.push({
                 product_url: productUrl.trim(),
                 product_name: productName.trim() || null,
+                product_image: images && images[0] && images[0].url || null,
                 site: site || null,
                 platform: platform || null,
                 priority: priority,
@@ -1468,35 +1576,35 @@ var ReviewEditor = function ReviewEditor(_ref9) {
                 updated_at: now
               });
             }
-            _context6.p = 4;
-            _context6.n = 5;
+            _context7.p = 4;
+            _context7.n = 5;
             return CLOUD.client.from('product_reviews').insert(payloads);
           case 5:
-            _yield$CLOUD$client$f = _context6.v;
+            _yield$CLOUD$client$f = _context7.v;
             error = _yield$CLOUD$client$f.error;
             if (!error) {
-              _context6.n = 6;
+              _context7.n = 6;
               break;
             }
             throw error;
           case 6:
             toast(count > 1 ? "\u2713 \u5DF2\u6279\u91CF\u53D1\u5E03 ".concat(count, " \u4E2A\u4EFB\u52A1") : '✓ 已发布任务');
             onSaved();
-            _context6.n = 8;
+            _context7.n = 8;
             break;
           case 7:
-            _context6.p = 7;
-            _t3 = _context6.v;
-            alert('保存失败: ' + _t3.message);
+            _context7.p = 7;
+            _t4 = _context7.v;
+            alert('保存失败: ' + _t4.message);
           case 8:
             setSaving(false);
           case 9:
-            return _context6.a(2);
+            return _context7.a(2);
         }
-      }, _callee6, null, [[4, 7]]);
+      }, _callee7, null, [[4, 7]]);
     }));
     return function handleSubmit() {
-      return _ref0.apply(this, arguments);
+      return _ref1.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -1644,6 +1752,45 @@ var ReviewEditor = function ReviewEditor(_ref9) {
       value: s
     }, s);
   })))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 4
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-2)'
+    }
+  }, "\u4EA7\u54C1\u56FE ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 400,
+      color: 'var(--ink-4)'
+    }
+  }, "(\u6293\u53D6 / \u4E0A\u4F20 / \u7C98\u8D34,\u7F8E\u5DE5\u8BC4\u4EF7\u65F6\u53C2\u8003)")), /*#__PURE__*/React.createElement("button", {
+    type: "button",
+    onClick: pullProductImg,
+    disabled: fetchingImg,
+    style: {
+      padding: '4px 10px',
+      fontSize: 11,
+      fontWeight: 600,
+      border: 'none',
+      borderRadius: 6,
+      cursor: 'pointer',
+      background: '#0071e3',
+      color: 'white'
+    }
+  }, fetchingImg ? '抓取中…' : '🔄 抓取产品图')), /*#__PURE__*/React.createElement(MultiImageUploader, {
+    attachments: images,
+    setAttachments: setImages
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: '1fr 1fr 1fr',
@@ -1833,58 +1980,58 @@ var ReviewEditor = function ReviewEditor(_ref9) {
 };
 
 // 完成 modal
-var ReviewCompleteModal = function ReviewCompleteModal(_ref1) {
-  var review = _ref1.review,
-    user = _ref1.user,
-    onClose = _ref1.onClose,
-    onSaved = _ref1.onSaved,
-    toast = _ref1.toast;
-  var _useState43 = useState(''),
-    _useState44 = _slicedToArray(_useState43, 2),
-    reviewText = _useState44[0],
-    setReviewText = _useState44[1];
-  var _useState45 = useState(5),
-    _useState46 = _slicedToArray(_useState45, 2),
-    rating = _useState46[0],
-    setRating = _useState46[1];
+var ReviewCompleteModal = function ReviewCompleteModal(_ref10) {
+  var review = _ref10.review,
+    user = _ref10.user,
+    onClose = _ref10.onClose,
+    onSaved = _ref10.onSaved,
+    toast = _ref10.toast;
   var _useState47 = useState(''),
     _useState48 = _slicedToArray(_useState47, 2),
-    reviewerAlias = _useState48[0],
-    setReviewerAlias = _useState48[1];
-  var _useState49 = useState(new Date().toISOString().slice(0, 10)),
+    reviewText = _useState48[0],
+    setReviewText = _useState48[1];
+  var _useState49 = useState(5),
     _useState50 = _slicedToArray(_useState49, 2),
-    reviewDate = _useState50[0],
-    setReviewDate = _useState50[1];
+    rating = _useState50[0],
+    setRating = _useState50[1];
   var _useState51 = useState(''),
     _useState52 = _slicedToArray(_useState51, 2),
-    workNotes = _useState52[0],
-    setWorkNotes = _useState52[1];
-  var _useState53 = useState([]),
+    reviewerAlias = _useState52[0],
+    setReviewerAlias = _useState52[1];
+  var _useState53 = useState(new Date().toISOString().slice(0, 10)),
     _useState54 = _slicedToArray(_useState53, 2),
-    attachments = _useState54[0],
-    setAttachments = _useState54[1];
-  var _useState55 = useState(false),
+    reviewDate = _useState54[0],
+    setReviewDate = _useState54[1];
+  var _useState55 = useState(''),
     _useState56 = _slicedToArray(_useState55, 2),
-    saving = _useState56[0],
-    setSaving = _useState56[1];
+    workNotes = _useState56[0],
+    setWorkNotes = _useState56[1];
+  var _useState57 = useState([]),
+    _useState58 = _slicedToArray(_useState57, 2),
+    attachments = _useState58[0],
+    setAttachments = _useState58[1];
+  var _useState59 = useState(false),
+    _useState60 = _slicedToArray(_useState59, 2),
+    saving = _useState60[0],
+    setSaving = _useState60[1];
   var handleSubmit = /*#__PURE__*/function () {
-    var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+    var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
       var now, userName, payload, res;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.n) {
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.n) {
           case 0:
             if (!(!workNotes.trim() && attachments.length === 0 && !reviewText.trim())) {
-              _context7.n = 2;
+              _context8.n = 2;
               break;
             }
-            _context7.n = 1;
+            _context8.n = 1;
             return wsConfirm('没填写任何工作详情或上传截图,确定标记完成吗?');
           case 1:
-            if (_context7.v) {
-              _context7.n = 2;
+            if (_context8.v) {
+              _context8.n = 2;
               break;
             }
-            return _context7.a(2);
+            return _context8.a(2);
           case 2:
             setSaving(true);
             now = new Date().toISOString();
@@ -1902,10 +2049,10 @@ var ReviewCompleteModal = function ReviewCompleteModal(_ref1) {
               attachments: attachments,
               updated_at: now
             });
-            _context7.n = 3;
+            _context8.n = 3;
             return CLOUD.upsert('product_reviews', payload);
           case 3:
-            res = _context7.v;
+            res = _context8.v;
             if (res) {
               toast('✅ 任务已完成！');
               onSaved();
@@ -1914,12 +2061,12 @@ var ReviewCompleteModal = function ReviewCompleteModal(_ref1) {
             }
             setSaving(false);
           case 4:
-            return _context7.a(2);
+            return _context8.a(2);
         }
-      }, _callee7);
+      }, _callee8);
     }));
     return function handleSubmit() {
-      return _ref10.apply(this, arguments);
+      return _ref11.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -2191,25 +2338,25 @@ var ReviewCompleteModal = function ReviewCompleteModal(_ref1) {
 };
 
 // 导出 modal
-var ReviewExportModal = function ReviewExportModal(_ref11) {
-  var reviews = _ref11.reviews,
-    allReviews = _ref11.allReviews,
-    user = _ref11.user,
-    employees = _ref11.employees,
-    onClose = _ref11.onClose,
-    toast = _ref11.toast;
-  var _useState57 = useState('filtered'),
-    _useState58 = _slicedToArray(_useState57, 2),
-    scope = _useState58[0],
-    setScope = _useState58[1]; // filtered / all / completed
-  var _useState59 = useState('pdf'),
-    _useState60 = _slicedToArray(_useState59, 2),
-    format = _useState60[0],
-    setFormat = _useState60[1]; // pdf / csv
-  var _useState61 = useState(true),
+var ReviewExportModal = function ReviewExportModal(_ref12) {
+  var reviews = _ref12.reviews,
+    allReviews = _ref12.allReviews,
+    user = _ref12.user,
+    employees = _ref12.employees,
+    onClose = _ref12.onClose,
+    toast = _ref12.toast;
+  var _useState61 = useState('filtered'),
     _useState62 = _slicedToArray(_useState61, 2),
-    includeAttachments = _useState62[0],
-    setIncludeAttachments = _useState62[1];
+    scope = _useState62[0],
+    setScope = _useState62[1]; // filtered / all / completed
+  var _useState63 = useState('pdf'),
+    _useState64 = _slicedToArray(_useState63, 2),
+    format = _useState64[0],
+    setFormat = _useState64[1]; // pdf / csv
+  var _useState65 = useState(true),
+    _useState66 = _slicedToArray(_useState65, 2),
+    includeAttachments = _useState66[0],
+    setIncludeAttachments = _useState66[1];
   var dataToExport = useMemo(function () {
     if (scope === 'filtered') return reviews;
     if (scope === 'completed') return allReviews.filter(function (r) {
