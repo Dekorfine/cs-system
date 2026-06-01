@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄 + 任务 + 反馈 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 📷 拍摄 + 任务 + 反馈 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _regeneratorValues(e) { if (null != e) { var t = e["function" == typeof Symbol && Symbol.iterator || "@@iterator"], r = 0; if (t) return t.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) return { next: function next() { return e && r >= e.length && (e = void 0), { value: e && e[r++], done: !e }; } }; } throw new TypeError(_typeof(e) + " is not iterable"); }
@@ -25,8 +25,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📷 拍摄 + 任务 + 反馈 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 📷 拍摄 + 任务 + 反馈 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -1432,26 +1432,29 @@ var TaskDetailModal = function TaskDetailModal(_ref8) {
       return _regenerator().w(function (_context7) {
         while (1) switch (_context7.n) {
           case 0:
-            if (confirm('确认删除此任务?')) {
-              _context7.n = 1;
+            _context7.n = 1;
+            return wsConfirm('确认删除此任务?');
+          case 1:
+            if (_context7.v) {
+              _context7.n = 2;
               break;
             }
             return _context7.a(2);
-          case 1:
-            _context7.n = 2;
+          case 2:
+            _context7.n = 3;
             return CLOUD.upsert('tasks', _objectSpread(_objectSpread({}, task), {}, {
               deleted: true,
               deleted_at: Date.now(),
               deleted_by: user.id
             }));
-          case 2:
+          case 3:
             ok = _context7.v;
             if (ok) {
               toast('✓ 已删除');
               onChanged && onChanged();
               onClose();
             }
-          case 3:
+          case 4:
             return _context7.a(2);
         }
       }, _callee7);

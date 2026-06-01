@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// ⚙ 设置 + 财务 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// ⚙ 设置 + 财务 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// ⚙ 设置 + 财务 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// ⚙ 设置 + 财务 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -64,35 +64,63 @@ var WtkpiConfigSection = function WtkpiConfigSection(_ref) {
     _useState0 = _slicedToArray(_useState9, 2),
     showKey = _useState0[0],
     setShowKey = _useState0[1];
-  var save = function save() {
-    if (!isAdmin) {
-      toast('只有主管才能配置');
-      return;
-    }
-    if (!url.trim() || !key.trim()) {
-      toast('请填写完整 URL 和 Key');
-      return;
-    }
-    if (!/^https:\/\/[\w-]+\.supabase\.co\/?$/.test(url.trim())) {
-      if (!confirm('URL 格式好像不对(应该像 https://xxxx.supabase.co),继续保存?')) return;
-    }
-    localStorage.setItem('wtkpi_url', url.trim());
-    localStorage.setItem('wtkpi_key', key.trim());
-    toast('✓ 已保存到本机');
-    setTestResult(null);
-  };
-  var testConnection = /*#__PURE__*/function () {
+  var save = /*#__PURE__*/function () {
     var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-      var w, client, _yield$client$from$se, data, error, _t;
       return _regenerator().w(function (_context) {
-        while (1) switch (_context.p = _context.n) {
+        while (1) switch (_context.n) {
           case 0:
-            if (!(!url.trim() || !key.trim())) {
+            if (isAdmin) {
               _context.n = 1;
               break;
             }
-            toast('请先填写 URL 和 Key');
+            toast('只有主管才能配置');
             return _context.a(2);
+          case 1:
+            if (!(!url.trim() || !key.trim())) {
+              _context.n = 2;
+              break;
+            }
+            toast('请填写完整 URL 和 Key');
+            return _context.a(2);
+          case 2:
+            if (/^https:\/\/[\w-]+\.supabase\.co\/?$/.test(url.trim())) {
+              _context.n = 4;
+              break;
+            }
+            _context.n = 3;
+            return wsConfirm('URL 格式好像不对(应该像 https://xxxx.supabase.co),继续保存?');
+          case 3:
+            if (_context.v) {
+              _context.n = 4;
+              break;
+            }
+            return _context.a(2);
+          case 4:
+            localStorage.setItem('wtkpi_url', url.trim());
+            localStorage.setItem('wtkpi_key', key.trim());
+            toast('✓ 已保存到本机');
+            setTestResult(null);
+          case 5:
+            return _context.a(2);
+        }
+      }, _callee);
+    }));
+    return function save() {
+      return _ref2.apply(this, arguments);
+    };
+  }();
+  var testConnection = /*#__PURE__*/function () {
+    var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+      var w, client, _yield$client$from$se, data, error, _t;
+      return _regenerator().w(function (_context2) {
+        while (1) switch (_context2.p = _context2.n) {
+          case 0:
+            if (!(!url.trim() || !key.trim())) {
+              _context2.n = 1;
+              break;
+            }
+            toast('请先填写 URL 和 Key');
+            return _context2.a(2);
           case 1:
             // 临时保存让 client 用最新的
             localStorage.setItem('wtkpi_url', url.trim());
@@ -103,22 +131,22 @@ var WtkpiConfigSection = function WtkpiConfigSection(_ref) {
             }
             setTesting(true);
             setTestResult(null);
-            _context.p = 2;
+            _context2.p = 2;
             client = window.getWtkpiClient();
             if (client) {
-              _context.n = 3;
+              _context2.n = 3;
               break;
             }
             throw new Error('client 初始化失败');
           case 3:
-            _context.n = 4;
+            _context2.n = 4;
             return client.from('photo_logs').select('id, status').limit(1);
           case 4:
-            _yield$client$from$se = _context.v;
+            _yield$client$from$se = _context2.v;
             data = _yield$client$from$se.data;
             error = _yield$client$from$se.error;
             if (!error) {
-              _context.n = 5;
+              _context2.n = 5;
               break;
             }
             throw error;
@@ -127,11 +155,11 @@ var WtkpiConfigSection = function WtkpiConfigSection(_ref) {
               ok: true,
               msg: "\u8FDE\u63A5\u6210\u529F \u2713 \u8868\u91CC\u6709 ".concat((data === null || data === void 0 ? void 0 : data.length) || 0, " \u6761\u6837\u672C\u6570\u636E\u53EF\u8BFB")
             });
-            _context.n = 7;
+            _context2.n = 7;
             break;
           case 6:
-            _context.p = 6;
-            _t = _context.v;
+            _context2.p = 6;
+            _t = _context2.v;
             setTestResult({
               ok: false,
               msg: '连接失败:' + (_t.message || JSON.stringify(_t))
@@ -139,23 +167,43 @@ var WtkpiConfigSection = function WtkpiConfigSection(_ref) {
           case 7:
             setTesting(false);
           case 8:
-            return _context.a(2);
+            return _context2.a(2);
         }
-      }, _callee, null, [[2, 6]]);
+      }, _callee2, null, [[2, 6]]);
     }));
     return function testConnection() {
-      return _ref2.apply(this, arguments);
+      return _ref3.apply(this, arguments);
     };
   }();
-  var clear = function clear() {
-    if (!confirm('确认清除自定义配置?(会恢复到默认值)')) return;
-    localStorage.removeItem('wtkpi_url');
-    localStorage.removeItem('wtkpi_key');
-    setUrl(DEFAULT_URL);
-    setKey(DEFAULT_KEY);
-    setTestResult(null);
-    toast('已恢复默认');
-  };
+  var clear = /*#__PURE__*/function () {
+    var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.n) {
+          case 0:
+            _context3.n = 1;
+            return wsConfirm('确认清除自定义配置?(会恢复到默认值)');
+          case 1:
+            if (_context3.v) {
+              _context3.n = 2;
+              break;
+            }
+            return _context3.a(2);
+          case 2:
+            localStorage.removeItem('wtkpi_url');
+            localStorage.removeItem('wtkpi_key');
+            setUrl(DEFAULT_URL);
+            setKey(DEFAULT_KEY);
+            setTestResult(null);
+            toast('已恢复默认');
+          case 3:
+            return _context3.a(2);
+        }
+      }, _callee3);
+    }));
+    return function clear() {
+      return _ref4.apply(this, arguments);
+    };
+  }();
   return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-6"
   }, /*#__PURE__*/React.createElement("div", {
@@ -316,14 +364,14 @@ var WtkpiConfigSection = function WtkpiConfigSection(_ref) {
     }
   }, /*#__PURE__*/React.createElement("strong", null, "\uD83D\uDD10 \u5B89\u5168\u8BF4\u660E:"), "\u8FD9\u4E2A Key \u4FDD\u5B58\u5728\u4F60\u7684\u6D4F\u89C8\u5668 localStorage \u91CC(\u4E0D\u4F20\u5230\u4E91\u7AEF)\u3002", /*#__PURE__*/React.createElement("strong", null, "\u6BCF\u4E2A\u4EBA\u90FD\u8981\u81EA\u5DF1\u914D\u4E00\u6B21"), "(\u6216\u8005\u4E3B\u7BA1\u767B\u5F55\u6BCF\u53F0\u7535\u8111\u914D\u4E00\u6B21)\u3002", /*#__PURE__*/React.createElement("strong", null, "\u63A8\u8350\u7528 anon key(\u914D\u5408 RLS \u7B56\u7565)"), ",\u4E0D\u8981\u7528 service_role key,\u6CC4\u9732\u540E\u679C\u4E25\u91CD\u3002"));
 };
-var AdminModule = function AdminModule(_ref3) {
-  var user = _ref3.user,
-    employees = _ref3.employees,
-    setEmployees = _ref3.setEmployees,
-    toast = _ref3.toast,
-    cloudCfg = _ref3.cloudCfg,
-    setCloudCfg = _ref3.setCloudCfg,
-    onCloudApply = _ref3.onCloudApply;
+var AdminModule = function AdminModule(_ref5) {
+  var user = _ref5.user,
+    employees = _ref5.employees,
+    setEmployees = _ref5.setEmployees,
+    toast = _ref5.toast,
+    cloudCfg = _ref5.cloudCfg,
+    setCloudCfg = _ref5.setCloudCfg,
+    onCloudApply = _ref5.onCloudApply;
   var _useState1 = useState(null),
     _useState10 = _slicedToArray(_useState1, 2),
     editingId = _useState10[0],
@@ -383,30 +431,30 @@ var AdminModule = function AdminModule(_ref3) {
     }
   };
   var loadGeminiKey = /*#__PURE__*/function () {
-    var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+    var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
       var _data$value, _yield$CLOUD$client$f, data, encrypted, decoded, _t2;
-      return _regenerator().w(function (_context2) {
-        while (1) switch (_context2.p = _context2.n) {
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
             if (CLOUD.client) {
-              _context2.n = 1;
+              _context4.n = 1;
               break;
             }
             setGeminiStatus('❌ 云同步未启用');
-            return _context2.a(2);
+            return _context4.a(2);
           case 1:
-            _context2.p = 1;
-            _context2.n = 2;
+            _context4.p = 1;
+            _context4.n = 2;
             return CLOUD.client.from('kb_team_config').select('value').eq('key', 'gemini_api_key').maybeSingle();
           case 2:
-            _yield$CLOUD$client$f = _context2.v;
+            _yield$CLOUD$client$f = _context4.v;
             data = _yield$CLOUD$client$f.data;
             if (data) {
-              _context2.n = 3;
+              _context4.n = 3;
               break;
             }
             setGeminiStatus('未配置');
-            return _context2.a(2);
+            return _context4.a(2);
           case 3:
             encrypted = ((_data$value = data.value) === null || _data$value === void 0 ? void 0 : _data$value.encrypted) || '';
             decoded = encrypted ? _xorDecrypt(encrypted) : '';
@@ -415,64 +463,70 @@ var AdminModule = function AdminModule(_ref3) {
             } else {
               setGeminiStatus('未配置');
             }
-            _context2.n = 5;
+            _context4.n = 5;
             break;
           case 4:
-            _context2.p = 4;
-            _t2 = _context2.v;
+            _context4.p = 4;
+            _t2 = _context4.v;
             setGeminiStatus('❌ 读取失败: ' + _t2.message);
           case 5:
-            return _context2.a(2);
+            return _context4.a(2);
         }
-      }, _callee2, null, [[1, 4]]);
+      }, _callee4, null, [[1, 4]]);
     }));
     return function loadGeminiKey() {
-      return _ref4.apply(this, arguments);
+      return _ref6.apply(this, arguments);
     };
   }();
   useEffect(function () {
     if (section === 'gemini') loadGeminiKey();
   }, [section]);
   var saveGeminiKey = /*#__PURE__*/function () {
-    var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
       var _verify$value, encrypted, _yield$CLOUD$client$f2, data, error, _yield$CLOUD$client$f3, verify, encryptedBack, decoded, _t3;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
+      return _regenerator().w(function (_context5) {
+        while (1) switch (_context5.p = _context5.n) {
           case 0:
             if (geminiKey.trim()) {
-              _context3.n = 1;
+              _context5.n = 1;
               break;
             }
             toast('⚠ 请输入 Gemini API key');
-            return _context3.a(2);
+            return _context5.a(2);
           case 1:
             if (CLOUD.client) {
-              _context3.n = 2;
+              _context5.n = 2;
               break;
             }
             toast('❌ 云同步未启用');
-            return _context3.a(2);
+            return _context5.a(2);
           case 2:
             if (geminiKey.trim().startsWith('AIza')) {
-              _context3.n = 3;
+              _context5.n = 4;
               break;
             }
-            if (confirm('这个 key 看起来不像 Gemini key（通常以 AIza 开头）。继续保存吗？')) {
-              _context3.n = 3;
-              break;
-            }
-            return _context3.a(2);
+            _context5.n = 3;
+            return wsConfirm('这个 key 看起来不像 Gemini key（通常以 AIza 开头）。继续保存吗？');
           case 3:
-            if (confirm('保存 Gemini API key 到云端？\n会用 XOR 加密后存储到 Supabase，所有团队成员都能使用此 key。')) {
-              _context3.n = 4;
+            if (_context5.v) {
+              _context5.n = 4;
               break;
             }
-            return _context3.a(2);
+            return _context5.a(2);
           case 4:
-            _context3.p = 4;
+            _context5.n = 5;
+            return wsConfirm('保存 Gemini API key 到云端？\n会用 XOR 加密后存储到 Supabase，所有团队成员都能使用此 key。');
+          case 5:
+            if (_context5.v) {
+              _context5.n = 6;
+              break;
+            }
+            return _context5.a(2);
+          case 6:
+            _context5.p = 6;
             encrypted = _xorEncrypt(geminiKey.trim());
             console.log('[GEMINI] saving encrypted key, len=', encrypted.length);
-            _context3.n = 5;
+            _context5.n = 7;
             return CLOUD.client.from('kb_team_config').upsert({
               key: 'gemini_api_key',
               value: {
@@ -483,34 +537,34 @@ var AdminModule = function AdminModule(_ref3) {
             }, {
               onConflict: 'key'
             }).select();
-          case 5:
-            _yield$CLOUD$client$f2 = _context3.v;
+          case 7:
+            _yield$CLOUD$client$f2 = _context5.v;
             data = _yield$CLOUD$client$f2.data;
             error = _yield$CLOUD$client$f2.error;
             if (!error) {
-              _context3.n = 6;
+              _context5.n = 8;
               break;
             }
             console.error('[GEMINI] save error:', error);
             alert("\u274C \u4FDD\u5B58\u5931\u8D25\uFF1A".concat(error.message, "\n\n\u9519\u8BEF\u7801: ").concat(error.code || 'unknown', "\n\u8BE6\u60C5: ").concat(error.details || error.hint || '无', "\n\n\u5E38\u89C1\u539F\u56E0\uFF1A\n1. kb_team_config \u8868\u4E0D\u5B58\u5728\uFF08\u8BF7\u8DD1 03_kb_extras.sql\uFF09\n2. RLS \u7B56\u7565\u963B\u6B62\u5199\u5165\n3. \u7F51\u7EDC\u95EE\u9898"));
-            return _context3.a(2);
-          case 6:
+            return _context5.a(2);
+          case 8:
             console.log('[GEMINI] saved, verifying...');
             // 立即读出来验证
-            _context3.n = 7;
+            _context5.n = 9;
             return CLOUD.client.from('kb_team_config').select('value').eq('key', 'gemini_api_key').maybeSingle();
-          case 7:
-            _yield$CLOUD$client$f3 = _context3.v;
+          case 9:
+            _yield$CLOUD$client$f3 = _context5.v;
             verify = _yield$CLOUD$client$f3.data;
             encryptedBack = (verify === null || verify === void 0 || (_verify$value = verify.value) === null || _verify$value === void 0 ? void 0 : _verify$value.encrypted) || '';
             decoded = encryptedBack ? _xorDecrypt(encryptedBack) : '';
             if (!(decoded !== geminiKey.trim())) {
-              _context3.n = 8;
+              _context5.n = 10;
               break;
             }
             alert("\u26A0 \u4FDD\u5B58\u7591\u4F3C\u6210\u529F\u4F46\u9A8C\u8BC1\u5931\u8D25\uFF1A\n\n\u5199\u5165\u7684 key: ".concat(geminiKey.slice(0, 8), "...\n\u8BFB\u56DE\u7684 key: ").concat(decoded.slice(0, 8), "...\n\n\u53EF\u80FD\u662F RLS \u963B\u6B62\u4E86\u8BFB\u53D6\u3002\u8BF7\u53BB Supabase \u68C0\u67E5 kb_team_config \u8868\u7684 Policies\u3002"));
-            return _context3.a(2);
-          case 8:
+            return _context5.a(2);
+          case 10:
             toast('✓ Gemini key 已加密保存 · 知识库可立即使用');
             setGeminiKey('');
             loadGeminiKey();
@@ -522,56 +576,56 @@ var AdminModule = function AdminModule(_ref3) {
                 }, '*');
               } catch (e) {}
             });
-            _context3.n = 10;
+            _context5.n = 12;
             break;
-          case 9:
-            _context3.p = 9;
-            _t3 = _context3.v;
+          case 11:
+            _context5.p = 11;
+            _t3 = _context5.v;
             console.error('[GEMINI] save exception:', _t3);
             alert('❌ 保存异常: ' + _t3.message);
-          case 10:
-            return _context3.a(2);
+          case 12:
+            return _context5.a(2);
         }
-      }, _callee3, null, [[4, 9]]);
+      }, _callee5, null, [[6, 11]]);
     }));
     return function saveGeminiKey() {
-      return _ref5.apply(this, arguments);
+      return _ref7.apply(this, arguments);
     };
   }();
   var testGemini = /*#__PURE__*/function () {
-    var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
       var _j$candidates, key, source, _data$value2, _yield$CLOUD$client$f4, data, encrypted, resp, _err$error, err, j, txt, _t4;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
           case 0:
             setGeminiTesting(true);
             setGeminiTestResult('');
-            _context4.p = 1;
+            _context6.p = 1;
             // 优先用输入框里的 key，否则从云端读
             key = geminiKey.trim();
             source = '输入框';
             if (key) {
-              _context4.n = 3;
+              _context6.n = 3;
               break;
             }
-            _context4.n = 2;
+            _context6.n = 2;
             return CLOUD.client.from('kb_team_config').select('value').eq('key', 'gemini_api_key').maybeSingle();
           case 2:
-            _yield$CLOUD$client$f4 = _context4.v;
+            _yield$CLOUD$client$f4 = _context6.v;
             data = _yield$CLOUD$client$f4.data;
             encrypted = (data === null || data === void 0 || (_data$value2 = data.value) === null || _data$value2 === void 0 ? void 0 : _data$value2.encrypted) || '';
             key = encrypted ? _xorDecrypt(encrypted) : '';
             source = '云端';
           case 3:
             if (key) {
-              _context4.n = 4;
+              _context6.n = 4;
               break;
             }
             setGeminiTestResult('❌ 请先输入 key 或先点「保存到云端」');
             setGeminiTesting(false);
-            return _context4.a(2);
+            return _context6.a(2);
           case 4:
-            _context4.n = 5;
+            _context6.n = 5;
             return fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=".concat(key), {
               method: 'POST',
               headers: {
@@ -586,40 +640,40 @@ var AdminModule = function AdminModule(_ref3) {
               })
             });
           case 5:
-            resp = _context4.v;
+            resp = _context6.v;
             if (resp.ok) {
-              _context4.n = 7;
+              _context6.n = 7;
               break;
             }
-            _context4.n = 6;
+            _context6.n = 6;
             return resp.json()["catch"](function () {
               return {};
             });
           case 6:
-            err = _context4.v;
+            err = _context6.v;
             throw new Error(((_err$error = err.error) === null || _err$error === void 0 ? void 0 : _err$error.message) || "HTTP ".concat(resp.status));
           case 7:
-            _context4.n = 8;
+            _context6.n = 8;
             return resp.json();
           case 8:
-            j = _context4.v;
+            j = _context6.v;
             txt = ((_j$candidates = j.candidates) === null || _j$candidates === void 0 || (_j$candidates = _j$candidates[0]) === null || _j$candidates === void 0 || (_j$candidates = _j$candidates.content) === null || _j$candidates === void 0 || (_j$candidates = _j$candidates.parts) === null || _j$candidates === void 0 || (_j$candidates = _j$candidates[0]) === null || _j$candidates === void 0 ? void 0 : _j$candidates.text) || '';
             setGeminiTestResult("\u2713 \u8FDE\u901A\u6210\u529F (key \u6765\u81EA".concat(source, "): \"").concat(txt.slice(0, 40).trim(), "...\""));
-            _context4.n = 10;
+            _context6.n = 10;
             break;
           case 9:
-            _context4.p = 9;
-            _t4 = _context4.v;
+            _context6.p = 9;
+            _t4 = _context6.v;
             setGeminiTestResult('❌ ' + _t4.message);
           case 10:
             setGeminiTesting(false);
           case 11:
-            return _context4.a(2);
+            return _context6.a(2);
         }
-      }, _callee4, null, [[1, 9]]);
+      }, _callee6, null, [[1, 9]]);
     }));
     return function testGemini() {
-      return _ref6.apply(this, arguments);
+      return _ref8.apply(this, arguments);
     };
   }();
   var addEmployee = function addEmployee() {
@@ -661,33 +715,76 @@ var AdminModule = function AdminModule(_ref3) {
       });
     });
   };
-  var deleteEmp = function deleteEmp(id) {
-    if (id === user.id) {
-      toast('⚠ 不能删除自己');
-      return;
-    }
-    var e = employees.find(function (x) {
-      return x.id === id;
-    });
-    if (!confirm("\u786E\u8BA4\u5220\u9664\u5458\u5DE5 ".concat(e.name, "\uFF1F\u5386\u53F2\u8BB0\u5F55\u4E0D\u4F1A\u4E22\u5931\uFF0C\u4F46\u8BE5\u5458\u5DE5\u65E0\u6CD5\u518D\u767B\u5F55\u3002"))) return;
-    setEmployees(function (prev) {
-      return prev.filter(function (e) {
-        return e.id !== id;
-      });
-    });
-    toast('✗ 已删除');
-  };
-  var resetPwd = function resetPwd(id) {
-    var newPwd = prompt('请输入新密码 (至少 6 位):', '123456');
-    if (!newPwd || newPwd.length < 6) {
-      toast('⚠ 密码至少 6 位');
-      return;
-    }
-    updateEmp(id, {
-      password: newPwd
-    });
-    toast('✓ 密码已重置为: ' + newPwd);
-  };
+  var deleteEmp = /*#__PURE__*/function () {
+    var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(id) {
+      var e;
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.n) {
+          case 0:
+            if (!(id === user.id)) {
+              _context7.n = 1;
+              break;
+            }
+            toast('⚠ 不能删除自己');
+            return _context7.a(2);
+          case 1:
+            e = employees.find(function (x) {
+              return x.id === id;
+            });
+            _context7.n = 2;
+            return wsConfirm("\u786E\u8BA4\u5220\u9664\u5458\u5DE5 ".concat(e.name, "\uFF1F\u5386\u53F2\u8BB0\u5F55\u4E0D\u4F1A\u4E22\u5931\uFF0C\u4F46\u8BE5\u5458\u5DE5\u65E0\u6CD5\u518D\u767B\u5F55\u3002"));
+          case 2:
+            if (_context7.v) {
+              _context7.n = 3;
+              break;
+            }
+            return _context7.a(2);
+          case 3:
+            setEmployees(function (prev) {
+              return prev.filter(function (e) {
+                return e.id !== id;
+              });
+            });
+            toast('✗ 已删除');
+          case 4:
+            return _context7.a(2);
+        }
+      }, _callee7);
+    }));
+    return function deleteEmp(_x) {
+      return _ref9.apply(this, arguments);
+    };
+  }();
+  var resetPwd = /*#__PURE__*/function () {
+    var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(id) {
+      var newPwd;
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.n) {
+          case 0:
+            _context8.n = 1;
+            return wsPrompt('请输入新密码 (至少 6 位):', '123456');
+          case 1:
+            newPwd = _context8.v;
+            if (!(!newPwd || newPwd.length < 6)) {
+              _context8.n = 2;
+              break;
+            }
+            toast('⚠ 密码至少 6 位');
+            return _context8.a(2);
+          case 2:
+            updateEmp(id, {
+              password: newPwd
+            });
+            toast('✓ 密码已重置为: ' + newPwd);
+          case 3:
+            return _context8.a(2);
+        }
+      }, _callee8);
+    }));
+    return function resetPwd(_x2) {
+      return _ref0.apply(this, arguments);
+    };
+  }();
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-5 fade-in"
   }, /*#__PURE__*/React.createElement("div", {
@@ -958,27 +1055,27 @@ var AdminModule = function AdminModule(_ref3) {
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-sec",
     title: "\u628A\u5BA2\u670D\u90E8\u4EBA\u5458\u53D1\u5E03\u5230\u4E09\u7CFB\u7EDF\u5171\u4EAB\u76EE\u5F55(\u7F8E\u5DE5/\u5BA2\u670D/\u8DDF\u5355\u4E92\u76F8\u53EF\u89C1,\u53D1\u5DE5\u5355\u80FD\u9009\u5230\u5177\u4F53\u4EBA)",
-    onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+    onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
       var n, _t5;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.p = _context5.n) {
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.p = _context9.n) {
           case 0:
-            _context5.p = 0;
-            _context5.n = 1;
+            _context9.p = 0;
+            _context9.n = 1;
             return window.publishMyStaff(employees, user.name + (user.alias ? ' ' + user.alias : ''));
           case 1:
-            n = _context5.v;
+            n = _context9.v;
             toast("\u2713 \u5DF2\u540C\u6B65 ".concat(n, " \u540D\u5BA2\u670D\u4EBA\u5458\u5230\u5171\u4EAB\u76EE\u5F55"));
-            _context5.n = 3;
+            _context9.n = 3;
             break;
           case 2:
-            _context5.p = 2;
-            _t5 = _context5.v;
+            _context9.p = 2;
+            _t5 = _context9.v;
             toast('❌ 同步失败:' + (_t5.message || _t5));
           case 3:
-            return _context5.a(2);
+            return _context9.a(2);
         }
-      }, _callee5, null, [[0, 2]]);
+      }, _callee9, null, [[0, 2]]);
     }))
   }, "\uD83D\uDD04 \u540C\u6B65\u5230\u5171\u4EAB\u76EE\u5F55"), /*#__PURE__*/React.createElement("button", {
     className: "btn-pri",

@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 📖 手册 + App(fix81) · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📖 手册 + App(fix81) · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 📖 手册 + App(fix81) · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -1738,20 +1738,23 @@ var App = function App() {
             alert('你已是最高级别(老板),无需升级');
             return _context6.a(2);
           case 2:
-            reason = prompt("\uD83D\uDCBC \u7533\u8BF7".concat(autoLevel === 'boss' ? '老板' : '主管', "\u534F\u52A9\n\n\u8BF7\u586B\u5199\u9700\u8981\u5904\u7406\u7684\u539F\u56E0 (\u5C06\u521B\u5EFA\u5DE5\u5355):"), '');
+            _context6.n = 3;
+            return wsPrompt("\uD83D\uDCBC \u7533\u8BF7".concat(autoLevel === 'boss' ? '老板' : '主管', "\u534F\u52A9\n\n\u8BF7\u586B\u5199\u9700\u8981\u5904\u7406\u7684\u539F\u56E0 (\u5C06\u521B\u5EFA\u5DE5\u5355):"), '');
+          case 3:
+            reason = _context6.v;
             if (!(reason === null)) {
-              _context6.n = 3;
+              _context6.n = 4;
               break;
             }
             return _context6.a(2);
-          case 3:
+          case 4:
             if (reason.trim()) {
-              _context6.n = 4;
+              _context6.n = 5;
               break;
             }
             alert('请填写原因');
             return _context6.a(2);
-          case 4:
+          case 5:
             targetRole = autoLevel === 'boss' ? 'super_admin' : 'admin';
             candidates = (employees || []).filter(function (e) {
               return e.role === targetRole && !e.hideFromList;
@@ -1760,12 +1763,12 @@ var App = function App() {
               return e.role === targetRole;
             });
             if (!(allCandidates.length === 0)) {
-              _context6.n = 5;
+              _context6.n = 6;
               break;
             }
             alert("\u6CA1\u6709\u627E\u5230".concat(autoLevel === 'boss' ? '老板' : '主管', "\u8D26\u53F7"));
             return _context6.a(2);
-          case 5:
+          case 6:
             target = allCandidates[0];
             targetLabel = autoLevel === 'boss' ? '老板' : '主管';
             ticket = {
@@ -1785,39 +1788,39 @@ var App = function App() {
               created_at: nowISO(),
               updated_at: nowISO()
             };
-            _context6.p = 6;
+            _context6.p = 7;
             if (!(cloudOn && CLOUD.client)) {
-              _context6.n = 9;
+              _context6.n = 10;
               break;
             }
-            _context6.n = 7;
+            _context6.n = 8;
             return CLOUD.client.from('workspace_tickets').upsert(ticket);
-          case 7:
+          case 8:
             _yield$CLOUD$client$f3 = _context6.v;
             error = _yield$CLOUD$client$f3.error;
             if (!error) {
-              _context6.n = 8;
+              _context6.n = 9;
               break;
             }
             throw error;
-          case 8:
-            _context6.n = 10;
-            break;
           case 9:
-            STORE.set('tickets_local', [ticket].concat(_toConsumableArray(STORE.get('tickets_local', []))));
-          case 10:
-            toast("\u2713 \u5DF2\u7533\u8BF7".concat(targetLabel, " ").concat(target.name, " \u534F\u52A9"));
-            _context6.n = 12;
+            _context6.n = 11;
             break;
+          case 10:
+            STORE.set('tickets_local', [ticket].concat(_toConsumableArray(STORE.get('tickets_local', []))));
           case 11:
-            _context6.p = 11;
+            toast("\u2713 \u5DF2\u7533\u8BF7".concat(targetLabel, " ").concat(target.name, " \u534F\u52A9"));
+            _context6.n = 13;
+            break;
+          case 12:
+            _context6.p = 12;
             _t4 = _context6.v;
             alert("\u274C \u7533\u8BF7\u5931\u8D25: ".concat(_t4.message, "\n\n\u5EFA\u8BAE:\u5DE5\u5355\u53EF\u80FD\u672A\u5728\u4E91\u7AEF\u521B\u5EFA,\u4F46\u672C\u5730\u5DF2\u8BB0\u5F55"));
             STORE.set('tickets_local', [ticket].concat(_toConsumableArray(STORE.get('tickets_local', []))));
-          case 12:
+          case 13:
             return _context6.a(2);
         }
-      }, _callee6, null, [[6, 11]]);
+      }, _callee6, null, [[7, 12]]);
     }));
     return function () {
       delete window.__requestSupervisorAssistance;
@@ -2530,55 +2533,111 @@ var App = function App() {
       return window.removeEventListener('popstate', onPop);
     };
   }, [user]);
-  var onLogout = function onLogout() {
-    if (!confirm('确认退出登录？')) return;
-    setUser(null);
-    STORE.del('current_user');
-    STORE.del('impersonate_origin'); // 清除模拟身份
-  };
+  var onLogout = /*#__PURE__*/function () {
+    var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+      return _regenerator().w(function (_context10) {
+        while (1) switch (_context10.n) {
+          case 0:
+            _context10.n = 1;
+            return wsConfirm('确认退出登录？');
+          case 1:
+            if (_context10.v) {
+              _context10.n = 2;
+              break;
+            }
+            return _context10.a(2);
+          case 2:
+            setUser(null);
+            STORE.del('current_user');
+            STORE.del('impersonate_origin'); // 清除模拟身份
+          case 3:
+            return _context10.a(2);
+        }
+      }, _callee10);
+    }));
+    return function onLogout() {
+      return _ref20.apply(this, arguments);
+    };
+  }();
 
   // 🆕 切换账号 - 主管/老板免密查看模式
-  var switchAccount = function switchAccount(targetEmployee) {
-    var isAdminViewer = user && (user.role === 'admin' || user.role === 'super_admin');
-    // 主管/老板:无需密码,以查看模式切换
-    if (isAdminViewer && targetEmployee.id !== user.id) {
-      var ok = confirm("\uD83D\uDC41 \u4EE5 ".concat(targetEmployee.name).concat(targetEmployee.alias ? ' ' + targetEmployee.alias : '', " \u7684\u8EAB\u4EFD\u67E5\u770B\n\n") + "\u8FD9\u662F\u67E5\u770B\u6A21\u5F0F \u2014 \u4F60\u53EF\u4EE5\u770B\u5230\u8BE5\u5458\u5DE5\u7684\u6240\u6709\u6570\u636E,\u9876\u90E8\u4F1A\u663E\u793A\u660E\u663E\u6807\u8BC6,\u968F\u65F6\u53EF\u4E00\u952E\u5207\u56DE\u3002\n\n" + "\u7EE7\u7EED\u5417?");
-      if (!ok) return;
-      // 记录原始身份(切回用)
-      var origin = STORE.get('impersonate_origin', null);
-      if (!origin) {
-        STORE.set('impersonate_origin', {
-          id: user.id,
-          name: user.name,
-          alias: user.alias,
-          role: user.role
-        });
-      }
-      var _newUser = _objectSpread(_objectSpread({}, targetEmployee), {}, {
-        _impersonating: true
-      });
-      setUser(_newUser);
-      STORE.set('current_user', _newUser);
-      toast("\uD83D\uDC41 \u5DF2\u5207\u6362\u5230 ".concat(_newUser.name, " \u89C6\u89D2 \xB7 \u9876\u90E8\u53EF\u4E00\u952E\u5207\u56DE"));
-      return;
-    }
-    // 普通员工切换:需要密码
-    var password = prompt("\u5207\u6362\u5230 ".concat(targetEmployee.name).concat(targetEmployee.alias ? ' ' + targetEmployee.alias : '', " \u7684\u8D26\u53F7\n\n\u8BF7\u8F93\u5165\u8BE5\u8D26\u53F7\u7684\u5BC6\u7801\uFF1A"));
-    if (password === null) return;
-    if (!password) {
-      alert('密码不能为空');
-      return;
-    }
-    if (password !== targetEmployee.password) {
-      alert('❌ 密码错误');
-      return;
-    }
-    var newUser = _objectSpread({}, targetEmployee);
-    setUser(newUser);
-    STORE.set('current_user', newUser);
-    STORE.del('impersonate_origin');
-    toast("\u2713 \u5DF2\u5207\u6362\u5230 ".concat(newUser.name).concat(newUser.alias ? ' ' + newUser.alias : ''));
-  };
+  var switchAccount = /*#__PURE__*/function () {
+    var _ref21 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(targetEmployee) {
+      var isAdminViewer, ok, origin, _newUser, password, newUser;
+      return _regenerator().w(function (_context11) {
+        while (1) switch (_context11.n) {
+          case 0:
+            isAdminViewer = user && (user.role === 'admin' || user.role === 'super_admin'); // 主管/老板:无需密码,以查看模式切换
+            if (!(isAdminViewer && targetEmployee.id !== user.id)) {
+              _context11.n = 3;
+              break;
+            }
+            _context11.n = 1;
+            return wsConfirm("\uD83D\uDC41 \u4EE5 ".concat(targetEmployee.name).concat(targetEmployee.alias ? ' ' + targetEmployee.alias : '', " \u7684\u8EAB\u4EFD\u67E5\u770B\n\n") + "\u8FD9\u662F\u67E5\u770B\u6A21\u5F0F \u2014 \u4F60\u53EF\u4EE5\u770B\u5230\u8BE5\u5458\u5DE5\u7684\u6240\u6709\u6570\u636E,\u9876\u90E8\u4F1A\u663E\u793A\u660E\u663E\u6807\u8BC6,\u968F\u65F6\u53EF\u4E00\u952E\u5207\u56DE\u3002\n\n" + "\u7EE7\u7EED\u5417?");
+          case 1:
+            ok = _context11.v;
+            if (ok) {
+              _context11.n = 2;
+              break;
+            }
+            return _context11.a(2);
+          case 2:
+            // 记录原始身份(切回用)
+            origin = STORE.get('impersonate_origin', null);
+            if (!origin) {
+              STORE.set('impersonate_origin', {
+                id: user.id,
+                name: user.name,
+                alias: user.alias,
+                role: user.role
+              });
+            }
+            _newUser = _objectSpread(_objectSpread({}, targetEmployee), {}, {
+              _impersonating: true
+            });
+            setUser(_newUser);
+            STORE.set('current_user', _newUser);
+            toast("\uD83D\uDC41 \u5DF2\u5207\u6362\u5230 ".concat(_newUser.name, " \u89C6\u89D2 \xB7 \u9876\u90E8\u53EF\u4E00\u952E\u5207\u56DE"));
+            return _context11.a(2);
+          case 3:
+            _context11.n = 4;
+            return wsPrompt("\u5207\u6362\u5230 ".concat(targetEmployee.name).concat(targetEmployee.alias ? ' ' + targetEmployee.alias : '', " \u7684\u8D26\u53F7\n\n\u8BF7\u8F93\u5165\u8BE5\u8D26\u53F7\u7684\u5BC6\u7801\uFF1A"));
+          case 4:
+            password = _context11.v;
+            if (!(password === null)) {
+              _context11.n = 5;
+              break;
+            }
+            return _context11.a(2);
+          case 5:
+            if (password) {
+              _context11.n = 6;
+              break;
+            }
+            alert('密码不能为空');
+            return _context11.a(2);
+          case 6:
+            if (!(password !== targetEmployee.password)) {
+              _context11.n = 7;
+              break;
+            }
+            alert('❌ 密码错误');
+            return _context11.a(2);
+          case 7:
+            newUser = _objectSpread({}, targetEmployee);
+            setUser(newUser);
+            STORE.set('current_user', newUser);
+            STORE.del('impersonate_origin');
+            toast("\u2713 \u5DF2\u5207\u6362\u5230 ".concat(newUser.name).concat(newUser.alias ? ' ' + newUser.alias : ''));
+          case 8:
+            return _context11.a(2);
+        }
+      }, _callee11);
+    }));
+    return function switchAccount(_x4) {
+      return _ref21.apply(this, arguments);
+    };
+  }();
 
   // 🆕 切回原始身份
   var restoreOriginalUser = function restoreOriginalUser() {
@@ -2689,13 +2748,13 @@ var App = function App() {
     var isAdminRole = user.role === 'admin' || user.role === 'super_admin';
     if (!isAdminRole) return;
     var fetchDR = /*#__PURE__*/function () {
-      var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+      var _ref22 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
         var data, _t0;
-        return _regenerator().w(function (_context10) {
-          while (1) switch (_context10.p = _context10.n) {
+        return _regenerator().w(function (_context12) {
+          while (1) switch (_context12.p = _context12.n) {
             case 0:
-              _context10.p = 0;
-              _context10.n = 1;
+              _context12.p = 0;
+              _context12.n = 1;
               return CLOUD.list('delete_requests', {
                 order: {
                   col: 'requested_at',
@@ -2704,20 +2763,20 @@ var App = function App() {
                 limit: 200
               });
             case 1:
-              data = _context10.v;
+              data = _context12.v;
               STORE.set('delete_requests_cache', data || []);
-              _context10.n = 3;
+              _context12.n = 3;
               break;
             case 2:
-              _context10.p = 2;
-              _t0 = _context10.v;
+              _context12.p = 2;
+              _t0 = _context12.v;
             case 3:
-              return _context10.a(2);
+              return _context12.a(2);
           }
-        }, _callee10, null, [[0, 2]]);
+        }, _callee12, null, [[0, 2]]);
       }));
       return function fetchDR() {
-        return _ref20.apply(this, arguments);
+        return _ref22.apply(this, arguments);
       };
     }();
     fetchDR();
@@ -3007,13 +3066,13 @@ var App = function App() {
       color: '#854d0e'
     }
   }, "\u26A0 ", /*#__PURE__*/React.createElement("strong", null, "\u4E91\u7AEF\u5199\u5165\u5931\u8D25"), "\uFF1A", cloudSyncError.slice(0, 100), " \xB7 \u6570\u636E\u53EF\u80FD\u672A\u540C\u6B65\u5230\u4E91\u7AEF \xB7", /*#__PURE__*/React.createElement("button", {
-    onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+    onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
       var skipped, _t1;
-      return _regenerator().w(function (_context11) {
-        while (1) switch (_context11.p = _context11.n) {
+      return _regenerator().w(function (_context13) {
+        while (1) switch (_context13.p = _context13.n) {
           case 0:
-            _context11.p = 0;
-            _context11.n = 1;
+            _context13.p = 0;
+            _context13.n = 1;
             return uploadRecordsWithRetry(records);
           case 1:
             setCloudSyncError(null);
@@ -3023,17 +3082,17 @@ var App = function App() {
             } else {
               toast("\u2713 \u5DF2\u6210\u529F\u4E0A\u4F20 ".concat(records.length, " \u6761\u8BB0\u5F55\u5230\u4E91\u7AEF"));
             }
-            _context11.n = 3;
+            _context13.n = 3;
             break;
           case 2:
-            _context11.p = 2;
-            _t1 = _context11.v;
+            _context13.p = 2;
+            _t1 = _context13.v;
             setCloudSyncError(_t1.message);
             alert('❌ 上传失败：' + _t1.message);
           case 3:
-            return _context11.a(2);
+            return _context13.a(2);
         }
-      }, _callee11, null, [[0, 2]]);
+      }, _callee13, null, [[0, 2]]);
     })),
     style: {
       marginLeft: 8,
@@ -3238,9 +3297,9 @@ var App = function App() {
     allTabs: allTabs,
     layoutPrefs: layoutPrefs,
     defaultTopKeys: DEFAULT_TOP_KEYS,
-    onSave: function onSave(_ref22) {
-      var newTopKeys = _ref22.topKeys,
-        newSidebarOrder = _ref22.sidebarOrder;
+    onSave: function onSave(_ref24) {
+      var newTopKeys = _ref24.topKeys,
+        newSidebarOrder = _ref24.sidebarOrder;
       return setLayoutPrefs(function (p) {
         return _objectSpread(_objectSpread({}, p), {}, {
           topKeys: newTopKeys,
@@ -3255,7 +3314,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.05.30-fix128';
+var APP_VERSION = '2026.05.30-fix130';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

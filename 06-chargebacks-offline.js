@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
@@ -25,8 +25,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 
 var ChargebacksModule = function ChargebacksModule(_ref) {
@@ -2757,17 +2757,20 @@ var TransferToPoModal = function TransferToPoModal(_ref13) {
             return _context1.a(2);
           case 1:
             if (!(!poUserId && !poUserName.trim())) {
-              _context1.n = 2;
+              _context1.n = 3;
               break;
             }
-            if (confirm('未指定跟单负责人,确定全跟单部都能看到吗?')) {
-              _context1.n = 2;
+            _context1.n = 2;
+            return wsConfirm('未指定跟单负责人,确定全跟单部都能看到吗?');
+          case 2:
+            if (_context1.v) {
+              _context1.n = 3;
               break;
             }
             return _context1.a(2);
-          case 2:
+          case 3:
             setSending(true);
-            _context1.p = 3;
+            _context1.p = 4;
             userName = user.name + (user.alias ? ' ' + user.alias : '');
             body = ['📦 客服已转单 · 此订单客户已付款,请安排下单', '', "\u8BA2\u5355\u53F7: ".concat(order.order_no), "\u7F51\u7AD9: ".concat(order.site || '?'), "\u5BA2\u6237: ".concat(order.customer_name || order.customer_email || '?').concat(order.customer_email ? ' · ' + order.customer_email : ''), "\u4ED8\u6B3E: ".concat(order.payment_method || '?', " \xB7 ").concat(order.payment_currency || 'USD', " ").concat(order.payment_amount || 0).concat(order.received_amount ? ' (实收 ' + order.received_amount + ')' : ''), "\u4ED8\u6B3E\u65F6\u95F4: ".concat(order.paid_at || '未填'), '', '📍 收货地址:', order.ship_to_name || '', order.ship_to_address || '', [order.ship_to_city, order.ship_to_state, order.ship_to_zip].filter(Boolean).join(', '), order.ship_to_country || '', order.ship_to_phone ? '📞 ' + order.ship_to_phone : '', '', "\uD83D\uDECD\uFE0F \u4EA7\u54C1 (".concat(products.length, " \u4EF6):")].concat(_toConsumableArray(products.map(function (p) {
               return "  - ".concat(p.sku || '', " ").concat(p.name || '', " \xD7 ").concat(p.qty || 1).concat(p.unit_price ? ' @ ' + p.unit_price : '');
@@ -2795,18 +2798,18 @@ var TransferToPoModal = function TransferToPoModal(_ref13) {
               created_at_ms: Date.now(),
               updated_at: new Date().toISOString()
             };
-            _context1.n = 4;
+            _context1.n = 5;
             return client.from('cross_dept_messages').insert(msg);
-          case 4:
+          case 5:
             _yield$client$from$in = _context1.v;
             error = _yield$client$from$in.error;
             if (!error) {
-              _context1.n = 5;
+              _context1.n = 6;
               break;
             }
             throw error;
-          case 5:
-            _context1.n = 6;
+          case 6:
+            _context1.n = 7;
             return CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, order), {}, {
               transferred_to_po: true,
               transferred_to_id: poUserId || null,
@@ -2816,21 +2819,21 @@ var TransferToPoModal = function TransferToPoModal(_ref13) {
               // 已付款 → 自动改为已下单
               updated_at: new Date().toISOString()
             }));
-          case 6:
+          case 7:
             toast('✓ 已转给跟单 · 跨部门消息已发送');
             onTransferred && onTransferred();
-            _context1.n = 8;
+            _context1.n = 9;
             break;
-          case 7:
-            _context1.p = 7;
+          case 8:
+            _context1.p = 8;
             _t7 = _context1.v;
             alert('转单失败: ' + (_t7.message || _t7));
-          case 8:
-            setSending(false);
           case 9:
+            setSending(false);
+          case 10:
             return _context1.a(2);
         }
-      }, _callee1, null, [[3, 7]]);
+      }, _callee1, null, [[4, 8]]);
     }));
     return function transfer() {
       return _ref15.apply(this, arguments);
@@ -4279,7 +4282,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
             return _context16.a(2);
           case 2:
             if (isEdit) {
-              _context16.n = 7;
+              _context16.n = 8;
               break;
             }
             _context16.p = 3;
@@ -4289,62 +4292,65 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
             _yield$CLOUD$client$f2 = _context16.v;
             existing = _yield$CLOUD$client$f2.data;
             if (!(existing && existing.length > 0)) {
-              _context16.n = 5;
+              _context16.n = 6;
               break;
             }
-            if (confirm("\u26A0 \u8B66\u544A:\u8BA2\u5355\u7F16\u53F7 \"".concat(orderNo, "\" \u5DF2\u5B58\u5728!\n\n\u7EE7\u7EED\u4FDD\u5B58\u5C06\u521B\u5EFA\u91CD\u590D\u7F16\u53F7(\u53EF\u80FD\u5BFC\u81F4\u7BA1\u7406\u6DF7\u4E71)\u3002\n\n\u5EFA\u8BAE:\u70B9\u51FB\"\uD83D\uDD04 \u91CD\u65B0\u626B\u63CF+1\"\u83B7\u53D6\u552F\u4E00\u7F16\u53F7\u3002\n\n\u4ECD\u8981\u7EE7\u7EED\u4FDD\u5B58\u5417?"))) {
-              _context16.n = 5;
+            _context16.n = 5;
+            return wsConfirm("\u26A0 \u8B66\u544A:\u8BA2\u5355\u7F16\u53F7 \"".concat(orderNo, "\" \u5DF2\u5B58\u5728!\n\n\u7EE7\u7EED\u4FDD\u5B58\u5C06\u521B\u5EFA\u91CD\u590D\u7F16\u53F7(\u53EF\u80FD\u5BFC\u81F4\u7BA1\u7406\u6DF7\u4E71)\u3002\n\n\u5EFA\u8BAE:\u70B9\u51FB\"\uD83D\uDD04 \u91CD\u65B0\u626B\u63CF+1\"\u83B7\u53D6\u552F\u4E00\u7F16\u53F7\u3002\n\n\u4ECD\u8981\u7EE7\u7EED\u4FDD\u5B58\u5417?"));
+          case 5:
+            if (_context16.v) {
+              _context16.n = 6;
               break;
             }
             return _context16.a(2);
-          case 5:
-            _context16.n = 7;
-            break;
           case 6:
-            _context16.p = 6;
-            _t10 = _context16.v;
+            _context16.n = 8;
+            break;
           case 7:
+            _context16.p = 7;
+            _t10 = _context16.v;
+          case 8:
             setSaving(true);
             userName = user.name + (user.alias ? ' ' + user.alias : '');
             now = new Date().toISOString(); // 🆕 新建保存成功后:把 sequence 更新到比当前编号大的位置
             if (isEdit) {
-              _context16.n = 12;
+              _context16.n = 13;
               break;
             }
-            _context16.p = 8;
-            _context16.n = 9;
+            _context16.p = 9;
+            _context16.n = 10;
             return CLOUD.client.from('site_order_sequences').select('*').eq('site', site).single();
-          case 9:
+          case 10:
             seqConfig = _context16.v;
             if (!seqConfig.data) {
-              _context16.n = 10;
+              _context16.n = 11;
               break;
             }
             prefix = seqConfig.data.prefix || site;
             separator = seqConfig.data.separator || '-';
             m = orderNo.trim().match(new RegExp('^' + prefix + (separator || '') + '?(\\d+)$'));
             if (!m) {
-              _context16.n = 10;
+              _context16.n = 11;
               break;
             }
             n = parseInt(m[1], 10);
             if (!(n > (seqConfig.data.current_no || 0))) {
-              _context16.n = 10;
+              _context16.n = 11;
               break;
             }
-            _context16.n = 10;
+            _context16.n = 11;
             return CLOUD.client.from('site_order_sequences').update({
               current_no: n,
               updated_at: now
             }).eq('site', site);
-          case 10:
-            _context16.n = 12;
-            break;
           case 11:
-            _context16.p = 11;
+            _context16.n = 13;
+            break;
+          case 12:
+            _context16.p = 12;
             _t11 = _context16.v;
             console.warn('更新 sequence 失败(不影响订单保存):', _t11);
-          case 12:
+          case 13:
             dispatchText = generateDispatchText({
               order_no: orderNo,
               ship_to_name: shipToName,
@@ -4384,9 +4390,9 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
               created_by: (order === null || order === void 0 ? void 0 : order.created_by) || user.id,
               created_by_name: (order === null || order === void 0 ? void 0 : order.created_by_name) || userName
             });
-            _context16.n = 13;
+            _context16.n = 14;
             return CLOUD.upsert('offline_orders', payload);
-          case 13:
+          case 14:
             res = _context16.v;
             if (res) {
               toast(isEdit ? '✓ 已更新' : '✓ 已创建线下单');
@@ -4395,10 +4401,10 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
               alertSaveError('保存线下单');
             }
             setSaving(false);
-          case 14:
+          case 15:
             return _context16.a(2);
         }
-      }, _callee16, null, [[8, 11], [3, 6]]);
+      }, _callee16, null, [[9, 12], [3, 7]]);
     }));
     return function handleSave() {
       return _ref26.apply(this, arguments);
@@ -8965,14 +8971,34 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref47) {
     setNewContent('');
     setNewImages([]);
   };
-  var removeReply = function removeReply(id) {
-    if (!confirm('确认删除这条留言?')) return;
-    setReplies(function (prev) {
-      return (prev || []).filter(function (r) {
-        return r.id !== id;
-      });
-    });
-  };
+  var removeReply = /*#__PURE__*/function () {
+    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee32(id) {
+      return _regenerator().w(function (_context32) {
+        while (1) switch (_context32.n) {
+          case 0:
+            _context32.n = 1;
+            return wsConfirm('确认删除这条留言?');
+          case 1:
+            if (_context32.v) {
+              _context32.n = 2;
+              break;
+            }
+            return _context32.a(2);
+          case 2:
+            setReplies(function (prev) {
+              return (prev || []).filter(function (r) {
+                return r.id !== id;
+              });
+            });
+          case 3:
+            return _context32.a(2);
+        }
+      }, _callee32);
+    }));
+    return function removeReply(_x14) {
+      return _ref52.apply(this, arguments);
+    };
+  }();
   var removeNewImage = function removeNewImage(idx) {
     setNewImages(function (prev) {
       return prev.filter(function (_, i) {

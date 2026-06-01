@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 🧱 核心 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 🧱 核心 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 
 var _React = React,
@@ -35,6 +35,149 @@ var _React = React,
   useCallback = _React.useCallback,
   useContext = _React.useContext,
   createContext = _React.createContext;
+
+// 🆕 fix129: 通用自定义弹窗 UI —— 替换浏览器原生 alert(丑陋警告弹窗)。
+// 直接挂在 document.body、超高 z-index、无 backdrop-filter → 不会被任何表单/弹窗压住。
+(function () {
+  if (window.__wsDialogInstalled) return;
+  window.__wsDialogInstalled = true;
+  function injectStyle() {
+    if (document.getElementById('ws-dialog-style')) return;
+    var st = document.createElement('style');
+    st.id = 'ws-dialog-style';
+    st.textContent = '.wsdlg-mask{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:2147483600;display:flex;align-items:center;justify-content:center;padding:20px;animation:wsdlgFade .12s ease}' + '@keyframes wsdlgFade{from{opacity:0}to{opacity:1}}' + '@keyframes wsdlgPop{from{transform:scale(.94);opacity:.6}to{transform:scale(1);opacity:1}}' + '.wsdlg-box{background:#fff;border-radius:16px;max-width:400px;width:100%;box-shadow:0 24px 70px rgba(0,0,0,.3);overflow:hidden;animation:wsdlgPop .14s ease;font-family:inherit}' + '.wsdlg-top{display:flex;gap:12px;align-items:flex-start;padding:22px 22px 8px}' + '.wsdlg-ic{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0}' + '.wsdlg-msg{flex:1;font-size:14px;line-height:1.6;color:#1e293b;white-space:pre-wrap;word-break:break-word;padding-top:7px}' + '.wsdlg-ttl{font-size:15px;font-weight:700;color:#0f172a;margin-bottom:4px}' + '.wsdlg-inp{width:100%;margin:6px 22px 0;width:calc(100% - 44px);padding:9px 11px;border:1px solid #d1d5db;border-radius:9px;font-size:14px;font-family:inherit;box-sizing:border-box}' + '.wsdlg-bar{display:flex;gap:8px;justify-content:flex-end;padding:16px 22px 20px}' + '.wsdlg-btn{padding:9px 20px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;border:none;font-family:inherit}' + '.wsdlg-ok{background:#0071e3;color:#fff}.wsdlg-ok:hover{background:#0060c0}' + '.wsdlg-cancel{background:#f1f5f9;color:#334155}.wsdlg-cancel:hover{background:#e2e8f0}' + '.wsdlg-ok.danger{background:#dc2626}.wsdlg-ok.danger:hover{background:#b91c1c}';
+    document.head.appendChild(st);
+  }
+  function classify(msg) {
+    var m = String(msg || '');
+    if (/(失败|错误|不能|无法|超过|出错|异常|禁止|必须|请先|不可|拒绝|error|fail)/i.test(m)) return {
+      ic: '⚠️',
+      bg: '#fef2f2',
+      color: '#dc2626',
+      danger: true
+    };
+    if (/(成功|已完成|已保存|已删除|已更新|已发送|搞定|完成|✓|✅)/i.test(m)) return {
+      ic: '✅',
+      bg: '#f0fdf4',
+      color: '#16a34a',
+      danger: false
+    };
+    return {
+      ic: 'ℹ️',
+      bg: '#eff6ff',
+      color: '#0369a1',
+      danger: false
+    };
+  }
+  // mode: 'alert' | 'confirm' | 'prompt'
+  function show(msg, opts) {
+    injectStyle();
+    opts = opts || {};
+    var mode = opts.mode || 'alert';
+    var info = classify(msg);
+    var mask = document.createElement('div');
+    mask.className = 'wsdlg-mask';
+    var box = document.createElement('div');
+    box.className = 'wsdlg-box';
+    var top = document.createElement('div');
+    top.className = 'wsdlg-top';
+    var ic = document.createElement('div');
+    ic.className = 'wsdlg-ic';
+    ic.style.background = info.bg;
+    ic.textContent = info.ic;
+    var msgEl = document.createElement('div');
+    msgEl.className = 'wsdlg-msg';
+    if (opts.title) {
+      var t = document.createElement('div');
+      t.className = 'wsdlg-ttl';
+      t.textContent = opts.title;
+      msgEl.appendChild(t);
+    }
+    var txt = document.createElement('span');
+    txt.textContent = String(msg == null ? '' : msg);
+    msgEl.appendChild(txt);
+    top.appendChild(ic);
+    top.appendChild(msgEl);
+    box.appendChild(top);
+    var input = null;
+    if (mode === 'prompt') {
+      input = document.createElement('input');
+      input.className = 'wsdlg-inp';
+      input.value = opts.def == null ? '' : String(opts.def);
+      box.appendChild(input);
+    }
+    var bar = document.createElement('div');
+    bar.className = 'wsdlg-bar';
+    var done = function done(val) {
+      if (mask.parentNode) mask.parentNode.removeChild(mask);
+      document.removeEventListener('keydown', onKey);
+      if (opts.onResult) opts.onResult(val);
+    };
+    if (mode !== 'alert') {
+      var cancel = document.createElement('button');
+      cancel.className = 'wsdlg-btn wsdlg-cancel';
+      cancel.textContent = opts.cancelText || '取消';
+      cancel.onclick = function () {
+        done(mode === 'prompt' ? null : false);
+      };
+      bar.appendChild(cancel);
+    }
+    var ok = document.createElement('button');
+    ok.className = 'wsdlg-btn wsdlg-ok' + (info.danger ? ' danger' : '');
+    ok.textContent = opts.okText || (mode === 'alert' ? '知道了' : '确定');
+    ok.onclick = function () {
+      done(mode === 'prompt' ? input ? input.value : '' : mode === 'confirm' ? true : undefined);
+    };
+    bar.appendChild(ok);
+    box.appendChild(bar);
+    mask.appendChild(box);
+    mask.onclick = function (e) {
+      if (e.target === mask && mode === 'alert') done(undefined);
+    };
+    function onKey(e) {
+      if (e.key === 'Escape') done(mode === 'prompt' ? null : mode === 'confirm' ? false : undefined);else if (e.key === 'Enter' && mode !== 'prompt') {
+        e.preventDefault();
+        ok.click();
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(mask);
+    setTimeout(function () {
+      (input || ok).focus();
+    }, 30);
+  }
+  // 覆盖原生 alert(无返回值,完美替换)
+  window.alert = function (m) {
+    show(m, {
+      mode: 'alert'
+    });
+  };
+  // 自定义异步 confirm / prompt(需 await:用于逐步替换原生 confirm/prompt)
+  window.wsAlert = function (m, o) {
+    show(m, Object.assign({
+      mode: 'alert'
+    }, o || {}));
+  };
+  window.wsConfirm = function (m, o) {
+    return new Promise(function (res) {
+      show(m, Object.assign({
+        mode: 'confirm'
+      }, o || {}, {
+        onResult: res
+      }));
+    });
+  };
+  window.wsPrompt = function (m, def, o) {
+    return new Promise(function (res) {
+      show(m, Object.assign({
+        mode: 'prompt',
+        def: def
+      }, o || {}, {
+        onResult: res
+      }));
+    });
+  };
+})();
 
 // ============================================================
 // 工具

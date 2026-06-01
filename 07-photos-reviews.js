@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 🎨 实拍 + 评价 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 🎨 实拍 + 评价 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 🎨 实拍 + 评价 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 🎨 实拍 + 评价 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 
 var ReviewsModule = function ReviewsModule(_ref) {
@@ -124,33 +124,36 @@ var ReviewsModule = function ReviewsModule(_ref) {
       return _regenerator().w(function (_context2) {
         while (1) switch (_context2.n) {
           case 0:
-            if (confirm('确定要删除此评价任务？删除后无法恢复。')) {
-              _context2.n = 1;
-              break;
-            }
-            return _context2.a(2);
+            _context2.n = 1;
+            return wsConfirm('确定要删除此评价任务？删除后无法恢复。');
           case 1:
-            r = reviews.find(function (x) {
-              return x.id === id;
-            });
-            if (r) {
+            if (_context2.v) {
               _context2.n = 2;
               break;
             }
             return _context2.a(2);
           case 2:
-            _context2.n = 3;
+            r = reviews.find(function (x) {
+              return x.id === id;
+            });
+            if (r) {
+              _context2.n = 3;
+              break;
+            }
+            return _context2.a(2);
+          case 3:
+            _context2.n = 4;
             return CLOUD.upsert('product_reviews', _objectSpread(_objectSpread({}, r), {}, {
               deleted: true,
               updated_at: new Date().toISOString()
             }));
-          case 3:
+          case 4:
             res = _context2.v;
             if (res) {
               toast('✓ 已删除');
               load();
             }
-          case 4:
+          case 5:
             return _context2.a(2);
         }
       }, _callee2);
@@ -197,12 +200,15 @@ var ReviewsModule = function ReviewsModule(_ref) {
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.n) {
           case 0:
-            if (confirm('放弃这个任务？其他人将可以接')) {
-              _context4.n = 1;
+            _context4.n = 1;
+            return wsConfirm('放弃这个任务？其他人将可以接');
+          case 1:
+            if (_context4.v) {
+              _context4.n = 2;
               break;
             }
             return _context4.a(2);
-          case 1:
+          case 2:
             payload = _objectSpread(_objectSpread({}, review), {}, {
               claimed_by: null,
               claimed_by_name: null,
@@ -210,15 +216,15 @@ var ReviewsModule = function ReviewsModule(_ref) {
               status: 'pending',
               updated_at: new Date().toISOString()
             });
-            _context4.n = 2;
+            _context4.n = 3;
             return CLOUD.upsert('product_reviews', payload);
-          case 2:
+          case 3:
             res = _context4.v;
             if (res) {
               toast('✓ 已放弃,可被他人领取');
               load();
             }
-          case 3:
+          case 4:
             return _context4.a(2);
         }
       }, _callee4);
@@ -1868,15 +1874,18 @@ var ReviewCompleteModal = function ReviewCompleteModal(_ref1) {
         while (1) switch (_context7.n) {
           case 0:
             if (!(!workNotes.trim() && attachments.length === 0 && !reviewText.trim())) {
-              _context7.n = 1;
+              _context7.n = 2;
               break;
             }
-            if (confirm('没填写任何工作详情或上传截图,确定标记完成吗?')) {
-              _context7.n = 1;
+            _context7.n = 1;
+            return wsConfirm('没填写任何工作详情或上传截图,确定标记完成吗?');
+          case 1:
+            if (_context7.v) {
+              _context7.n = 2;
               break;
             }
             return _context7.a(2);
-          case 1:
+          case 2:
             setSaving(true);
             now = new Date().toISOString();
             userName = user.name + (user.alias ? ' ' + user.alias : '');
@@ -1893,9 +1902,9 @@ var ReviewCompleteModal = function ReviewCompleteModal(_ref1) {
               attachments: attachments,
               updated_at: now
             });
-            _context7.n = 2;
+            _context7.n = 3;
             return CLOUD.upsert('product_reviews', payload);
-          case 2:
+          case 3:
             res = _context7.v;
             if (res) {
               toast('✅ 任务已完成！');
@@ -1904,7 +1913,7 @@ var ReviewCompleteModal = function ReviewCompleteModal(_ref1) {
               alertSaveError('完成产品评价');
             }
             setSaving(false);
-          case 3:
+          case 4:
             return _context7.a(2);
         }
       }, _callee7);

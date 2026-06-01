@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,8 +23,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-128
-// APP_VERSION: 2026.05.30-fix128
+// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-130
+// APP_VERSION: 2026.05.30-fix130
 // ════════════════════════════════════════════════════════════════════
 
 // ════════════════════════════════════════════════════════════════════
@@ -2921,29 +2921,77 @@ var TrashModule = function TrashModule(_ref19) {
     });
     toast('✓ 已恢复');
   };
-  var permaDelete = function permaDelete(id) {
-    if (!isAdmin) {
-      toast('⚠ 仅主管可永久删除');
-      return;
-    }
-    if (!confirm('确认永久删除？此操作不可撤销！')) return;
-    setRecords(function (prev) {
-      return prev.filter(function (r) {
-        return r.id !== id;
-      });
-    });
-    toast('✗ 已永久删除');
-  };
-  var clearAll = function clearAll() {
-    if (!isAdmin) return;
-    if (!confirm("\u786E\u8BA4\u6C38\u4E45\u5220\u9664\u5168\u90E8 ".concat(deleted.length, " \u6761\u8BB0\u5F55\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\uFF01"))) return;
-    setRecords(function (prev) {
-      return prev.filter(function (r) {
-        return !r.deleted;
-      });
-    });
-    toast('✗ 已清空回收站');
-  };
+  var permaDelete = /*#__PURE__*/function () {
+    var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(id) {
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.n) {
+          case 0:
+            if (isAdmin) {
+              _context3.n = 1;
+              break;
+            }
+            toast('⚠ 仅主管可永久删除');
+            return _context3.a(2);
+          case 1:
+            _context3.n = 2;
+            return wsConfirm('确认永久删除？此操作不可撤销！');
+          case 2:
+            if (_context3.v) {
+              _context3.n = 3;
+              break;
+            }
+            return _context3.a(2);
+          case 3:
+            setRecords(function (prev) {
+              return prev.filter(function (r) {
+                return r.id !== id;
+              });
+            });
+            toast('✗ 已永久删除');
+          case 4:
+            return _context3.a(2);
+        }
+      }, _callee3);
+    }));
+    return function permaDelete(_x) {
+      return _ref20.apply(this, arguments);
+    };
+  }();
+  var clearAll = /*#__PURE__*/function () {
+    var _ref21 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.n) {
+          case 0:
+            if (isAdmin) {
+              _context4.n = 1;
+              break;
+            }
+            return _context4.a(2);
+          case 1:
+            _context4.n = 2;
+            return wsConfirm("\u786E\u8BA4\u6C38\u4E45\u5220\u9664\u5168\u90E8 ".concat(deleted.length, " \u6761\u8BB0\u5F55\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\uFF01"));
+          case 2:
+            if (_context4.v) {
+              _context4.n = 3;
+              break;
+            }
+            return _context4.a(2);
+          case 3:
+            setRecords(function (prev) {
+              return prev.filter(function (r) {
+                return !r.deleted;
+              });
+            });
+            toast('✗ 已清空回收站');
+          case 4:
+            return _context4.a(2);
+        }
+      }, _callee4);
+    }));
+    return function clearAll() {
+      return _ref21.apply(this, arguments);
+    };
+  }();
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-5 fade-in"
   }, /*#__PURE__*/React.createElement("div", {
@@ -3052,36 +3100,39 @@ var isSameDay = function isSameDay(record) {
 // 主管/老板:仍可直接删除(会有审计日志)
 // 普通客服:必须走审批
 var requestDelete = /*#__PURE__*/function () {
-  var _ref21 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(_ref20) {
+  var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(_ref22) {
     var user, tableName, moduleLabel, record, recordSummary, toast, onSuccess, isAdmin, isSuperAdmin, sameDay, isOwner, res, savedRow, actuallyDeleted, _res, _reason, reason, _t3, _t4, _t5, _t6, _t7, _t8;
-    return _regenerator().w(function (_context3) {
-      while (1) switch (_context3.p = _context3.n) {
+    return _regenerator().w(function (_context5) {
+      while (1) switch (_context5.p = _context5.n) {
         case 0:
-          user = _ref20.user, tableName = _ref20.tableName, moduleLabel = _ref20.moduleLabel, record = _ref20.record, recordSummary = _ref20.recordSummary, toast = _ref20.toast, onSuccess = _ref20.onSuccess;
+          user = _ref22.user, tableName = _ref22.tableName, moduleLabel = _ref22.moduleLabel, record = _ref22.record, recordSummary = _ref22.recordSummary, toast = _ref22.toast, onSuccess = _ref22.onSuccess;
           isAdmin = user.role === 'admin' || user.role === 'super_admin';
           isSuperAdmin = user.role === 'super_admin';
           sameDay = isSameDay(record);
           isOwner = record.created_by === user.id || record.ownerId === user.id; // 老板:直接删除(权限最大)
           if (!isSuperAdmin) {
-            _context3.n = 11;
+            _context5.n = 12;
             break;
           }
-          if (confirm("\uD83D\uDC51 \u8001\u677F\u6743\u9650\u76F4\u63A5\u5220\u9664\n\n".concat(recordSummary, "\n\n\u786E\u8BA4\u5220\u9664? \u6B64\u64CD\u4F5C\u4F1A\u8BB0\u5F55\u5230\u5BA1\u8BA1\u65E5\u5FD7\u3002"))) {
-            _context3.n = 1;
-            break;
-          }
-          return _context3.a(2, false);
+          _context5.n = 1;
+          return wsConfirm("\uD83D\uDC51 \u8001\u677F\u6743\u9650\u76F4\u63A5\u5220\u9664\n\n".concat(recordSummary, "\n\n\u786E\u8BA4\u5220\u9664? \u6B64\u64CD\u4F5C\u4F1A\u8BB0\u5F55\u5230\u5BA1\u8BA1\u65E5\u5FD7\u3002"));
         case 1:
-          _context3.p = 1;
-          _context3.n = 2;
+          if (_context5.v) {
+            _context5.n = 2;
+            break;
+          }
+          return _context5.a(2, false);
+        case 2:
+          _context5.p = 2;
+          _context5.n = 3;
           return CLOUD.upsert(tableName, _objectSpread(_objectSpread({}, record), {}, {
             deleted: true,
             updated_at: new Date().toISOString()
           }));
-        case 2:
-          res = _context3.v;
+        case 3:
+          res = _context5.v;
           if (!res) {
-            _context3.n = 7;
+            _context5.n = 8;
             break;
           }
           // 🆕 fix9b: 验证 deleted=true 真的写入了 — 如果 CLOUD.upsert 的 schema-retry 把 deleted 字段剥离了(因为表没这一列),
@@ -3089,14 +3140,14 @@ var requestDelete = /*#__PURE__*/function () {
           savedRow = Array.isArray(res) ? res[0] : res;
           actuallyDeleted = savedRow && savedRow.deleted === true;
           if (actuallyDeleted) {
-            _context3.n = 3;
+            _context5.n = 4;
             break;
           }
           alert("\u26A0 \u5220\u9664\u53EF\u80FD\u672A\u751F\u6548\n\n\u6570\u636E\u5E93\u7684 ".concat(tableName, " \u8868\u53EF\u80FD\u8FD8\u6CA1\u6709 deleted \u5217(\u54CD\u5E94\u91CC deleted=").concat(savedRow === null || savedRow === void 0 ? void 0 : savedRow.deleted, ").\n\n\u8BF7\u4E3B\u7BA1\u5728 Supabase SQL Editor \u6267\u884C\u6700\u65B0\u7684 16_fix7_photo_replies.sql \u7136\u540E\u5F3A\u5237\u9875\u9762\u3002\n\n\u5237\u65B0\u540E\u8FD9\u6761\u8BB0\u5F55\u8FD8\u4F1A\u51FA\u73B0,\u76F4\u5230\u5217\u5EFA\u597D."));
-          return _context3.a(2, false);
-        case 3:
-          _context3.p = 3;
-          _context3.n = 4;
+          return _context5.a(2, false);
+        case 4:
+          _context5.p = 4;
+          _context5.n = 5;
           return CLOUD.client.from('delete_requests').insert({
             table_name: tableName,
             record_id: String(record.id),
@@ -3114,59 +3165,62 @@ var requestDelete = /*#__PURE__*/function () {
             approved_at: new Date().toISOString(),
             approval_note: '总管直接删除(无需审批)'
           });
-        case 4:
-          _context3.n = 6;
-          break;
         case 5:
-          _context3.p = 5;
-          _t3 = _context3.v;
+          _context5.n = 7;
+          break;
         case 6:
+          _context5.p = 6;
+          _t3 = _context5.v;
+        case 7:
           toast('✓ 已删除');
           if (onSuccess) onSuccess();
-          return _context3.a(2, true);
-        case 7:
+          return _context5.a(2, true);
+        case 8:
           // 🆕 fix8: 之前这里默默 return false,用户看不到错误
           // 实际可能是:1) 数据库无 deleted 列(aftersales/refills/refunds 旧 schema) 2) RLS 拒绝 3) 列名拼写错
           alertSaveError('删除');
-          return _context3.a(2, false);
-        case 8:
-          _context3.n = 10;
-          break;
+          return _context5.a(2, false);
         case 9:
-          _context3.p = 9;
-          _t4 = _context3.v;
-          alert('删除失败: ' + _t4.message);
+          _context5.n = 11;
+          break;
         case 10:
-          return _context3.a(2, false);
+          _context5.p = 10;
+          _t4 = _context5.v;
+          alert('删除失败: ' + _t4.message);
         case 11:
+          return _context5.a(2, false);
+        case 12:
           if (!isAdmin) {
-            _context3.n = 25;
+            _context5.n = 28;
             break;
           }
           if (!sameDay) {
-            _context3.n = 21;
+            _context5.n = 23;
             break;
           }
-          if (confirm("\u2B50 \u4E3B\u7BA1\u5220\u9664\u5F53\u5929\u6570\u636E\n\n".concat(recordSummary, "\n\n\u786E\u8BA4\u5220\u9664?"))) {
-            _context3.n = 12;
+          _context5.n = 13;
+          return wsConfirm("\u2B50 \u4E3B\u7BA1\u5220\u9664\u5F53\u5929\u6570\u636E\n\n".concat(recordSummary, "\n\n\u786E\u8BA4\u5220\u9664?"));
+        case 13:
+          if (_context5.v) {
+            _context5.n = 14;
             break;
           }
-          return _context3.a(2, false);
-        case 12:
-          _context3.p = 12;
-          _context3.n = 13;
+          return _context5.a(2, false);
+        case 14:
+          _context5.p = 14;
+          _context5.n = 15;
           return CLOUD.upsert(tableName, _objectSpread(_objectSpread({}, record), {}, {
             deleted: true,
             updated_at: new Date().toISOString()
           }));
-        case 13:
-          _res = _context3.v;
+        case 15:
+          _res = _context5.v;
           if (!_res) {
-            _context3.n = 18;
+            _context5.n = 20;
             break;
           }
-          _context3.p = 14;
-          _context3.n = 15;
+          _context5.p = 16;
+          _context5.n = 17;
           return CLOUD.client.from('delete_requests').insert({
             table_name: tableName,
             record_id: String(record.id),
@@ -3184,36 +3238,38 @@ var requestDelete = /*#__PURE__*/function () {
             approved_at: new Date().toISOString(),
             approval_note: '主管直接删除当天数据'
           });
-        case 15:
-          _context3.n = 17;
-          break;
-        case 16:
-          _context3.p = 16;
-          _t5 = _context3.v;
         case 17:
+          _context5.n = 19;
+          break;
+        case 18:
+          _context5.p = 18;
+          _t5 = _context5.v;
+        case 19:
           toast('✓ 已删除');
           if (onSuccess) onSuccess();
-          return _context3.a(2, true);
-        case 18:
-          _context3.n = 20;
-          break;
-        case 19:
-          _context3.p = 19;
-          _t6 = _context3.v;
-          alert('删除失败: ' + _t6.message);
+          return _context5.a(2, true);
         case 20:
-          return _context3.a(2, false);
+          _context5.n = 22;
+          break;
         case 21:
-          // 历史数据:主管也要老板批准
-          _reason = prompt("\uD83D\uDCDC \u5220\u9664\u5386\u53F2\u6570\u636E\u9700\u8981\u8001\u677F\u5BA1\u6279\n\n".concat(recordSummary, "\n\n\u8BF7\u586B\u5199\u5220\u9664\u7406\u7531:"));
+          _context5.p = 21;
+          _t6 = _context5.v;
+          alert('删除失败: ' + _t6.message);
+        case 22:
+          return _context5.a(2, false);
+        case 23:
+          _context5.n = 24;
+          return wsPrompt("\uD83D\uDCDC \u5220\u9664\u5386\u53F2\u6570\u636E\u9700\u8981\u8001\u677F\u5BA1\u6279\n\n".concat(recordSummary, "\n\n\u8BF7\u586B\u5199\u5220\u9664\u7406\u7531:"));
+        case 24:
+          _reason = _context5.v;
           if (!(!_reason || !_reason.trim())) {
-            _context3.n = 22;
+            _context5.n = 25;
             break;
           }
-          return _context3.a(2, false);
-        case 22:
-          _context3.p = 22;
-          _context3.n = 23;
+          return _context5.a(2, false);
+        case 25:
+          _context5.p = 25;
+          _context5.n = 26;
           return CLOUD.client.from('delete_requests').insert({
             table_name: tableName,
             record_id: String(record.id),
@@ -3227,39 +3283,41 @@ var requestDelete = /*#__PURE__*/function () {
             approver_role: 'super_admin',
             status: 'pending'
           });
-        case 23:
+        case 26:
           toast('✓ 已提交老板审批,等待批准');
-          return _context3.a(2, true);
-        case 24:
-          _context3.p = 24;
-          _t7 = _context3.v;
+          return _context5.a(2, true);
+        case 27:
+          _context5.p = 27;
+          _t7 = _context5.v;
           alert('提交失败: ' + _t7.message);
-          return _context3.a(2, false);
-        case 25:
+          return _context5.a(2, false);
+        case 28:
           if (isOwner) {
-            _context3.n = 26;
+            _context5.n = 29;
             break;
           }
           alert('❌ 你不能删除别人的数据');
-          return _context3.a(2, false);
-        case 26:
+          return _context5.a(2, false);
+        case 29:
           if (sameDay) {
-            _context3.n = 27;
+            _context5.n = 30;
             break;
           }
           alert('❌ 历史数据(非当天)只有主管/老板能删除\n\n请联系主管');
-          return _context3.a(2, false);
-        case 27:
-          // 当天 + 是自己的:提交主管审批
-          reason = prompt("\uD83D\uDCCB \u7533\u8BF7\u5220\u9664\u5F53\u5929\u6570\u636E(\u9700\u4E3B\u7BA1\u6279\u51C6)\n\n".concat(recordSummary, "\n\n\u8BF7\u586B\u5199\u5220\u9664\u7406\u7531:"));
+          return _context5.a(2, false);
+        case 30:
+          _context5.n = 31;
+          return wsPrompt("\uD83D\uDCCB \u7533\u8BF7\u5220\u9664\u5F53\u5929\u6570\u636E(\u9700\u4E3B\u7BA1\u6279\u51C6)\n\n".concat(recordSummary, "\n\n\u8BF7\u586B\u5199\u5220\u9664\u7406\u7531:"));
+        case 31:
+          reason = _context5.v;
           if (!(!reason || !reason.trim())) {
-            _context3.n = 28;
+            _context5.n = 32;
             break;
           }
-          return _context3.a(2, false);
-        case 28:
-          _context3.p = 28;
-          _context3.n = 29;
+          return _context5.a(2, false);
+        case 32:
+          _context5.p = 32;
+          _context5.n = 33;
           return CLOUD.client.from('delete_requests').insert({
             table_name: tableName,
             record_id: String(record.id),
@@ -3273,26 +3331,26 @@ var requestDelete = /*#__PURE__*/function () {
             approver_role: 'admin',
             status: 'pending'
           });
-        case 29:
+        case 33:
           toast('✓ 删除申请已提交,等待主管批准');
-          return _context3.a(2, true);
-        case 30:
-          _context3.p = 30;
-          _t8 = _context3.v;
+          return _context5.a(2, true);
+        case 34:
+          _context5.p = 34;
+          _t8 = _context5.v;
           alert('提交失败: ' + _t8.message);
-          return _context3.a(2, false);
+          return _context5.a(2, false);
       }
-    }, _callee3, null, [[28, 30], [22, 24], [14, 16], [12, 19], [3, 5], [1, 9]]);
+    }, _callee5, null, [[32, 34], [25, 27], [16, 18], [14, 21], [4, 6], [2, 10]]);
   }));
-  return function requestDelete(_x) {
-    return _ref21.apply(this, arguments);
+  return function requestDelete(_x2) {
+    return _ref23.apply(this, arguments);
   };
 }();
 
 // 📋 删除审批中心 - 主管/老板用
-var DeleteApprovalCenter = function DeleteApprovalCenter(_ref22) {
-  var user = _ref22.user,
-    toast = _ref22.toast;
+var DeleteApprovalCenter = function DeleteApprovalCenter(_ref24) {
+  var user = _ref24.user,
+    toast = _ref24.toast;
   var _useState43 = useState([]),
     _useState44 = _slicedToArray(_useState43, 2),
     list = _useState44[0],
@@ -3308,14 +3366,14 @@ var DeleteApprovalCenter = function DeleteApprovalCenter(_ref22) {
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var isSuperAdmin = user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
-    var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+    var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
       var data, _t9;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
           case 0:
             setLoading(true);
-            _context4.p = 1;
-            _context4.n = 2;
+            _context6.p = 1;
+            _context6.n = 2;
             return CLOUD.list('delete_requests', {
               order: {
                 col: 'requested_at',
@@ -3324,24 +3382,24 @@ var DeleteApprovalCenter = function DeleteApprovalCenter(_ref22) {
               limit: 500
             });
           case 2:
-            data = _context4.v;
+            data = _context6.v;
             setList(data || []);
             STORE.set('delete_requests_cache', data || []);
-            _context4.n = 4;
+            _context6.n = 4;
             break;
           case 3:
-            _context4.p = 3;
-            _t9 = _context4.v;
+            _context6.p = 3;
+            _t9 = _context6.v;
             toast('❌ 加载失败: ' + _t9.message);
           case 4:
             setLoading(false);
           case 5:
-            return _context4.a(2);
+            return _context6.a(2);
         }
-      }, _callee4, null, [[1, 3]]);
+      }, _callee6, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref23.apply(this, arguments);
+      return _ref25.apply(this, arguments);
     };
   }();
   useEffect(function () {
@@ -3364,20 +3422,23 @@ var DeleteApprovalCenter = function DeleteApprovalCenter(_ref22) {
     return l;
   }, [list, filterStatus, isSuperAdmin]);
   var approve = /*#__PURE__*/function () {
-    var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(req) {
+    var _ref26 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(req) {
       var note, _yield$CLOUD$client$f, orig, _t0;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.p = _context5.n) {
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.p = _context7.n) {
           case 0:
-            note = prompt("\u2705 \u6279\u51C6\u5220\u9664\n\n".concat(req.record_summary, "\n\n\u5907\u6CE8(\u53EF\u7559\u7A7A):"), '');
+            _context7.n = 1;
+            return wsPrompt("\u2705 \u6279\u51C6\u5220\u9664\n\n".concat(req.record_summary, "\n\n\u5907\u6CE8(\u53EF\u7559\u7A7A):"), '');
+          case 1:
+            note = _context7.v;
             if (!(note === null)) {
-              _context5.n = 1;
+              _context7.n = 2;
               break;
             }
-            return _context5.a(2);
-          case 1:
-            _context5.p = 1;
-            _context5.n = 2;
+            return _context7.a(2);
+          case 2:
+            _context7.p = 2;
+            _context7.n = 3;
             return CLOUD.client.from('delete_requests').update({
               status: 'approved',
               approver_id: user.id,
@@ -3385,61 +3446,64 @@ var DeleteApprovalCenter = function DeleteApprovalCenter(_ref22) {
               approved_at: new Date().toISOString(),
               approval_note: note || null
             }).eq('id', req.id);
-          case 2:
-            _context5.n = 3;
-            return CLOUD.client.from(req.table_name).select('*').eq('id', req.record_id).single();
           case 3:
-            _yield$CLOUD$client$f = _context5.v;
+            _context7.n = 4;
+            return CLOUD.client.from(req.table_name).select('*').eq('id', req.record_id).single();
+          case 4:
+            _yield$CLOUD$client$f = _context7.v;
             orig = _yield$CLOUD$client$f.data;
             if (!orig) {
-              _context5.n = 4;
+              _context7.n = 5;
               break;
             }
-            _context5.n = 4;
+            _context7.n = 5;
             return CLOUD.client.from(req.table_name).update({
               deleted: true,
               updated_at: new Date().toISOString()
             }).eq('id', req.record_id);
-          case 4:
+          case 5:
             toast('✓ 已批准并删除');
             load();
-            _context5.n = 6;
+            _context7.n = 7;
             break;
-          case 5:
-            _context5.p = 5;
-            _t0 = _context5.v;
-            alert('操作失败: ' + _t0.message);
           case 6:
-            return _context5.a(2);
+            _context7.p = 6;
+            _t0 = _context7.v;
+            alert('操作失败: ' + _t0.message);
+          case 7:
+            return _context7.a(2);
         }
-      }, _callee5, null, [[1, 5]]);
+      }, _callee7, null, [[2, 6]]);
     }));
-    return function approve(_x2) {
-      return _ref24.apply(this, arguments);
+    return function approve(_x3) {
+      return _ref26.apply(this, arguments);
     };
   }();
   var reject = /*#__PURE__*/function () {
-    var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(req) {
+    var _ref27 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(req) {
       var note, _t1;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.p = _context8.n) {
           case 0:
-            note = prompt("\u274C \u62D2\u7EDD\u5220\u9664\n\n".concat(req.record_summary, "\n\n\u62D2\u7EDD\u7406\u7531:"), '');
+            _context8.n = 1;
+            return wsPrompt("\u274C \u62D2\u7EDD\u5220\u9664\n\n".concat(req.record_summary, "\n\n\u62D2\u7EDD\u7406\u7531:"), '');
+          case 1:
+            note = _context8.v;
             if (!(note === null)) {
-              _context6.n = 1;
+              _context8.n = 2;
               break;
             }
-            return _context6.a(2);
-          case 1:
+            return _context8.a(2);
+          case 2:
             if (note.trim()) {
-              _context6.n = 2;
+              _context8.n = 3;
               break;
             }
             alert('请填写拒绝理由');
-            return _context6.a(2);
-          case 2:
-            _context6.p = 2;
-            _context6.n = 3;
+            return _context8.a(2);
+          case 3:
+            _context8.p = 3;
+            _context8.n = 4;
             return CLOUD.client.from('delete_requests').update({
               status: 'rejected',
               approver_id: user.id,
@@ -3447,22 +3511,22 @@ var DeleteApprovalCenter = function DeleteApprovalCenter(_ref22) {
               approved_at: new Date().toISOString(),
               approval_note: note.trim()
             }).eq('id', req.id);
-          case 3:
+          case 4:
             toast('✓ 已拒绝');
             load();
-            _context6.n = 5;
+            _context8.n = 6;
             break;
-          case 4:
-            _context6.p = 4;
-            _t1 = _context6.v;
-            alert('操作失败: ' + _t1.message);
           case 5:
-            return _context6.a(2);
+            _context8.p = 5;
+            _t1 = _context8.v;
+            alert('操作失败: ' + _t1.message);
+          case 6:
+            return _context8.a(2);
         }
-      }, _callee6, null, [[2, 4]]);
+      }, _callee8, null, [[3, 5]]);
     }));
-    return function reject(_x3) {
-      return _ref25.apply(this, arguments);
+    return function reject(_x4) {
+      return _ref27.apply(this, arguments);
     };
   }();
   var pendingCount = list.filter(function (r) {
@@ -3772,17 +3836,17 @@ var kpiClassifyFeedback = function kpiClassifyFeedback(rec) {
   })) return 'optimize';
   return 'normal';
 };
-var KPIScoreboard = function KPIScoreboard(_ref26) {
-  var employees = _ref26.employees,
-    records = _ref26.records,
-    toast = _ref26.toast,
-    readOnly = _ref26.readOnly,
-    _ref26$chargebacks = _ref26.chargebacks,
-    chargebacks = _ref26$chargebacks === void 0 ? [] : _ref26$chargebacks,
-    _ref26$refills = _ref26.refills,
-    refills = _ref26$refills === void 0 ? [] : _ref26$refills,
-    _ref26$photos = _ref26.photos,
-    photos = _ref26$photos === void 0 ? [] : _ref26$photos;
+var KPIScoreboard = function KPIScoreboard(_ref28) {
+  var employees = _ref28.employees,
+    records = _ref28.records,
+    toast = _ref28.toast,
+    readOnly = _ref28.readOnly,
+    _ref28$chargebacks = _ref28.chargebacks,
+    chargebacks = _ref28$chargebacks === void 0 ? [] : _ref28$chargebacks,
+    _ref28$refills = _ref28.refills,
+    refills = _ref28$refills === void 0 ? [] : _ref28$refills,
+    _ref28$photos = _ref28.photos,
+    photos = _ref28$photos === void 0 ? [] : _ref28$photos;
   var _useState49 = useState(new Date().toISOString().slice(0, 7)),
     _useState50 = _slicedToArray(_useState49, 2),
     month = _useState50[0],
@@ -3798,35 +3862,35 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
   var today = new Date().toISOString().slice(0, 10);
   var storeKey = 'kpi_scores_' + month;
   useEffect(function () {
-    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
       var _yield$CLOUD$client$f2, data, _t10;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.p = _context7.n) {
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.p = _context9.n) {
           case 0:
-            _context7.p = 0;
+            _context9.p = 0;
             if (CLOUD.client) {
-              _context7.n = 1;
+              _context9.n = 1;
               break;
             }
             setScores({});
-            return _context7.a(2);
+            return _context9.a(2);
           case 1:
-            _context7.n = 2;
+            _context9.n = 2;
             return CLOUD.client.from('system_settings').select('value').eq('key', storeKey).maybeSingle();
           case 2:
-            _yield$CLOUD$client$f2 = _context7.v;
+            _yield$CLOUD$client$f2 = _context9.v;
             data = _yield$CLOUD$client$f2.data;
             setScores(data && data.value || {});
-            _context7.n = 4;
+            _context9.n = 4;
             break;
           case 3:
-            _context7.p = 3;
-            _t10 = _context7.v;
+            _context9.p = 3;
+            _t10 = _context9.v;
             setScores({});
           case 4:
-            return _context7.a(2);
+            return _context9.a(2);
         }
-      }, _callee7, null, [[0, 3]]);
+      }, _callee9, null, [[0, 3]]);
     }))();
   }, [month]);
   var monRecs = useMemo(function () {
@@ -3959,14 +4023,14 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
     toast && toast('🪄 已按工作明细建议「邮件质量+时效」与「奖惩」(反馈分级/拒付失误/补件/实拍)· 主观项仍需人工 · 确认后点保存');
   };
   var save = /*#__PURE__*/function () {
-    var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
+    var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
       var _t11;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.p = _context8.n) {
+      return _regenerator().w(function (_context0) {
+        while (1) switch (_context0.p = _context0.n) {
           case 0:
             setSaving(true);
-            _context8.p = 1;
-            _context8.n = 2;
+            _context0.p = 1;
+            _context0.n = 2;
             return CLOUD.client.from('system_settings').upsert({
               key: storeKey,
               value: scores
@@ -3975,21 +4039,21 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
             });
           case 2:
             toast && toast('✓ 绩效评分已保存 (' + month + ')');
-            _context8.n = 4;
+            _context0.n = 4;
             break;
           case 3:
-            _context8.p = 3;
-            _t11 = _context8.v;
+            _context0.p = 3;
+            _t11 = _context0.v;
             toast && toast('❌ 保存失败: ' + _t11.message);
           case 4:
             setSaving(false);
           case 5:
-            return _context8.a(2);
+            return _context0.a(2);
         }
-      }, _callee8, null, [[1, 3]]);
+      }, _callee0, null, [[1, 3]]);
     }));
     return function save() {
-      return _ref28.apply(this, arguments);
+      return _ref30.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -4461,10 +4525,10 @@ var KPIScoreboard = function KPIScoreboard(_ref26) {
 
 // 📊 主管汇总面板 - 总览所有模块
 // ============================================================
-var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
-  var user = _ref29.user,
-    employees = _ref29.employees,
-    toast = _ref29.toast;
+var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
+  var user = _ref31.user,
+    employees = _ref31.employees,
+    toast = _ref31.toast;
   var _useState57 = useState({
       chargebacks: [],
       offlineOrders: [],
@@ -4499,14 +4563,14 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
     });
   };
   var load = /*#__PURE__*/function () {
-    var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+    var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
       var _yield$Promise$all3, _yield$Promise$all4, cb, oo, ci, pv, af, rf, rfd, rev, rec, dr, _t12;
-      return _regenerator().w(function (_context9) {
-        while (1) switch (_context9.p = _context9.n) {
+      return _regenerator().w(function (_context1) {
+        while (1) switch (_context1.p = _context1.n) {
           case 0:
             setLoading(true);
-            _context9.p = 1;
-            _context9.n = 2;
+            _context1.p = 1;
+            _context1.n = 2;
             return Promise.all([CLOUD.list('chargebacks', {
               limit: 500
             }), CLOUD.list('offline_orders', {
@@ -4529,7 +4593,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
               limit: 200
             })]);
           case 2:
-            _yield$Promise$all3 = _context9.v;
+            _yield$Promise$all3 = _context1.v;
             _yield$Promise$all4 = _slicedToArray(_yield$Promise$all3, 10);
             cb = _yield$Promise$all4[0];
             oo = _yield$Promise$all4[1];
@@ -4571,21 +4635,21 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
               }),
               deleteReqs: dr || []
             });
-            _context9.n = 4;
+            _context1.n = 4;
             break;
           case 3:
-            _context9.p = 3;
-            _t12 = _context9.v;
+            _context1.p = 3;
+            _t12 = _context1.v;
             toast('❌ 加载失败: ' + _t12.message);
           case 4:
             setLoading(false);
           case 5:
-            return _context9.a(2);
+            return _context1.a(2);
         }
-      }, _callee9, null, [[1, 3]]);
+      }, _callee1, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref30.apply(this, arguments);
+      return _ref32.apply(this, arguments);
     };
   }();
   useEffect(function () {
@@ -4766,13 +4830,13 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
       textAlign: 'center'
     }
   }, "\u23F3 \u52A0\u8F7D\u4E2D...");
-  var StatCard = function StatCard(_ref31) {
-    var icon = _ref31.icon,
-      title = _ref31.title,
-      value = _ref31.value,
-      color = _ref31.color,
-      sub = _ref31.sub,
-      onClick = _ref31.onClick;
+  var StatCard = function StatCard(_ref33) {
+    var icon = _ref33.icon,
+      title = _ref33.title,
+      value = _ref33.value,
+      color = _ref33.color,
+      sub = _ref33.sub,
+      onClick = _ref33.onClick;
     return /*#__PURE__*/React.createElement("div", {
       onClick: onClick,
       style: {
@@ -5328,9 +5392,9 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref29) {
 // ============================================================
 // ⏰ 预警阈值配置 - 主管可调整每个模块的"超 N 天预警"
 // ============================================================
-var AlertThresholdsSettings = function AlertThresholdsSettings(_ref32) {
-  var user = _ref32.user,
-    toast = _ref32.toast;
+var AlertThresholdsSettings = function AlertThresholdsSettings(_ref34) {
+  var user = _ref34.user,
+    toast = _ref34.toast;
   var _useState65 = useState({
       cs_followup: 7,
       // 客服跟进超期天数
@@ -5360,55 +5424,55 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref32) {
     saving = _useState70[0],
     setSaving = _useState70[1];
   var load = /*#__PURE__*/function () {
-    var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+    var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
       var _yield$CLOUD$client$f3, data, _t13;
-      return _regenerator().w(function (_context0) {
-        while (1) switch (_context0.p = _context0.n) {
+      return _regenerator().w(function (_context10) {
+        while (1) switch (_context10.p = _context10.n) {
           case 0:
             if (CLOUD.client) {
-              _context0.n = 1;
+              _context10.n = 1;
               break;
             }
             setLoading(false);
-            return _context0.a(2);
+            return _context10.a(2);
           case 1:
-            _context0.p = 1;
-            _context0.n = 2;
+            _context10.p = 1;
+            _context10.n = 2;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'alert_thresholds').single();
           case 2:
-            _yield$CLOUD$client$f3 = _context0.v;
+            _yield$CLOUD$client$f3 = _context10.v;
             data = _yield$CLOUD$client$f3.data;
             if (data !== null && data !== void 0 && data.value) setThresholds(function (prev) {
               return _objectSpread(_objectSpread({}, prev), data.value);
             });
-            _context0.n = 4;
+            _context10.n = 4;
             break;
           case 3:
-            _context0.p = 3;
-            _t13 = _context0.v;
+            _context10.p = 3;
+            _t13 = _context10.v;
           case 4:
             setLoading(false);
           case 5:
-            return _context0.a(2);
+            return _context10.a(2);
         }
-      }, _callee0, null, [[1, 3]]);
+      }, _callee10, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref33.apply(this, arguments);
+      return _ref35.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleSave = /*#__PURE__*/function () {
-    var _ref34 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
+    var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
       var _yield$CLOUD$client$f4, error, _t14;
-      return _regenerator().w(function (_context1) {
-        while (1) switch (_context1.p = _context1.n) {
+      return _regenerator().w(function (_context11) {
+        while (1) switch (_context11.p = _context11.n) {
           case 0:
             setSaving(true);
-            _context1.p = 1;
-            _context1.n = 2;
+            _context11.p = 1;
+            _context11.n = 2;
             return CLOUD.client.from('system_settings').upsert({
               key: 'alert_thresholds',
               value: thresholds,
@@ -5416,53 +5480,73 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref32) {
               updated_by_name: user.name + (user.alias ? ' ' + user.alias : '')
             });
           case 2:
-            _yield$CLOUD$client$f4 = _context1.v;
+            _yield$CLOUD$client$f4 = _context11.v;
             error = _yield$CLOUD$client$f4.error;
             if (!error) {
-              _context1.n = 3;
+              _context11.n = 3;
               break;
             }
             throw error;
           case 3:
             toast('✓ 已保存预警阈值');
-            _context1.n = 5;
+            _context11.n = 5;
             break;
           case 4:
-            _context1.p = 4;
-            _t14 = _context1.v;
+            _context11.p = 4;
+            _t14 = _context11.v;
             alert('保存失败: ' + _t14.message);
           case 5:
             setSaving(false);
           case 6:
-            return _context1.a(2);
+            return _context11.a(2);
         }
-      }, _callee1, null, [[1, 4]]);
+      }, _callee11, null, [[1, 4]]);
     }));
     return function handleSave() {
-      return _ref34.apply(this, arguments);
+      return _ref36.apply(this, arguments);
     };
   }();
-  var handleResetDefaults = function handleResetDefaults() {
-    if (!confirm('重置为默认阈值?')) return;
-    setThresholds({
-      cs_followup: 7,
-      chargeback: 3,
-      offline_order: 5,
-      custom_inquiry: 7,
-      photo_verif: 5,
-      aftersale: 14,
-      refill: 14,
-      refund: 7
-    });
-  };
-  var ThresholdInput = function ThresholdInput(_ref35) {
-    var icon = _ref35.icon,
-      title = _ref35.title,
-      desc = _ref35.desc,
-      value = _ref35.value,
-      _onChange = _ref35.onChange,
-      min = _ref35.min,
-      max = _ref35.max;
+  var handleResetDefaults = /*#__PURE__*/function () {
+    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+      return _regenerator().w(function (_context12) {
+        while (1) switch (_context12.n) {
+          case 0:
+            _context12.n = 1;
+            return wsConfirm('重置为默认阈值?');
+          case 1:
+            if (_context12.v) {
+              _context12.n = 2;
+              break;
+            }
+            return _context12.a(2);
+          case 2:
+            setThresholds({
+              cs_followup: 7,
+              chargeback: 3,
+              offline_order: 5,
+              custom_inquiry: 7,
+              photo_verif: 5,
+              aftersale: 14,
+              refill: 14,
+              refund: 7
+            });
+          case 3:
+            return _context12.a(2);
+        }
+      }, _callee12);
+    }));
+    return function handleResetDefaults() {
+      return _ref37.apply(this, arguments);
+    };
+  }();
+  var ThresholdInput = function ThresholdInput(_ref38) {
+    var icon = _ref38.icon,
+      title = _ref38.title,
+      desc = _ref38.desc,
+      value = _ref38.value,
+      _onChange = _ref38.onChange,
+      min = _ref38.min,
+      max = _ref38.max;
     return /*#__PURE__*/React.createElement("div", {
       style: {
         padding: '12px 14px',
@@ -5735,10 +5819,10 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref32) {
     }
   }, saving ? '保存中...' : '✓ 保存配置'));
 };
-var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref36) {
-  var employees = _ref36.employees,
-    user = _ref36.user,
-    toast = _ref36.toast;
+var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref39) {
+  var employees = _ref39.employees,
+    user = _ref39.user,
+    toast = _ref39.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   // 按网站映射 + 周六值班 + 周日值班
   var _useState71 = useState({}),
@@ -5769,23 +5853,23 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref36) {
     return !em.hideFromList;
   });
   var load = /*#__PURE__*/function () {
-    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+    var _ref40 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
       var _yield$CLOUD$client$f5, data, cfg, _t15;
-      return _regenerator().w(function (_context10) {
-        while (1) switch (_context10.p = _context10.n) {
+      return _regenerator().w(function (_context13) {
+        while (1) switch (_context13.p = _context13.n) {
           case 0:
             if (CLOUD.client) {
-              _context10.n = 1;
+              _context13.n = 1;
               break;
             }
             setLoading(false);
-            return _context10.a(2);
+            return _context13.a(2);
           case 1:
-            _context10.p = 1;
-            _context10.n = 2;
+            _context13.p = 1;
+            _context13.n = 2;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'chargeback_owners').single();
           case 2:
-            _yield$CLOUD$client$f5 = _context10.v;
+            _yield$CLOUD$client$f5 = _context13.v;
             data = _yield$CLOUD$client$f5.data;
             cfg = (data === null || data === void 0 ? void 0 : data.value) || {}; // 新格式: { site_owners, default_owner, saturday_owner, sunday_owner }
             // 旧格式: { weekend_owner } (周六/日都用同一个)
@@ -5798,31 +5882,31 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref36) {
             } else if ((cfg.user_ids || []).length > 0) {
               setDefaultOwner(cfg.user_ids[0]);
             }
-            _context10.n = 4;
+            _context13.n = 4;
             break;
           case 3:
-            _context10.p = 3;
-            _t15 = _context10.v;
+            _context13.p = 3;
+            _t15 = _context13.v;
             console.warn('加载拒付专人失败', _t15);
           case 4:
             setLoading(false);
           case 5:
-            return _context10.a(2);
+            return _context13.a(2);
         }
-      }, _callee10, null, [[1, 3]]);
+      }, _callee13, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref37.apply(this, arguments);
+      return _ref40.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleSave = /*#__PURE__*/function () {
-    var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+    var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
       var userName, allUids, allNames, _yield$CLOUD$client$f6, error, _t16;
-      return _regenerator().w(function (_context11) {
-        while (1) switch (_context11.p = _context11.n) {
+      return _regenerator().w(function (_context14) {
+        while (1) switch (_context14.p = _context14.n) {
           case 0:
             setSaving(true);
             userName = user.name + (user.alias ? ' ' + user.alias : ''); // 兼容旧版 user_ids 字段(为了 ChargebackReminderBanner 旧逻辑能用)
@@ -5833,8 +5917,8 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref36) {
               });
               return e ? e.name + (e.alias ? ' ' + e.alias : '') : uid;
             });
-            _context11.p = 1;
-            _context11.n = 2;
+            _context14.p = 1;
+            _context14.n = 2;
             return CLOUD.client.from('system_settings').upsert({
               key: 'chargeback_owners',
               value: {
@@ -5850,30 +5934,30 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref36) {
               updated_by_name: userName
             });
           case 2:
-            _yield$CLOUD$client$f6 = _context11.v;
+            _yield$CLOUD$client$f6 = _context14.v;
             error = _yield$CLOUD$client$f6.error;
             if (!error) {
-              _context11.n = 3;
+              _context14.n = 3;
               break;
             }
             throw error;
           case 3:
             toast('✓ 已保存拒付负责人配置');
-            _context11.n = 5;
+            _context14.n = 5;
             break;
           case 4:
-            _context11.p = 4;
-            _t16 = _context11.v;
+            _context14.p = 4;
+            _t16 = _context14.v;
             alert('保存失败: ' + (_t16.message || _t16));
           case 5:
             setSaving(false);
           case 6:
-            return _context11.a(2);
+            return _context14.a(2);
         }
-      }, _callee11, null, [[1, 4]]);
+      }, _callee14, null, [[1, 4]]);
     }));
     return function handleSave() {
-      return _ref38.apply(this, arguments);
+      return _ref41.apply(this, arguments);
     };
   }();
   var renderEmployeeSelect = function renderEmployeeSelect(value, _onChange2, placeholder) {
@@ -6105,10 +6189,10 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref36) {
 // 🆕 fix9: 退款处理人配置 — 谁能审核/完成/上传退款截图
 // 默认 Miya (主管) / Nicole (总管) / Yulia (周末顶班)
 // 主管在 设置 → 退款处理人 改名单;名单里的人才能点退款表里的"审核 / 完成"按钮
-var RefundProcessorsSettings = function RefundProcessorsSettings(_ref39) {
-  var employees = _ref39.employees,
-    user = _ref39.user,
-    toast = _ref39.toast;
+var RefundProcessorsSettings = function RefundProcessorsSettings(_ref42) {
+  var employees = _ref42.employees,
+    user = _ref42.user,
+    toast = _ref42.toast;
   var _useState83 = useState(['u_miya', 'u_nicole', 'u_yulia']),
     _useState84 = _slicedToArray(_useState83, 2),
     selectedIds = _useState84[0],
@@ -6125,37 +6209,37 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref39) {
     return !em.hideFromList;
   });
   useEffect(function () {
-    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
       var _data$value, _yield$CLOUD$client$f7, data, ids, _t17;
-      return _regenerator().w(function (_context12) {
-        while (1) switch (_context12.p = _context12.n) {
+      return _regenerator().w(function (_context15) {
+        while (1) switch (_context15.p = _context15.n) {
           case 0:
             if (CLOUD.client) {
-              _context12.n = 1;
+              _context15.n = 1;
               break;
             }
             setLoading(false);
-            return _context12.a(2);
+            return _context15.a(2);
           case 1:
-            _context12.p = 1;
-            _context12.n = 2;
+            _context15.p = 1;
+            _context15.n = 2;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'refund_processors').single();
           case 2:
-            _yield$CLOUD$client$f7 = _context12.v;
+            _yield$CLOUD$client$f7 = _context15.v;
             data = _yield$CLOUD$client$f7.data;
             ids = data === null || data === void 0 || (_data$value = data.value) === null || _data$value === void 0 ? void 0 : _data$value.user_ids;
             if (Array.isArray(ids) && ids.length > 0) setSelectedIds(ids);
-            _context12.n = 4;
+            _context15.n = 4;
             break;
           case 3:
-            _context12.p = 3;
-            _t17 = _context12.v;
+            _context15.p = 3;
+            _t17 = _context15.v;
           case 4:
             setLoading(false);
           case 5:
-            return _context12.a(2);
+            return _context15.a(2);
         }
-      }, _callee12, null, [[1, 3]]);
+      }, _callee15, null, [[1, 3]]);
     }))();
   }, []);
   var toggle = function toggle(id) {
@@ -6166,34 +6250,34 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref39) {
     });
   };
   var handleSave = /*#__PURE__*/function () {
-    var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+    var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
       var _window$__setRefundPr, _window;
       var userName, ok;
-      return _regenerator().w(function (_context13) {
-        while (1) switch (_context13.n) {
+      return _regenerator().w(function (_context16) {
+        while (1) switch (_context16.n) {
           case 0:
             if (!(selectedIds.length === 0)) {
-              _context13.n = 1;
+              _context16.n = 1;
               break;
             }
             alert('至少选 1 个退款处理人');
-            return _context13.a(2);
+            return _context16.a(2);
           case 1:
             setSaving(true);
             userName = user.name + (user.alias ? ' ' + user.alias : '');
-            _context13.n = 2;
+            _context16.n = 2;
             return (_window$__setRefundPr = (_window = window).__setRefundProcessors) === null || _window$__setRefundPr === void 0 ? void 0 : _window$__setRefundPr.call(_window, selectedIds, userName);
           case 2:
-            ok = _context13.v;
+            ok = _context16.v;
             if (ok !== false) toast('✓ 已保存退款处理人配置');
             setSaving(false);
           case 3:
-            return _context13.a(2);
+            return _context16.a(2);
         }
-      }, _callee13);
+      }, _callee16);
     }));
     return function handleSave() {
-      return _ref41.apply(this, arguments);
+      return _ref44.apply(this, arguments);
     };
   }();
   if (loading) return /*#__PURE__*/React.createElement("div", {
@@ -6384,9 +6468,9 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref39) {
 // 存储:Supabase system_settings 表,key='custom_sites',value=JSONB 数组
 // 默认显示内置 SITES + 已添加的自定义站点 · 可新增/编辑/停用
 // ════════════════════════════════════════════════════════════════════
-var SitesMaintenanceSection = function SitesMaintenanceSection(_ref42) {
-  var user = _ref42.user,
-    toast = _ref42.toast;
+var SitesMaintenanceSection = function SitesMaintenanceSection(_ref45) {
+  var user = _ref45.user,
+    toast = _ref45.toast;
   var _useState89 = useState([]),
     _useState90 = _slicedToArray(_useState89, 2),
     customSites = _useState90[0],
@@ -6405,59 +6489,59 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref42) {
     setEditing = _useState96[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
-    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
+    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
       var _data$value2, _yield$CLOUD$client$f8, data, _t18;
-      return _regenerator().w(function (_context14) {
-        while (1) switch (_context14.p = _context14.n) {
+      return _regenerator().w(function (_context17) {
+        while (1) switch (_context17.p = _context17.n) {
           case 0:
             setLoading(true);
-            _context14.p = 1;
+            _context17.p = 1;
             if (!CLOUD.client) {
-              _context14.n = 3;
+              _context17.n = 3;
               break;
             }
-            _context14.n = 2;
+            _context17.n = 2;
             return CLOUD.client.from('system_settings').select('value').eq('key', 'custom_sites').maybeSingle();
           case 2:
-            _yield$CLOUD$client$f8 = _context14.v;
+            _yield$CLOUD$client$f8 = _context17.v;
             data = _yield$CLOUD$client$f8.data;
             setCustomSites((data === null || data === void 0 || (_data$value2 = data.value) === null || _data$value2 === void 0 ? void 0 : _data$value2.sites) || []);
           case 3:
-            _context14.n = 5;
+            _context17.n = 5;
             break;
           case 4:
-            _context14.p = 4;
-            _t18 = _context14.v;
+            _context17.p = 4;
+            _t18 = _context17.v;
             console.warn('加载自定义网站失败', _t18);
           case 5:
             setLoading(false);
           case 6:
-            return _context14.a(2);
+            return _context17.a(2);
         }
-      }, _callee14, null, [[1, 4]]);
+      }, _callee17, null, [[1, 4]]);
     }));
     return function load() {
-      return _ref43.apply(this, arguments);
+      return _ref46.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var saveCustomSites = /*#__PURE__*/function () {
-    var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(newList) {
+    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(newList) {
       var _t19;
-      return _regenerator().w(function (_context15) {
-        while (1) switch (_context15.p = _context15.n) {
+      return _regenerator().w(function (_context18) {
+        while (1) switch (_context18.p = _context18.n) {
           case 0:
             if (CLOUD.client) {
-              _context15.n = 1;
+              _context18.n = 1;
               break;
             }
             toast('❌ 云同步未启用');
-            return _context15.a(2, false);
+            return _context18.a(2, false);
           case 1:
-            _context15.p = 1;
-            _context15.n = 2;
+            _context18.p = 1;
+            _context18.n = 2;
             return CLOUD.client.from('system_settings').upsert({
               key: 'custom_sites',
               value: {
@@ -6469,129 +6553,132 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref42) {
             });
           case 2:
             setCustomSites(newList);
-            return _context15.a(2, true);
+            return _context18.a(2, true);
           case 3:
-            _context15.p = 3;
-            _t19 = _context15.v;
+            _context18.p = 3;
+            _t19 = _context18.v;
             toast('❌ 保存失败: ' + _t19.message);
-            return _context15.a(2, false);
+            return _context18.a(2, false);
         }
-      }, _callee15, null, [[1, 3]]);
+      }, _callee18, null, [[1, 3]]);
     }));
-    return function saveCustomSites(_x4) {
-      return _ref44.apply(this, arguments);
+    return function saveCustomSites(_x5) {
+      return _ref47.apply(this, arguments);
     };
   }();
   var addSite = /*#__PURE__*/function () {
-    var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(site) {
+    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(site) {
       var exists, ok;
-      return _regenerator().w(function (_context16) {
-        while (1) switch (_context16.n) {
+      return _regenerator().w(function (_context19) {
+        while (1) switch (_context19.n) {
           case 0:
             if (isAdmin) {
-              _context16.n = 1;
+              _context19.n = 1;
               break;
             }
             toast('仅主管可添加网站');
-            return _context16.a(2);
+            return _context19.a(2);
           case 1:
             exists = SITES.includes(site.code) || customSites.some(function (s) {
               return s.code === site.code;
             });
             if (!exists) {
-              _context16.n = 2;
+              _context19.n = 2;
               break;
             }
             toast('⚠ 该代码已存在');
-            return _context16.a(2);
+            return _context19.a(2);
           case 2:
-            _context16.n = 3;
+            _context19.n = 3;
             return saveCustomSites([].concat(_toConsumableArray(customSites), [_objectSpread(_objectSpread({}, site), {}, {
               isBuiltin: false,
               active: true,
               created_at: new Date().toISOString()
             })]));
           case 3:
-            ok = _context16.v;
+            ok = _context19.v;
             if (ok) {
               setShowNew(false);
               toast('✓ 网站已添加');
             }
           case 4:
-            return _context16.a(2);
+            return _context19.a(2);
         }
-      }, _callee16);
+      }, _callee19);
     }));
-    return function addSite(_x5) {
-      return _ref45.apply(this, arguments);
+    return function addSite(_x6) {
+      return _ref48.apply(this, arguments);
     };
   }();
   var updateSite = /*#__PURE__*/function () {
-    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(code, patch) {
+    var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(code, patch) {
       var next, ok;
-      return _regenerator().w(function (_context17) {
-        while (1) switch (_context17.n) {
+      return _regenerator().w(function (_context20) {
+        while (1) switch (_context20.n) {
           case 0:
             if (isAdmin) {
-              _context17.n = 1;
+              _context20.n = 1;
               break;
             }
             toast('仅主管可修改');
-            return _context17.a(2);
+            return _context20.a(2);
           case 1:
             next = customSites.map(function (s) {
               return s.code === code ? _objectSpread(_objectSpread({}, s), patch) : s;
             });
-            _context17.n = 2;
+            _context20.n = 2;
             return saveCustomSites(next);
           case 2:
-            ok = _context17.v;
+            ok = _context20.v;
             if (ok) {
               setEditing(null);
               toast('✓ 已更新');
             }
           case 3:
-            return _context17.a(2);
+            return _context20.a(2);
         }
-      }, _callee17);
+      }, _callee20);
     }));
-    return function updateSite(_x6, _x7) {
-      return _ref46.apply(this, arguments);
+    return function updateSite(_x7, _x8) {
+      return _ref49.apply(this, arguments);
     };
   }();
   var deleteSite = /*#__PURE__*/function () {
-    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(code) {
+    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(code) {
       var ok;
-      return _regenerator().w(function (_context18) {
-        while (1) switch (_context18.n) {
+      return _regenerator().w(function (_context21) {
+        while (1) switch (_context21.n) {
           case 0:
             if (isAdmin) {
-              _context18.n = 1;
+              _context21.n = 1;
               break;
             }
             toast('仅主管可删除');
-            return _context18.a(2);
+            return _context21.a(2);
           case 1:
-            if (confirm("\u786E\u8BA4\u5220\u9664\u81EA\u5B9A\u4E49\u7F51\u7AD9 \"".concat(code, "\"?\n\n\u8B66\u544A:\u5DF2\u4F7F\u7528\u6B64\u7F51\u7AD9\u7684\u5386\u53F2\u8BB0\u5F55\u4F1A\u4FDD\u7559\u4EE3\u7801,\u4F46\u4E0B\u62C9\u4E0D\u518D\u51FA\u73B0\u3002"))) {
-              _context18.n = 2;
+            _context21.n = 2;
+            return wsConfirm("\u786E\u8BA4\u5220\u9664\u81EA\u5B9A\u4E49\u7F51\u7AD9 \"".concat(code, "\"?\n\n\u8B66\u544A:\u5DF2\u4F7F\u7528\u6B64\u7F51\u7AD9\u7684\u5386\u53F2\u8BB0\u5F55\u4F1A\u4FDD\u7559\u4EE3\u7801,\u4F46\u4E0B\u62C9\u4E0D\u518D\u51FA\u73B0\u3002"));
+          case 2:
+            if (_context21.v) {
+              _context21.n = 3;
               break;
             }
-            return _context18.a(2);
-          case 2:
-            _context18.n = 3;
+            return _context21.a(2);
+          case 3:
+            _context21.n = 4;
             return saveCustomSites(customSites.filter(function (s) {
               return s.code !== code;
             }));
-          case 3:
-            ok = _context18.v;
-            if (ok) toast('✓ 已删除');
           case 4:
-            return _context18.a(2);
+            ok = _context21.v;
+            if (ok) toast('✓ 已删除');
+          case 5:
+            return _context21.a(2);
         }
-      }, _callee18);
+      }, _callee21);
     }));
-    return function deleteSite(_x8) {
-      return _ref47.apply(this, arguments);
+    return function deleteSite(_x9) {
+      return _ref50.apply(this, arguments);
     };
   }();
 
@@ -6856,10 +6943,10 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref42) {
     }
   }));
 };
-var SiteEditorModal = function SiteEditorModal(_ref48) {
-  var site = _ref48.site,
-    onSave = _ref48.onSave,
-    onClose = _ref48.onClose;
+var SiteEditorModal = function SiteEditorModal(_ref51) {
+  var site = _ref51.site,
+    onSave = _ref51.onSave,
+    onClose = _ref51.onClose;
   var _useState97 = useState((site === null || site === void 0 ? void 0 : site.code) || ''),
     _useState98 = _slicedToArray(_useState97, 2),
     code = _useState98[0],
@@ -7171,9 +7258,9 @@ var getShopFromSiteCode = function getShopFromSiteCode(code) {
 // 存储:Supabase products 表 · 完整 CRUD + 搜索 + 适用网站标签
 // 将来在线下单 / 售后录入时可联想推荐
 // ════════════════════════════════════════════════════════════════════
-var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref49) {
-  var user = _ref49.user,
-    toast = _ref49.toast;
+var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref52) {
+  var user = _ref52.user,
+    toast = _ref52.toast;
   var _useState109 = useState([]),
     _useState110 = _slicedToArray(_useState109, 2),
     products = _useState110[0],
@@ -7204,14 +7291,14 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref49) {
     setSuppliers = _useState122[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
-    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
+    var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
       var list, supps, _t20;
-      return _regenerator().w(function (_context19) {
-        while (1) switch (_context19.p = _context19.n) {
+      return _regenerator().w(function (_context22) {
+        while (1) switch (_context22.p = _context22.n) {
           case 0:
             setLoading(true);
-            _context19.p = 1;
-            _context19.n = 2;
+            _context22.p = 1;
+            _context22.n = 2;
             return CLOUD.list('products', {
               order: {
                 col: 'updated_at',
@@ -7220,11 +7307,11 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref49) {
               limit: 1000
             });
           case 2:
-            list = _context19.v;
+            list = _context22.v;
             setProducts((list || []).filter(function (p) {
               return !p.deleted;
             }));
-            _context19.n = 3;
+            _context22.n = 3;
             return CLOUD.list('suppliers', {
               order: {
                 col: 'name',
@@ -7233,68 +7320,71 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref49) {
               limit: 500
             });
           case 3:
-            supps = _context19.v;
+            supps = _context22.v;
             setSuppliers((supps || []).filter(function (s) {
               return !s.deleted;
             }));
-            _context19.n = 5;
+            _context22.n = 5;
             break;
           case 4:
-            _context19.p = 4;
-            _t20 = _context19.v;
+            _context22.p = 4;
+            _t20 = _context22.v;
             toast('❌ 加载失败: ' + (_t20.message || _t20));
           case 5:
             setLoading(false);
           case 6:
-            return _context19.a(2);
+            return _context22.a(2);
         }
-      }, _callee19, null, [[1, 4]]);
+      }, _callee22, null, [[1, 4]]);
     }));
     return function load() {
-      return _ref50.apply(this, arguments);
+      return _ref53.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleDelete = /*#__PURE__*/function () {
-    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(p) {
+    var _ref54 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(p) {
       var ok;
-      return _regenerator().w(function (_context20) {
-        while (1) switch (_context20.n) {
+      return _regenerator().w(function (_context23) {
+        while (1) switch (_context23.n) {
           case 0:
             if (isAdmin) {
-              _context20.n = 1;
+              _context23.n = 1;
               break;
             }
             toast('仅主管可删除');
-            return _context20.a(2);
+            return _context23.a(2);
           case 1:
-            if (confirm("\u786E\u8BA4\u5220\u9664 ".concat(p.sku || '', " ").concat(p.name, "?"))) {
-              _context20.n = 2;
+            _context23.n = 2;
+            return wsConfirm("\u786E\u8BA4\u5220\u9664 ".concat(p.sku || '', " ").concat(p.name, "?"));
+          case 2:
+            if (_context23.v) {
+              _context23.n = 3;
               break;
             }
-            return _context20.a(2);
-          case 2:
-            _context20.n = 3;
+            return _context23.a(2);
+          case 3:
+            _context23.n = 4;
             return CLOUD.upsert('products', _objectSpread(_objectSpread({}, p), {}, {
               deleted: true,
               deleted_at: Date.now(),
               deleted_by: user.id
             }));
-          case 3:
-            ok = _context20.v;
+          case 4:
+            ok = _context23.v;
             if (ok) {
               toast('✓ 已删除');
               load();
             }
-          case 4:
-            return _context20.a(2);
+          case 5:
+            return _context23.a(2);
         }
-      }, _callee20);
+      }, _callee23);
     }));
-    return function handleDelete(_x9) {
-      return _ref51.apply(this, arguments);
+    return function handleDelete(_x0) {
+      return _ref54.apply(this, arguments);
     };
   }();
   var filtered = useMemo(function () {
@@ -7687,13 +7777,13 @@ var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref49) {
     }
   }));
 };
-var ProductEditorModal = function ProductEditorModal(_ref52) {
-  var product = _ref52.product,
-    suppliers = _ref52.suppliers,
-    user = _ref52.user,
-    categories = _ref52.categories,
-    onClose = _ref52.onClose,
-    onSaved = _ref52.onSaved;
+var ProductEditorModal = function ProductEditorModal(_ref55) {
+  var product = _ref55.product,
+    suppliers = _ref55.suppliers,
+    user = _ref55.user,
+    categories = _ref55.categories,
+    onClose = _ref55.onClose,
+    onSaved = _ref55.onSaved;
   var _useState123 = useState((product === null || product === void 0 ? void 0 : product.sku) || ''),
     _useState124 = _slicedToArray(_useState123, 2),
     sku = _useState124[0],
@@ -7744,20 +7834,20 @@ var ProductEditorModal = function ProductEditorModal(_ref52) {
     setSaving = _useState146[1];
   var isEdit = !!product;
   var handleSave = /*#__PURE__*/function () {
-    var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
+    var _ref56 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24() {
       var supplier, userName, id, record, ok, _t21;
-      return _regenerator().w(function (_context21) {
-        while (1) switch (_context21.p = _context21.n) {
+      return _regenerator().w(function (_context24) {
+        while (1) switch (_context24.p = _context24.n) {
           case 0:
             if (name.trim()) {
-              _context21.n = 1;
+              _context24.n = 1;
               break;
             }
             alert('产品名必填');
-            return _context21.a(2);
+            return _context24.a(2);
           case 1:
             setSaving(true);
-            _context21.p = 2;
+            _context24.p = 2;
             supplier = suppliers.find(function (s) {
               return s.id === supplierId;
             });
@@ -7783,32 +7873,32 @@ var ProductEditorModal = function ProductEditorModal(_ref52) {
               created_at_ms: (product === null || product === void 0 ? void 0 : product.created_at_ms) || Date.now(),
               updated_at: new Date().toISOString()
             };
-            _context21.n = 3;
+            _context24.n = 3;
             return CLOUD.upsert('products', record);
           case 3:
-            ok = _context21.v;
+            ok = _context24.v;
             if (ok) {
-              _context21.n = 4;
+              _context24.n = 4;
               break;
             }
             throw new Error('保存失败');
           case 4:
             onSaved();
-            _context21.n = 6;
+            _context24.n = 6;
             break;
           case 5:
-            _context21.p = 5;
-            _t21 = _context21.v;
+            _context24.p = 5;
+            _t21 = _context24.v;
             alert('保存失败: ' + (_t21.message || _t21));
           case 6:
             setSaving(false);
           case 7:
-            return _context21.a(2);
+            return _context24.a(2);
         }
-      }, _callee21, null, [[2, 5]]);
+      }, _callee24, null, [[2, 5]]);
     }));
     return function handleSave() {
-      return _ref53.apply(this, arguments);
+      return _ref56.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
