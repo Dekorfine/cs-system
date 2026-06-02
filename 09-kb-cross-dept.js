@@ -1,7 +1,7 @@
-// ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-138
-// APP_VERSION: 2026.05.30-fix138
-// ════════════════════════════════════════════════════════════════════
+// ====== cs-system 统一工作台 — 09-kb-cross-dept ======
+// 版本 2026.06.02-fix140
+// 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
+//
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
@@ -25,17 +25,11 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-// ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-138
-// APP_VERSION: 2026.05.30-fix138
-// ════════════════════════════════════════════════════════════════════
+// ====== cs-system 统一工作台 — 09-kb-cross-dept ======
+// 版本 2026.06.02-fix140
+// 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
+//
 
-// ============================================================
-// 知识库模块 - 从 Supabase 拉取双语 Q&A
-// ============================================================
-// ============================================================
-// 知识库模块 - 跳转到独立 kb.html (Supabase + Gemini + 智能搜索 + 编辑同步)
-// ============================================================
 var KbModule = function KbModule(_ref) {
   var user = _ref.user,
     toast = _ref.toast;
@@ -10938,10 +10932,25 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref68) {
     configured = _useState226[0],
     setConfigured = _useState226[1];
   var lastRefreshRef = useRef(0);
+  // 🆕 fix140: 分页 — 默认 150 条,「加载更多」每次 +150。refresh 重拉「当前已加载量」,
+  //           保证客户端 sub-tab 筛选语义不变(在已加载集上过滤),且不再一次性全表拉。
+  var PHOTO_PAGE = 150;
+  var _useState227 = useState(PHOTO_PAGE),
+    _useState228 = _slicedToArray(_useState227, 2),
+    loadedCount = _useState228[0],
+    setLoadedCount = _useState228[1];
+  var _useState229 = useState(false),
+    _useState230 = _slicedToArray(_useState229, 2),
+    hasMore = _useState230[0],
+    setHasMore = _useState230[1];
+  var _useState231 = useState(false),
+    _useState232 = _slicedToArray(_useState231, 2),
+    loadingMore = _useState232[0],
+    setLoadingMore = _useState232[1];
   var refresh = /*#__PURE__*/function () {
-    var _ref69 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee33() {
+    var _ref69 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee33(count) {
       var _window$isWtkpiConfig2, _window2;
-      var data, _t26;
+      var want, data, _t26;
       return _regenerator().w(function (_context36) {
         while (1) switch (_context36.p = _context36.n) {
           case 0:
@@ -10956,11 +10965,16 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref68) {
             setConfigured(true);
             setLoading(true);
             _context36.p = 2;
+            want = count || loadedCount || PHOTO_PAGE; // 重拉当前已加载量(分页 range),不再一次性全拉
             _context36.n = 3;
-            return window.listPhotoRequests();
+            return window.listPhotoRequests({
+              limit: want
+            });
           case 3:
             data = _context36.v;
             setList(data || []);
+            setHasMore((data || []).length >= want); // 拉满即可能还有更多
+            setLoadedCount(want);
             lastRefreshRef.current = Date.now();
             _context36.n = 5;
             break;
@@ -10976,12 +10990,53 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref68) {
         }
       }, _callee33, null, [[2, 4]]);
     }));
-    return function refresh() {
+    return function refresh(_x19) {
       return _ref69.apply(this, arguments);
     };
   }();
+  var loadMore = /*#__PURE__*/function () {
+    var _ref70 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee34() {
+      var next, data, _t27;
+      return _regenerator().w(function (_context37) {
+        while (1) switch (_context37.p = _context37.n) {
+          case 0:
+            if (!loadingMore) {
+              _context37.n = 1;
+              break;
+            }
+            return _context37.a(2);
+          case 1:
+            setLoadingMore(true);
+            _context37.p = 2;
+            next = loadedCount + PHOTO_PAGE;
+            _context37.n = 3;
+            return window.listPhotoRequests({
+              limit: next
+            });
+          case 3:
+            data = _context37.v;
+            setList(data || []);
+            setHasMore((data || []).length >= next);
+            setLoadedCount(next);
+            _context37.n = 5;
+            break;
+          case 4:
+            _context37.p = 4;
+            _t27 = _context37.v;
+            console.error('[PhotoReq] 加载更多失败', _t27);
+          case 5:
+            setLoadingMore(false);
+          case 6:
+            return _context37.a(2);
+        }
+      }, _callee34, null, [[2, 4]]);
+    }));
+    return function loadMore() {
+      return _ref70.apply(this, arguments);
+    };
+  }();
   useEffect(function () {
-    refresh();
+    refresh(PHOTO_PAGE);
   }, []);
 
   // 🆕 fix53 v3 (Q3-C) + fix59 v4: 实时订阅 — 状态变化 + 入库/唤醒事件
@@ -10999,8 +11054,8 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref68) {
       var eventType = payload.eventType,
         newRow = payload["new"],
         oldRow = payload.old;
-      // 列表自动刷新(节流:1 秒内最多 1 次)
-      if (Date.now() - lastRefreshRef.current > 1000) refresh();
+      // 列表自动刷新(🆕 fix140: 节流 1s→3s,且只重拉已加载量,削减全表 refresh 风暴)
+      if (Date.now() - lastRefreshRef.current > 3000) refresh();
       var isMine = (newRow === null || newRow === void 0 || (_newRow$external_requ = newRow.external_request) === null || _newRow$external_requ === void 0 ? void 0 : _newRow$external_requ.from_user_id) === user.id;
       if (eventType === 'UPDATE' && isMine) {
         // 🆕 fix59 v4: 入库通知(原来没 warehouse_info,现在有了)
@@ -11392,7 +11447,7 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref68) {
     style: {
       color: 'var(--ink-2)'
     }
-  }, visible.length), " / \u5171 ", list.length, " \u6761"), filter !== 'all-activities' && /*#__PURE__*/React.createElement("button", {
+  }, visible.length), " / \u5171 ", list.length, " \u6761", hasMore ? '+' : ''), filter !== 'all-activities' && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setFilter('all-activities');
     },
@@ -11409,7 +11464,15 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref68) {
     style: {
       flex: 1
     }
-  }), /*#__PURE__*/React.createElement("span", {
+  }), hasMore ? /*#__PURE__*/React.createElement("button", {
+    onClick: loadMore,
+    disabled: loadingMore,
+    className: "btn-sec",
+    style: {
+      fontSize: 12,
+      padding: '5px 14px'
+    }
+  }, loadingMore ? '加载中…' : "\u52A0\u8F7D\u66F4\u591A (+".concat(PHOTO_PAGE, ")")) : /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--ink-4)'
     }
@@ -11455,13 +11518,13 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref68) {
     }
   }));
 };
-var PhotoRequestCard = function PhotoRequestCard(_ref70) {
+var PhotoRequestCard = function PhotoRequestCard(_ref71) {
   var _item$applicable_shop, _PHOTO_STATUS_MAP$wh$;
-  var item = _ref70.item,
-    currentUserId = _ref70.currentUserId,
-    onOpen = _ref70.onOpen,
-    onEdit = _ref70.onEdit,
-    toast = _ref70.toast;
+  var item = _ref71.item,
+    currentUserId = _ref71.currentUserId,
+    onOpen = _ref71.onOpen,
+    onEdit = _ref71.onEdit,
+    toast = _ref71.toast;
   var st = PHOTO_STATUS_MAP[item.status] || {
     label: item.status,
     color: '#999',
@@ -11753,49 +11816,49 @@ var humanAgoMs = function humanAgoMs(ms) {
   if (ms < 7 * 86400000) return Math.floor(ms / 86400000) + ' 天前';
   return Math.floor(ms / (7 * 86400000)) + ' 周前';
 };
-var PhotoRequestNewModal = function PhotoRequestNewModal(_ref71) {
-  var user = _ref71.user,
-    toast = _ref71.toast,
-    onClose = _ref71.onClose,
-    onSuccess = _ref71.onSuccess,
-    _ref71$prefill = _ref71.prefill,
-    prefill = _ref71$prefill === void 0 ? {} : _ref71$prefill;
-  var _useState227 = useState(prefill.productName || ''),
-    _useState228 = _slicedToArray(_useState227, 2),
-    productName = _useState228[0],
-    setProductName = _useState228[1];
-  var _useState229 = useState(prefill.sku || ''),
-    _useState230 = _slicedToArray(_useState229, 2),
-    sku = _useState230[0],
-    setSku = _useState230[1];
-  var _useState231 = useState(prefill.shops || []),
-    _useState232 = _slicedToArray(_useState231, 2),
-    shops = _useState232[0],
-    setShops = _useState232[1];
-  var _useState233 = useState(prefill.reason || ''),
+var PhotoRequestNewModal = function PhotoRequestNewModal(_ref72) {
+  var user = _ref72.user,
+    toast = _ref72.toast,
+    onClose = _ref72.onClose,
+    onSuccess = _ref72.onSuccess,
+    _ref72$prefill = _ref72.prefill,
+    prefill = _ref72$prefill === void 0 ? {} : _ref72$prefill;
+  var _useState233 = useState(prefill.productName || ''),
     _useState234 = _slicedToArray(_useState233, 2),
-    reason = _useState234[0],
-    setReason = _useState234[1];
-  var _useState235 = useState('normal'),
+    productName = _useState234[0],
+    setProductName = _useState234[1];
+  var _useState235 = useState(prefill.sku || ''),
     _useState236 = _slicedToArray(_useState235, 2),
-    urgency = _useState236[0],
-    setUrgency = _useState236[1];
-  var _useState237 = useState([]),
+    sku = _useState236[0],
+    setSku = _useState236[1];
+  var _useState237 = useState(prefill.shops || []),
     _useState238 = _slicedToArray(_useState237, 2),
-    attachments = _useState238[0],
-    setAttachments = _useState238[1];
-  var _useState239 = useState(false),
+    shops = _useState238[0],
+    setShops = _useState238[1];
+  var _useState239 = useState(prefill.reason || ''),
     _useState240 = _slicedToArray(_useState239, 2),
-    uploading = _useState240[0],
-    setUploading = _useState240[1];
-  var _useState241 = useState(false),
+    reason = _useState240[0],
+    setReason = _useState240[1];
+  var _useState241 = useState('normal'),
     _useState242 = _slicedToArray(_useState241, 2),
-    submitting = _useState242[0],
-    setSubmitting = _useState242[1];
-  var _useState243 = useState(false),
+    urgency = _useState242[0],
+    setUrgency = _useState242[1];
+  var _useState243 = useState([]),
     _useState244 = _slicedToArray(_useState243, 2),
-    dragOver = _useState244[0],
-    setDragOver = _useState244[1]; // 🆕 fix83: 拖拽高亮
+    attachments = _useState244[0],
+    setAttachments = _useState244[1];
+  var _useState245 = useState(false),
+    _useState246 = _slicedToArray(_useState245, 2),
+    uploading = _useState246[0],
+    setUploading = _useState246[1];
+  var _useState247 = useState(false),
+    _useState248 = _slicedToArray(_useState247, 2),
+    submitting = _useState248[0],
+    setSubmitting = _useState248[1];
+  var _useState249 = useState(false),
+    _useState250 = _slicedToArray(_useState249, 2),
+    dragOver = _useState250[0],
+    setDragOver = _useState250[1]; // 🆕 fix83: 拖拽高亮
   var externalRefId = prefill.externalRefId || null;
   var toggleShop = function toggleShop(label) {
     setShops(function (prev) {
@@ -11805,87 +11868,87 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref71) {
     });
   };
   var uploadFiles = /*#__PURE__*/function () {
-    var _ref72 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee34(files) {
-      var imgs, newAttachments, _iterator6, _step6, f, a, _t27, _t28;
-      return _regenerator().w(function (_context37) {
-        while (1) switch (_context37.p = _context37.n) {
+    var _ref73 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee35(files) {
+      var imgs, newAttachments, _iterator6, _step6, f, a, _t28, _t29;
+      return _regenerator().w(function (_context38) {
+        while (1) switch (_context38.p = _context38.n) {
           case 0:
             imgs = Array.from(files || []).filter(function (f) {
               return f && (f.type || '').startsWith('image/');
             });
             if (!(imgs.length === 0)) {
-              _context37.n = 1;
+              _context38.n = 1;
               break;
             }
-            return _context37.a(2);
+            return _context38.a(2);
           case 1:
             setUploading(true);
             newAttachments = [];
             _iterator6 = _createForOfIteratorHelper(imgs);
-            _context37.p = 2;
+            _context38.p = 2;
             _iterator6.s();
           case 3:
             if ((_step6 = _iterator6.n()).done) {
-              _context37.n = 8;
+              _context38.n = 8;
               break;
             }
             f = _step6.value;
-            _context37.p = 4;
-            _context37.n = 5;
+            _context38.p = 4;
+            _context38.n = 5;
             return window.uploadAttachmentToWtkpi(f);
           case 5:
-            a = _context37.v;
+            a = _context38.v;
             newAttachments.push(a);
-            _context37.n = 7;
+            _context38.n = 7;
             break;
           case 6:
-            _context37.p = 6;
-            _t27 = _context37.v;
-            toast('上传 ' + (f.name || '图片') + ' 失败:' + _t27.message);
+            _context38.p = 6;
+            _t28 = _context38.v;
+            toast('上传 ' + (f.name || '图片') + ' 失败:' + _t28.message);
           case 7:
-            _context37.n = 3;
+            _context38.n = 3;
             break;
           case 8:
-            _context37.n = 10;
+            _context38.n = 10;
             break;
           case 9:
-            _context37.p = 9;
-            _t28 = _context37.v;
-            _iterator6.e(_t28);
+            _context38.p = 9;
+            _t29 = _context38.v;
+            _iterator6.e(_t29);
           case 10:
-            _context37.p = 10;
+            _context38.p = 10;
             _iterator6.f();
-            return _context37.f(10);
+            return _context38.f(10);
           case 11:
             setAttachments(function (prev) {
               return [].concat(_toConsumableArray(prev), newAttachments);
             });
             setUploading(false);
           case 12:
-            return _context37.a(2);
+            return _context38.a(2);
         }
-      }, _callee34, null, [[4, 6], [2, 9, 10, 11]]);
+      }, _callee35, null, [[4, 6], [2, 9, 10, 11]]);
     }));
-    return function uploadFiles(_x19) {
-      return _ref72.apply(this, arguments);
+    return function uploadFiles(_x20) {
+      return _ref73.apply(this, arguments);
     };
   }();
   var handleFiles = /*#__PURE__*/function () {
-    var _ref73 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee35(e) {
-      return _regenerator().w(function (_context38) {
-        while (1) switch (_context38.n) {
+    var _ref74 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee36(e) {
+      return _regenerator().w(function (_context39) {
+        while (1) switch (_context39.n) {
           case 0:
-            _context38.n = 1;
+            _context39.n = 1;
             return uploadFiles(e.target.files);
           case 1:
             e.target.value = '';
           case 2:
-            return _context38.a(2);
+            return _context39.a(2);
         }
-      }, _callee35);
+      }, _callee36);
     }));
-    return function handleFiles(_x20) {
-      return _ref73.apply(this, arguments);
+    return function handleFiles(_x21) {
+      return _ref74.apply(this, arguments);
     };
   }();
 
@@ -11932,41 +11995,41 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref71) {
     });
   };
   var submit = /*#__PURE__*/function () {
-    var _ref74 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee36() {
-      var _t29;
-      return _regenerator().w(function (_context39) {
-        while (1) switch (_context39.p = _context39.n) {
+    var _ref75 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee37() {
+      var _t30;
+      return _regenerator().w(function (_context40) {
+        while (1) switch (_context40.p = _context40.n) {
           case 0:
             if (productName.trim()) {
-              _context39.n = 1;
+              _context40.n = 1;
               break;
             }
             toast('请填产品名');
-            return _context39.a(2);
+            return _context40.a(2);
           case 1:
             if (reason.trim()) {
-              _context39.n = 2;
+              _context40.n = 2;
               break;
             }
             toast('请填详细原因 — 告诉拍摄部你要他们做什么');
-            return _context39.a(2);
+            return _context40.a(2);
           case 2:
             if (!(shops.length === 0)) {
-              _context39.n = 4;
+              _context40.n = 4;
               break;
             }
-            _context39.n = 3;
+            _context40.n = 3;
             return wsConfirm('没选店铺,拍摄部可能不知道用在哪。继续提交?');
           case 3:
-            if (_context39.v) {
-              _context39.n = 4;
+            if (_context40.v) {
+              _context40.n = 4;
               break;
             }
-            return _context39.a(2);
+            return _context40.a(2);
           case 4:
             setSubmitting(true);
-            _context39.p = 5;
-            _context39.n = 6;
+            _context40.p = 5;
+            _context40.n = 6;
             return window.submitPhotoRequest({
               productName: productName.trim(),
               sku: sku.trim(),
@@ -11981,22 +12044,22 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref71) {
           case 6:
             toast('✓ 已提交给拍摄部');
             onSuccess === null || onSuccess === void 0 || onSuccess();
-            _context39.n = 8;
+            _context40.n = 8;
             break;
           case 7:
-            _context39.p = 7;
-            _t29 = _context39.v;
-            console.error('[PhotoReq] 提交失败', _t29);
-            alert('提交失败:\n\n' + (_t29.message || JSON.stringify(_t29)) + '\n\n常见原因:\n• 配置的 URL/Key 错了\n• Supabase RLS 拒绝写入 (联系拍摄部主管配 policy)\n• 网络问题');
+            _context40.p = 7;
+            _t30 = _context40.v;
+            console.error('[PhotoReq] 提交失败', _t30);
+            alert('提交失败:\n\n' + (_t30.message || JSON.stringify(_t30)) + '\n\n常见原因:\n• 配置的 URL/Key 错了\n• Supabase RLS 拒绝写入 (联系拍摄部主管配 policy)\n• 网络问题');
           case 8:
             setSubmitting(false);
           case 9:
-            return _context39.a(2);
+            return _context40.a(2);
         }
-      }, _callee36, null, [[5, 7]]);
+      }, _callee37, null, [[5, 7]]);
     }));
     return function submit() {
-      return _ref74.apply(this, arguments);
+      return _ref75.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
@@ -12357,11 +12420,11 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref71) {
     disabled: submitting || uploading
   }, submitting ? '⏳ 提交中…' : '✓ 提交给拍摄部')))), document.body);
 };
-var PhotoRequestDetailModal = function PhotoRequestDetailModal(_ref75) {
+var PhotoRequestDetailModal = function PhotoRequestDetailModal(_ref76) {
   var _item$applicable_shop2, _PHOTO_STATUS_MAP$wh$2, _ext$attachments;
-  var item = _ref75.item,
-    onClose = _ref75.onClose,
-    onEdit = _ref75.onEdit;
+  var item = _ref76.item,
+    onClose = _ref76.onClose,
+    onEdit = _ref76.onEdit;
   var ext = item.external_request || {};
   var st = PHOTO_STATUS_MAP[item.status] || {
     label: item.status,
@@ -12665,49 +12728,49 @@ if (typeof window !== 'undefined') {
 // 🆕 fix53 v3: 协作编辑 Modal — 任何人可改基础字段(merge,不覆盖)
 // 拍摄部填的字段(status / photographer / review 等)灰底只读
 // ════════════════════════════════════════════════════════════════════
-var PhotoRequestEditModal = function PhotoRequestEditModal(_ref76) {
-  var item = _ref76.item,
-    user = _ref76.user,
-    toast = _ref76.toast,
-    onClose = _ref76.onClose,
-    onSuccess = _ref76.onSuccess;
+var PhotoRequestEditModal = function PhotoRequestEditModal(_ref77) {
+  var item = _ref77.item,
+    user = _ref77.user,
+    toast = _ref77.toast,
+    onClose = _ref77.onClose,
+    onSuccess = _ref77.onSuccess;
   var ext = item.external_request || {};
-  var _useState245 = useState(item.product_name || ''),
-    _useState246 = _slicedToArray(_useState245, 2),
-    productName = _useState246[0],
-    setProductName = _useState246[1];
-  var _useState247 = useState(item.sku || ''),
-    _useState248 = _slicedToArray(_useState247, 2),
-    sku = _useState248[0],
-    setSku = _useState248[1];
-  var _useState249 = useState(item.applicable_shops || []),
-    _useState250 = _slicedToArray(_useState249, 2),
-    shops = _useState250[0],
-    setShops = _useState250[1];
-  var _useState251 = useState(item.product_type || '常规产品'),
+  var _useState251 = useState(item.product_name || ''),
     _useState252 = _slicedToArray(_useState251, 2),
-    productType = _useState252[0],
-    setProductType = _useState252[1];
-  var _useState253 = useState(item.product_notes || ''),
+    productName = _useState252[0],
+    setProductName = _useState252[1];
+  var _useState253 = useState(item.sku || ''),
     _useState254 = _slicedToArray(_useState253, 2),
-    productNotes = _useState254[0],
-    setProductNotes = _useState254[1];
-  var _useState255 = useState(''),
+    sku = _useState254[0],
+    setSku = _useState254[1];
+  var _useState255 = useState(item.applicable_shops || []),
     _useState256 = _slicedToArray(_useState255, 2),
-    reasonAppend = _useState256[0],
-    setReasonAppend = _useState256[1];
-  var _useState257 = useState([]),
+    shops = _useState256[0],
+    setShops = _useState256[1];
+  var _useState257 = useState(item.product_type || '常规产品'),
     _useState258 = _slicedToArray(_useState257, 2),
-    newAttachments = _useState258[0],
-    setNewAttachments = _useState258[1];
-  var _useState259 = useState(false),
+    productType = _useState258[0],
+    setProductType = _useState258[1];
+  var _useState259 = useState(item.product_notes || ''),
     _useState260 = _slicedToArray(_useState259, 2),
-    uploading = _useState260[0],
-    setUploading = _useState260[1];
-  var _useState261 = useState(false),
+    productNotes = _useState260[0],
+    setProductNotes = _useState260[1];
+  var _useState261 = useState(''),
     _useState262 = _slicedToArray(_useState261, 2),
-    saving = _useState262[0],
-    setSaving = _useState262[1];
+    reasonAppend = _useState262[0],
+    setReasonAppend = _useState262[1];
+  var _useState263 = useState([]),
+    _useState264 = _slicedToArray(_useState263, 2),
+    newAttachments = _useState264[0],
+    setNewAttachments = _useState264[1];
+  var _useState265 = useState(false),
+    _useState266 = _slicedToArray(_useState265, 2),
+    uploading = _useState266[0],
+    setUploading = _useState266[1];
+  var _useState267 = useState(false),
+    _useState268 = _slicedToArray(_useState267, 2),
+    saving = _useState268[0],
+    setSaving = _useState268[1];
   var toggleShop = function toggleShop(label) {
     setShops(function (prev) {
       return prev.includes(label) ? prev.filter(function (s) {
@@ -12716,42 +12779,42 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref76) {
     });
   };
   var handleFiles = /*#__PURE__*/function () {
-    var _ref77 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee37(e) {
-      var files, news, _i2, _files, f, a, _t30;
-      return _regenerator().w(function (_context40) {
-        while (1) switch (_context40.p = _context40.n) {
+    var _ref78 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee38(e) {
+      var files, news, _i2, _files, f, a, _t31;
+      return _regenerator().w(function (_context41) {
+        while (1) switch (_context41.p = _context41.n) {
           case 0:
             files = Array.from(e.target.files || []);
             if (!(files.length === 0)) {
-              _context40.n = 1;
+              _context41.n = 1;
               break;
             }
-            return _context40.a(2);
+            return _context41.a(2);
           case 1:
             setUploading(true);
             news = [];
             _i2 = 0, _files = files;
           case 2:
             if (!(_i2 < _files.length)) {
-              _context40.n = 7;
+              _context41.n = 7;
               break;
             }
             f = _files[_i2];
-            _context40.p = 3;
-            _context40.n = 4;
+            _context41.p = 3;
+            _context41.n = 4;
             return window.uploadAttachmentToWtkpi(f);
           case 4:
-            a = _context40.v;
+            a = _context41.v;
             news.push(a);
-            _context40.n = 6;
+            _context41.n = 6;
             break;
           case 5:
-            _context40.p = 5;
-            _t30 = _context40.v;
-            toast('上传 ' + f.name + ' 失败:' + _t30.message);
+            _context41.p = 5;
+            _t31 = _context41.v;
+            toast('上传 ' + f.name + ' 失败:' + _t31.message);
           case 6:
             _i2++;
-            _context40.n = 2;
+            _context41.n = 2;
             break;
           case 7:
             setNewAttachments(function (prev) {
@@ -12760,30 +12823,30 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref76) {
             setUploading(false);
             e.target.value = '';
           case 8:
-            return _context40.a(2);
+            return _context41.a(2);
         }
-      }, _callee37, null, [[3, 5]]);
+      }, _callee38, null, [[3, 5]]);
     }));
-    return function handleFiles(_x21) {
-      return _ref77.apply(this, arguments);
+    return function handleFiles(_x22) {
+      return _ref78.apply(this, arguments);
     };
   }();
   var save = /*#__PURE__*/function () {
-    var _ref78 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee38() {
-      var _t31;
-      return _regenerator().w(function (_context41) {
-        while (1) switch (_context41.p = _context41.n) {
+    var _ref79 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee39() {
+      var _t32;
+      return _regenerator().w(function (_context42) {
+        while (1) switch (_context42.p = _context42.n) {
           case 0:
             if (productName.trim()) {
-              _context41.n = 1;
+              _context42.n = 1;
               break;
             }
             toast('产品名不能空');
-            return _context41.a(2);
+            return _context42.a(2);
           case 1:
             setSaving(true);
-            _context41.p = 2;
-            _context41.n = 3;
+            _context42.p = 2;
+            _context42.n = 3;
             return window.updatePhotoRequestBasics(item.id, {
               product_name: productName.trim(),
               sku: sku.trim() || null,
@@ -12793,10 +12856,10 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref76) {
             });
           case 3:
             if (!(reasonAppend.trim() || newAttachments.length > 0)) {
-              _context41.n = 4;
+              _context42.n = 4;
               break;
             }
-            _context41.n = 4;
+            _context42.n = 4;
             return window.appendToPhotoRequest(item.id, {
               reason_append: reasonAppend.trim(),
               attachments: newAttachments,
@@ -12805,22 +12868,22 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref76) {
           case 4:
             toast('✓ 已保存');
             onSuccess === null || onSuccess === void 0 || onSuccess();
-            _context41.n = 6;
+            _context42.n = 6;
             break;
           case 5:
-            _context41.p = 5;
-            _t31 = _context41.v;
-            console.error('[PhotoReq Edit] 保存失败', _t31);
-            alert('保存失败:\n\n' + (_t31.message || JSON.stringify(_t31)));
+            _context42.p = 5;
+            _t32 = _context42.v;
+            console.error('[PhotoReq Edit] 保存失败', _t32);
+            alert('保存失败:\n\n' + (_t32.message || JSON.stringify(_t32)));
           case 6:
             setSaving(false);
           case 7:
-            return _context41.a(2);
+            return _context42.a(2);
         }
-      }, _callee38, null, [[2, 5]]);
+      }, _callee39, null, [[2, 5]]);
     }));
     return function save() {
-      return _ref78.apply(this, arguments);
+      return _ref79.apply(this, arguments);
     };
   }();
   var statusLines = renderStatusLine(item);
@@ -13183,79 +13246,79 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref76) {
 // 适合客服汇总员场景:周末整理一批待拍产品
 // ════════════════════════════════════════════════════════════════════
 // 🆕 fix56: 批量录入单行的附件组件 — 支持点击 / 粘贴 / 拖拽上传 + 缩略图预览
-var RowAttachments = function RowAttachments(_ref79) {
-  var items = _ref79.items,
-    onChange = _ref79.onChange,
-    toast = _ref79.toast;
-  var _useState263 = useState(false),
-    _useState264 = _slicedToArray(_useState263, 2),
-    uploading = _useState264[0],
-    setUploading = _useState264[1];
-  var _useState265 = useState(false),
-    _useState266 = _slicedToArray(_useState265, 2),
-    dragOver = _useState266[0],
-    setDragOver = _useState266[1];
-  var _useState267 = useState(false),
-    _useState268 = _slicedToArray(_useState267, 2),
-    focused = _useState268[0],
-    setFocused = _useState268[1]; // 🆕 fix64: 聚焦提示
-  var _useState269 = useState(null),
+var RowAttachments = function RowAttachments(_ref80) {
+  var items = _ref80.items,
+    onChange = _ref80.onChange,
+    toast = _ref80.toast;
+  var _useState269 = useState(false),
     _useState270 = _slicedToArray(_useState269, 2),
-    preview = _useState270[0],
-    setPreview = _useState270[1]; // 🆕 fix64: 放大预览 lightbox
+    uploading = _useState270[0],
+    setUploading = _useState270[1];
+  var _useState271 = useState(false),
+    _useState272 = _slicedToArray(_useState271, 2),
+    dragOver = _useState272[0],
+    setDragOver = _useState272[1];
+  var _useState273 = useState(false),
+    _useState274 = _slicedToArray(_useState273, 2),
+    focused = _useState274[0],
+    setFocused = _useState274[1]; // 🆕 fix64: 聚焦提示
+  var _useState275 = useState(null),
+    _useState276 = _slicedToArray(_useState275, 2),
+    preview = _useState276[0],
+    setPreview = _useState276[1]; // 🆕 fix64: 放大预览 lightbox
   var fileInputRef = useRef(null);
   var handleFiles = /*#__PURE__*/function () {
-    var _ref80 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee39(files) {
-      var list, news, _iterator8, _step8, f, a, _t32, _t33;
-      return _regenerator().w(function (_context42) {
-        while (1) switch (_context42.p = _context42.n) {
+    var _ref81 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee40(files) {
+      var list, news, _iterator8, _step8, f, a, _t33, _t34;
+      return _regenerator().w(function (_context43) {
+        while (1) switch (_context43.p = _context43.n) {
           case 0:
             list = Array.from(files || []).filter(function (f) {
               return f.type.startsWith('image/');
             });
             if (!(list.length === 0)) {
-              _context42.n = 1;
+              _context43.n = 1;
               break;
             }
-            return _context42.a(2);
+            return _context43.a(2);
           case 1:
             setUploading(true);
             news = [];
             _iterator8 = _createForOfIteratorHelper(list);
-            _context42.p = 2;
+            _context43.p = 2;
             _iterator8.s();
           case 3:
             if ((_step8 = _iterator8.n()).done) {
-              _context42.n = 8;
+              _context43.n = 8;
               break;
             }
             f = _step8.value;
-            _context42.p = 4;
-            _context42.n = 5;
+            _context43.p = 4;
+            _context43.n = 5;
             return window.uploadAttachmentToWtkpi(f);
           case 5:
-            a = _context42.v;
+            a = _context43.v;
             news.push(a);
-            _context42.n = 7;
+            _context43.n = 7;
             break;
           case 6:
-            _context42.p = 6;
-            _t32 = _context42.v;
-            toast('上传 ' + f.name + ' 失败:' + (_t32.message || ''));
+            _context43.p = 6;
+            _t33 = _context43.v;
+            toast('上传 ' + f.name + ' 失败:' + (_t33.message || ''));
           case 7:
-            _context42.n = 3;
+            _context43.n = 3;
             break;
           case 8:
-            _context42.n = 10;
+            _context43.n = 10;
             break;
           case 9:
-            _context42.p = 9;
-            _t33 = _context42.v;
-            _iterator8.e(_t33);
+            _context43.p = 9;
+            _t34 = _context43.v;
+            _iterator8.e(_t34);
           case 10:
-            _context42.p = 10;
+            _context43.p = 10;
             _iterator8.f();
-            return _context42.f(10);
+            return _context43.f(10);
           case 11:
             if (news.length > 0) {
               onChange([].concat(_toConsumableArray(items), news));
@@ -13263,20 +13326,20 @@ var RowAttachments = function RowAttachments(_ref79) {
             }
             setUploading(false);
           case 12:
-            return _context42.a(2);
+            return _context43.a(2);
         }
-      }, _callee39, null, [[4, 6], [2, 9, 10, 11]]);
+      }, _callee40, null, [[4, 6], [2, 9, 10, 11]]);
     }));
-    return function handleFiles(_x22) {
-      return _ref80.apply(this, arguments);
+    return function handleFiles(_x23) {
+      return _ref81.apply(this, arguments);
     };
   }();
   var handlePaste = /*#__PURE__*/function () {
-    var _ref81 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee40(e) {
+    var _ref82 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee41(e) {
       var _e$clipboardData4;
       var clipItems, imageFiles;
-      return _regenerator().w(function (_context43) {
-        while (1) switch (_context43.n) {
+      return _regenerator().w(function (_context44) {
+        while (1) switch (_context44.n) {
           case 0:
             clipItems = Array.from(((_e$clipboardData4 = e.clipboardData) === null || _e$clipboardData4 === void 0 ? void 0 : _e$clipboardData4.items) || []);
             imageFiles = clipItems.filter(function (it) {
@@ -13285,43 +13348,43 @@ var RowAttachments = function RowAttachments(_ref79) {
               return it.getAsFile();
             }).filter(Boolean);
             if (!(imageFiles.length > 0)) {
-              _context43.n = 2;
+              _context44.n = 2;
               break;
             }
             e.preventDefault();
-            _context43.n = 1;
+            _context44.n = 1;
             return handleFiles(imageFiles);
           case 1:
-            _context43.n = 3;
+            _context44.n = 3;
             break;
           case 2:
             toast('剪贴板里没有图片 — 先截图/复制图片再粘贴');
           case 3:
-            return _context43.a(2);
-        }
-      }, _callee40);
-    }));
-    return function handlePaste(_x23) {
-      return _ref81.apply(this, arguments);
-    };
-  }();
-  var handleDrop = /*#__PURE__*/function () {
-    var _ref82 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee41(e) {
-      var _e$dataTransfer;
-      return _regenerator().w(function (_context44) {
-        while (1) switch (_context44.n) {
-          case 0:
-            e.preventDefault();
-            setDragOver(false);
-            _context44.n = 1;
-            return handleFiles((_e$dataTransfer = e.dataTransfer) === null || _e$dataTransfer === void 0 ? void 0 : _e$dataTransfer.files);
-          case 1:
             return _context44.a(2);
         }
       }, _callee41);
     }));
-    return function handleDrop(_x24) {
+    return function handlePaste(_x24) {
       return _ref82.apply(this, arguments);
+    };
+  }();
+  var handleDrop = /*#__PURE__*/function () {
+    var _ref83 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee42(e) {
+      var _e$dataTransfer;
+      return _regenerator().w(function (_context45) {
+        while (1) switch (_context45.n) {
+          case 0:
+            e.preventDefault();
+            setDragOver(false);
+            _context45.n = 1;
+            return handleFiles((_e$dataTransfer = e.dataTransfer) === null || _e$dataTransfer === void 0 ? void 0 : _e$dataTransfer.files);
+          case 1:
+            return _context45.a(2);
+        }
+      }, _callee42);
+    }));
+    return function handleDrop(_x25) {
+      return _ref83.apply(this, arguments);
     };
   }();
   var removeAt = function removeAt(idx) {
@@ -13497,12 +13560,12 @@ var RowAttachments = function RowAttachments(_ref79) {
     }
   }, "\u2715")), document.body));
 };
-var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref83) {
-  var user = _ref83.user,
-    toast = _ref83.toast,
-    onClose = _ref83.onClose,
-    onSuccess = _ref83.onSuccess;
-  var _useState271 = useState([{
+var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref84) {
+  var user = _ref84.user,
+    toast = _ref84.toast,
+    onClose = _ref84.onClose,
+    onSuccess = _ref84.onSuccess;
+  var _useState277 = useState([{
       productName: '',
       sku: '',
       urgency: 'normal',
@@ -13521,25 +13584,25 @@ var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref83) {
       reason: '',
       attachments: []
     }]),
-    _useState272 = _slicedToArray(_useState271, 2),
-    rows = _useState272[0],
-    setRows = _useState272[1];
-  var _useState273 = useState([]),
-    _useState274 = _slicedToArray(_useState273, 2),
-    defaultShops = _useState274[0],
-    setDefaultShops = _useState274[1];
-  var _useState275 = useState('normal'),
-    _useState276 = _slicedToArray(_useState275, 2),
-    defaultUrgency = _useState276[0],
-    setDefaultUrgency = _useState276[1];
-  var _useState277 = useState(''),
     _useState278 = _slicedToArray(_useState277, 2),
-    reasonPrefix = _useState278[0],
-    setReasonPrefix = _useState278[1];
-  var _useState279 = useState(false),
+    rows = _useState278[0],
+    setRows = _useState278[1];
+  var _useState279 = useState([]),
     _useState280 = _slicedToArray(_useState279, 2),
-    submitting = _useState280[0],
-    setSubmitting = _useState280[1];
+    defaultShops = _useState280[0],
+    setDefaultShops = _useState280[1];
+  var _useState281 = useState('normal'),
+    _useState282 = _slicedToArray(_useState281, 2),
+    defaultUrgency = _useState282[0],
+    setDefaultUrgency = _useState282[1];
+  var _useState283 = useState(''),
+    _useState284 = _slicedToArray(_useState283, 2),
+    reasonPrefix = _useState284[0],
+    setReasonPrefix = _useState284[1];
+  var _useState285 = useState(false),
+    _useState286 = _slicedToArray(_useState285, 2),
+    submitting = _useState286[0],
+    setSubmitting = _useState286[1];
   var addRow = function addRow() {
     return setRows([].concat(_toConsumableArray(rows), [{
       productName: '',
@@ -13574,59 +13637,59 @@ var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref83) {
     return sum + (((_r$attachments = r.attachments) === null || _r$attachments === void 0 ? void 0 : _r$attachments.length) || 0);
   }, 0);
   var submit = /*#__PURE__*/function () {
-    var _ref84 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee42() {
-      var result, _t34;
-      return _regenerator().w(function (_context45) {
-        while (1) switch (_context45.p = _context45.n) {
+    var _ref85 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee43() {
+      var result, _t35;
+      return _regenerator().w(function (_context46) {
+        while (1) switch (_context46.p = _context46.n) {
           case 0:
             if (!(valid.length === 0)) {
-              _context45.n = 1;
+              _context46.n = 1;
               break;
             }
             toast('至少要填 1 条产品名');
-            return _context45.a(2);
+            return _context46.a(2);
           case 1:
-            _context45.n = 2;
+            _context46.n = 2;
             return wsConfirm("\u786E\u8BA4\u6279\u91CF\u63D0\u4EA4 ".concat(valid.length, " \u6761\u9700\u6C42?\n\n").concat(totalImages > 0 ? "(\u5305\u542B ".concat(totalImages, " \u5F20\u56FE\u7247)") : '(无图片)'));
           case 2:
-            if (_context45.v) {
-              _context45.n = 3;
+            if (_context46.v) {
+              _context46.n = 3;
               break;
             }
-            return _context45.a(2);
+            return _context46.a(2);
           case 3:
             setSubmitting(true);
-            _context45.p = 4;
-            _context45.n = 5;
+            _context46.p = 4;
+            _context46.n = 5;
             return window.batchSubmitPhotoRequests(valid, {
               applicableShops: defaultShops,
               urgency: defaultUrgency,
               reasonPrefix: reasonPrefix.trim()
             }, user);
           case 5:
-            result = _context45.v;
+            result = _context46.v;
             if (result.failed === 0) {
               toast("\u2713 \u5168\u90E8 ".concat(result.succeeded, " \u6761\u5DF2\u63D0\u4EA4"));
             } else {
               alert("\u90E8\u5206\u6210\u529F:\n\n\u6210\u529F:".concat(result.succeeded, " \u6761\n\u5931\u8D25:").concat(result.failed, " \u6761\n\n\u9519\u8BEF:\n").concat(result.errors.slice(0, 3).join('\n')));
             }
             onSuccess === null || onSuccess === void 0 || onSuccess();
-            _context45.n = 7;
+            _context46.n = 7;
             break;
           case 6:
-            _context45.p = 6;
-            _t34 = _context45.v;
-            console.error('[PhotoReq Batch] 失败', _t34);
-            alert('批量提交失败:\n\n' + (_t34.message || JSON.stringify(_t34)));
+            _context46.p = 6;
+            _t35 = _context46.v;
+            console.error('[PhotoReq Batch] 失败', _t35);
+            alert('批量提交失败:\n\n' + (_t35.message || JSON.stringify(_t35)));
           case 7:
             setSubmitting(false);
           case 8:
-            return _context45.a(2);
+            return _context46.a(2);
         }
-      }, _callee42, null, [[4, 6]]);
+      }, _callee43, null, [[4, 6]]);
     }));
     return function submit() {
-      return _ref84.apply(this, arguments);
+      return _ref85.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
@@ -13994,3 +14057,8 @@ var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref83) {
     disabled: submitting || valid.length === 0
   }, submitting ? '⏳ 提交中…' : "\uD83D\uDCBE \u6279\u91CF\u63D0\u4EA4 ".concat(valid.length, " \u6761").concat(totalImages > 0 ? " (\u542B ".concat(totalImages, " \u56FE)") : ''))))), document.body);
 };
+
+// ════════════════════════════════════════════════════════════════════
+// 📌 任务分派模块 (fix19) — 临时任务派给某人,主管看是否处理
+// 工作流: 创建者 → 派给 X → X 接手/标处理中 → 完成 · 主管全局可见 · Realtime 推送
+// ════════════════════════════════════════════════════════════════════

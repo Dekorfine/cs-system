@@ -1,7 +1,7 @@
-// ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-138
-// APP_VERSION: 2026.05.30-fix138
-// ════════════════════════════════════════════════════════════════════
+// ====== cs-system 统一工作台 — 01-core ======
+// 版本 2026.06.02-fix140
+// 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
+//
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
@@ -22,10 +22,10 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-// ════════════════════════════════════════════════════════════════════
-// 🧱 核心 · fix28-138
-// APP_VERSION: 2026.05.30-fix138
-// ════════════════════════════════════════════════════════════════════
+// ====== cs-system 统一工作台 — 01-core ======
+// 版本 2026.06.02-fix140
+// 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
+//
 
 var _React = React,
   useState = _React.useState,
@@ -460,78 +460,151 @@ var CLOUD = {
   list: function list(table) {
     var _arguments = arguments,
       _this2 = this;
-    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
-      var opts, q, _yield$q, data, error, _t2;
-      return _regenerator().w(function (_context2) {
-        while (1) switch (_context2.p = _context2.n) {
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+      var opts, HEAVY, sel, runQuery, _yield$runQuery, data, error, _yield$runQuery2, _t2;
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.p = _context3.n) {
           case 0:
             opts = _arguments.length > 1 && _arguments[1] !== undefined ? _arguments[1] : {};
             if (_this2.client) {
-              _context2.n = 1;
+              _context3.n = 1;
               break;
             }
-            return _context2.a(2, null);
+            return _context3.a(2, null);
           case 1:
-            _context2.p = 1;
-            q = _this2.client.from(table).select('*');
-            if (opts.order) q = q.order(opts.order.col, {
-              ascending: opts.order.asc !== false
-            });
-            if (opts.eq) Object.entries(opts.eq).forEach(function (_ref) {
-              var _ref2 = _slicedToArray(_ref, 2),
-                k = _ref2[0],
-                v = _ref2[1];
-              return q = q.eq(k, v);
-            });
-            if (opts.limit) q = q.limit(opts.limit);
-            _context2.n = 2;
-            return q;
-          case 2:
-            _yield$q = _context2.v;
-            data = _yield$q.data;
-            error = _yield$q.error;
+            // 🆕 fix139: 重表默认排除大体积列(图片 base64),列表秒开;详情/展开再按需取
+            HEAVY = {
+              chargebacks: 'id,amount,currency,status,site,website,order_no,customer_name,customer_email,platform,reason,reason_detail,resolution,notes,deadline,opened_at,created_at,updated_at,created_by,created_by_name,assigned_to,assigned_to_names,cs_fault,cs_fault_emp,deleted'
+            };
+            sel = opts.select || !opts.full && HEAVY[table] || '*';
+            runQuery = /*#__PURE__*/function () {
+              var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(selStr) {
+                var q;
+                return _regenerator().w(function (_context2) {
+                  while (1) switch (_context2.n) {
+                    case 0:
+                      q = _this2.client.from(table).select(selStr);
+                      if (opts.order) q = q.order(opts.order.col, {
+                        ascending: opts.order.asc !== false
+                      });
+                      if (opts.eq) Object.entries(opts.eq).forEach(function (_ref2) {
+                        var _ref3 = _slicedToArray(_ref2, 2),
+                          k = _ref3[0],
+                          v = _ref3[1];
+                        return q = q.eq(k, v);
+                      });
+                      if (opts.limit) q = q.limit(opts.limit);
+                      _context2.n = 1;
+                      return q;
+                    case 1:
+                      return _context2.a(2, _context2.v);
+                  }
+                }, _callee2);
+              }));
+              return function runQuery(_x) {
+                return _ref.apply(this, arguments);
+              };
+            }();
+            _context3.p = 2;
+            _context3.n = 3;
+            return runQuery(sel);
+          case 3:
+            _yield$runQuery = _context3.v;
+            data = _yield$runQuery.data;
+            error = _yield$runQuery.error;
+            if (!(error && sel !== '*')) {
+              _context3.n = 5;
+              break;
+            }
+            // 精简列出错(列名不符等)→ 回退全列,绝不让列表崩
+            console.warn('[fix139] list ' + table + ' 精简列失败,回退 select(*)', error.message);
+            _context3.n = 4;
+            return runQuery('*');
+          case 4:
+            _yield$runQuery2 = _context3.v;
+            data = _yield$runQuery2.data;
+            error = _yield$runQuery2.error;
+          case 5:
             if (!error) {
-              _context2.n = 3;
+              _context3.n = 6;
               break;
             }
             throw error;
-          case 3:
-            return _context2.a(2, data || []);
-          case 4:
-            _context2.p = 4;
-            _t2 = _context2.v;
+          case 6:
+            return _context3.a(2, data || []);
+          case 7:
+            _context3.p = 7;
+            _t2 = _context3.v;
             console.error('CLOUD.list', table, _t2);
-            return _context2.a(2, null);
+            return _context3.a(2, null);
         }
-      }, _callee2, null, [[1, 4]]);
+      }, _callee3, null, [[2, 7]]);
     }))();
   },
   _lastError: null,
   // 🆕 保留最后一次操作的错误,供调用方读取
   // 🆕 fix8: 每个表跟踪 schema 缓存里缺失的字段,避免反复重试
-  _missingColumns: {},
+  // 🆕 fix140: 会话级持久化(sessionStorage)→ 同会话内重载不再重复触发剥离重试(写操作不翻倍)。
+  //           故意只用 sessionStorage 不跨会话:主管在 Supabase 补列后,关掉标签页即重新学习,不会被永久剥离。
+  _missingColumns: function () {
+    try {
+      var s = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('cloud_missing_cols');
+      if (s) {
+        var o = JSON.parse(s);
+        var r = {};
+        Object.keys(o).forEach(function (k) {
+          r[k] = new Set(o[k] || []);
+        });
+        return r;
+      }
+    } catch (e) {}
+    return {};
+  }(),
   // { table: Set<column> }
+  _retryStats: {
+    total: 0,
+    byTable: {}
+  },
+  // 🆕 fix140: 诊断 — 控制台看 CLOUD._retryStats 即知重试频率
+  _persistMissing: function _persistMissing() {
+    var _this3 = this;
+    try {
+      if (typeof sessionStorage === 'undefined') return;
+      var o = {};
+      Object.keys(this._missingColumns).forEach(function (k) {
+        o[k] = _toConsumableArray(_this3._missingColumns[k]);
+      });
+      sessionStorage.setItem('cloud_missing_cols', JSON.stringify(o));
+    } catch (e) {}
+  },
+  clearMissingColumns: function clearMissingColumns(table) {
+    // 🆕 fix140: 主管补列后调用 CLOUD.clearMissingColumns() 清空,恢复写入该列
+    if (table) delete this._missingColumns[table];else this._missingColumns = {};
+    try {
+      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('cloud_missing_cols');
+    } catch (e) {}
+  },
   upsert: function upsert(table, row) {
     var _arguments2 = arguments,
-      _this3 = this;
-    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-      var _retryCount, known, cleanRow, _yield$_this3$client$, data, error, colMatch, missing, stripped, _t3;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
+      _this4 = this;
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+      var _retryCount, known, cleanRow, _yield$_this4$client$, data, error, colMatch, missing, stripped, _t3;
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
             _retryCount = _arguments2.length > 2 && _arguments2[2] !== undefined ? _arguments2[2] : 0;
-            if (_this3.client) {
-              _context3.n = 1;
+            if (_this4.client) {
+              _context4.n = 1;
               break;
             }
-            _this3._lastError = {
+            _this4._lastError = {
               message: '云同步未配置或离线模式',
               table: table
             };
-            return _context3.a(2, null);
+            return _context4.a(2, null);
           case 1:
             // 先剥离已知该表缺失的字段
-            known = _this3._missingColumns[table];
+            known = _this4._missingColumns[table];
             cleanRow = row;
             if (known && known.size > 0) {
               cleanRow = _objectSpread({}, row);
@@ -539,32 +612,35 @@ var CLOUD = {
                 delete cleanRow[col];
               });
             }
-            _context3.p = 2;
-            _context3.n = 3;
-            return _this3.client.from(table).upsert(cleanRow).select();
+            _context4.p = 2;
+            _context4.n = 3;
+            return _this4.client.from(table).upsert(cleanRow).select();
           case 3:
-            _yield$_this3$client$ = _context3.v;
-            data = _yield$_this3$client$.data;
-            error = _yield$_this3$client$.error;
+            _yield$_this4$client$ = _context4.v;
+            data = _yield$_this4$client$.data;
+            error = _yield$_this4$client$.error;
             if (!error) {
-              _context3.n = 5;
+              _context4.n = 5;
               break;
             }
             // 🆕 fix8: 检测 "Could not find the 'X' column of 'TABLE' in the schema cache" (PGRST204)
             // 自动剥离该字段重试 (最多 5 次,避免死循环)
             colMatch = (error.message || '').match(/Could not find the '([^']+)' column/i);
             if (!(colMatch && _retryCount < 5)) {
-              _context3.n = 4;
+              _context4.n = 4;
               break;
             }
             missing = colMatch[1];
-            if (!_this3._missingColumns[table]) _this3._missingColumns[table] = new Set();
-            _this3._missingColumns[table].add(missing);
+            if (!_this4._missingColumns[table]) _this4._missingColumns[table] = new Set();
+            _this4._missingColumns[table].add(missing);
+            _this4._persistMissing(); // 🆕 fix140: 持久化到本会话,重载后直接剥离不再重试
+            _this4._retryStats.total++; // 🆕 fix140: 诊断计数
+            _this4._retryStats.byTable[table] = (_this4._retryStats.byTable[table] || 0) + 1;
             console.warn("[fix8 schema-retry] \u8868 \"".concat(table, "\" \u7F3A\u5C11\u5217 \"").concat(missing, "\",\u81EA\u52A8\u5265\u79BB\u91CD\u8BD5 (\u7B2C ").concat(_retryCount + 1, "/5 \u6B21)"));
-            return _context3.a(2, _this3.upsert(table, row, _retryCount + 1));
+            return _context4.a(2, _this4.upsert(table, row, _retryCount + 1));
           case 4:
             // 详细错误信息保留
-            _this3._lastError = {
+            _this4._lastError = {
               message: error.message || '未知错误',
               code: error.code,
               details: error.details,
@@ -579,90 +655,46 @@ var CLOUD = {
             });
             throw error;
           case 5:
-            _this3._lastError = null;
+            _this4._lastError = null;
             // 🆕 fix8: 成功了但用了剥离 → 在 toast 提示一下,方便主管看到要补 schema
             if (cleanRow !== row) {
-              stripped = _toConsumableArray(_this3._missingColumns[table] || []).join(', ');
+              stripped = _toConsumableArray(_this4._missingColumns[table] || []).join(', ');
               console.warn("[fix8 schema-retry] \u5DF2\u4FDD\u5B58\u5230 \"".concat(table, "\",\u4F46\u5265\u79BB\u4E86\u4E91\u7AEF\u4E0D\u8BC6\u522B\u7684\u5B57\u6BB5: ").concat(stripped, "\u3002\u5EFA\u8BAE\u4E3B\u7BA1\u5728 Supabase SQL Editor \u8865\u5EFA\u76F8\u5E94\u5217\u3002"));
             }
-            return _context3.a(2, data);
+            return _context4.a(2, data);
           case 6:
-            _context3.p = 6;
-            _t3 = _context3.v;
-            if (!_this3._lastError) {
-              _this3._lastError = {
+            _context4.p = 6;
+            _t3 = _context4.v;
+            if (!_this4._lastError) {
+              _this4._lastError = {
                 message: _t3.message || String(_t3),
                 table: table
               };
             }
             console.error('CLOUD.upsert', table, _t3);
-            return _context3.a(2, null);
+            return _context4.a(2, null);
         }
-      }, _callee3, null, [[2, 6]]);
+      }, _callee4, null, [[2, 6]]);
     }))();
   },
   del: function del(table, id) {
-    var _this4 = this;
-    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-      var _yield$_this4$client$, error, _t4;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
-          case 0:
-            if (_this4.client) {
-              _context4.n = 1;
-              break;
-            }
-            return _context4.a(2, false);
-          case 1:
-            _context4.p = 1;
-            _context4.n = 2;
-            return _this4.client.from(table)["delete"]().eq('id', id);
-          case 2:
-            _yield$_this4$client$ = _context4.v;
-            error = _yield$_this4$client$.error;
-            if (!error) {
-              _context4.n = 3;
-              break;
-            }
-            throw error;
-          case 3:
-            return _context4.a(2, true);
-          case 4:
-            _context4.p = 4;
-            _t4 = _context4.v;
-            console.error('CLOUD.del', table, _t4);
-            return _context4.a(2, false);
-        }
-      }, _callee4, null, [[1, 4]]);
-    }))();
-  },
-  // 🆕 Storage 上传到 aftersales-images bucket
-  uploadImage: function uploadImage(bucket, file) {
-    var _arguments3 = arguments,
-      _this5 = this;
+    var _this5 = this;
     return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-      var prefix, _file$name, ext, fname, _yield$_this5$client$, data, error, _this5$client$storage, urlData, _t5;
+      var _yield$_this5$client$, error, _t4;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
           case 0:
-            prefix = _arguments3.length > 2 && _arguments3[2] !== undefined ? _arguments3[2] : '';
             if (_this5.client) {
               _context5.n = 1;
               break;
             }
-            return _context5.a(2, null);
+            return _context5.a(2, false);
           case 1:
             _context5.p = 1;
-            ext = (((_file$name = file.name) === null || _file$name === void 0 ? void 0 : _file$name.split('.').pop()) || 'png').toLowerCase();
-            fname = "".concat(prefix).concat(Date.now(), "_").concat(Math.random().toString(36).slice(2, 7), ".").concat(ext);
             _context5.n = 2;
-            return _this5.client.storage.from(bucket).upload(fname, file, {
-              upsert: false,
-              contentType: file.type || 'image/png'
-            });
+            return _this5.client.from(table)["delete"]().eq('id', id);
           case 2:
             _yield$_this5$client$ = _context5.v;
-            data = _yield$_this5$client$.data;
             error = _yield$_this5$client$.error;
             if (!error) {
               _context5.n = 3;
@@ -670,39 +702,43 @@ var CLOUD = {
             }
             throw error;
           case 3:
-            _this5$client$storage = _this5.client.storage.from(bucket).getPublicUrl(data.path), urlData = _this5$client$storage.data;
-            return _context5.a(2, {
-              path: data.path,
-              url: urlData.publicUrl
-            });
+            return _context5.a(2, true);
           case 4:
             _context5.p = 4;
-            _t5 = _context5.v;
-            console.error('CLOUD.uploadImage', _t5);
-            _this5._lastError = _t5;
-            return _context5.a(2, null);
+            _t4 = _context5.v;
+            console.error('CLOUD.del', table, _t4);
+            return _context5.a(2, false);
         }
       }, _callee5, null, [[1, 4]]);
     }))();
   },
-  deleteImage: function deleteImage(bucket, path) {
-    var _this6 = this;
+  // 🆕 Storage 上传到 aftersales-images bucket
+  uploadImage: function uploadImage(bucket, file) {
+    var _arguments3 = arguments,
+      _this6 = this;
     return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-      var _yield$_this6$client$, error, _t6;
+      var prefix, _file$name, ext, fname, _yield$_this6$client$, data, error, _this6$client$storage, urlData, _t5;
       return _regenerator().w(function (_context6) {
         while (1) switch (_context6.p = _context6.n) {
           case 0:
+            prefix = _arguments3.length > 2 && _arguments3[2] !== undefined ? _arguments3[2] : '';
             if (_this6.client) {
               _context6.n = 1;
               break;
             }
-            return _context6.a(2, false);
+            return _context6.a(2, null);
           case 1:
             _context6.p = 1;
+            ext = (((_file$name = file.name) === null || _file$name === void 0 ? void 0 : _file$name.split('.').pop()) || 'png').toLowerCase();
+            fname = "".concat(prefix).concat(Date.now(), "_").concat(Math.random().toString(36).slice(2, 7), ".").concat(ext);
             _context6.n = 2;
-            return _this6.client.storage.from(bucket).remove([path]);
+            return _this6.client.storage.from(bucket).upload(fname, file, {
+              upsert: false,
+              contentType: file.type || 'image/png'
+            });
           case 2:
             _yield$_this6$client$ = _context6.v;
+            data = _yield$_this6$client$.data;
             error = _yield$_this6$client$.error;
             if (!error) {
               _context6.n = 3;
@@ -710,43 +746,39 @@ var CLOUD = {
             }
             throw error;
           case 3:
-            return _context6.a(2, true);
+            _this6$client$storage = _this6.client.storage.from(bucket).getPublicUrl(data.path), urlData = _this6$client$storage.data;
+            return _context6.a(2, {
+              path: data.path,
+              url: urlData.publicUrl
+            });
           case 4:
             _context6.p = 4;
-            _t6 = _context6.v;
-            console.error('CLOUD.deleteImage', _t6);
-            return _context6.a(2, false);
+            _t5 = _context6.v;
+            console.error('CLOUD.uploadImage', _t5);
+            _this6._lastError = _t5;
+            return _context6.a(2, null);
         }
       }, _callee6, null, [[1, 4]]);
     }))();
   },
-  // 🆕 通用文件上传 (支持 PDF / PPT / XLSX / DOCX / 图片 / 视频 等)
-  uploadFile: function uploadFile(bucket, file) {
-    var _arguments4 = arguments,
-      _this7 = this;
+  deleteImage: function deleteImage(bucket, path) {
+    var _this7 = this;
     return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
-      var prefix, safeName, fname, _yield$_this7$client$, data, error, _this7$client$storage, urlData, _t7;
+      var _yield$_this7$client$, error, _t6;
       return _regenerator().w(function (_context7) {
         while (1) switch (_context7.p = _context7.n) {
           case 0:
-            prefix = _arguments4.length > 2 && _arguments4[2] !== undefined ? _arguments4[2] : '';
             if (_this7.client) {
               _context7.n = 1;
               break;
             }
-            return _context7.a(2, null);
+            return _context7.a(2, false);
           case 1:
             _context7.p = 1;
-            safeName = (file.name || 'file').replace(/[^\w\u4e00-\u9fa5.-]/g, '_').slice(0, 80);
-            fname = "".concat(prefix).concat(Date.now(), "_").concat(Math.random().toString(36).slice(2, 7), "_").concat(safeName);
             _context7.n = 2;
-            return _this7.client.storage.from(bucket).upload(fname, file, {
-              upsert: false,
-              contentType: file.type || 'application/octet-stream'
-            });
+            return _this7.client.storage.from(bucket).remove([path]);
           case 2:
             _yield$_this7$client$ = _context7.v;
-            data = _yield$_this7$client$.data;
             error = _yield$_this7$client$.error;
             if (!error) {
               _context7.n = 3;
@@ -754,8 +786,52 @@ var CLOUD = {
             }
             throw error;
           case 3:
-            _this7$client$storage = _this7.client.storage.from(bucket).getPublicUrl(data.path), urlData = _this7$client$storage.data;
-            return _context7.a(2, {
+            return _context7.a(2, true);
+          case 4:
+            _context7.p = 4;
+            _t6 = _context7.v;
+            console.error('CLOUD.deleteImage', _t6);
+            return _context7.a(2, false);
+        }
+      }, _callee7, null, [[1, 4]]);
+    }))();
+  },
+  // 🆕 通用文件上传 (支持 PDF / PPT / XLSX / DOCX / 图片 / 视频 等)
+  uploadFile: function uploadFile(bucket, file) {
+    var _arguments4 = arguments,
+      _this8 = this;
+    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
+      var prefix, safeName, fname, _yield$_this8$client$, data, error, _this8$client$storage, urlData, _t7;
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.p = _context8.n) {
+          case 0:
+            prefix = _arguments4.length > 2 && _arguments4[2] !== undefined ? _arguments4[2] : '';
+            if (_this8.client) {
+              _context8.n = 1;
+              break;
+            }
+            return _context8.a(2, null);
+          case 1:
+            _context8.p = 1;
+            safeName = (file.name || 'file').replace(/[^\w\u4e00-\u9fa5.-]/g, '_').slice(0, 80);
+            fname = "".concat(prefix).concat(Date.now(), "_").concat(Math.random().toString(36).slice(2, 7), "_").concat(safeName);
+            _context8.n = 2;
+            return _this8.client.storage.from(bucket).upload(fname, file, {
+              upsert: false,
+              contentType: file.type || 'application/octet-stream'
+            });
+          case 2:
+            _yield$_this8$client$ = _context8.v;
+            data = _yield$_this8$client$.data;
+            error = _yield$_this8$client$.error;
+            if (!error) {
+              _context8.n = 3;
+              break;
+            }
+            throw error;
+          case 3:
+            _this8$client$storage = _this8.client.storage.from(bucket).getPublicUrl(data.path), urlData = _this8$client$storage.data;
+            return _context8.a(2, {
               path: data.path,
               url: urlData.publicUrl,
               name: file.name,
@@ -763,12 +839,12 @@ var CLOUD = {
               type: file.type || 'application/octet-stream'
             });
           case 4:
-            _context7.p = 4;
-            _t7 = _context7.v;
+            _context8.p = 4;
+            _t7 = _context8.v;
             console.error('CLOUD.uploadFile', _t7);
-            return _context7.a(2, null);
+            return _context8.a(2, null);
         }
-      }, _callee7, null, [[1, 4]]);
+      }, _callee8, null, [[1, 4]]);
     }))();
   }
 };
@@ -804,22 +880,22 @@ var alertSaveError = function alertSaveError() {
 var COORDINATOR_IDS = ['u_liuqiang']; // 谁是协调员，未来可加更多
 
 // 🔗 自动给协调员发工单通知（事件创建时）
-function notifyCoordinator(_x, _x2, _x3) {
+function notifyCoordinator(_x2, _x3, _x4) {
   return _notifyCoordinator.apply(this, arguments);
 } // ============================================================
 // 初始员工数据
 // ============================================================
 function _notifyCoordinator() {
-  _notifyCoordinator = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(kind, eventData, creator) {
+  _notifyCoordinator = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(kind, eventData, creator) {
     var kindLabel, targetId, summary, _ISSUE_TYPES$find, issue, itemsList, _REFUND_TYPES$find, type, ticket, _t8;
-    return _regenerator().w(function (_context8) {
-      while (1) switch (_context8.p = _context8.n) {
+    return _regenerator().w(function (_context9) {
+      while (1) switch (_context9.p = _context9.n) {
         case 0:
           if (CLOUD.client) {
-            _context8.n = 1;
+            _context9.n = 1;
             break;
           }
-          return _context8.a(2);
+          return _context9.a(2);
         case 1:
           // 离线模式跳过
           kindLabel = kind === 'aftersale' ? '🔧 售后' : kind === 'refill' ? '📦 补件' : '💰 退款';
@@ -858,27 +934,27 @@ function _notifyCoordinator() {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
-          _context8.p = 2;
+          _context9.p = 2;
           if (CLOUD.client) {
-            _context8.n = 3;
+            _context9.n = 3;
             break;
           }
-          return _context8.a(2);
+          return _context9.a(2);
         case 3:
-          _context8.n = 4;
+          _context9.n = 4;
           return CLOUD.client.from('workspace_tickets').upsert(ticket);
         case 4:
-          _context8.n = 6;
+          _context9.n = 6;
           break;
         case 5:
-          _context8.p = 5;
-          _t8 = _context8.v;
+          _context9.p = 5;
+          _t8 = _context9.v;
           console.warn('自动通知协调员失败:', _t8.message);
           // 不阻塞主流程
         case 6:
-          return _context8.a(2);
+          return _context9.a(2);
       }
-    }, _callee8, null, [[2, 5]]);
+    }, _callee9, null, [[2, 5]]);
   }));
   return _notifyCoordinator.apply(this, arguments);
 }
@@ -1292,18 +1368,20 @@ var getCdmClient = function getCdmClient() {
 var ORG_SYSTEM = 'cs'; // 客服系统标识(跟单系统改 'po')
 
 // 发布本系统人员到共享目录(upsert,不删人用 active=false)
-function publishMyStaff(_x4, _x5) {
+function publishMyStaff(_x5, _x6) {
   return _publishMyStaff.apply(this, arguments);
 } // 读共享目录(全部门所有人)
+// 🆕 fix140: 客户端缓存 — org_directory 基本静态(几十行),5 分钟内多组件/重渲染共用一份,不再每次重拉。
+//           force=true 强制刷新(发布后/手动刷新用)。
 function _publishMyStaff() {
-  _publishMyStaff = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(staffList, updatedBy) {
+  _publishMyStaff = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(staffList, updatedBy) {
     var client, rows, _yield$client$from$up, error;
-    return _regenerator().w(function (_context9) {
-      while (1) switch (_context9.n) {
+    return _regenerator().w(function (_context0) {
+      while (1) switch (_context0.n) {
         case 0:
           client = getCdmClient();
           if (client) {
-            _context9.n = 1;
+            _context0.n = 1;
             break;
           }
           throw new Error('消息总线未初始化');
@@ -1337,57 +1415,81 @@ function _publishMyStaff() {
               updated_by: updatedBy || 'system'
             };
           });
-          _context9.n = 2;
+          _context0.n = 2;
           return client.from('org_directory').upsert(rows, {
             onConflict: 'id'
           });
         case 2:
-          _yield$client$from$up = _context9.v;
+          _yield$client$from$up = _context0.v;
           error = _yield$client$from$up.error;
-          if (!error) {
-            _context9.n = 3;
-            break;
-          }
-          throw error;
-        case 3:
-          return _context9.a(2, rows.length);
-      }
-    }, _callee9);
-  }));
-  return _publishMyStaff.apply(this, arguments);
-}
-function loadOrgDirectory() {
-  return _loadOrgDirectory.apply(this, arguments);
-}
-function _loadOrgDirectory() {
-  _loadOrgDirectory = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
-    var client, _yield$client$from$se, data, error;
-    return _regenerator().w(function (_context0) {
-      while (1) switch (_context0.n) {
-        case 0:
-          client = getCdmClient();
-          if (client) {
-            _context0.n = 1;
-            break;
-          }
-          return _context0.a(2, []);
-        case 1:
-          _context0.n = 2;
-          return client.from('org_directory').select('*').order('sort_order', {
-            ascending: true
-          });
-        case 2:
-          _yield$client$from$se = _context0.v;
-          data = _yield$client$from$se.data;
-          error = _yield$client$from$se.error;
           if (!error) {
             _context0.n = 3;
             break;
           }
-          console.error('[org_directory] 读取失败', error);
-          return _context0.a(2, []);
+          throw error;
         case 3:
-          return _context0.a(2, (data || []).map(function (r) {
+          _orgDirCache = {
+            ts: 0,
+            data: null
+          }; // 🆕 fix140: 发布后失效缓存,下次 load 拿最新
+          return _context0.a(2, rows.length);
+      }
+    }, _callee0);
+  }));
+  return _publishMyStaff.apply(this, arguments);
+}
+var _orgDirCache = {
+  ts: 0,
+  data: null
+};
+var ORG_DIR_TTL = 5 * 60 * 1000;
+function loadOrgDirectory() {
+  return _loadOrgDirectory.apply(this, arguments);
+}
+function _loadOrgDirectory() {
+  _loadOrgDirectory = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
+    var force,
+      now,
+      client,
+      _yield$client$from$se,
+      data,
+      error,
+      mapped,
+      _args1 = arguments;
+    return _regenerator().w(function (_context1) {
+      while (1) switch (_context1.n) {
+        case 0:
+          force = _args1.length > 0 && _args1[0] !== undefined ? _args1[0] : false;
+          now = Date.now();
+          if (!(!force && _orgDirCache.data && now - _orgDirCache.ts < ORG_DIR_TTL)) {
+            _context1.n = 1;
+            break;
+          }
+          return _context1.a(2, _orgDirCache.data);
+        case 1:
+          client = getCdmClient();
+          if (client) {
+            _context1.n = 2;
+            break;
+          }
+          return _context1.a(2, _orgDirCache.data || []);
+        case 2:
+          _context1.n = 3;
+          return client.from('org_directory').select('*').order('sort_order', {
+            ascending: true
+          });
+        case 3:
+          _yield$client$from$se = _context1.v;
+          data = _yield$client$from$se.data;
+          error = _yield$client$from$se.error;
+          if (!error) {
+            _context1.n = 4;
+            break;
+          }
+          console.error('[org_directory] 读取失败', error);
+          return _context1.a(2, _orgDirCache.data || []);
+        case 4:
+          mapped = (data || []).map(function (r) {
             return {
               id: r.id,
               staffId: r.staff_id,
@@ -1403,9 +1505,14 @@ function _loadOrgDirectory() {
               active: r.active !== false,
               sortOrder: r.sort_order
             };
-          }));
+          });
+          _orgDirCache = {
+            ts: now,
+            data: mapped
+          }; // 🆕 fix140
+          return _context1.a(2, mapped);
       }
-    }, _callee0);
+    }, _callee1);
   }));
   return _loadOrgDirectory.apply(this, arguments);
 }
@@ -1553,43 +1660,43 @@ function wsOrderAdminUrl(no) {
   return "https://".concat(d, "/admin/orders?query=").concat(encodeURIComponent(wsNormKey(no)));
 }
 var _wsOrderCache = {};
-function wsFetchOrderProducts(_x6) {
+function wsFetchOrderProducts(_x7) {
   return _wsFetchOrderProducts.apply(this, arguments);
 } // 🆕 fix49: 上传附件到 WorkTrack-KPI Storage `attachments` bucket;fix106: 只压缩图片,视频/其他文件原样上传
 function _wsFetchOrderProducts() {
-  _wsFetchOrderProducts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(orderNo) {
+  _wsFetchOrderProducts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(orderNo) {
     var base, domain, ck, hit, isWoo, _i2, _arr, nm, body, res, json, arr, _o$total_price_set, _o$total_price_set2, o, li, products, oid, orderUrl, cust, bill, email, cname, total, currency, country, _v, v, _t9;
-    return _regenerator().w(function (_context1) {
-      while (1) switch (_context1.p = _context1.n) {
+    return _regenerator().w(function (_context10) {
+      while (1) switch (_context10.p = _context10.n) {
         case 0:
           base = wsNormKey(orderNo);
           if (base) {
-            _context1.n = 1;
+            _context10.n = 1;
             break;
           }
-          return _context1.a(2, null);
+          return _context10.a(2, null);
         case 1:
           domain = wsGuessDomain(base);
           if (domain) {
-            _context1.n = 2;
+            _context10.n = 2;
             break;
           }
-          return _context1.a(2, null);
+          return _context10.a(2, null);
         case 2:
           ck = domain + '|' + base;
           hit = _wsOrderCache[ck];
           if (!(hit && Date.now() - hit.ts < 5 * 60 * 1000)) {
-            _context1.n = 3;
+            _context10.n = 3;
             break;
           }
-          return _context1.a(2, hit.v);
+          return _context10.a(2, hit.v);
         case 3:
           isWoo = /mooielight/i.test(domain);
-          _context1.p = 4;
+          _context10.p = 4;
           _i2 = 0, _arr = [base, '#' + base];
         case 5:
           if (!(_i2 < _arr.length)) {
-            _context1.n = 10;
+            _context10.n = 10;
             break;
           }
           nm = _arr[_i2];
@@ -1610,7 +1717,7 @@ function _wsFetchOrderProducts() {
               auto_save: false
             }
           };
-          _context1.n = 6;
+          _context10.n = 6;
           return fetch(EDGE_BASE_WS + '/' + (isWoo ? 'woo-api' : 'shopify-api'), {
             method: 'POST',
             headers: {
@@ -1621,22 +1728,22 @@ function _wsFetchOrderProducts() {
             body: JSON.stringify(body)
           });
         case 6:
-          res = _context1.v;
+          res = _context10.v;
           if (res.ok) {
-            _context1.n = 7;
+            _context10.n = 7;
             break;
           }
-          return _context1.a(3, 9);
+          return _context10.a(3, 9);
         case 7:
-          _context1.n = 8;
+          _context10.n = 8;
           return res.json()["catch"](function () {
             return null;
           });
         case 8:
-          json = _context1.v;
+          json = _context10.v;
           arr = json && (json.orders || json.data || []);
           if (!(json && json.ok !== false && Array.isArray(arr) && arr.length)) {
-            _context1.n = 9;
+            _context10.n = 9;
             break;
           }
           o = arr[0];
@@ -1673,17 +1780,17 @@ function _wsFetchOrderProducts() {
             ts: Date.now(),
             v: _v
           };
-          return _context1.a(2, _v);
+          return _context10.a(2, _v);
         case 9:
           _i2++;
-          _context1.n = 5;
+          _context10.n = 5;
           break;
         case 10:
-          _context1.n = 12;
+          _context10.n = 12;
           break;
         case 11:
-          _context1.p = 11;
-          _t9 = _context1.v;
+          _context10.p = 11;
+          _t9 = _context10.v;
           console.warn('wsFetchOrderProducts', orderNo, _t9);
         case 12:
           v = {
@@ -1695,38 +1802,38 @@ function _wsFetchOrderProducts() {
             ts: Date.now(),
             v: v
           };
-          return _context1.a(2, v);
+          return _context10.a(2, v);
       }
-    }, _callee1, null, [[4, 11]]);
+    }, _callee10, null, [[4, 11]]);
   }));
   return _wsFetchOrderProducts.apply(this, arguments);
 }
-function uploadAttachmentToWtkpi(_x7) {
+function uploadAttachmentToWtkpi(_x8) {
   return _uploadAttachmentToWtkpi.apply(this, arguments);
 } // 🆕 fix49: 通用图片压缩(类似 quotation 的 compressImageFile,但通用)
 function _uploadAttachmentToWtkpi() {
-  _uploadAttachmentToWtkpi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(file) {
+  _uploadAttachmentToWtkpi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(file) {
     var client, isImage, payload, ext, path, _yield$client$storage, error, _client$storage$from$, publicUrl, _t0;
-    return _regenerator().w(function (_context10) {
-      while (1) switch (_context10.n) {
+    return _regenerator().w(function (_context11) {
+      while (1) switch (_context11.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context10.n = 1;
+            _context11.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置 — 请进 ⚙ 设置中心配置');
         case 1:
           isImage = (file.type || '').startsWith('image/'); // 🆕 fix106: 之前视频也被强行走 canvas 图片压缩 → new Image() 无法加载视频 → 失败。现在只有图片压缩,视频原样传。
           if (!isImage) {
-            _context10.n = 3;
+            _context11.n = 3;
             break;
           }
-          _context10.n = 2;
+          _context11.n = 2;
           return compressImageForUpload(file, 1600, 0.85);
         case 2:
-          _t0 = _context10.v;
-          _context10.n = 4;
+          _t0 = _context11.v;
+          _context11.n = 4;
           break;
         case 3:
           _t0 = file;
@@ -1734,22 +1841,22 @@ function _uploadAttachmentToWtkpi() {
           payload = _t0;
           ext = (file.name || (isImage ? 'img.png' : 'file.bin')).split('.').pop() || (isImage ? 'png' : 'bin');
           path = "cs-requests/".concat(Date.now(), "-").concat(crypto.randomUUID().slice(0, 8), ".").concat(ext);
-          _context10.n = 5;
+          _context11.n = 5;
           return client.storage.from('attachments').upload(path, payload, {
             upsert: false,
             contentType: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream')
           });
         case 5:
-          _yield$client$storage = _context10.v;
+          _yield$client$storage = _context11.v;
           error = _yield$client$storage.error;
           if (!error) {
-            _context10.n = 6;
+            _context11.n = 6;
             break;
           }
           throw error;
         case 6:
           _client$storage$from$ = client.storage.from('attachments').getPublicUrl(path), publicUrl = _client$storage$from$.data.publicUrl;
-          return _context10.a(2, {
+          return _context11.a(2, {
             name: file.name || (isImage ? 'screenshot.png' : 'attachment'),
             url: publicUrl,
             mime: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
@@ -1758,19 +1865,19 @@ function _uploadAttachmentToWtkpi() {
             uploaded_at_ms: Date.now()
           });
       }
-    }, _callee10);
+    }, _callee11);
   }));
   return _uploadAttachmentToWtkpi.apply(this, arguments);
 }
-function compressImageForUpload(_x8, _x9, _x0) {
+function compressImageForUpload(_x9, _x0, _x1) {
   return _compressImageForUpload.apply(this, arguments);
 } // 🆕 fix49: 提交一个拍摄需求 — 写入 photo_logs 表
 function _compressImageForUpload() {
-  _compressImageForUpload = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(file, maxWidth, quality) {
-    return _regenerator().w(function (_context11) {
-      while (1) switch (_context11.n) {
+  _compressImageForUpload = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(file, maxWidth, quality) {
+    return _regenerator().w(function (_context12) {
+      while (1) switch (_context12.n) {
         case 0:
-          return _context11.a(2, new Promise(function (resolve, reject) {
+          return _context12.a(2, new Promise(function (resolve, reject) {
             var reader = new FileReader();
             reader.onload = function (e) {
               var img = new Image();
@@ -1802,24 +1909,25 @@ function _compressImageForUpload() {
             reader.readAsDataURL(file);
           }));
       }
-    }, _callee11);
+    }, _callee12);
   }));
   return _compressImageForUpload.apply(this, arguments);
 }
-function submitPhotoRequest(_x1) {
+function submitPhotoRequest(_x10) {
   return _submitPhotoRequest.apply(this, arguments);
 } // 🆕 fix49: 列出当前用户提的所有需求 / 全部需求(主管视角)
 // 🆕 fix53 v3: 列出全部 photo_logs(不过滤 source),客户端按 sub-tab 筛选
+// 🆕 fix140: 分页 — 不再一次性 limit:500 全拉;默认拉最近 150 条(配 updated_at 索引),消费方「加载更多」按需追加。
 function _submitPhotoRequest() {
-  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(_ref3) {
+  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(_ref4) {
     var productName, sku, productImage, applicableShops, currentUser, reason, urgency, attachments, externalRefId, client, now, row, _yield$client$from$in, data, error;
-    return _regenerator().w(function (_context12) {
-      while (1) switch (_context12.n) {
+    return _regenerator().w(function (_context13) {
+      while (1) switch (_context13.n) {
         case 0:
-          productName = _ref3.productName, sku = _ref3.sku, productImage = _ref3.productImage, applicableShops = _ref3.applicableShops, currentUser = _ref3.currentUser, reason = _ref3.reason, urgency = _ref3.urgency, attachments = _ref3.attachments, externalRefId = _ref3.externalRefId;
+          productName = _ref4.productName, sku = _ref4.sku, productImage = _ref4.productImage, applicableShops = _ref4.applicableShops, currentUser = _ref4.currentUser, reason = _ref4.reason, urgency = _ref4.urgency, attachments = _ref4.attachments, externalRefId = _ref4.externalRefId;
           client = getWtkpiClient();
           if (client) {
-            _context12.n = 1;
+            _context13.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -1854,21 +1962,21 @@ function _submitPhotoRequest() {
             created_at_ms: now,
             updated_at: new Date().toISOString()
           };
-          _context12.n = 2;
+          _context13.n = 2;
           return client.from('photo_logs').insert(row).select().single();
         case 2:
-          _yield$client$from$in = _context12.v;
+          _yield$client$from$in = _context13.v;
           data = _yield$client$from$in.data;
           error = _yield$client$from$in.error;
           if (!error) {
-            _context12.n = 3;
+            _context13.n = 3;
             break;
           }
           throw error;
         case 3:
-          return _context12.a(2, data);
+          return _context13.a(2, data);
       }
-    }, _callee12);
+    }, _callee13);
   }));
   return _submitPhotoRequest.apply(this, arguments);
 }
@@ -1876,51 +1984,61 @@ function listPhotoRequests() {
   return _listPhotoRequests.apply(this, arguments);
 } // 🆕 fix53 v3: 协作编辑产品基础字段(merge,不覆盖)
 function _listPhotoRequests() {
-  _listPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
-    var client, _yield$client$from$se2, data, error;
-    return _regenerator().w(function (_context13) {
-      while (1) switch (_context13.n) {
-        case 0:
-          client = getWtkpiClient();
-          if (client) {
-            _context13.n = 1;
-            break;
-          }
-          return _context13.a(2, []);
-        case 1:
-          _context13.n = 2;
-          return client.from('photo_logs').select('*').order('updated_at', {
-            ascending: false
-          }).limit(500);
-        case 2:
-          _yield$client$from$se2 = _context13.v;
-          data = _yield$client$from$se2.data;
-          error = _yield$client$from$se2.error;
-          if (!error) {
-            _context13.n = 3;
-            break;
-          }
-          console.error('[WTKPI] 拉需求列表失败', error);
-          return _context13.a(2, []);
-        case 3:
-          return _context13.a(2, data || []);
-      }
-    }, _callee13);
-  }));
-  return _listPhotoRequests.apply(this, arguments);
-}
-function updatePhotoRequestBasics(_x10, _x11) {
-  return _updatePhotoRequestBasics.apply(this, arguments);
-} // 🆕 fix53 v3: 追加附件/补充原因(merge external_request,不覆盖)
-function _updatePhotoRequestBasics() {
-  _updatePhotoRequestBasics = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(logId, basics) {
-    var client, allowed, clean, _i3, _allowed, k, _yield$client$from$up2, error;
+  _listPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
+    var opts,
+      client,
+      limit,
+      offset,
+      _yield$client$from$se2,
+      data,
+      error,
+      _args14 = arguments;
     return _regenerator().w(function (_context14) {
       while (1) switch (_context14.n) {
         case 0:
+          opts = _args14.length > 0 && _args14[0] !== undefined ? _args14[0] : {};
           client = getWtkpiClient();
           if (client) {
             _context14.n = 1;
+            break;
+          }
+          return _context14.a(2, []);
+        case 1:
+          limit = opts.limit || 150;
+          offset = opts.offset || 0;
+          _context14.n = 2;
+          return client.from('photo_logs').select('*').order('updated_at', {
+            ascending: false
+          }).range(offset, offset + limit - 1);
+        case 2:
+          _yield$client$from$se2 = _context14.v;
+          data = _yield$client$from$se2.data;
+          error = _yield$client$from$se2.error;
+          if (!error) {
+            _context14.n = 3;
+            break;
+          }
+          console.error('[WTKPI] 拉需求列表失败', error);
+          return _context14.a(2, []);
+        case 3:
+          return _context14.a(2, data || []);
+      }
+    }, _callee14);
+  }));
+  return _listPhotoRequests.apply(this, arguments);
+}
+function updatePhotoRequestBasics(_x11, _x12) {
+  return _updatePhotoRequestBasics.apply(this, arguments);
+} // 🆕 fix53 v3: 追加附件/补充原因(merge external_request,不覆盖)
+function _updatePhotoRequestBasics() {
+  _updatePhotoRequestBasics = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(logId, basics) {
+    var client, allowed, clean, _i3, _allowed, k, _yield$client$from$up2, error;
+    return _regenerator().w(function (_context15) {
+      while (1) switch (_context15.n) {
+        case 0:
+          client = getWtkpiClient();
+          if (client) {
+            _context15.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -1932,48 +2050,48 @@ function _updatePhotoRequestBasics() {
             if (basics[k] !== undefined) clean[k] = basics[k];
           }
           clean.updated_at = new Date().toISOString();
-          _context14.n = 2;
+          _context15.n = 2;
           return client.from('photo_logs').update(clean).eq('id', logId);
         case 2:
-          _yield$client$from$up2 = _context14.v;
+          _yield$client$from$up2 = _context15.v;
           error = _yield$client$from$up2.error;
           if (!error) {
-            _context14.n = 3;
+            _context15.n = 3;
             break;
           }
           throw error;
         case 3:
-          return _context14.a(2);
+          return _context15.a(2);
       }
-    }, _callee14);
+    }, _callee15);
   }));
   return _updatePhotoRequestBasics.apply(this, arguments);
 }
-function appendToPhotoRequest(_x12, _x13) {
+function appendToPhotoRequest(_x13, _x14) {
   return _appendToPhotoRequest.apply(this, arguments);
 } // 🆕 fix53 v3: 批量录入 — 客服汇总员一次提交多条
 function _appendToPhotoRequest() {
-  _appendToPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(logId, additions) {
+  _appendToPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(logId, additions) {
     var _additions$attachment;
     var client, _yield$client$from$se3, row, e1, current, merged, _yield$client$from$up3, e2;
-    return _regenerator().w(function (_context15) {
-      while (1) switch (_context15.n) {
+    return _regenerator().w(function (_context16) {
+      while (1) switch (_context16.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context15.n = 1;
+            _context16.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
         case 1:
-          _context15.n = 2;
+          _context16.n = 2;
           return client.from('photo_logs').select('external_request').eq('id', logId).single();
         case 2:
-          _yield$client$from$se3 = _context15.v;
+          _yield$client$from$se3 = _context16.v;
           row = _yield$client$from$se3.data;
           e1 = _yield$client$from$se3.error;
           if (!e1) {
-            _context15.n = 3;
+            _context16.n = 3;
             break;
           }
           throw e1;
@@ -1987,38 +2105,38 @@ function _appendToPhotoRequest() {
             merged.reason = (current.reason || '') + "\n\n--- ".concat(new Date().toLocaleDateString('zh-CN'), " \u8865\u5145(").concat(additions.editor_name || '', ") ---\n") + additions.reason_append;
           }
           if (additions.urgency) merged.urgency = additions.urgency;
-          _context15.n = 4;
+          _context16.n = 4;
           return client.from('photo_logs').update({
             external_request: merged,
             updated_at: new Date().toISOString()
           }).eq('id', logId);
         case 4:
-          _yield$client$from$up3 = _context15.v;
+          _yield$client$from$up3 = _context16.v;
           e2 = _yield$client$from$up3.error;
           if (!e2) {
-            _context15.n = 5;
+            _context16.n = 5;
             break;
           }
           throw e2;
         case 5:
-          return _context15.a(2);
+          return _context16.a(2);
       }
-    }, _callee15);
+    }, _callee16);
   }));
   return _appendToPhotoRequest.apply(this, arguments);
 }
-function batchSubmitPhotoRequests(_x14, _x15, _x16) {
+function batchSubmitPhotoRequests(_x15, _x16, _x17) {
   return _batchSubmitPhotoRequests.apply(this, arguments);
 } // 暴露到 window,方便 React 组件调用
 function _batchSubmitPhotoRequests() {
-  _batchSubmitPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(rows, defaults, currentUser) {
+  _batchSubmitPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(rows, defaults, currentUser) {
     var client, now, batchId, inserts, results, succeeded, failed, errors;
-    return _regenerator().w(function (_context16) {
-      while (1) switch (_context16.n) {
+    return _regenerator().w(function (_context17) {
+      while (1) switch (_context17.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context16.n = 1;
+            _context17.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -2057,12 +2175,12 @@ function _batchSubmitPhotoRequests() {
               updated_at: new Date().toISOString()
             };
           });
-          _context16.n = 2;
+          _context17.n = 2;
           return Promise.allSettled(inserts.map(function (row) {
             return client.from('photo_logs').insert(row);
           }));
         case 2:
-          results = _context16.v;
+          results = _context17.v;
           succeeded = results.filter(function (r) {
             return r.status === 'fulfilled' && !r.value.error;
           }).length;
@@ -2074,14 +2192,14 @@ function _batchSubmitPhotoRequests() {
             var _r$reason, _r$value2;
             return ((_r$reason = r.reason) === null || _r$reason === void 0 ? void 0 : _r$reason.message) || ((_r$value2 = r.value) === null || _r$value2 === void 0 || (_r$value2 = _r$value2.error) === null || _r$value2 === void 0 ? void 0 : _r$value2.message) || 'unknown';
           });
-          return _context16.a(2, {
+          return _context17.a(2, {
             succeeded: succeeded,
             failed: failed,
             errors: errors,
             batchId: batchId
           });
       }
-    }, _callee16);
+    }, _callee17);
   }));
   return _batchSubmitPhotoRequests.apply(this, arguments);
 }
@@ -2747,13 +2865,13 @@ if (typeof window !== 'undefined') {
 
 // 📅 增强日期筛选 UI 组件
 // 支持:今天/本周/本月/全部 4 个快捷 chip + 更多弹窗(年月周精确选择)
-var AdvancedDateFilter = function AdvancedDateFilter(_ref4) {
-  var value = _ref4.value,
-    onChange = _ref4.onChange,
-    _ref4$size = _ref4.size,
-    size = _ref4$size === void 0 ? 'sm' : _ref4$size,
-    _ref4$extraChips = _ref4.extraChips,
-    extraChips = _ref4$extraChips === void 0 ? null : _ref4$extraChips;
+var AdvancedDateFilter = function AdvancedDateFilter(_ref5) {
+  var value = _ref5.value,
+    onChange = _ref5.onChange,
+    _ref5$size = _ref5.size,
+    size = _ref5$size === void 0 ? 'sm' : _ref5$size,
+    _ref5$extraChips = _ref5.extraChips,
+    extraChips = _ref5$extraChips === void 0 ? null : _ref5$extraChips;
   var _useState = useState(false),
     _useState2 = _slicedToArray(_useState, 2),
     open = _useState2[0],
@@ -3509,11 +3627,11 @@ var suggestDifficulty = function suggestDifficulty(cat, durationMin) {
 // ============================================================
 // 图标 (内联 SVG)
 // ============================================================
-var Icon = function Icon(_ref5) {
-  var name = _ref5.name,
-    _ref5$className = _ref5.className,
-    className = _ref5$className === void 0 ? 'w-4 h-4' : _ref5$className,
-    style = _ref5.style;
+var Icon = function Icon(_ref6) {
+  var name = _ref6.name,
+    _ref6$className = _ref6.className,
+    className = _ref6$className === void 0 ? 'w-4 h-4' : _ref6$className,
+    style = _ref6.style;
   var paths = {
     cs: 'M7 8h10M7 12h7m-7 4h4m1 5l-4-4H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-5l-4 4z',
     cash: 'M12 8c-1.66 0-3 .67-3 1.5S10.34 11 12 11s3-.67 3-1.5S13.66 8 12 8zm0 0V6m0 6v6m-9-3a9 9 0 1118 0 9 9 0 01-18 0z',
@@ -3578,9 +3696,9 @@ var useToast = function useToast() {
 // ============================================================
 // 登录 / Session
 // ============================================================
-var LoginScreen = function LoginScreen(_ref6) {
-  var employees = _ref6.employees,
-    onLogin = _ref6.onLogin;
+var LoginScreen = function LoginScreen(_ref7) {
+  var employees = _ref7.employees,
+    onLogin = _ref7.onLogin;
   var _useState9 = useState(''),
     _useState0 = _slicedToArray(_useState9, 2),
     selectedId = _useState0[0],
@@ -4200,27 +4318,27 @@ var LoginScreen = function LoginScreen(_ref6) {
 // ============================================================
 // 顶部导航
 // ============================================================
-var TopNav = function TopNav(_ref7) {
-  var user = _ref7.user,
-    activeTab = _ref7.activeTab,
-    setActiveTab = _ref7.setActiveTab,
-    onLogout = _ref7.onLogout,
-    stats = _ref7.stats,
-    notifPerm = _ref7.notifPerm,
-    requestNotifPerm = _ref7.requestNotifPerm,
-    cloudOn = _ref7.cloudOn,
-    employees = _ref7.employees,
-    switchAccount = _ref7.switchAccount,
-    onOpenSearch = _ref7.onOpenSearch,
-    _ref7$cdmUnreadCount = _ref7.cdmUnreadCount,
-    cdmUnreadCount = _ref7$cdmUnreadCount === void 0 ? 0 : _ref7$cdmUnreadCount,
-    _ref7$cdmUrgentUnread = _ref7.cdmUrgentUnread,
-    cdmUrgentUnread = _ref7$cdmUrgentUnread === void 0 ? 0 : _ref7$cdmUrgentUnread,
-    _ref7$topTabs = _ref7.topTabs,
-    topTabs = _ref7$topTabs === void 0 ? [] : _ref7$topTabs,
-    _ref7$sidebarHiddenCo = _ref7.sidebarHiddenCount,
-    sidebarHiddenCount = _ref7$sidebarHiddenCo === void 0 ? 0 : _ref7$sidebarHiddenCo,
-    onOpenCustomize = _ref7.onOpenCustomize;
+var TopNav = function TopNav(_ref8) {
+  var user = _ref8.user,
+    activeTab = _ref8.activeTab,
+    setActiveTab = _ref8.setActiveTab,
+    onLogout = _ref8.onLogout,
+    stats = _ref8.stats,
+    notifPerm = _ref8.notifPerm,
+    requestNotifPerm = _ref8.requestNotifPerm,
+    cloudOn = _ref8.cloudOn,
+    employees = _ref8.employees,
+    switchAccount = _ref8.switchAccount,
+    onOpenSearch = _ref8.onOpenSearch,
+    _ref8$cdmUnreadCount = _ref8.cdmUnreadCount,
+    cdmUnreadCount = _ref8$cdmUnreadCount === void 0 ? 0 : _ref8$cdmUnreadCount,
+    _ref8$cdmUrgentUnread = _ref8.cdmUrgentUnread,
+    cdmUrgentUnread = _ref8$cdmUrgentUnread === void 0 ? 0 : _ref8$cdmUrgentUnread,
+    _ref8$topTabs = _ref8.topTabs,
+    topTabs = _ref8$topTabs === void 0 ? [] : _ref8$topTabs,
+    _ref8$sidebarHiddenCo = _ref8.sidebarHiddenCount,
+    sidebarHiddenCount = _ref8$sidebarHiddenCo === void 0 ? 0 : _ref8$sidebarHiddenCo,
+    onOpenCustomize = _ref8.onOpenCustomize;
   var _useState21 = useState(false),
     _useState22 = _slicedToArray(_useState21, 2),
     switchModalOpen = _useState22[0],
@@ -4675,14 +4793,14 @@ var NavGroupDropdown = function NavGroupDropdown() {
 // 客服跟进表 - 主模块
 // ============================================================
 // 🆕 事件添加下拉菜单 - 把 6 个按钮折叠成一个,节省横向空间
-var EventActionDropdown = function EventActionDropdown(_ref8) {
-  var record = _ref8.record,
-    onAftersale = _ref8.onAftersale,
-    onRefill = _ref8.onRefill,
-    onRefund = _ref8.onRefund,
-    onChargeback = _ref8.onChargeback,
-    onCustom = _ref8.onCustom,
-    onPhoto = _ref8.onPhoto;
+var EventActionDropdown = function EventActionDropdown(_ref9) {
+  var record = _ref9.record,
+    onAftersale = _ref9.onAftersale,
+    onRefill = _ref9.onRefill,
+    onRefund = _ref9.onRefund,
+    onChargeback = _ref9.onChargeback,
+    onCustom = _ref9.onCustom,
+    onPhoto = _ref9.onPhoto;
   var _useState23 = useState(false),
     _useState24 = _slicedToArray(_useState23, 2),
     open = _useState24[0],

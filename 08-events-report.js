@@ -1,7 +1,7 @@
-// ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-138
-// APP_VERSION: 2026.05.30-fix138
-// ════════════════════════════════════════════════════════════════════
+// ====== cs-system 统一工作台 — 08-events-report ======
+// 版本 2026.06.02-fix140
+// 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
+//
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 var _excluded = ["payload"];
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var n = Object.getOwnPropertySymbols(e); for (r = 0; r < n.length; r++) o = n[r], -1 === t.indexOf(o) && {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
@@ -27,10 +27,10 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-// ════════════════════════════════════════════════════════════════════
-// 📋 售后/补件/退款(fix81 完成统计可点)+ 汇总 + EventListModal · fix28-138
-// APP_VERSION: 2026.05.30-fix138
-// ════════════════════════════════════════════════════════════════════
+// ====== cs-system 统一工作台 — 08-events-report ======
+// 版本 2026.06.02-fix140
+// 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
+//
 
 var EventsModule = function EventsModule(_ref) {
   var _window$__canProcessR, _window;
@@ -7254,3 +7254,10 @@ var TicketDetailModal = function TicketDetailModal(_ref54) {
     }
   }))));
 };
+
+// ============================================================
+// 知识库模块 - 从 Supabase 拉取双语 Q&A
+// ============================================================
+// ============================================================
+// 知识库模块 - 跳转到独立 kb.html (Supabase + Gemini + 智能搜索 + 编辑同步)
+// ============================================================

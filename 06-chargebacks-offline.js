@@ -1,7 +1,7 @@
-// ════════════════════════════════════════════════════════════════════
-// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-138
-// APP_VERSION: 2026.05.30-fix138
-// ════════════════════════════════════════════════════════════════════
+// ====== cs-system 统一工作台 — 06-chargebacks-offline ======
+// 版本 2026.06.02-fix140
+// 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
+//
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
@@ -24,10 +24,10 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-// ════════════════════════════════════════════════════════════════════
-// 🚨 拒付(fix81 金额汇总可点)+ 💳 线下单 + 🎨 定制实拍 · fix28-138
-// APP_VERSION: 2026.05.30-fix138
-// ════════════════════════════════════════════════════════════════════
+// ====== cs-system 统一工作台 — 06-chargebacks-offline ======
+// 版本 2026.06.02-fix140
+// 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
+//
 
 var ChargebacksModule = function ChargebacksModule(_ref) {
   var user = _ref.user,
@@ -667,6 +667,41 @@ var ChargebackCard = function ChargebackCard(_ref5) {
     _useState28 = _slicedToArray(_useState27, 2),
     previewFile = _useState28[0],
     setPreviewFile = _useState28[1];
+  // 🆕 fix139: 证据图按需取(列表不带 evidence_files,展开时才拉)
+  var _useState29 = useState(null),
+    _useState30 = _slicedToArray(_useState29, 2),
+    loadedEvidence = _useState30[0],
+    setLoadedEvidence = _useState30[1];
+  useEffect(function () {
+    if (!expanded || loadedEvidence !== null || Array.isArray(cb.evidence_files)) return;
+    var alive = true;
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+      var _yield$CLOUD$client$f, data, _t2;
+      return _regenerator().w(function (_context3) {
+        while (1) switch (_context3.p = _context3.n) {
+          case 0:
+            _context3.p = 0;
+            _context3.n = 1;
+            return CLOUD.client.from('chargebacks').select('evidence_files').eq('id', cb.id).maybeSingle();
+          case 1:
+            _yield$CLOUD$client$f = _context3.v;
+            data = _yield$CLOUD$client$f.data;
+            if (alive) setLoadedEvidence(data && data.evidence_files || []);
+            _context3.n = 3;
+            break;
+          case 2:
+            _context3.p = 2;
+            _t2 = _context3.v;
+            if (alive) setLoadedEvidence([]);
+          case 3:
+            return _context3.a(2);
+        }
+      }, _callee3, null, [[0, 2]]);
+    }))();
+    return function () {
+      alive = false;
+    };
+  }, [expanded]);
   var urgency = getChargebackUrgency(cb);
   var status = CHARGEBACK_STATUSES.find(function (s) {
     return s.key === cb.status;
@@ -674,60 +709,60 @@ var ChargebackCard = function ChargebackCard(_ref5) {
   var reason = CHARGEBACK_REASONS.find(function (r) {
     return r.key === cb.reason;
   });
-  var evidence = cb.evidence_files || [];
+  var evidence = Array.isArray(cb.evidence_files) ? cb.evidence_files : loadedEvidence || [];
   var setStatus = /*#__PURE__*/function () {
-    var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(newStatus) {
+    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(newStatus) {
       var res;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.n) {
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.n) {
           case 0:
-            _context3.n = 1;
+            _context4.n = 1;
             return CLOUD.upsert('chargebacks', _objectSpread(_objectSpread({}, cb), {}, {
               status: newStatus,
               updated_at: new Date().toISOString()
             }));
           case 1:
-            res = _context3.v;
+            res = _context4.v;
             if (res) {
               toast('✓ 已更新状态');
               onReload();
-            }
-          case 2:
-            return _context3.a(2);
-        }
-      }, _callee3);
-    }));
-    return function setStatus(_x2) {
-      return _ref6.apply(this, arguments);
-    };
-  }();
-  // 🆕 fix118: 手工标记"客服失误"(计入绩效奖惩 -3/次,按失误人月统计)· 需先在 chargebacks 表加 cs_fault/cs_fault_emp 列
-  var toggleFault = /*#__PURE__*/function () {
-    var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-      var next, res;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.n) {
-          case 0:
-            next = !cb.cs_fault;
-            _context4.n = 1;
-            return CLOUD.upsert('chargebacks', _objectSpread(_objectSpread({}, cb), {}, {
-              cs_fault: next,
-              cs_fault_emp: next ? cb.cs_fault_emp || cb.created_by : null,
-              updated_at: new Date().toISOString()
-            }));
-          case 1:
-            res = _context4.v;
-            if (res) {
-              toast(next ? '⚠️ 已标记客服失误 · 绩效 -3' : '已取消客服失误标记');
-              onReload && onReload();
             }
           case 2:
             return _context4.a(2);
         }
       }, _callee4);
     }));
-    return function toggleFault() {
+    return function setStatus(_x2) {
       return _ref7.apply(this, arguments);
+    };
+  }();
+  // 🆕 fix118: 手工标记"客服失误"(计入绩效奖惩 -3/次,按失误人月统计)· 需先在 chargebacks 表加 cs_fault/cs_fault_emp 列
+  var toggleFault = /*#__PURE__*/function () {
+    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+      var next, res;
+      return _regenerator().w(function (_context5) {
+        while (1) switch (_context5.n) {
+          case 0:
+            next = !cb.cs_fault;
+            _context5.n = 1;
+            return CLOUD.upsert('chargebacks', _objectSpread(_objectSpread({}, cb), {}, {
+              cs_fault: next,
+              cs_fault_emp: next ? cb.cs_fault_emp || cb.created_by : null,
+              updated_at: new Date().toISOString()
+            }));
+          case 1:
+            res = _context5.v;
+            if (res) {
+              toast(next ? '⚠️ 已标记客服失误 · 绩效 -3' : '已取消客服失误标记');
+              onReload && onReload();
+            }
+          case 2:
+            return _context5.a(2);
+        }
+      }, _callee5);
+    }));
+    return function toggleFault() {
+      return _ref8.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -1071,13 +1106,13 @@ var ChargebackCard = function ChargebackCard(_ref5) {
     }
   }));
 };
-var ChargebackEditor = function ChargebackEditor(_ref8) {
-  var cb = _ref8.cb,
-    user = _ref8.user,
-    employees = _ref8.employees,
-    onClose = _ref8.onClose,
-    onSaved = _ref8.onSaved,
-    toast = _ref8.toast;
+var ChargebackEditor = function ChargebackEditor(_ref9) {
+  var cb = _ref9.cb,
+    user = _ref9.user,
+    employees = _ref9.employees,
+    onClose = _ref9.onClose,
+    onSaved = _ref9.onSaved,
+    toast = _ref9.toast;
   var isEdit = !!cb;
   var today = todayISO();
   var defaultDeadline = function () {
@@ -1087,77 +1122,107 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
   }();
 
   // ✂ 简化版字段:只保留主管要求的最核心字段
-  var _useState29 = useState((cb === null || cb === void 0 ? void 0 : cb.order_no) || ''),
-    _useState30 = _slicedToArray(_useState29, 2),
-    orderNo = _useState30[0],
-    setOrderNo = _useState30[1];
-  var _useState31 = useState((cb === null || cb === void 0 ? void 0 : cb.customer_email) || ''),
+  var _useState31 = useState((cb === null || cb === void 0 ? void 0 : cb.order_no) || ''),
     _useState32 = _slicedToArray(_useState31, 2),
-    customerEmail = _useState32[0],
-    setCustomerEmail = _useState32[1];
-  var _useState33 = useState((cb === null || cb === void 0 ? void 0 : cb.platform) || 'Stripe'),
+    orderNo = _useState32[0],
+    setOrderNo = _useState32[1];
+  var _useState33 = useState((cb === null || cb === void 0 ? void 0 : cb.customer_email) || ''),
     _useState34 = _slicedToArray(_useState33, 2),
-    platform = _useState34[0],
-    setPlatform = _useState34[1];
-  var _useState35 = useState((cb === null || cb === void 0 ? void 0 : cb.amount) || ''),
+    customerEmail = _useState34[0],
+    setCustomerEmail = _useState34[1];
+  var _useState35 = useState((cb === null || cb === void 0 ? void 0 : cb.platform) || 'Stripe'),
     _useState36 = _slicedToArray(_useState35, 2),
-    amount = _useState36[0],
-    setAmount = _useState36[1];
-  var _useState37 = useState((cb === null || cb === void 0 ? void 0 : cb.currency) || 'USD'),
+    platform = _useState36[0],
+    setPlatform = _useState36[1];
+  var _useState37 = useState((cb === null || cb === void 0 ? void 0 : cb.amount) || ''),
     _useState38 = _slicedToArray(_useState37, 2),
-    currency = _useState38[0],
-    setCurrency = _useState38[1];
-  var _useState39 = useState((cb === null || cb === void 0 ? void 0 : cb.opened_at) || today),
+    amount = _useState38[0],
+    setAmount = _useState38[1];
+  var _useState39 = useState((cb === null || cb === void 0 ? void 0 : cb.currency) || 'USD'),
     _useState40 = _slicedToArray(_useState39, 2),
-    openedAt = _useState40[0],
-    setOpenedAt = _useState40[1];
-  var _useState41 = useState((cb === null || cb === void 0 ? void 0 : cb.deadline) || defaultDeadline),
+    currency = _useState40[0],
+    setCurrency = _useState40[1];
+  var _useState41 = useState((cb === null || cb === void 0 ? void 0 : cb.opened_at) || today),
     _useState42 = _slicedToArray(_useState41, 2),
-    deadline = _useState42[0],
-    setDeadline = _useState42[1];
-  var _useState43 = useState((cb === null || cb === void 0 ? void 0 : cb.reason) || 'product'),
+    openedAt = _useState42[0],
+    setOpenedAt = _useState42[1];
+  var _useState43 = useState((cb === null || cb === void 0 ? void 0 : cb.deadline) || defaultDeadline),
     _useState44 = _slicedToArray(_useState43, 2),
-    reason = _useState44[0],
-    setReason = _useState44[1]; // 🆕 加回拒付原因
-  var _useState45 = useState((cb === null || cb === void 0 ? void 0 : cb.notes) || ''),
+    deadline = _useState44[0],
+    setDeadline = _useState44[1];
+  var _useState45 = useState((cb === null || cb === void 0 ? void 0 : cb.reason) || 'product'),
     _useState46 = _slicedToArray(_useState45, 2),
-    notes = _useState46[0],
-    setNotes = _useState46[1];
-  var _useState47 = useState((cb === null || cb === void 0 ? void 0 : cb.evidence_files) || []),
+    reason = _useState46[0],
+    setReason = _useState46[1]; // 🆕 加回拒付原因
+  var _useState47 = useState((cb === null || cb === void 0 ? void 0 : cb.notes) || ''),
     _useState48 = _slicedToArray(_useState47, 2),
-    evidence = _useState48[0],
-    setEvidence = _useState48[1];
+    notes = _useState48[0],
+    setNotes = _useState48[1];
+  var _useState49 = useState(Array.isArray(cb === null || cb === void 0 ? void 0 : cb.evidence_files) ? cb.evidence_files : []),
+    _useState50 = _slicedToArray(_useState49, 2),
+    evidence = _useState50[0],
+    setEvidence = _useState50[1];
+  // 🆕 fix139: 编辑已有拒付时,列表未带 evidence_files → 按需补取,避免保存时清空原证据
+  useEffect(function () {
+    if (!cb || !cb.id || Array.isArray(cb.evidence_files)) return;
+    var alive = true;
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
+      var _yield$CLOUD$client$f2, data, _t3;
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
+          case 0:
+            _context6.p = 0;
+            _context6.n = 1;
+            return CLOUD.client.from('chargebacks').select('evidence_files').eq('id', cb.id).maybeSingle();
+          case 1:
+            _yield$CLOUD$client$f2 = _context6.v;
+            data = _yield$CLOUD$client$f2.data;
+            if (alive && data && Array.isArray(data.evidence_files) && data.evidence_files.length) setEvidence(data.evidence_files);
+            _context6.n = 3;
+            break;
+          case 2:
+            _context6.p = 2;
+            _t3 = _context6.v;
+          case 3:
+            return _context6.a(2);
+        }
+      }, _callee6, null, [[0, 2]]);
+    }))();
+    return function () {
+      alive = false;
+    };
+  }, []);
   // 🆕 fix119: 拒付表单一键拉取订单 → 自动填客户邮箱/金额/币种 + 选产品图入证据
-  var _useState49 = useState({
+  var _useState51 = useState({
       loading: false,
       products: null
     }),
-    _useState50 = _slicedToArray(_useState49, 2),
-    cbPull = _useState50[0],
-    setCbPull = _useState50[1];
+    _useState52 = _slicedToArray(_useState51, 2),
+    cbPull = _useState52[0],
+    setCbPull = _useState52[1];
   var cbDoPull = /*#__PURE__*/function () {
-    var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-      var on, v, _t2;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.p = _context5.n) {
+    var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+      var on, v, _t4;
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.p = _context7.n) {
           case 0:
             on = (orderNo || '').trim();
             if (on) {
-              _context5.n = 1;
+              _context7.n = 1;
               break;
             }
             alert('请先填订单编号');
-            return _context5.a(2);
+            return _context7.a(2);
           case 1:
             setCbPull({
               loading: true,
               products: null
             });
-            _context5.p = 2;
-            _context5.n = 3;
+            _context7.p = 2;
+            _context7.n = 3;
             return wsFetchOrderProducts(on);
           case 3:
-            v = _context5.v;
+            v = _context7.v;
             setCbPull({
               loading: false,
               products: v && v.products || []
@@ -1167,22 +1232,22 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
               if (!(amount || '').toString().trim() && v.total) setAmount(v.total);
               if (v.currency) setCurrency(v.currency);
             }
-            _context5.n = 5;
+            _context7.n = 5;
             break;
           case 4:
-            _context5.p = 4;
-            _t2 = _context5.v;
+            _context7.p = 4;
+            _t4 = _context7.v;
             setCbPull({
               loading: false,
               products: []
             });
           case 5:
-            return _context5.a(2);
+            return _context7.a(2);
         }
-      }, _callee5, null, [[2, 4]]);
+      }, _callee7, null, [[2, 4]]);
     }));
     return function cbDoPull() {
-      return _ref9.apply(this, arguments);
+      return _ref1.apply(this, arguments);
     };
   }();
   var cbIsImgSaved = function cbIsImgSaved(p) {
@@ -1220,22 +1285,22 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
       return !a.from_order;
     }));
   };
-  var _useState51 = useState((cb === null || cb === void 0 ? void 0 : cb.status) || 'pending'),
-    _useState52 = _slicedToArray(_useState51, 2),
-    status = _useState52[0],
-    setStatus = _useState52[1];
-  var _useState53 = useState(false),
+  var _useState53 = useState((cb === null || cb === void 0 ? void 0 : cb.status) || 'pending'),
     _useState54 = _slicedToArray(_useState53, 2),
-    saving = _useState54[0],
-    setSaving = _useState54[1];
-  var _useState55 = useState(''),
+    status = _useState54[0],
+    setStatus = _useState54[1];
+  var _useState55 = useState(false),
     _useState56 = _slicedToArray(_useState55, 2),
-    autoAssignInfo = _useState56[0],
-    setAutoAssignInfo = _useState56[1];
-  var _useState57 = useState((cb === null || cb === void 0 ? void 0 : cb.assigned_to) || []),
+    saving = _useState56[0],
+    setSaving = _useState56[1];
+  var _useState57 = useState(''),
     _useState58 = _slicedToArray(_useState57, 2),
-    assignedTo = _useState58[0],
-    setAssignedTo = _useState58[1];
+    autoAssignInfo = _useState58[0],
+    setAutoAssignInfo = _useState58[1];
+  var _useState59 = useState((cb === null || cb === void 0 ? void 0 : cb.assigned_to) || []),
+    _useState60 = _slicedToArray(_useState59, 2),
+    assignedTo = _useState60[0],
+    setAssignedTo = _useState60[1];
 
   // 🔍 从订单编号智能推断网站(例如 VKA-0756 → VK, RD0031 → RD, DF-1234 → DF)
   var inferSiteFromOrderNo = function inferSiteFromOrderNo(orderNoStr) {
@@ -1328,18 +1393,18 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
       setAutoAssignInfo('');
       return;
     }
-    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-      var inferredSite, _yield$CLOUD$client$f, data, config, _autoAssignByConfig, ids, info, names, _t3;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
+      var inferredSite, _yield$CLOUD$client$f3, data, config, _autoAssignByConfig, ids, info, names, _t5;
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.p = _context8.n) {
           case 0:
-            _context6.p = 0;
+            _context8.p = 0;
             inferredSite = inferSiteFromOrderNo(orderNo);
-            _context6.n = 1;
+            _context8.n = 1;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'chargeback_owners').single();
           case 1:
-            _yield$CLOUD$client$f = _context6.v;
-            data = _yield$CLOUD$client$f.data;
+            _yield$CLOUD$client$f3 = _context8.v;
+            data = _yield$CLOUD$client$f3.data;
             config = (data === null || data === void 0 ? void 0 : data.value) || {};
             _autoAssignByConfig = autoAssignByConfig(inferredSite, config), ids = _autoAssignByConfig.ids, info = _autoAssignByConfig.info;
             if (ids.length > 0) {
@@ -1355,59 +1420,59 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
               setAssignedTo([]);
               setAutoAssignInfo('⚠ 未配置拒付负责人,主管请在 ⚙ 设置 中配置');
             }
-            _context6.n = 3;
+            _context8.n = 3;
             break;
           case 2:
-            _context6.p = 2;
-            _t3 = _context6.v;
+            _context8.p = 2;
+            _t5 = _context8.v;
             setAutoAssignInfo('');
           case 3:
-            return _context6.a(2);
+            return _context8.a(2);
         }
-      }, _callee6, null, [[0, 2]]);
+      }, _callee8, null, [[0, 2]]);
     }))();
   }, [orderNo, isEdit]);
   var daysLeft = deadline ? daysUntil(deadline) : null;
   var handleSave = /*#__PURE__*/function () {
-    var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
-      var userName, now, inferredSite, assignedNames, payload, res, _t4;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.p = _context7.n) {
+    var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+      var userName, now, inferredSite, assignedNames, payload, res, _t6;
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.p = _context9.n) {
           case 0:
             if (orderNo.trim()) {
-              _context7.n = 1;
+              _context9.n = 1;
               break;
             }
             alert('请填写订单编号');
-            return _context7.a(2);
+            return _context9.a(2);
           case 1:
             if (customerEmail.trim()) {
-              _context7.n = 2;
+              _context9.n = 2;
               break;
             }
             alert('请填写客户邮箱');
-            return _context7.a(2);
+            return _context9.a(2);
           case 2:
             if (!(!amount || parseFloat(amount) <= 0)) {
-              _context7.n = 3;
+              _context9.n = 3;
               break;
             }
             alert('请填写金额');
-            return _context7.a(2);
+            return _context9.a(2);
           case 3:
             if (openedAt) {
-              _context7.n = 4;
+              _context9.n = 4;
               break;
             }
             alert('请填写拒付日期');
-            return _context7.a(2);
+            return _context9.a(2);
           case 4:
             if (deadline) {
-              _context7.n = 5;
+              _context9.n = 5;
               break;
             }
             alert('请填写截止处理日期');
-            return _context7.a(2);
+            return _context9.a(2);
           case 5:
             setSaving(true);
             userName = user.name + (user.alias ? ' ' + user.alias : '');
@@ -1445,33 +1510,33 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
               created_by: (cb === null || cb === void 0 ? void 0 : cb.created_by) || user.id,
               created_by_name: (cb === null || cb === void 0 ? void 0 : cb.created_by_name) || userName
             });
-            _context7.p = 6;
-            _context7.n = 7;
+            _context9.p = 6;
+            _context9.n = 7;
             return CLOUD.upsert('chargebacks', payload);
           case 7:
-            res = _context7.v;
+            res = _context9.v;
             if (res) {
               toast(isEdit ? '✓ 已更新拒付' : '✓ 已创建拒付');
               onSaved();
             } else {
               alertSaveError(isEdit ? '更新拒付' : '创建拒付');
             }
-            _context7.n = 9;
+            _context9.n = 9;
             break;
           case 8:
-            _context7.p = 8;
-            _t4 = _context7.v;
-            console.error('保存拒付失败:', _t4);
+            _context9.p = 8;
+            _t6 = _context9.v;
+            console.error('保存拒付失败:', _t6);
             alertSaveError(isEdit ? '更新拒付' : '创建拒付');
           case 9:
             setSaving(false);
           case 10:
-            return _context7.a(2);
+            return _context9.a(2);
         }
-      }, _callee7, null, [[6, 8]]);
+      }, _callee9, null, [[6, 8]]);
     }));
     return function handleSave() {
-      return _ref1.apply(this, arguments);
+      return _ref11.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
@@ -2147,76 +2212,76 @@ var ChargebackEditor = function ChargebackEditor(_ref8) {
 // ============================================================
 // 💳 线下单模块
 // ============================================================
-var OfflineOrdersModule = function OfflineOrdersModule(_ref10) {
-  var user = _ref10.user,
-    employees = _ref10.employees,
-    toast = _ref10.toast;
+var OfflineOrdersModule = function OfflineOrdersModule(_ref12) {
+  var user = _ref12.user,
+    employees = _ref12.employees,
+    toast = _ref12.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
-  var _useState59 = useState([]),
-    _useState60 = _slicedToArray(_useState59, 2),
-    list = _useState60[0],
-    setList = _useState60[1];
-  var _useState61 = useState(true),
+  var _useState61 = useState([]),
     _useState62 = _slicedToArray(_useState61, 2),
-    loading = _useState62[0],
-    setLoading = _useState62[1];
-  var _useState63 = useState(null),
+    list = _useState62[0],
+    setList = _useState62[1];
+  var _useState63 = useState(true),
     _useState64 = _slicedToArray(_useState63, 2),
-    editing = _useState64[0],
-    setEditing = _useState64[1];
-  var _useState65 = useState('active'),
+    loading = _useState64[0],
+    setLoading = _useState64[1];
+  var _useState65 = useState(null),
     _useState66 = _slicedToArray(_useState65, 2),
-    filterStatus = _useState66[0],
-    setFilterStatus = _useState66[1];
-  var _useState67 = useState('all'),
+    editing = _useState66[0],
+    setEditing = _useState66[1];
+  var _useState67 = useState('active'),
     _useState68 = _slicedToArray(_useState67, 2),
-    filterSite = _useState68[0],
-    setFilterSite = _useState68[1];
-  var _useState69 = useState(''),
+    filterStatus = _useState68[0],
+    setFilterStatus = _useState68[1];
+  var _useState69 = useState('all'),
     _useState70 = _slicedToArray(_useState69, 2),
-    search = _useState70[0],
-    setSearch = _useState70[1];
-  var _useState71 = useState('all'),
+    filterSite = _useState70[0],
+    setFilterSite = _useState70[1];
+  var _useState71 = useState(''),
     _useState72 = _slicedToArray(_useState71, 2),
-    filterOwner = _useState72[0],
-    setFilterOwner = _useState72[1]; // 🆕 fix75: 客服筛选
-  var _useState73 = useState('updated'),
+    search = _useState72[0],
+    setSearch = _useState72[1];
+  var _useState73 = useState('all'),
     _useState74 = _slicedToArray(_useState73, 2),
-    ooSortBy = _useState74[0],
-    setOoSortBy = _useState74[1]; // 🆕 排序
-  var _useState75 = useState('desc'),
+    filterOwner = _useState74[0],
+    setFilterOwner = _useState74[1]; // 🆕 fix75: 客服筛选
+  var _useState75 = useState('updated'),
     _useState76 = _slicedToArray(_useState75, 2),
-    ooSortDir = _useState76[0],
-    setOoSortDir = _useState76[1];
-  // 🆕 时间筛选
-  var _useState77 = useState('all'),
+    ooSortBy = _useState76[0],
+    setOoSortBy = _useState76[1]; // 🆕 排序
+  var _useState77 = useState('desc'),
     _useState78 = _slicedToArray(_useState77, 2),
-    timeFilter = _useState78[0],
-    setTimeFilter = _useState78[1];
-  var _useState79 = useState({
+    ooSortDir = _useState78[0],
+    setOoSortDir = _useState78[1];
+  // 🆕 时间筛选
+  var _useState79 = useState('all'),
+    _useState80 = _slicedToArray(_useState79, 2),
+    timeFilter = _useState80[0],
+    setTimeFilter = _useState80[1];
+  var _useState81 = useState({
       start: '',
       end: ''
     }),
-    _useState80 = _slicedToArray(_useState79, 2),
-    timeCustom = _useState80[0],
-    setTimeCustom = _useState80[1];
+    _useState82 = _slicedToArray(_useState81, 2),
+    timeCustom = _useState82[0],
+    setTimeCustom = _useState82[1];
   // 🆕 fix15: 日期范围筛选(本周/本月/任意月第N周)
-  var _useState81 = useState({
+  var _useState83 = useState({
       kind: 'all'
     }),
-    _useState82 = _slicedToArray(_useState81, 2),
-    dateFilter = _useState82[0],
-    setDateFilter = _useState82[1];
+    _useState84 = _slicedToArray(_useState83, 2),
+    dateFilter = _useState84[0],
+    setDateFilter = _useState84[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
-    var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
-      var data, _t5;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.p = _context8.n) {
+    var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+      var data, _t7;
+      return _regenerator().w(function (_context0) {
+        while (1) switch (_context0.p = _context0.n) {
           case 0:
             setLoading(true);
-            _context8.p = 1;
-            _context8.n = 2;
+            _context0.p = 1;
+            _context0.n = 2;
             return CLOUD.list('offline_orders', {
               order: {
                 col: 'created_at',
@@ -2225,38 +2290,38 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref10) {
               limit: 500
             });
           case 2:
-            data = _context8.v;
+            data = _context0.v;
             setList((data || []).filter(function (o) {
               return !o.deleted;
             }));
-            _context8.n = 4;
+            _context0.n = 4;
             break;
           case 3:
-            _context8.p = 3;
-            _t5 = _context8.v;
-            toast('❌ ' + _t5.message);
+            _context0.p = 3;
+            _t7 = _context0.v;
+            toast('❌ ' + _t7.message);
           case 4:
             setLoading(false);
           case 5:
-            return _context8.a(2);
+            return _context0.a(2);
         }
-      }, _callee8, null, [[1, 3]]);
+      }, _callee0, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref11.apply(this, arguments);
+      return _ref13.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleDelete = /*#__PURE__*/function () {
-    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(o) {
+    var _ref14 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(o) {
       var summary;
-      return _regenerator().w(function (_context9) {
-        while (1) switch (_context9.n) {
+      return _regenerator().w(function (_context1) {
+        while (1) switch (_context1.n) {
           case 0:
             summary = "".concat(o.order_no, " \xB7 ").concat(o.payment_currency || 'USD', " ").concat(o.payment_amount || 0, " \xB7 ").concat(o.customer_email || o.customer_name || '?');
-            _context9.n = 1;
+            _context1.n = 1;
             return requestDelete({
               user: user,
               tableName: 'offline_orders',
@@ -2267,12 +2332,12 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref10) {
               onSuccess: load
             });
           case 1:
-            return _context9.a(2);
+            return _context1.a(2);
         }
-      }, _callee9);
+      }, _callee1);
     }));
     return function handleDelete(_x3) {
-      return _ref12.apply(this, arguments);
+      return _ref14.apply(this, arguments);
     };
   }();
   var filtered = useMemo(function () {
@@ -2651,60 +2716,60 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref10) {
 // 🆕 fix18: 转单给跟单 modal — 一键把已付款的线下单转给跟单同事
 // 自动创建 cross_dept_messages,带订单号 / 收货 / 产品 / 付款凭证
 // ════════════════════════════════════════════════════════════════════
-var TransferToPoModal = function TransferToPoModal(_ref13) {
-  var order = _ref13.order,
-    user = _ref13.user,
-    onClose = _ref13.onClose,
-    onTransferred = _ref13.onTransferred,
-    toast = _ref13.toast;
-  var _useState83 = useState(''),
-    _useState84 = _slicedToArray(_useState83, 2),
-    poUserId = _useState84[0],
-    setPoUserId = _useState84[1];
+var TransferToPoModal = function TransferToPoModal(_ref15) {
+  var order = _ref15.order,
+    user = _ref15.user,
+    onClose = _ref15.onClose,
+    onTransferred = _ref15.onTransferred,
+    toast = _ref15.toast;
   var _useState85 = useState(''),
     _useState86 = _slicedToArray(_useState85, 2),
-    poUserName = _useState86[0],
-    setPoUserName = _useState86[1];
-  var _useState87 = useState('normal'),
+    poUserId = _useState86[0],
+    setPoUserId = _useState86[1];
+  var _useState87 = useState(''),
     _useState88 = _slicedToArray(_useState87, 2),
-    priority = _useState88[0],
-    setPriority = _useState88[1];
-  var _useState89 = useState(''),
+    poUserName = _useState88[0],
+    setPoUserName = _useState88[1];
+  var _useState89 = useState('normal'),
     _useState90 = _slicedToArray(_useState89, 2),
-    extraNote = _useState90[0],
-    setExtraNote = _useState90[1];
-  var _useState91 = useState(false),
+    priority = _useState90[0],
+    setPriority = _useState90[1];
+  var _useState91 = useState(''),
     _useState92 = _slicedToArray(_useState91, 2),
-    sending = _useState92[0],
-    setSending = _useState92[1];
-  var _useState93 = useState([]),
+    extraNote = _useState92[0],
+    setExtraNote = _useState92[1];
+  var _useState93 = useState(false),
     _useState94 = _slicedToArray(_useState93, 2),
-    poEmployees = _useState94[0],
-    setPoEmployees = _useState94[1];
+    sending = _useState94[0],
+    setSending = _useState94[1];
   var _useState95 = useState([]),
     _useState96 = _slicedToArray(_useState95, 2),
-    shopOwners = _useState96[0],
-    setShopOwners = _useState96[1];
+    poEmployees = _useState96[0],
+    setPoEmployees = _useState96[1];
+  var _useState97 = useState([]),
+    _useState98 = _slicedToArray(_useState97, 2),
+    shopOwners = _useState98[0],
+    setShopOwners = _useState98[1];
 
   // 加载跟单员工(从 shop_owners 表里跟单系统的负责人)
   useEffect(function () {
-    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
-      var client, _yield$client$from$se, data, owners, uniqueEmps, list, matched, _t6;
-      return _regenerator().w(function (_context0) {
-        while (1) switch (_context0.p = _context0.n) {
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+      var client, _yield$client$from$se, data, owners, uniqueEmps, list, matched, _t8;
+      return _regenerator().w(function (_context10) {
+        while (1) switch (_context10.p = _context10.n) {
           case 0:
             client = getCdmClient();
             if (client) {
-              _context0.n = 1;
+              _context10.n = 1;
               break;
             }
-            return _context0.a(2);
+            return _context10.a(2);
           case 1:
-            _context0.p = 1;
-            _context0.n = 2;
+            _context10.p = 1;
+            _context10.n = 2;
             return client.from('shop_owners').select('*').eq('system', 'po');
           case 2:
-            _yield$client$from$se = _context0.v;
+            _yield$client$from$se = _context10.v;
             data = _yield$client$from$se.data;
             owners = data || [];
             setShopOwners(owners);
@@ -2728,49 +2793,49 @@ var TransferToPoModal = function TransferToPoModal(_ref13) {
                 setPoUserName(matched.user_name);
               }
             }
-            _context0.n = 4;
+            _context10.n = 4;
             break;
           case 3:
-            _context0.p = 3;
-            _t6 = _context0.v;
-            console.warn('加载跟单员工失败', _t6);
+            _context10.p = 3;
+            _t8 = _context10.v;
+            console.warn('加载跟单员工失败', _t8);
           case 4:
-            return _context0.a(2);
+            return _context10.a(2);
         }
-      }, _callee0, null, [[1, 3]]);
+      }, _callee10, null, [[1, 3]]);
     }))();
   }, [order.site]);
   var products = order.products || [];
   var dispatchText = order.follow_dispatch_text || generateDispatchText(order, products);
   var transfer = /*#__PURE__*/function () {
-    var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
-      var client, userName, body, attachments, msg, _yield$client$from$in, error, _t7;
-      return _regenerator().w(function (_context1) {
-        while (1) switch (_context1.p = _context1.n) {
+    var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+      var client, userName, body, attachments, msg, _yield$client$from$in, error, _t9;
+      return _regenerator().w(function (_context11) {
+        while (1) switch (_context11.p = _context11.n) {
           case 0:
             client = getCdmClient();
             if (client) {
-              _context1.n = 1;
+              _context11.n = 1;
               break;
             }
             alert('消息总线未连接,无法转单');
-            return _context1.a(2);
+            return _context11.a(2);
           case 1:
             if (!(!poUserId && !poUserName.trim())) {
-              _context1.n = 3;
+              _context11.n = 3;
               break;
             }
-            _context1.n = 2;
+            _context11.n = 2;
             return wsConfirm('未指定跟单负责人,确定全跟单部都能看到吗?');
           case 2:
-            if (_context1.v) {
-              _context1.n = 3;
+            if (_context11.v) {
+              _context11.n = 3;
               break;
             }
-            return _context1.a(2);
+            return _context11.a(2);
           case 3:
             setSending(true);
-            _context1.p = 4;
+            _context11.p = 4;
             userName = user.name + (user.alias ? ' ' + user.alias : '');
             body = ['📦 客服已转单 · 此订单客户已付款,请安排下单', '', "\u8BA2\u5355\u53F7: ".concat(order.order_no), "\u7F51\u7AD9: ".concat(order.site || '?'), "\u5BA2\u6237: ".concat(order.customer_name || order.customer_email || '?').concat(order.customer_email ? ' · ' + order.customer_email : ''), "\u4ED8\u6B3E: ".concat(order.payment_method || '?', " \xB7 ").concat(order.payment_currency || 'USD', " ").concat(order.payment_amount || 0).concat(order.received_amount ? ' (实收 ' + order.received_amount + ')' : ''), "\u4ED8\u6B3E\u65F6\u95F4: ".concat(order.paid_at || '未填'), '', '📍 收货地址:', order.ship_to_name || '', order.ship_to_address || '', [order.ship_to_city, order.ship_to_state, order.ship_to_zip].filter(Boolean).join(', '), order.ship_to_country || '', order.ship_to_phone ? '📞 ' + order.ship_to_phone : '', '', "\uD83D\uDECD\uFE0F \u4EA7\u54C1 (".concat(products.length, " \u4EF6):")].concat(_toConsumableArray(products.map(function (p) {
               return "  - ".concat(p.sku || '', " ").concat(p.name || '', " \xD7 ").concat(p.qty || 1).concat(p.unit_price ? ' @ ' + p.unit_price : '');
@@ -2798,18 +2863,18 @@ var TransferToPoModal = function TransferToPoModal(_ref13) {
               created_at_ms: Date.now(),
               updated_at: new Date().toISOString()
             };
-            _context1.n = 5;
+            _context11.n = 5;
             return client.from('cross_dept_messages').insert(msg);
           case 5:
-            _yield$client$from$in = _context1.v;
+            _yield$client$from$in = _context11.v;
             error = _yield$client$from$in.error;
             if (!error) {
-              _context1.n = 6;
+              _context11.n = 6;
               break;
             }
             throw error;
           case 6:
-            _context1.n = 7;
+            _context11.n = 7;
             return CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, order), {}, {
               transferred_to_po: true,
               transferred_to_id: poUserId || null,
@@ -2822,21 +2887,21 @@ var TransferToPoModal = function TransferToPoModal(_ref13) {
           case 7:
             toast('✓ 已转给跟单 · 跨部门消息已发送');
             onTransferred && onTransferred();
-            _context1.n = 9;
+            _context11.n = 9;
             break;
           case 8:
-            _context1.p = 8;
-            _t7 = _context1.v;
-            alert('转单失败: ' + (_t7.message || _t7));
+            _context11.p = 8;
+            _t9 = _context11.v;
+            alert('转单失败: ' + (_t9.message || _t9));
           case 9:
             setSending(false);
           case 10:
-            return _context1.a(2);
+            return _context11.a(2);
         }
-      }, _callee1, null, [[4, 8]]);
+      }, _callee11, null, [[4, 8]]);
     }));
     return function transfer() {
-      return _ref15.apply(this, arguments);
+      return _ref17.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
@@ -3071,37 +3136,37 @@ var TransferToPoModal = function TransferToPoModal(_ref13) {
     }
   }, sending ? '转单中...' : '📤 确认转单')))), document.body);
 };
-var OfflineOrderCard = function OfflineOrderCard(_ref16) {
-  var order = _ref16.order,
-    user = _ref16.user,
-    isAdmin = _ref16.isAdmin,
-    onEdit = _ref16.onEdit,
-    onDelete = _ref16.onDelete,
-    onReload = _ref16.onReload,
-    toast = _ref16.toast;
-  var _useState97 = useState(false),
-    _useState98 = _slicedToArray(_useState97, 2),
-    expanded = _useState98[0],
-    setExpanded = _useState98[1];
-  var _useState99 = useState(null),
+var OfflineOrderCard = function OfflineOrderCard(_ref18) {
+  var order = _ref18.order,
+    user = _ref18.user,
+    isAdmin = _ref18.isAdmin,
+    onEdit = _ref18.onEdit,
+    onDelete = _ref18.onDelete,
+    onReload = _ref18.onReload,
+    toast = _ref18.toast;
+  var _useState99 = useState(false),
     _useState100 = _slicedToArray(_useState99, 2),
-    previewFile = _useState100[0],
-    setPreviewFile = _useState100[1];
-  var _useState101 = useState(false),
+    expanded = _useState100[0],
+    setExpanded = _useState100[1];
+  var _useState101 = useState(null),
     _useState102 = _slicedToArray(_useState101, 2),
-    showTransfer = _useState102[0],
-    setShowTransfer = _useState102[1]; // 🆕 fix18
+    previewFile = _useState102[0],
+    setPreviewFile = _useState102[1];
+  var _useState103 = useState(false),
+    _useState104 = _slicedToArray(_useState103, 2),
+    showTransfer = _useState104[0],
+    setShowTransfer = _useState104[1]; // 🆕 fix18
   var status = OFFLINE_ORDER_STATUSES.find(function (s) {
     return s.key === order.status;
   }) || OFFLINE_ORDER_STATUSES[0];
   var products = order.products || [];
   var attachments = order.attachments || [];
   var setStatus = /*#__PURE__*/function () {
-    var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(newStatus) {
-      return _regenerator().w(function (_context10) {
-        while (1) switch (_context10.n) {
+    var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(newStatus) {
+      return _regenerator().w(function (_context12) {
+        while (1) switch (_context12.n) {
           case 0:
-            _context10.n = 1;
+            _context12.n = 1;
             return CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, order), {}, {
               status: newStatus,
               updated_at: new Date().toISOString()
@@ -3110,12 +3175,12 @@ var OfflineOrderCard = function OfflineOrderCard(_ref16) {
             toast('✓ 已更新');
             onReload();
           case 2:
-            return _context10.a(2);
+            return _context12.a(2);
         }
-      }, _callee10);
+      }, _callee12);
     }));
     return function setStatus(_x4) {
-      return _ref17.apply(this, arguments);
+      return _ref19.apply(this, arguments);
     };
   }();
   var copyDispatch = function copyDispatch() {
@@ -3493,18 +3558,18 @@ var OfflineOrderCard = function OfflineOrderCard(_ref16) {
 // 🆕 fix18: ProductImageSlot — 产品行的小图片上传/粘贴/拖拽位
 // 支持: 点击上传 / Ctrl+V 粘贴 / 拖入文件 / 自动压缩到 600px / 点击放大预览
 // ════════════════════════════════════════════════════════════════════
-var ProductImageSlot = function ProductImageSlot(_ref18) {
-  var value = _ref18.value,
-    onChange = _ref18.onChange,
-    productName = _ref18.productName;
-  var _useState103 = useState(false),
-    _useState104 = _slicedToArray(_useState103, 2),
-    zoom = _useState104[0],
-    setZoom = _useState104[1];
+var ProductImageSlot = function ProductImageSlot(_ref20) {
+  var value = _ref20.value,
+    onChange = _ref20.onChange,
+    productName = _ref20.productName;
   var _useState105 = useState(false),
     _useState106 = _slicedToArray(_useState105, 2),
-    focused = _useState106[0],
-    setFocused = _useState106[1];
+    zoom = _useState106[0],
+    setZoom = _useState106[1];
+  var _useState107 = useState(false),
+    _useState108 = _slicedToArray(_useState107, 2),
+    focused = _useState108[0],
+    setFocused = _useState108[1];
   var fileRef = useRef(null);
 
   // 压缩图片到 600px 宽,质量 0.8 JPEG → data URL
@@ -3545,109 +3610,109 @@ var ProductImageSlot = function ProductImageSlot(_ref18) {
     });
   };
   var handleFiles = /*#__PURE__*/function () {
-    var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(files) {
-      var file, dataUrl, _t8;
-      return _regenerator().w(function (_context11) {
-        while (1) switch (_context11.p = _context11.n) {
+    var _ref21 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(files) {
+      var file, dataUrl, _t0;
+      return _regenerator().w(function (_context13) {
+        while (1) switch (_context13.p = _context13.n) {
           case 0:
             if (!(!files || files.length === 0)) {
-              _context11.n = 1;
+              _context13.n = 1;
               break;
             }
-            return _context11.a(2);
+            return _context13.a(2);
           case 1:
             file = files[0];
-            _context11.p = 2;
-            _context11.n = 3;
+            _context13.p = 2;
+            _context13.n = 3;
             return compressImage(file);
           case 3:
-            dataUrl = _context11.v;
+            dataUrl = _context13.v;
             onChange(dataUrl);
-            _context11.n = 5;
+            _context13.n = 5;
             break;
           case 4:
-            _context11.p = 4;
-            _t8 = _context11.v;
-            alert('上传失败: ' + (_t8.message || '不支持的格式'));
+            _context13.p = 4;
+            _t0 = _context13.v;
+            alert('上传失败: ' + (_t0.message || '不支持的格式'));
           case 5:
-            return _context11.a(2);
+            return _context13.a(2);
         }
-      }, _callee11, null, [[2, 4]]);
+      }, _callee13, null, [[2, 4]]);
     }));
     return function handleFiles(_x5) {
-      return _ref19.apply(this, arguments);
+      return _ref21.apply(this, arguments);
     };
   }();
   var onPaste = /*#__PURE__*/function () {
-    var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(e) {
+    var _ref22 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(e) {
       var _e$clipboardData;
-      var items, _iterator2, _step2, it, f, _t9;
-      return _regenerator().w(function (_context12) {
-        while (1) switch (_context12.p = _context12.n) {
+      var items, _iterator2, _step2, it, f, _t1;
+      return _regenerator().w(function (_context14) {
+        while (1) switch (_context14.p = _context14.n) {
           case 0:
             items = ((_e$clipboardData = e.clipboardData) === null || _e$clipboardData === void 0 ? void 0 : _e$clipboardData.items) || [];
             _iterator2 = _createForOfIteratorHelper(items);
-            _context12.p = 1;
+            _context14.p = 1;
             _iterator2.s();
           case 2:
             if ((_step2 = _iterator2.n()).done) {
-              _context12.n = 5;
+              _context14.n = 5;
               break;
             }
             it = _step2.value;
             if (!(it.kind === 'file' && it.type.startsWith('image/'))) {
-              _context12.n = 4;
+              _context14.n = 4;
               break;
             }
             e.preventDefault();
             f = it.getAsFile();
             if (!f) {
-              _context12.n = 3;
+              _context14.n = 3;
               break;
             }
-            _context12.n = 3;
+            _context14.n = 3;
             return handleFiles([f]);
           case 3:
-            return _context12.a(2);
+            return _context14.a(2);
           case 4:
-            _context12.n = 2;
+            _context14.n = 2;
             break;
           case 5:
-            _context12.n = 7;
+            _context14.n = 7;
             break;
           case 6:
-            _context12.p = 6;
-            _t9 = _context12.v;
-            _iterator2.e(_t9);
+            _context14.p = 6;
+            _t1 = _context14.v;
+            _iterator2.e(_t1);
           case 7:
-            _context12.p = 7;
+            _context14.p = 7;
             _iterator2.f();
-            return _context12.f(7);
+            return _context14.f(7);
           case 8:
-            return _context12.a(2);
+            return _context14.a(2);
         }
-      }, _callee12, null, [[1, 6, 7, 8]]);
+      }, _callee14, null, [[1, 6, 7, 8]]);
     }));
     return function onPaste(_x6) {
-      return _ref20.apply(this, arguments);
+      return _ref22.apply(this, arguments);
     };
   }();
   var onDrop = /*#__PURE__*/function () {
-    var _ref21 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(e) {
-      return _regenerator().w(function (_context13) {
-        while (1) switch (_context13.n) {
+    var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(e) {
+      return _regenerator().w(function (_context15) {
+        while (1) switch (_context15.n) {
           case 0:
             e.preventDefault();
             setFocused(false);
-            _context13.n = 1;
+            _context15.n = 1;
             return handleFiles(Array.from(e.dataTransfer.files || []));
           case 1:
-            return _context13.a(2);
+            return _context15.a(2);
         }
-      }, _callee13);
+      }, _callee15);
     }));
     return function onDrop(_x7) {
-      return _ref21.apply(this, arguments);
+      return _ref23.apply(this, arguments);
     };
   }();
   var onDragOver = function onDragOver(e) {
@@ -3768,24 +3833,24 @@ var ProductImageSlot = function ProductImageSlot(_ref18) {
 // 🆕 fix22 联动 1: ProductAutocomplete — SKU/产品名联想下拉
 // 输入时实时匹配 products 主表的 SKU/名称,点击 → 自动填充产品名/图/供应商/价格
 // ════════════════════════════════════════════════════════════════════
-var ProductAutocomplete = function ProductAutocomplete(_ref22) {
-  var value = _ref22.value,
-    _onChange = _ref22.onChange,
-    onSelect = _ref22.onSelect,
-    products = _ref22.products,
-    placeholder = _ref22.placeholder,
-    _ref22$mode = _ref22.mode,
-    mode = _ref22$mode === void 0 ? 'sku' : _ref22$mode,
-    style = _ref22.style;
+var ProductAutocomplete = function ProductAutocomplete(_ref24) {
+  var value = _ref24.value,
+    _onChange = _ref24.onChange,
+    onSelect = _ref24.onSelect,
+    products = _ref24.products,
+    placeholder = _ref24.placeholder,
+    _ref24$mode = _ref24.mode,
+    mode = _ref24$mode === void 0 ? 'sku' : _ref24$mode,
+    style = _ref24.style;
   // mode: 'sku' = 按 SKU 主要匹配 / 'name' = 按产品名主要匹配
-  var _useState107 = useState(false),
-    _useState108 = _slicedToArray(_useState107, 2),
-    open = _useState108[0],
-    setOpen = _useState108[1];
-  var _useState109 = useState(0),
+  var _useState109 = useState(false),
     _useState110 = _slicedToArray(_useState109, 2),
-    highlighted = _useState110[0],
-    setHighlighted = _useState110[1];
+    open = _useState110[0],
+    setOpen = _useState110[1];
+  var _useState111 = useState(0),
+    _useState112 = _slicedToArray(_useState111, 2),
+    highlighted = _useState112[0],
+    setHighlighted = _useState112[1];
   var containerRef = useRef(null);
 
   // 计算匹配项 (按输入实时过滤)
@@ -3962,76 +4027,76 @@ var ProductAutocomplete = function ProductAutocomplete(_ref22) {
     }
   }, "\u2191\u2193 \u9009\u62E9 \xB7 Enter \u786E\u8BA4 \xB7 Esc \u5173\u95ED")));
 };
-var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
-  var order = _ref23.order,
-    user = _ref23.user,
-    employees = _ref23.employees,
-    onClose = _ref23.onClose,
-    onSaved = _ref23.onSaved,
-    toast = _ref23.toast;
+var OfflineOrderEditor = function OfflineOrderEditor(_ref25) {
+  var order = _ref25.order,
+    user = _ref25.user,
+    employees = _ref25.employees,
+    onClose = _ref25.onClose,
+    onSaved = _ref25.onSaved,
+    toast = _ref25.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   var isEdit = !!order;
-  var _useState111 = useState((order === null || order === void 0 ? void 0 : order.order_no) || ''),
-    _useState112 = _slicedToArray(_useState111, 2),
-    orderNo = _useState112[0],
-    setOrderNo = _useState112[1];
-  var _useState113 = useState((order === null || order === void 0 ? void 0 : order.site) || ''),
+  var _useState113 = useState((order === null || order === void 0 ? void 0 : order.order_no) || ''),
     _useState114 = _slicedToArray(_useState113, 2),
-    site = _useState114[0],
-    setSite = _useState114[1];
-  var _useState115 = useState(false),
+    orderNo = _useState114[0],
+    setOrderNo = _useState114[1];
+  var _useState115 = useState((order === null || order === void 0 ? void 0 : order.site) || ''),
     _useState116 = _slicedToArray(_useState115, 2),
-    generating = _useState116[0],
-    setGenerating = _useState116[1];
-  var _useState117 = useState((order === null || order === void 0 ? void 0 : order.customer_name) || ''),
+    site = _useState116[0],
+    setSite = _useState116[1];
+  var _useState117 = useState(false),
     _useState118 = _slicedToArray(_useState117, 2),
-    customerName = _useState118[0],
-    setCustomerName = _useState118[1];
-  var _useState119 = useState((order === null || order === void 0 ? void 0 : order.customer_email) || ''),
+    generating = _useState118[0],
+    setGenerating = _useState118[1];
+  var _useState119 = useState((order === null || order === void 0 ? void 0 : order.customer_name) || ''),
     _useState120 = _slicedToArray(_useState119, 2),
-    customerEmail = _useState120[0],
-    setCustomerEmail = _useState120[1];
-  var _useState121 = useState((order === null || order === void 0 ? void 0 : order.customer_phone) || ''),
+    customerName = _useState120[0],
+    setCustomerName = _useState120[1];
+  var _useState121 = useState((order === null || order === void 0 ? void 0 : order.customer_email) || ''),
     _useState122 = _slicedToArray(_useState121, 2),
-    customerPhone = _useState122[0],
-    setCustomerPhone = _useState122[1];
-  var _useState123 = useState((order === null || order === void 0 ? void 0 : order.ship_to_name) || ''),
+    customerEmail = _useState122[0],
+    setCustomerEmail = _useState122[1];
+  var _useState123 = useState((order === null || order === void 0 ? void 0 : order.customer_phone) || ''),
     _useState124 = _slicedToArray(_useState123, 2),
-    shipToName = _useState124[0],
-    setShipToName = _useState124[1];
-  var _useState125 = useState((order === null || order === void 0 ? void 0 : order.ship_to_address) || ''),
+    customerPhone = _useState124[0],
+    setCustomerPhone = _useState124[1];
+  var _useState125 = useState((order === null || order === void 0 ? void 0 : order.ship_to_name) || ''),
     _useState126 = _slicedToArray(_useState125, 2),
-    shipToAddress = _useState126[0],
-    setShipToAddress = _useState126[1];
-  var _useState127 = useState((order === null || order === void 0 ? void 0 : order.ship_to_city) || ''),
+    shipToName = _useState126[0],
+    setShipToName = _useState126[1];
+  var _useState127 = useState((order === null || order === void 0 ? void 0 : order.ship_to_address) || ''),
     _useState128 = _slicedToArray(_useState127, 2),
-    shipToCity = _useState128[0],
-    setShipToCity = _useState128[1];
-  var _useState129 = useState((order === null || order === void 0 ? void 0 : order.ship_to_state) || ''),
+    shipToAddress = _useState128[0],
+    setShipToAddress = _useState128[1];
+  var _useState129 = useState((order === null || order === void 0 ? void 0 : order.ship_to_city) || ''),
     _useState130 = _slicedToArray(_useState129, 2),
-    shipToState = _useState130[0],
-    setShipToState = _useState130[1];
-  var _useState131 = useState((order === null || order === void 0 ? void 0 : order.ship_to_zip) || ''),
+    shipToCity = _useState130[0],
+    setShipToCity = _useState130[1];
+  var _useState131 = useState((order === null || order === void 0 ? void 0 : order.ship_to_state) || ''),
     _useState132 = _slicedToArray(_useState131, 2),
-    shipToZip = _useState132[0],
-    setShipToZip = _useState132[1];
-  var _useState133 = useState((order === null || order === void 0 ? void 0 : order.ship_to_country) || ''),
+    shipToState = _useState132[0],
+    setShipToState = _useState132[1];
+  var _useState133 = useState((order === null || order === void 0 ? void 0 : order.ship_to_zip) || ''),
     _useState134 = _slicedToArray(_useState133, 2),
-    shipToCountry = _useState134[0],
-    setShipToCountry = _useState134[1];
-  var _useState135 = useState((order === null || order === void 0 ? void 0 : order.ship_to_phone) || ''),
+    shipToZip = _useState134[0],
+    setShipToZip = _useState134[1];
+  var _useState135 = useState((order === null || order === void 0 ? void 0 : order.ship_to_country) || ''),
     _useState136 = _slicedToArray(_useState135, 2),
-    shipToPhone = _useState136[0],
-    setShipToPhone = _useState136[1];
-  // 🆕 fix16: 智能地址粘贴
-  var _useState137 = useState(''),
+    shipToCountry = _useState136[0],
+    setShipToCountry = _useState136[1];
+  var _useState137 = useState((order === null || order === void 0 ? void 0 : order.ship_to_phone) || ''),
     _useState138 = _slicedToArray(_useState137, 2),
-    addressPaste = _useState138[0],
-    setAddressPaste = _useState138[1];
+    shipToPhone = _useState138[0],
+    setShipToPhone = _useState138[1];
+  // 🆕 fix16: 智能地址粘贴
   var _useState139 = useState(''),
     _useState140 = _slicedToArray(_useState139, 2),
-    parseFeedback = _useState140[0],
-    setParseFeedback = _useState140[1];
+    addressPaste = _useState140[0],
+    setAddressPaste = _useState140[1];
+  var _useState141 = useState(''),
+    _useState142 = _slicedToArray(_useState141, 2),
+    parseFeedback = _useState142[0],
+    setParseFeedback = _useState142[1];
   var handleParseAddress = function handleParseAddress(text) {
     if (!text || !text.trim()) {
       setParseFeedback('请先粘贴地址');
@@ -4076,86 +4141,86 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
       setParseFeedback('⚠ 解析出错 · ' + (e.message || e));
     }
   };
-  var _useState141 = useState((order === null || order === void 0 ? void 0 : order.payment_method) || '银行转账'),
-    _useState142 = _slicedToArray(_useState141, 2),
-    paymentMethod = _useState142[0],
-    setPaymentMethod = _useState142[1];
-  var _useState143 = useState((order === null || order === void 0 ? void 0 : order.payment_amount) || ''),
+  var _useState143 = useState((order === null || order === void 0 ? void 0 : order.payment_method) || '银行转账'),
     _useState144 = _slicedToArray(_useState143, 2),
-    paymentAmount = _useState144[0],
-    setPaymentAmount = _useState144[1];
-  var _useState145 = useState((order === null || order === void 0 ? void 0 : order.payment_currency) || 'USD'),
+    paymentMethod = _useState144[0],
+    setPaymentMethod = _useState144[1];
+  var _useState145 = useState((order === null || order === void 0 ? void 0 : order.payment_amount) || ''),
     _useState146 = _slicedToArray(_useState145, 2),
-    paymentCurrency = _useState146[0],
-    setPaymentCurrency = _useState146[1];
-  var _useState147 = useState((order === null || order === void 0 ? void 0 : order.received_amount) || ''),
+    paymentAmount = _useState146[0],
+    setPaymentAmount = _useState146[1];
+  var _useState147 = useState((order === null || order === void 0 ? void 0 : order.payment_currency) || 'USD'),
     _useState148 = _slicedToArray(_useState147, 2),
-    receivedAmount = _useState148[0],
-    setReceivedAmount = _useState148[1];
-  var _useState149 = useState((order === null || order === void 0 ? void 0 : order.paid_at) || ''),
+    paymentCurrency = _useState148[0],
+    setPaymentCurrency = _useState148[1];
+  var _useState149 = useState((order === null || order === void 0 ? void 0 : order.received_amount) || ''),
     _useState150 = _slicedToArray(_useState149, 2),
-    paidAt = _useState150[0],
-    setPaidAt = _useState150[1];
-  var _useState151 = useState((order === null || order === void 0 ? void 0 : order.products) || []),
+    receivedAmount = _useState150[0],
+    setReceivedAmount = _useState150[1];
+  var _useState151 = useState((order === null || order === void 0 ? void 0 : order.paid_at) || ''),
     _useState152 = _slicedToArray(_useState151, 2),
-    products = _useState152[0],
-    setProducts = _useState152[1];
-  var productsList = useProducts(); // 🆕 fix22 联动 1: 产品主表供 SKU 联想
-  var _useState153 = useState((order === null || order === void 0 ? void 0 : order.quote_no) || ''),
+    paidAt = _useState152[0],
+    setPaidAt = _useState152[1];
+  var _useState153 = useState((order === null || order === void 0 ? void 0 : order.products) || []),
     _useState154 = _slicedToArray(_useState153, 2),
-    quoteNo = _useState154[0],
-    setQuoteNo = _useState154[1];
-  var _useState155 = useState((order === null || order === void 0 ? void 0 : order.attachments) || []),
+    products = _useState154[0],
+    setProducts = _useState154[1];
+  var productsList = useProducts(); // 🆕 fix22 联动 1: 产品主表供 SKU 联想
+  var _useState155 = useState((order === null || order === void 0 ? void 0 : order.quote_no) || ''),
     _useState156 = _slicedToArray(_useState155, 2),
-    attachments = _useState156[0],
-    setAttachments = _useState156[1];
-  var _useState157 = useState((order === null || order === void 0 ? void 0 : order.notes) || ''),
+    quoteNo = _useState156[0],
+    setQuoteNo = _useState156[1];
+  var _useState157 = useState((order === null || order === void 0 ? void 0 : order.attachments) || []),
     _useState158 = _slicedToArray(_useState157, 2),
-    notes = _useState158[0],
-    setNotes = _useState158[1];
-  var _useState159 = useState((order === null || order === void 0 ? void 0 : order.status) || 'draft'),
+    attachments = _useState158[0],
+    setAttachments = _useState158[1];
+  var _useState159 = useState((order === null || order === void 0 ? void 0 : order.notes) || ''),
     _useState160 = _slicedToArray(_useState159, 2),
-    status = _useState160[0],
-    setStatus = _useState160[1];
-  var _useState161 = useState(false),
+    notes = _useState160[0],
+    setNotes = _useState160[1];
+  var _useState161 = useState((order === null || order === void 0 ? void 0 : order.status) || 'draft'),
     _useState162 = _slicedToArray(_useState161, 2),
-    saving = _useState162[0],
-    setSaving = _useState162[1];
-  var _useState163 = useState(null),
+    status = _useState162[0],
+    setStatus = _useState162[1];
+  var _useState163 = useState(false),
     _useState164 = _slicedToArray(_useState163, 2),
-    previewNextNo = _useState164[0],
-    setPreviewNextNo = _useState164[1]; // 🆕 预览下一个编号(扫描历史得出)
-  var _useState165 = useState(''),
+    saving = _useState164[0],
+    setSaving = _useState164[1];
+  var _useState165 = useState(null),
     _useState166 = _slicedToArray(_useState165, 2),
-    autoFilledNo = _useState166[0],
-    setAutoFilledNo = _useState166[1]; // 🆕 已自动填充的编号(用于检测用户是否手改)
-  var _useState167 = useState(false),
+    previewNextNo = _useState166[0],
+    setPreviewNextNo = _useState166[1]; // 🆕 预览下一个编号(扫描历史得出)
+  var _useState167 = useState(''),
     _useState168 = _slicedToArray(_useState167, 2),
-    showQuoteSearch = _useState168[0],
-    setShowQuoteSearch = _useState168[1];
+    autoFilledNo = _useState168[0],
+    setAutoFilledNo = _useState168[1]; // 🆕 已自动填充的编号(用于检测用户是否手改)
+  var _useState169 = useState(false),
+    _useState170 = _slicedToArray(_useState169, 2),
+    showQuoteSearch = _useState170[0],
+    setShowQuoteSearch = _useState170[1];
 
   // 🆕 切换网站时,扫描历史 + 显示下一个编号建议
   var handleSiteChange = /*#__PURE__*/function () {
-    var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(newSite) {
-      var result, userHasNotEdited, _t0;
-      return _regenerator().w(function (_context14) {
-        while (1) switch (_context14.p = _context14.n) {
+    var _ref26 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(newSite) {
+      var result, userHasNotEdited, _t10;
+      return _regenerator().w(function (_context16) {
+        while (1) switch (_context16.p = _context16.n) {
           case 0:
             setSite(newSite);
             if (!(!newSite || isEdit)) {
-              _context14.n = 1;
+              _context16.n = 1;
               break;
             }
-            return _context14.a(2);
+            return _context16.a(2);
           case 1:
             setGenerating(true);
-            _context14.p = 2;
-            _context14.n = 3;
+            _context16.p = 2;
+            _context16.n = 3;
             return generateOrderNo(newSite, {
               previewOnly: true
             });
           case 3:
-            result = _context14.v;
+            result = _context16.v;
             setPreviewNextNo(result);
             // 只有 orderNo 为空 或 用户没手动改过时,才自动填充
             userHasNotEdited = !orderNo.trim() || orderNo === autoFilledNo;
@@ -4164,63 +4229,63 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
               setAutoFilledNo(result.orderNo);
               toast("\u2713 \u5DF2\u626B\u63CF\u5386\u53F2\u8BA2\u5355 \xB7 \u4E0B\u4E00\u4E2A\u7F16\u53F7: ".concat(result.orderNo, " (\u5386\u53F2\u6700\u5927 ").concat(result.maxNo, ")"));
             }
-            _context14.n = 5;
+            _context16.n = 5;
             break;
           case 4:
-            _context14.p = 4;
-            _t0 = _context14.v;
-            toast('⚠ 扫描历史失败,请手动输入: ' + _t0.message);
+            _context16.p = 4;
+            _t10 = _context16.v;
+            toast('⚠ 扫描历史失败,请手动输入: ' + _t10.message);
           case 5:
             setGenerating(false);
           case 6:
-            return _context14.a(2);
+            return _context16.a(2);
         }
-      }, _callee14, null, [[2, 4]]);
+      }, _callee16, null, [[2, 4]]);
     }));
     return function handleSiteChange(_x8) {
-      return _ref24.apply(this, arguments);
+      return _ref26.apply(this, arguments);
     };
   }();
   var handleManualGenerate = /*#__PURE__*/function () {
-    var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
-      var result, _t1;
-      return _regenerator().w(function (_context15) {
-        while (1) switch (_context15.p = _context15.n) {
+    var _ref27 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
+      var result, _t11;
+      return _regenerator().w(function (_context17) {
+        while (1) switch (_context17.p = _context17.n) {
           case 0:
             if (site) {
-              _context15.n = 1;
+              _context17.n = 1;
               break;
             }
             alert('请先选择网站');
-            return _context15.a(2);
+            return _context17.a(2);
           case 1:
             setGenerating(true);
-            _context15.p = 2;
-            _context15.n = 3;
+            _context17.p = 2;
+            _context17.n = 3;
             return generateOrderNo(site, {
               previewOnly: true
             });
           case 3:
-            result = _context15.v;
+            result = _context17.v;
             setPreviewNextNo(result);
             setOrderNo(result.orderNo);
             setAutoFilledNo(result.orderNo);
             toast("\u2713 \u5DF2\u751F\u6210 ".concat(result.orderNo, "(\u5386\u53F2\u6700\u5927 ").concat(result.maxNo, ")"));
-            _context15.n = 5;
+            _context17.n = 5;
             break;
           case 4:
-            _context15.p = 4;
-            _t1 = _context15.v;
-            toast('⚠ ' + _t1.message);
+            _context17.p = 4;
+            _t11 = _context17.v;
+            toast('⚠ ' + _t11.message);
           case 5:
             setGenerating(false);
           case 6:
-            return _context15.a(2);
+            return _context17.a(2);
         }
-      }, _callee15, null, [[2, 4]]);
+      }, _callee17, null, [[2, 4]]);
     }));
     return function handleManualGenerate() {
-      return _ref25.apply(this, arguments);
+      return _ref27.apply(this, arguments);
     };
   }();
   var handleLinkQuote = function handleLinkQuote(quote) {
@@ -4262,94 +4327,94 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
     });
   };
   var handleSave = /*#__PURE__*/function () {
-    var _ref26 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
-      var _yield$CLOUD$client$f2, existing, userName, now, seqConfig, prefix, separator, m, n, dispatchText, payload, res, _t10, _t11;
-      return _regenerator().w(function (_context16) {
-        while (1) switch (_context16.p = _context16.n) {
+    var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
+      var _yield$CLOUD$client$f4, existing, userName, now, seqConfig, prefix, separator, m, n, dispatchText, payload, res, _t12, _t13;
+      return _regenerator().w(function (_context18) {
+        while (1) switch (_context18.p = _context18.n) {
           case 0:
             if (orderNo.trim()) {
-              _context16.n = 1;
+              _context18.n = 1;
               break;
             }
             alert('请填写订单编号或选择网站自动生成');
-            return _context16.a(2);
+            return _context18.a(2);
           case 1:
             if (site) {
-              _context16.n = 2;
+              _context18.n = 2;
               break;
             }
             alert('请选择网站');
-            return _context16.a(2);
+            return _context18.a(2);
           case 2:
             if (isEdit) {
-              _context16.n = 8;
+              _context18.n = 8;
               break;
             }
-            _context16.p = 3;
-            _context16.n = 4;
+            _context18.p = 3;
+            _context18.n = 4;
             return CLOUD.client.from('offline_orders').select('id, order_no').eq('order_no', orderNo.trim()).limit(1);
           case 4:
-            _yield$CLOUD$client$f2 = _context16.v;
-            existing = _yield$CLOUD$client$f2.data;
+            _yield$CLOUD$client$f4 = _context18.v;
+            existing = _yield$CLOUD$client$f4.data;
             if (!(existing && existing.length > 0)) {
-              _context16.n = 6;
+              _context18.n = 6;
               break;
             }
-            _context16.n = 5;
+            _context18.n = 5;
             return wsConfirm("\u26A0 \u8B66\u544A:\u8BA2\u5355\u7F16\u53F7 \"".concat(orderNo, "\" \u5DF2\u5B58\u5728!\n\n\u7EE7\u7EED\u4FDD\u5B58\u5C06\u521B\u5EFA\u91CD\u590D\u7F16\u53F7(\u53EF\u80FD\u5BFC\u81F4\u7BA1\u7406\u6DF7\u4E71)\u3002\n\n\u5EFA\u8BAE:\u70B9\u51FB\"\uD83D\uDD04 \u91CD\u65B0\u626B\u63CF+1\"\u83B7\u53D6\u552F\u4E00\u7F16\u53F7\u3002\n\n\u4ECD\u8981\u7EE7\u7EED\u4FDD\u5B58\u5417?"));
           case 5:
-            if (_context16.v) {
-              _context16.n = 6;
+            if (_context18.v) {
+              _context18.n = 6;
               break;
             }
-            return _context16.a(2);
+            return _context18.a(2);
           case 6:
-            _context16.n = 8;
+            _context18.n = 8;
             break;
           case 7:
-            _context16.p = 7;
-            _t10 = _context16.v;
+            _context18.p = 7;
+            _t12 = _context18.v;
           case 8:
             setSaving(true);
             userName = user.name + (user.alias ? ' ' + user.alias : '');
             now = new Date().toISOString(); // 🆕 新建保存成功后:把 sequence 更新到比当前编号大的位置
             if (isEdit) {
-              _context16.n = 13;
+              _context18.n = 13;
               break;
             }
-            _context16.p = 9;
-            _context16.n = 10;
+            _context18.p = 9;
+            _context18.n = 10;
             return CLOUD.client.from('site_order_sequences').select('*').eq('site', site).single();
           case 10:
-            seqConfig = _context16.v;
+            seqConfig = _context18.v;
             if (!seqConfig.data) {
-              _context16.n = 11;
+              _context18.n = 11;
               break;
             }
             prefix = seqConfig.data.prefix || site;
             separator = seqConfig.data.separator || '-';
             m = orderNo.trim().match(new RegExp('^' + prefix + (separator || '') + '?(\\d+)$'));
             if (!m) {
-              _context16.n = 11;
+              _context18.n = 11;
               break;
             }
             n = parseInt(m[1], 10);
             if (!(n > (seqConfig.data.current_no || 0))) {
-              _context16.n = 11;
+              _context18.n = 11;
               break;
             }
-            _context16.n = 11;
+            _context18.n = 11;
             return CLOUD.client.from('site_order_sequences').update({
               current_no: n,
               updated_at: now
             }).eq('site', site);
           case 11:
-            _context16.n = 13;
+            _context18.n = 13;
             break;
           case 12:
-            _context16.p = 12;
-            _t11 = _context16.v;
-            console.warn('更新 sequence 失败(不影响订单保存):', _t11);
+            _context18.p = 12;
+            _t13 = _context18.v;
+            console.warn('更新 sequence 失败(不影响订单保存):', _t13);
           case 13:
             dispatchText = generateDispatchText({
               order_no: orderNo,
@@ -4390,10 +4455,10 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
               created_by: (order === null || order === void 0 ? void 0 : order.created_by) || user.id,
               created_by_name: (order === null || order === void 0 ? void 0 : order.created_by_name) || userName
             });
-            _context16.n = 14;
+            _context18.n = 14;
             return CLOUD.upsert('offline_orders', payload);
           case 14:
-            res = _context16.v;
+            res = _context18.v;
             if (res) {
               toast(isEdit ? '✓ 已更新' : '✓ 已创建线下单');
               onSaved();
@@ -4402,12 +4467,12 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
             }
             setSaving(false);
           case 15:
-            return _context16.a(2);
+            return _context18.a(2);
         }
-      }, _callee16, null, [[9, 12], [3, 7]]);
+      }, _callee18, null, [[9, 12], [3, 7]]);
     }));
     return function handleSave() {
-      return _ref26.apply(this, arguments);
+      return _ref28.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -5278,35 +5343,35 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref23) {
     toast: toast
   }));
 };
-var QuoteSearchModal = function QuoteSearchModal(_ref27) {
-  var onClose = _ref27.onClose,
-    onSelect = _ref27.onSelect,
-    toast = _ref27.toast;
-  var _useState169 = useState(''),
-    _useState170 = _slicedToArray(_useState169, 2),
-    query = _useState170[0],
-    setQuery = _useState170[1];
-  var _useState171 = useState([]),
+var QuoteSearchModal = function QuoteSearchModal(_ref29) {
+  var onClose = _ref29.onClose,
+    onSelect = _ref29.onSelect,
+    toast = _ref29.toast;
+  var _useState171 = useState(''),
     _useState172 = _slicedToArray(_useState171, 2),
-    list = _useState172[0],
-    setList = _useState172[1];
-  var _useState173 = useState(true),
+    query = _useState172[0],
+    setQuery = _useState172[1];
+  var _useState173 = useState([]),
     _useState174 = _slicedToArray(_useState173, 2),
-    loading = _useState174[0],
-    setLoading = _useState174[1];
-  var _useState175 = useState(false),
+    list = _useState174[0],
+    setList = _useState174[1];
+  var _useState175 = useState(true),
     _useState176 = _slicedToArray(_useState175, 2),
-    showOnlyRecent = _useState176[0],
-    setShowOnlyRecent = _useState176[1]; // 🆕 只显示最近 30 天
+    loading = _useState176[0],
+    setLoading = _useState176[1];
+  var _useState177 = useState(false),
+    _useState178 = _slicedToArray(_useState177, 2),
+    showOnlyRecent = _useState178[0],
+    setShowOnlyRecent = _useState178[1]; // 🆕 只显示最近 30 天
 
   useEffect(function () {
-    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
-      var data, _t12;
-      return _regenerator().w(function (_context17) {
-        while (1) switch (_context17.p = _context17.n) {
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
+      var data, _t14;
+      return _regenerator().w(function (_context19) {
+        while (1) switch (_context19.p = _context19.n) {
           case 0:
-            _context17.p = 0;
-            _context17.n = 1;
+            _context19.p = 0;
+            _context19.n = 1;
             return CLOUD.list('workspace_quotes', {
               order: {
                 col: 'updated_at',
@@ -5315,22 +5380,22 @@ var QuoteSearchModal = function QuoteSearchModal(_ref27) {
               limit: 1000
             });
           case 1:
-            data = _context17.v;
+            data = _context19.v;
             setList((data || []).filter(function (q) {
               return !q.trashed;
             }));
-            _context17.n = 3;
+            _context19.n = 3;
             break;
           case 2:
-            _context17.p = 2;
-            _t12 = _context17.v;
+            _context19.p = 2;
+            _t14 = _context19.v;
             toast('加载报价单失败');
           case 3:
             setLoading(false);
           case 4:
-            return _context17.a(2);
+            return _context19.a(2);
         }
-      }, _callee17, null, [[0, 2]]);
+      }, _callee19, null, [[0, 2]]);
     }))();
   }, []);
 
@@ -5756,14 +5821,14 @@ var QuoteSearchModal = function QuoteSearchModal(_ref27) {
 // ============================================================
 // 🎨 定制 & 实拍合并模块
 // ============================================================
-var CustomPhotoModule = function CustomPhotoModule(_ref29) {
-  var user = _ref29.user,
-    employees = _ref29.employees,
-    toast = _ref29.toast;
-  var _useState177 = useState('custom'),
-    _useState178 = _slicedToArray(_useState177, 2),
-    subTab = _useState178[0],
-    setSubTab = _useState178[1];
+var CustomPhotoModule = function CustomPhotoModule(_ref31) {
+  var user = _ref31.user,
+    employees = _ref31.employees,
+    toast = _ref31.toast;
+  var _useState179 = useState('custom'),
+    _useState180 = _slicedToArray(_useState179, 2),
+    subTab = _useState180[0],
+    setSubTab = _useState180[1];
   return /*#__PURE__*/React.createElement("div", {
     className: "fade-in"
   }, /*#__PURE__*/React.createElement("div", {
@@ -5814,74 +5879,74 @@ var CustomPhotoModule = function CustomPhotoModule(_ref29) {
     toast: toast
   }));
 };
-var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref30) {
-  var user = _ref30.user,
-    employees = _ref30.employees,
-    toast = _ref30.toast;
-  var _useState179 = useState([]),
-    _useState180 = _slicedToArray(_useState179, 2),
-    list = _useState180[0],
-    setList = _useState180[1];
-  var _useState181 = useState(true),
+var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref32) {
+  var user = _ref32.user,
+    employees = _ref32.employees,
+    toast = _ref32.toast;
+  var _useState181 = useState([]),
     _useState182 = _slicedToArray(_useState181, 2),
-    loading = _useState182[0],
-    setLoading = _useState182[1];
-  var _useState183 = useState(null),
+    list = _useState182[0],
+    setList = _useState182[1];
+  var _useState183 = useState(true),
     _useState184 = _slicedToArray(_useState183, 2),
-    editing = _useState184[0],
-    setEditing = _useState184[1];
-  var _useState185 = useState('active'),
+    loading = _useState184[0],
+    setLoading = _useState184[1];
+  var _useState185 = useState(null),
     _useState186 = _slicedToArray(_useState185, 2),
-    filterStage = _useState186[0],
-    setFilterStage = _useState186[1];
-  var _useState187 = useState(''),
+    editing = _useState186[0],
+    setEditing = _useState186[1];
+  var _useState187 = useState('active'),
     _useState188 = _slicedToArray(_useState187, 2),
-    search = _useState188[0],
-    setSearch = _useState188[1];
-  var _useState189 = useState('all'),
+    filterStage = _useState188[0],
+    setFilterStage = _useState188[1];
+  var _useState189 = useState(''),
     _useState190 = _slicedToArray(_useState189, 2),
-    filterOwner = _useState190[0],
-    setFilterOwner = _useState190[1]; // 🆕 fix76
+    search = _useState190[0],
+    setSearch = _useState190[1];
   var _useState191 = useState('all'),
     _useState192 = _slicedToArray(_useState191, 2),
-    filterSite = _useState192[0],
-    setFilterSite = _useState192[1];
-  var _useState193 = useState('updated'),
+    filterOwner = _useState192[0],
+    setFilterOwner = _useState192[1]; // 🆕 fix76
+  var _useState193 = useState('all'),
     _useState194 = _slicedToArray(_useState193, 2),
-    ciSortBy = _useState194[0],
-    setCiSortBy = _useState194[1];
-  var _useState195 = useState('desc'),
+    filterSite = _useState194[0],
+    setFilterSite = _useState194[1];
+  var _useState195 = useState('updated'),
     _useState196 = _slicedToArray(_useState195, 2),
-    ciSortDir = _useState196[0],
-    setCiSortDir = _useState196[1];
-  // 🆕 时间筛选
-  var _useState197 = useState('all'),
+    ciSortBy = _useState196[0],
+    setCiSortBy = _useState196[1];
+  var _useState197 = useState('desc'),
     _useState198 = _slicedToArray(_useState197, 2),
-    timeFilter = _useState198[0],
-    setTimeFilter = _useState198[1];
-  var _useState199 = useState({
+    ciSortDir = _useState198[0],
+    setCiSortDir = _useState198[1];
+  // 🆕 时间筛选
+  var _useState199 = useState('all'),
+    _useState200 = _slicedToArray(_useState199, 2),
+    timeFilter = _useState200[0],
+    setTimeFilter = _useState200[1];
+  var _useState201 = useState({
       start: '',
       end: ''
     }),
-    _useState200 = _slicedToArray(_useState199, 2),
-    timeCustom = _useState200[0],
-    setTimeCustom = _useState200[1];
+    _useState202 = _slicedToArray(_useState201, 2),
+    timeCustom = _useState202[0],
+    setTimeCustom = _useState202[1];
   // 🆕 fix15: 日期范围筛选
-  var _useState201 = useState({
+  var _useState203 = useState({
       kind: 'all'
     }),
-    _useState202 = _slicedToArray(_useState201, 2),
-    dateFilter = _useState202[0],
-    setDateFilter = _useState202[1];
+    _useState204 = _slicedToArray(_useState203, 2),
+    dateFilter = _useState204[0],
+    setDateFilter = _useState204[1];
   var load = /*#__PURE__*/function () {
-    var _ref31 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
-      var data, _t13;
-      return _regenerator().w(function (_context18) {
-        while (1) switch (_context18.p = _context18.n) {
+    var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
+      var data, _t15;
+      return _regenerator().w(function (_context20) {
+        while (1) switch (_context20.p = _context20.n) {
           case 0:
             setLoading(true);
-            _context18.p = 1;
-            _context18.n = 2;
+            _context20.p = 1;
+            _context20.n = 2;
             return CLOUD.list('custom_inquiries', {
               order: {
                 col: 'created_at',
@@ -5890,38 +5955,38 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref30) {
               limit: 300
             });
           case 2:
-            data = _context18.v;
+            data = _context20.v;
             setList((data || []).filter(function (c) {
               return !c.deleted;
             }));
-            _context18.n = 4;
+            _context20.n = 4;
             break;
           case 3:
-            _context18.p = 3;
-            _t13 = _context18.v;
-            toast('❌ ' + _t13.message);
+            _context20.p = 3;
+            _t15 = _context20.v;
+            toast('❌ ' + _t15.message);
           case 4:
             setLoading(false);
           case 5:
-            return _context18.a(2);
+            return _context20.a(2);
         }
-      }, _callee18, null, [[1, 3]]);
+      }, _callee20, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref31.apply(this, arguments);
+      return _ref33.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleDelete = /*#__PURE__*/function () {
-    var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(c) {
+    var _ref34 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(c) {
       var summary;
-      return _regenerator().w(function (_context19) {
-        while (1) switch (_context19.n) {
+      return _regenerator().w(function (_context21) {
+        while (1) switch (_context21.n) {
           case 0:
             summary = "".concat(c.customer_name || c.customer_email || '?', " \xB7 ").concat((c.requirement || '').slice(0, 50));
-            _context19.n = 1;
+            _context21.n = 1;
             return requestDelete({
               user: user,
               tableName: 'custom_inquiries',
@@ -5932,12 +5997,12 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref30) {
               onSuccess: load
             });
           case 1:
-            return _context19.a(2);
+            return _context21.a(2);
         }
-      }, _callee19);
+      }, _callee21);
     }));
     return function handleDelete(_x9) {
-      return _ref32.apply(this, arguments);
+      return _ref34.apply(this, arguments);
     };
   }();
   var filtered = useMemo(function () {
@@ -6284,21 +6349,21 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref30) {
     toast: toast
   }));
 };
-var CustomInquiryCard = function CustomInquiryCard(_ref33) {
-  var item = _ref33.item,
-    user = _ref33.user,
-    onEdit = _ref33.onEdit,
-    onDelete = _ref33.onDelete,
-    onReload = _ref33.onReload,
-    toast = _ref33.toast;
-  var _useState203 = useState(false),
-    _useState204 = _slicedToArray(_useState203, 2),
-    expanded = _useState204[0],
-    setExpanded = _useState204[1];
-  var _useState205 = useState(null),
+var CustomInquiryCard = function CustomInquiryCard(_ref35) {
+  var item = _ref35.item,
+    user = _ref35.user,
+    onEdit = _ref35.onEdit,
+    onDelete = _ref35.onDelete,
+    onReload = _ref35.onReload,
+    toast = _ref35.toast;
+  var _useState205 = useState(false),
     _useState206 = _slicedToArray(_useState205, 2),
-    previewFile = _useState206[0],
-    setPreviewFile = _useState206[1];
+    expanded = _useState206[0],
+    setExpanded = _useState206[1];
+  var _useState207 = useState(null),
+    _useState208 = _slicedToArray(_useState207, 2),
+    previewFile = _useState208[0],
+    setPreviewFile = _useState208[1];
   var stage = CUSTOM_STAGES.find(function (s) {
     return s.key === item.stage;
   }) || CUSTOM_STAGES[0];
@@ -6306,19 +6371,19 @@ var CustomInquiryCard = function CustomInquiryCard(_ref33) {
   var photos = item.final_photos || [];
   var refImgs = item.reference_images || [];
   var advanceStage = /*#__PURE__*/function () {
-    var _ref34 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
+    var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
       var idx, nextStage, now, timeMap, payload;
-      return _regenerator().w(function (_context20) {
-        while (1) switch (_context20.n) {
+      return _regenerator().w(function (_context22) {
+        while (1) switch (_context22.n) {
           case 0:
             idx = CUSTOM_STAGES.findIndex(function (s) {
               return s.key === item.stage;
             });
             if (!(idx < 0 || idx >= CUSTOM_STAGES.length - 2)) {
-              _context20.n = 1;
+              _context22.n = 1;
               break;
             }
-            return _context20.a(2);
+            return _context22.a(2);
           case 1:
             nextStage = CUSTOM_STAGES[idx + 1].key;
             now = new Date().toISOString();
@@ -6333,18 +6398,18 @@ var CustomInquiryCard = function CustomInquiryCard(_ref33) {
             payload = _objectSpread(_objectSpread({}, item), {}, _defineProperty(_defineProperty({
               stage: nextStage
             }, timeMap[nextStage] || 'updated_at', now), "updated_at", now));
-            _context20.n = 2;
+            _context22.n = 2;
             return CLOUD.upsert('custom_inquiries', payload);
           case 2:
             toast('✓ 已推进到:' + CUSTOM_STAGES[idx + 1].label);
             onReload();
           case 3:
-            return _context20.a(2);
+            return _context22.a(2);
         }
-      }, _callee20);
+      }, _callee22);
     }));
     return function advanceStage() {
-      return _ref34.apply(this, arguments);
+      return _ref36.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -6537,10 +6602,10 @@ var CustomInquiryCard = function CustomInquiryCard(_ref33) {
     }
   }));
 };
-var FileListSection = function FileListSection(_ref35) {
-  var title = _ref35.title,
-    files = _ref35.files,
-    onPreview = _ref35.onPreview;
+var FileListSection = function FileListSection(_ref37) {
+  var title = _ref37.title,
+    files = _ref37.files,
+    onPreview = _ref37.onPreview;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 8
@@ -6584,101 +6649,101 @@ var FileListSection = function FileListSection(_ref35) {
     });
   })));
 };
-var CustomInquiryEditor = function CustomInquiryEditor(_ref36) {
-  var item = _ref36.item,
-    user = _ref36.user,
-    onClose = _ref36.onClose,
-    onSaved = _ref36.onSaved,
-    toast = _ref36.toast;
+var CustomInquiryEditor = function CustomInquiryEditor(_ref38) {
+  var item = _ref38.item,
+    user = _ref38.user,
+    onClose = _ref38.onClose,
+    onSaved = _ref38.onSaved,
+    toast = _ref38.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   var isEdit = !!item;
-  var _useState207 = useState((item === null || item === void 0 ? void 0 : item.customer_name) || ''),
-    _useState208 = _slicedToArray(_useState207, 2),
-    customerName = _useState208[0],
-    setCustomerName = _useState208[1];
-  var _useState209 = useState((item === null || item === void 0 ? void 0 : item.customer_email) || ''),
+  var _useState209 = useState((item === null || item === void 0 ? void 0 : item.customer_name) || ''),
     _useState210 = _slicedToArray(_useState209, 2),
-    customerEmail = _useState210[0],
-    setCustomerEmail = _useState210[1];
-  var _useState211 = useState((item === null || item === void 0 ? void 0 : item.customer_phone) || ''),
+    customerName = _useState210[0],
+    setCustomerName = _useState210[1];
+  var _useState211 = useState((item === null || item === void 0 ? void 0 : item.customer_email) || ''),
     _useState212 = _slicedToArray(_useState211, 2),
-    customerPhone = _useState212[0],
-    setCustomerPhone = _useState212[1];
-  var _useState213 = useState((item === null || item === void 0 ? void 0 : item.site) || ''),
+    customerEmail = _useState212[0],
+    setCustomerEmail = _useState212[1];
+  var _useState213 = useState((item === null || item === void 0 ? void 0 : item.customer_phone) || ''),
     _useState214 = _slicedToArray(_useState213, 2),
-    site = _useState214[0],
-    setSite = _useState214[1];
-  var _useState215 = useState((item === null || item === void 0 ? void 0 : item.requirement) || ''),
+    customerPhone = _useState214[0],
+    setCustomerPhone = _useState214[1];
+  var _useState215 = useState((item === null || item === void 0 ? void 0 : item.site) || ''),
     _useState216 = _slicedToArray(_useState215, 2),
-    requirement = _useState216[0],
-    setRequirement = _useState216[1];
-  var _useState217 = useState((item === null || item === void 0 ? void 0 : item.stage) || 'inquiry'),
+    site = _useState216[0],
+    setSite = _useState216[1];
+  var _useState217 = useState((item === null || item === void 0 ? void 0 : item.requirement) || ''),
     _useState218 = _slicedToArray(_useState217, 2),
-    stage = _useState218[0],
-    setStage = _useState218[1];
-  var _useState219 = useState((item === null || item === void 0 ? void 0 : item.designer_name) || ''),
+    requirement = _useState218[0],
+    setRequirement = _useState218[1];
+  var _useState219 = useState((item === null || item === void 0 ? void 0 : item.stage) || 'inquiry'),
     _useState220 = _slicedToArray(_useState219, 2),
-    designerName = _useState220[0],
-    setDesignerName = _useState220[1];
-  var _useState221 = useState((item === null || item === void 0 ? void 0 : item.quote_no) || ''),
+    stage = _useState220[0],
+    setStage = _useState220[1];
+  var _useState221 = useState((item === null || item === void 0 ? void 0 : item.designer_name) || ''),
     _useState222 = _slicedToArray(_useState221, 2),
-    quoteNo = _useState222[0],
-    setQuoteNo = _useState222[1];
-  var _useState223 = useState((item === null || item === void 0 ? void 0 : item.order_no) || ''),
+    designerName = _useState222[0],
+    setDesignerName = _useState222[1];
+  var _useState223 = useState((item === null || item === void 0 ? void 0 : item.quote_no) || ''),
     _useState224 = _slicedToArray(_useState223, 2),
-    orderNo = _useState224[0],
-    setOrderNo = _useState224[1];
-  var _useState225 = useState((item === null || item === void 0 ? void 0 : item.reference_images) || []),
+    quoteNo = _useState224[0],
+    setQuoteNo = _useState224[1];
+  var _useState225 = useState((item === null || item === void 0 ? void 0 : item.order_no) || ''),
     _useState226 = _slicedToArray(_useState225, 2),
-    refImages = _useState226[0],
-    setRefImages = _useState226[1];
-  var _useState227 = useState((item === null || item === void 0 ? void 0 : item.design_files) || []),
+    orderNo = _useState226[0],
+    setOrderNo = _useState226[1];
+  var _useState227 = useState((item === null || item === void 0 ? void 0 : item.reference_images) || []),
     _useState228 = _slicedToArray(_useState227, 2),
-    designFiles = _useState228[0],
-    setDesignFiles = _useState228[1];
-  var _useState229 = useState((item === null || item === void 0 ? void 0 : item.final_photos) || []),
+    refImages = _useState228[0],
+    setRefImages = _useState228[1];
+  var _useState229 = useState((item === null || item === void 0 ? void 0 : item.design_files) || []),
     _useState230 = _slicedToArray(_useState229, 2),
-    finalPhotos = _useState230[0],
-    setFinalPhotos = _useState230[1];
-  var _useState231 = useState((item === null || item === void 0 ? void 0 : item.notes) || ''),
+    designFiles = _useState230[0],
+    setDesignFiles = _useState230[1];
+  var _useState231 = useState((item === null || item === void 0 ? void 0 : item.final_photos) || []),
     _useState232 = _slicedToArray(_useState231, 2),
-    notes = _useState232[0],
-    setNotes = _useState232[1];
-  var _useState233 = useState(false),
+    finalPhotos = _useState232[0],
+    setFinalPhotos = _useState232[1];
+  var _useState233 = useState((item === null || item === void 0 ? void 0 : item.notes) || ''),
     _useState234 = _slicedToArray(_useState233, 2),
-    saving = _useState234[0],
-    setSaving = _useState234[1];
+    notes = _useState234[0],
+    setNotes = _useState234[1];
+  var _useState235 = useState(false),
+    _useState236 = _slicedToArray(_useState235, 2),
+    saving = _useState236[0],
+    setSaving = _useState236[1];
   // 🆕 fix119: 定制咨询一键拉取订单 → 自动填客户 + 选产品图入参考图
-  var _useState235 = useState({
+  var _useState237 = useState({
       loading: false,
       products: null
     }),
-    _useState236 = _slicedToArray(_useState235, 2),
-    cuPull = _useState236[0],
-    setCuPull = _useState236[1];
+    _useState238 = _slicedToArray(_useState237, 2),
+    cuPull = _useState238[0],
+    setCuPull = _useState238[1];
   var cuDoPull = /*#__PURE__*/function () {
-    var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
-      var on, v, _t14;
-      return _regenerator().w(function (_context21) {
-        while (1) switch (_context21.p = _context21.n) {
+    var _ref39 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
+      var on, v, _t16;
+      return _regenerator().w(function (_context23) {
+        while (1) switch (_context23.p = _context23.n) {
           case 0:
             on = (orderNo || '').trim();
             if (on) {
-              _context21.n = 1;
+              _context23.n = 1;
               break;
             }
             alert('请先填关联订单编号');
-            return _context21.a(2);
+            return _context23.a(2);
           case 1:
             setCuPull({
               loading: true,
               products: null
             });
-            _context21.p = 2;
-            _context21.n = 3;
+            _context23.p = 2;
+            _context23.n = 3;
             return wsFetchOrderProducts(on);
           case 3:
-            v = _context21.v;
+            v = _context23.v;
             setCuPull({
               loading: false,
               products: v && v.products || []
@@ -6687,22 +6752,22 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref36) {
               if (!(customerEmail || '').trim() && v.email) setCustomerEmail(v.email);
               if (!(customerName || '').trim() && v.customerName) setCustomerName(v.customerName);
             }
-            _context21.n = 5;
+            _context23.n = 5;
             break;
           case 4:
-            _context21.p = 4;
-            _t14 = _context21.v;
+            _context23.p = 4;
+            _t16 = _context23.v;
             setCuPull({
               loading: false,
               products: []
             });
           case 5:
-            return _context21.a(2);
+            return _context23.a(2);
         }
-      }, _callee21, null, [[2, 4]]);
+      }, _callee23, null, [[2, 4]]);
     }));
     return function cuDoPull() {
-      return _ref37.apply(this, arguments);
+      return _ref39.apply(this, arguments);
     };
   }();
   var cuIsSaved = function cuIsSaved(p) {
@@ -6726,17 +6791,17 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref36) {
     }]));
   };
   var handleSave = /*#__PURE__*/function () {
-    var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
+    var _ref40 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24() {
       var userName, now, payload, res;
-      return _regenerator().w(function (_context22) {
-        while (1) switch (_context22.n) {
+      return _regenerator().w(function (_context24) {
+        while (1) switch (_context24.n) {
           case 0:
             if (!(!customerName.trim() && !customerEmail.trim())) {
-              _context22.n = 1;
+              _context24.n = 1;
               break;
             }
             alert('请至少填写客户姓名或邮箱');
-            return _context22.a(2);
+            return _context24.a(2);
           case 1:
             setSaving(true);
             userName = user.name + (user.alias ? ' ' + user.alias : '');
@@ -6761,22 +6826,22 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref36) {
               created_by_name: (item === null || item === void 0 ? void 0 : item.created_by_name) || userName,
               inquiry_at: (item === null || item === void 0 ? void 0 : item.inquiry_at) || now
             });
-            _context22.n = 2;
+            _context24.n = 2;
             return CLOUD.upsert('custom_inquiries', payload);
           case 2:
-            res = _context22.v;
+            res = _context24.v;
             if (res) {
               toast(isEdit ? '✓ 已更新' : '✓ 已创建');
               onSaved();
             } else alertSaveError('保存定制咨询');
             setSaving(false);
           case 3:
-            return _context22.a(2);
+            return _context24.a(2);
         }
-      }, _callee22);
+      }, _callee24);
     }));
     return function handleSave() {
-      return _ref38.apply(this, arguments);
+      return _ref40.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -7282,70 +7347,70 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref36) {
 // ============================================================
 // 📸 实拍核实子模块
 // ============================================================
-var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref39) {
-  var user = _ref39.user,
-    employees = _ref39.employees,
-    toast = _ref39.toast;
-  var _useState237 = useState([]),
-    _useState238 = _slicedToArray(_useState237, 2),
-    list = _useState238[0],
-    setList = _useState238[1];
-  var _useState239 = useState(true),
+var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref41) {
+  var user = _ref41.user,
+    employees = _ref41.employees,
+    toast = _ref41.toast;
+  var _useState239 = useState([]),
     _useState240 = _slicedToArray(_useState239, 2),
-    loading = _useState240[0],
-    setLoading = _useState240[1];
-  var _useState241 = useState(null),
+    list = _useState240[0],
+    setList = _useState240[1];
+  var _useState241 = useState(true),
     _useState242 = _slicedToArray(_useState241, 2),
-    editing = _useState242[0],
-    setEditing = _useState242[1];
-  var _useState243 = useState('active'),
+    loading = _useState242[0],
+    setLoading = _useState242[1];
+  var _useState243 = useState(null),
     _useState244 = _slicedToArray(_useState243, 2),
-    filterStatus = _useState244[0],
-    setFilterStatus = _useState244[1];
-  var _useState245 = useState(''),
+    editing = _useState244[0],
+    setEditing = _useState244[1];
+  var _useState245 = useState('active'),
     _useState246 = _slicedToArray(_useState245, 2),
-    search = _useState246[0],
-    setSearch = _useState246[1];
-  var _useState247 = useState('all'),
+    filterStatus = _useState246[0],
+    setFilterStatus = _useState246[1];
+  var _useState247 = useState(''),
     _useState248 = _slicedToArray(_useState247, 2),
-    filterOwner = _useState248[0],
-    setFilterOwner = _useState248[1]; // 🆕 fix76
-  var _useState249 = useState('updated'),
+    search = _useState248[0],
+    setSearch = _useState248[1];
+  var _useState249 = useState('all'),
     _useState250 = _slicedToArray(_useState249, 2),
-    pvSortBy = _useState250[0],
-    setPvSortBy = _useState250[1];
-  var _useState251 = useState('desc'),
+    filterOwner = _useState250[0],
+    setFilterOwner = _useState250[1]; // 🆕 fix76
+  var _useState251 = useState('updated'),
     _useState252 = _slicedToArray(_useState251, 2),
-    pvSortDir = _useState252[0],
-    setPvSortDir = _useState252[1];
-  // 🆕 时间筛选
-  var _useState253 = useState('all'),
+    pvSortBy = _useState252[0],
+    setPvSortBy = _useState252[1];
+  var _useState253 = useState('desc'),
     _useState254 = _slicedToArray(_useState253, 2),
-    timeFilter = _useState254[0],
-    setTimeFilter = _useState254[1];
-  var _useState255 = useState({
+    pvSortDir = _useState254[0],
+    setPvSortDir = _useState254[1];
+  // 🆕 时间筛选
+  var _useState255 = useState('all'),
+    _useState256 = _slicedToArray(_useState255, 2),
+    timeFilter = _useState256[0],
+    setTimeFilter = _useState256[1];
+  var _useState257 = useState({
       start: '',
       end: ''
     }),
-    _useState256 = _slicedToArray(_useState255, 2),
-    timeCustom = _useState256[0],
-    setTimeCustom = _useState256[1];
+    _useState258 = _slicedToArray(_useState257, 2),
+    timeCustom = _useState258[0],
+    setTimeCustom = _useState258[1];
   // 🆕 fix15: 日期范围筛选
-  var _useState257 = useState({
+  var _useState259 = useState({
       kind: 'all'
     }),
-    _useState258 = _slicedToArray(_useState257, 2),
-    dateFilter = _useState258[0],
-    setDateFilter = _useState258[1];
+    _useState260 = _slicedToArray(_useState259, 2),
+    dateFilter = _useState260[0],
+    setDateFilter = _useState260[1];
   var load = /*#__PURE__*/function () {
-    var _ref40 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
-      var data, _t15;
-      return _regenerator().w(function (_context23) {
-        while (1) switch (_context23.p = _context23.n) {
+    var _ref42 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25() {
+      var data, _t17;
+      return _regenerator().w(function (_context25) {
+        while (1) switch (_context25.p = _context25.n) {
           case 0:
             setLoading(true);
-            _context23.p = 1;
-            _context23.n = 2;
+            _context25.p = 1;
+            _context25.n = 2;
             return CLOUD.list('photo_verifications', {
               order: {
                 col: 'created_at',
@@ -7354,38 +7419,38 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref39) {
               limit: 300
             });
           case 2:
-            data = _context23.v;
+            data = _context25.v;
             setList((data || []).filter(function (p) {
               return !p.deleted;
             }));
-            _context23.n = 4;
+            _context25.n = 4;
             break;
           case 3:
-            _context23.p = 3;
-            _t15 = _context23.v;
-            toast('❌ ' + _t15.message);
+            _context25.p = 3;
+            _t17 = _context25.v;
+            toast('❌ ' + _t17.message);
           case 4:
             setLoading(false);
           case 5:
-            return _context23.a(2);
+            return _context25.a(2);
         }
-      }, _callee23, null, [[1, 3]]);
+      }, _callee25, null, [[1, 3]]);
     }));
     return function load() {
-      return _ref40.apply(this, arguments);
+      return _ref42.apply(this, arguments);
     };
   }();
   useEffect(function () {
     load();
   }, []);
   var handleDelete = /*#__PURE__*/function () {
-    var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(p) {
+    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26(p) {
       var summary;
-      return _regenerator().w(function (_context24) {
-        while (1) switch (_context24.n) {
+      return _regenerator().w(function (_context26) {
+        while (1) switch (_context26.n) {
           case 0:
             summary = "".concat(p.sku || '', " ").concat(p.product_name || '', " \xB7 ").concat(p.supplier_name || '');
-            _context24.n = 1;
+            _context26.n = 1;
             return requestDelete({
               user: user,
               tableName: 'photo_verifications',
@@ -7396,12 +7461,12 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref39) {
               onSuccess: load
             });
           case 1:
-            return _context24.a(2);
+            return _context26.a(2);
         }
-      }, _callee24);
+      }, _callee26);
     }));
     return function handleDelete(_x0) {
-      return _ref41.apply(this, arguments);
+      return _ref43.apply(this, arguments);
     };
   }();
   var filtered = useMemo(function () {
@@ -7704,30 +7769,30 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref39) {
     toast: toast
   }));
 };
-var PhotoVerificationCard = function PhotoVerificationCard(_ref42) {
-  var item = _ref42.item,
-    user = _ref42.user,
-    onEdit = _ref42.onEdit,
-    onDelete = _ref42.onDelete,
-    onReload = _ref42.onReload,
-    toast = _ref42.toast;
-  var _useState259 = useState(false),
-    _useState260 = _slicedToArray(_useState259, 2),
-    expanded = _useState260[0],
-    setExpanded = _useState260[1];
-  var _useState261 = useState(null),
+var PhotoVerificationCard = function PhotoVerificationCard(_ref44) {
+  var item = _ref44.item,
+    user = _ref44.user,
+    onEdit = _ref44.onEdit,
+    onDelete = _ref44.onDelete,
+    onReload = _ref44.onReload,
+    toast = _ref44.toast;
+  var _useState261 = useState(false),
     _useState262 = _slicedToArray(_useState261, 2),
-    previewFile = _useState262[0],
-    setPreviewFile = _useState262[1];
+    expanded = _useState262[0],
+    setExpanded = _useState262[1];
+  var _useState263 = useState(null),
+    _useState264 = _slicedToArray(_useState263, 2),
+    previewFile = _useState264[0],
+    setPreviewFile = _useState264[1];
   var status = PHOTO_STATUSES.find(function (s) {
     return s.key === item.status;
   }) || PHOTO_STATUSES[0];
   var setStatus = /*#__PURE__*/function () {
-    var _ref43 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25(newStatus) {
-      return _regenerator().w(function (_context25) {
-        while (1) switch (_context25.n) {
+    var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(newStatus) {
+      return _regenerator().w(function (_context27) {
+        while (1) switch (_context27.n) {
           case 0:
-            _context25.n = 1;
+            _context27.n = 1;
             return CLOUD.upsert('photo_verifications', _objectSpread(_objectSpread({}, item), {}, {
               status: newStatus,
               updated_at: new Date().toISOString()
@@ -7736,12 +7801,12 @@ var PhotoVerificationCard = function PhotoVerificationCard(_ref42) {
             toast('✓ 已更新');
             onReload();
           case 2:
-            return _context25.a(2);
+            return _context27.a(2);
         }
-      }, _callee25);
+      }, _callee27);
     }));
     return function setStatus(_x1) {
-      return _ref43.apply(this, arguments);
+      return _ref45.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -7976,13 +8041,13 @@ var PhotoVerificationCard = function PhotoVerificationCard(_ref42) {
     }
   }));
 };
-var PhotoVerificationEditor = function PhotoVerificationEditor(_ref44) {
+var PhotoVerificationEditor = function PhotoVerificationEditor(_ref46) {
   var _item$affected_orders;
-  var item = _ref44.item,
-    user = _ref44.user,
-    onClose = _ref44.onClose,
-    onSaved = _ref44.onSaved,
-    toast = _ref44.toast;
+  var item = _ref46.item,
+    user = _ref46.user,
+    onClose = _ref46.onClose,
+    onSaved = _ref46.onSaved,
+    toast = _ref46.toast;
   var isEdit = !!item;
   var userName = user.name + (user.alias ? ' ' + user.alias : '');
   // 🆕 fix7: 表单字段重新设计
@@ -7991,86 +8056,86 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref44) {
   // - 录入人自动 = 当前客服(不需要手填)
   // - 客户回复改为留言板形式,支持图片粘贴/拖拽
   // - SKU / 供应商 / 影响订单 — 降级为可选高级字段
-  var _useState263 = useState((item === null || item === void 0 ? void 0 : item.order_ref) || (item === null || item === void 0 || (_item$affected_orders = item.affected_orders) === null || _item$affected_orders === void 0 ? void 0 : _item$affected_orders[0]) || ''),
-    _useState264 = _slicedToArray(_useState263, 2),
-    orderRef = _useState264[0],
-    setOrderRef = _useState264[1];
-  var _useState265 = useState((item === null || item === void 0 ? void 0 : item.product_name) || ''),
+  var _useState265 = useState((item === null || item === void 0 ? void 0 : item.order_ref) || (item === null || item === void 0 || (_item$affected_orders = item.affected_orders) === null || _item$affected_orders === void 0 ? void 0 : _item$affected_orders[0]) || ''),
     _useState266 = _slicedToArray(_useState265, 2),
-    productName = _useState266[0],
-    setProductName = _useState266[1];
-  var _useState267 = useState((item === null || item === void 0 ? void 0 : item.type) || 'mismatch'),
+    orderRef = _useState266[0],
+    setOrderRef = _useState266[1];
+  var _useState267 = useState((item === null || item === void 0 ? void 0 : item.product_name) || ''),
     _useState268 = _slicedToArray(_useState267, 2),
-    type = _useState268[0],
-    setType = _useState268[1];
-  var _useState269 = useState((item === null || item === void 0 ? void 0 : item.difference_type) || '颜色'),
+    productName = _useState268[0],
+    setProductName = _useState268[1];
+  var _useState269 = useState((item === null || item === void 0 ? void 0 : item.type) || 'mismatch'),
     _useState270 = _slicedToArray(_useState269, 2),
-    differenceType = _useState270[0],
-    setDifferenceType = _useState270[1];
-  var _useState271 = useState((item === null || item === void 0 ? void 0 : item.difference_detail) || ''),
+    type = _useState270[0],
+    setType = _useState270[1];
+  var _useState271 = useState((item === null || item === void 0 ? void 0 : item.difference_type) || '颜色'),
     _useState272 = _slicedToArray(_useState271, 2),
-    differenceDetail = _useState272[0],
-    setDifferenceDetail = _useState272[1];
-  var _useState273 = useState((item === null || item === void 0 ? void 0 : item.sales_photos) || []),
+    differenceType = _useState272[0],
+    setDifferenceType = _useState272[1];
+  var _useState273 = useState((item === null || item === void 0 ? void 0 : item.difference_detail) || ''),
     _useState274 = _slicedToArray(_useState273, 2),
-    salesPhotos = _useState274[0],
-    setSalesPhotos = _useState274[1];
-  var _useState275 = useState((item === null || item === void 0 ? void 0 : item.actual_photos) || []),
+    differenceDetail = _useState274[0],
+    setDifferenceDetail = _useState274[1];
+  var _useState275 = useState((item === null || item === void 0 ? void 0 : item.sales_photos) || []),
     _useState276 = _slicedToArray(_useState275, 2),
-    actualPhotos = _useState276[0],
-    setActualPhotos = _useState276[1];
+    salesPhotos = _useState276[0],
+    setSalesPhotos = _useState276[1];
+  var _useState277 = useState((item === null || item === void 0 ? void 0 : item.actual_photos) || []),
+    _useState278 = _slicedToArray(_useState277, 2),
+    actualPhotos = _useState278[0],
+    setActualPhotos = _useState278[1];
   // 🆕 fix119: 实拍核实一键拉取订单 → 自动填产品名 + 选产品图入"销售图"
-  var _useState277 = useState({
+  var _useState279 = useState({
       loading: false,
       products: null
     }),
-    _useState278 = _slicedToArray(_useState277, 2),
-    pvPull = _useState278[0],
-    setPvPull = _useState278[1];
+    _useState280 = _slicedToArray(_useState279, 2),
+    pvPull = _useState280[0],
+    setPvPull = _useState280[1];
   var pvDoPull = /*#__PURE__*/function () {
-    var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26() {
-      var on, v, _t16;
-      return _regenerator().w(function (_context26) {
-        while (1) switch (_context26.p = _context26.n) {
+    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28() {
+      var on, v, _t18;
+      return _regenerator().w(function (_context28) {
+        while (1) switch (_context28.p = _context28.n) {
           case 0:
             on = (orderRef || '').trim();
             if (on) {
-              _context26.n = 1;
+              _context28.n = 1;
               break;
             }
             alert('请先填订单编号');
-            return _context26.a(2);
+            return _context28.a(2);
           case 1:
             setPvPull({
               loading: true,
               products: null
             });
-            _context26.p = 2;
-            _context26.n = 3;
+            _context28.p = 2;
+            _context28.n = 3;
             return wsFetchOrderProducts(on);
           case 3:
-            v = _context26.v;
+            v = _context28.v;
             setPvPull({
               loading: false,
               products: v && v.products || []
             });
             if (v && !(productName || '').trim() && v.products && v.products[0] && v.products[0].title) setProductName(v.products[0].title);
-            _context26.n = 5;
+            _context28.n = 5;
             break;
           case 4:
-            _context26.p = 4;
-            _t16 = _context26.v;
+            _context28.p = 4;
+            _t18 = _context28.v;
             setPvPull({
               loading: false,
               products: []
             });
           case 5:
-            return _context26.a(2);
+            return _context28.a(2);
         }
-      }, _callee26, null, [[2, 4]]);
+      }, _callee28, null, [[2, 4]]);
     }));
     return function pvDoPull() {
-      return _ref45.apply(this, arguments);
+      return _ref47.apply(this, arguments);
     };
   }();
   var pvIsSaved = function pvIsSaved(p) {
@@ -8096,7 +8161,7 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref44) {
   };
   // 客户回复留言板 — 数组结构,每条 {id, author_id, author_name, content, images:[{path,url}], created_at}
   // 旧记录里只有 customer_response (text) — 自动转成一条 legacy 留言
-  var _useState279 = useState(function () {
+  var _useState281 = useState(function () {
       if (Array.isArray(item === null || item === void 0 ? void 0 : item.customer_replies)) return item.customer_replies;
       if (item !== null && item !== void 0 && item.customer_response && item.customer_response.trim()) {
         return [{
@@ -8110,59 +8175,59 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref44) {
       }
       return [];
     }),
-    _useState280 = _slicedToArray(_useState279, 2),
-    replies = _useState280[0],
-    setReplies = _useState280[1];
-  var _useState281 = useState(false),
     _useState282 = _slicedToArray(_useState281, 2),
-    showAdvanced = _useState282[0],
-    setShowAdvanced = _useState282[1];
-  var _useState283 = useState((item === null || item === void 0 ? void 0 : item.sku) || ''),
+    replies = _useState282[0],
+    setReplies = _useState282[1];
+  var _useState283 = useState(false),
     _useState284 = _slicedToArray(_useState283, 2),
-    sku = _useState284[0],
-    setSku = _useState284[1];
-  var _useState285 = useState((item === null || item === void 0 ? void 0 : item.supplier_name) || ''),
+    showAdvanced = _useState284[0],
+    setShowAdvanced = _useState284[1];
+  var _useState285 = useState((item === null || item === void 0 ? void 0 : item.sku) || ''),
     _useState286 = _slicedToArray(_useState285, 2),
-    supplierName = _useState286[0],
-    setSupplierName = _useState286[1];
-  var _useState287 = useState(((item === null || item === void 0 ? void 0 : item.affected_orders) || []).join(', ')),
+    sku = _useState286[0],
+    setSku = _useState286[1];
+  var _useState287 = useState((item === null || item === void 0 ? void 0 : item.supplier_name) || ''),
     _useState288 = _slicedToArray(_useState287, 2),
-    affectedOrders = _useState288[0],
-    setAffectedOrders = _useState288[1];
-  var _useState289 = useState((item === null || item === void 0 ? void 0 : item.resolution) || ''),
+    supplierName = _useState288[0],
+    setSupplierName = _useState288[1];
+  var _useState289 = useState(((item === null || item === void 0 ? void 0 : item.affected_orders) || []).join(', ')),
     _useState290 = _slicedToArray(_useState289, 2),
-    resolution = _useState290[0],
-    setResolution = _useState290[1];
-  var _useState291 = useState(false),
+    affectedOrders = _useState290[0],
+    setAffectedOrders = _useState290[1];
+  var _useState291 = useState((item === null || item === void 0 ? void 0 : item.resolution) || ''),
     _useState292 = _slicedToArray(_useState291, 2),
-    saving = _useState292[0],
-    setSaving = _useState292[1];
+    resolution = _useState292[0],
+    setResolution = _useState292[1];
+  var _useState293 = useState(false),
+    _useState294 = _slicedToArray(_useState293, 2),
+    saving = _useState294[0],
+    setSaving = _useState294[1];
   var handleSave = /*#__PURE__*/function () {
-    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27() {
+    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29() {
       var now, mergedOrders, latestReply, payload, res;
-      return _regenerator().w(function (_context27) {
-        while (1) switch (_context27.n) {
+      return _regenerator().w(function (_context29) {
+        while (1) switch (_context29.n) {
           case 0:
             if (orderRef.trim()) {
-              _context27.n = 1;
+              _context29.n = 1;
               break;
             }
             alert('请填写订单编号');
-            return _context27.a(2);
+            return _context29.a(2);
           case 1:
             if (productName.trim()) {
-              _context27.n = 2;
+              _context29.n = 2;
               break;
             }
             alert('请填写产品名');
-            return _context27.a(2);
+            return _context29.a(2);
           case 2:
             if (differenceDetail.trim()) {
-              _context27.n = 3;
+              _context29.n = 3;
               break;
             }
             alert('请填写差异说明');
-            return _context27.a(2);
+            return _context29.a(2);
           case 3:
             setSaving(true);
             now = new Date().toISOString(); // 同步把 orderRef 也存进 affected_orders 兼容老查询
@@ -8194,22 +8259,22 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref44) {
               created_by_name: (item === null || item === void 0 ? void 0 : item.created_by_name) || userName,
               status: (item === null || item === void 0 ? void 0 : item.status) || 'pending'
             });
-            _context27.n = 4;
+            _context29.n = 4;
             return CLOUD.upsert('photo_verifications', payload);
           case 4:
-            res = _context27.v;
+            res = _context29.v;
             if (res) {
               toast(isEdit ? '✓ 已更新' : '✓ 已创建');
               onSaved();
             } else alertSaveError('保存实拍核实');
             setSaving(false);
           case 5:
-            return _context27.a(2);
+            return _context29.a(2);
         }
-      }, _callee27);
+      }, _callee29);
     }));
     return function handleSave() {
-      return _ref46.apply(this, arguments);
+      return _ref48.apply(this, arguments);
     };
   }();
   return /*#__PURE__*/React.createElement("div", {
@@ -8756,147 +8821,147 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref44) {
 };
 
 // 🆕 fix7: 客户回复留言板组件 — 支持文本 + 图片(粘贴/拖拽/选文件)+ 时间线展示
-var CustomerRepliesBoard = function CustomerRepliesBoard(_ref47) {
-  var replies = _ref47.replies,
-    setReplies = _ref47.setReplies,
-    user = _ref47.user;
+var CustomerRepliesBoard = function CustomerRepliesBoard(_ref49) {
+  var replies = _ref49.replies,
+    setReplies = _ref49.setReplies,
+    user = _ref49.user;
   var userName = user.name + (user.alias ? ' ' + user.alias : '');
-  var _useState293 = useState(''),
-    _useState294 = _slicedToArray(_useState293, 2),
-    newContent = _useState294[0],
-    setNewContent = _useState294[1];
-  var _useState295 = useState([]),
+  var _useState295 = useState(''),
     _useState296 = _slicedToArray(_useState295, 2),
-    newImages = _useState296[0],
-    setNewImages = _useState296[1];
-  var _useState297 = useState(false),
+    newContent = _useState296[0],
+    setNewContent = _useState296[1];
+  var _useState297 = useState([]),
     _useState298 = _slicedToArray(_useState297, 2),
-    uploading = _useState298[0],
-    setUploading = _useState298[1];
+    newImages = _useState298[0],
+    setNewImages = _useState298[1];
+  var _useState299 = useState(false),
+    _useState300 = _slicedToArray(_useState299, 2),
+    uploading = _useState300[0],
+    setUploading = _useState300[1];
   var fileInputRef = useRef(null);
   var dropRef = useRef(null);
   var uploadOneFile = /*#__PURE__*/function () {
-    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28(file) {
-      var res, _t17;
-      return _regenerator().w(function (_context28) {
-        while (1) switch (_context28.p = _context28.n) {
+    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(file) {
+      var res, _t19;
+      return _regenerator().w(function (_context30) {
+        while (1) switch (_context30.p = _context30.n) {
           case 0:
             if (file) {
-              _context28.n = 1;
+              _context30.n = 1;
               break;
             }
-            return _context28.a(2, null);
+            return _context30.a(2, null);
           case 1:
             if (!(file.size > 10 * 1024 * 1024)) {
-              _context28.n = 2;
+              _context30.n = 2;
               break;
             }
             alert('图片超过 10MB,请压缩');
-            return _context28.a(2, null);
+            return _context30.a(2, null);
           case 2:
             setUploading(true);
-            _context28.p = 3;
-            _context28.n = 4;
+            _context30.p = 3;
+            _context30.n = 4;
             return CLOUD.uploadImage('business-files', file, 'photoverif/reply/');
           case 4:
-            res = _context28.v;
+            res = _context30.v;
             if (res) {
-              _context28.n = 5;
+              _context30.n = 5;
               break;
             }
             throw new Error('上传失败');
           case 5:
-            return _context28.a(2, res);
+            return _context30.a(2, res);
           case 6:
-            _context28.p = 6;
-            _t17 = _context28.v;
-            alert('上传失败: ' + _t17.message);
-            return _context28.a(2, null);
+            _context30.p = 6;
+            _t19 = _context30.v;
+            alert('上传失败: ' + _t19.message);
+            return _context30.a(2, null);
           case 7:
-            _context28.p = 7;
+            _context30.p = 7;
             setUploading(false);
-            return _context28.f(7);
+            return _context30.f(7);
           case 8:
-            return _context28.a(2);
+            return _context30.a(2);
         }
-      }, _callee28, null, [[3, 6, 7, 8]]);
+      }, _callee30, null, [[3, 6, 7, 8]]);
     }));
     return function uploadOneFile(_x10) {
-      return _ref48.apply(this, arguments);
+      return _ref50.apply(this, arguments);
     };
   }();
   var addFiles = /*#__PURE__*/function () {
-    var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29(files) {
-      var list, uploaded, _iterator5, _step5, f, r, _t18;
-      return _regenerator().w(function (_context29) {
-        while (1) switch (_context29.p = _context29.n) {
+    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee31(files) {
+      var list, uploaded, _iterator5, _step5, f, r, _t20;
+      return _regenerator().w(function (_context31) {
+        while (1) switch (_context31.p = _context31.n) {
           case 0:
             list = Array.from(files || []).filter(function (f) {
               return f.type.startsWith('image/');
             });
             if (!(list.length === 0)) {
-              _context29.n = 1;
+              _context31.n = 1;
               break;
             }
-            return _context29.a(2);
+            return _context31.a(2);
           case 1:
             uploaded = [];
             _iterator5 = _createForOfIteratorHelper(list);
-            _context29.p = 2;
+            _context31.p = 2;
             _iterator5.s();
           case 3:
             if ((_step5 = _iterator5.n()).done) {
-              _context29.n = 6;
+              _context31.n = 6;
               break;
             }
             f = _step5.value;
-            _context29.n = 4;
+            _context31.n = 4;
             return uploadOneFile(f);
           case 4:
-            r = _context29.v;
+            r = _context31.v;
             if (r) uploaded.push(r);
           case 5:
-            _context29.n = 3;
+            _context31.n = 3;
             break;
           case 6:
-            _context29.n = 8;
+            _context31.n = 8;
             break;
           case 7:
-            _context29.p = 7;
-            _t18 = _context29.v;
-            _iterator5.e(_t18);
+            _context31.p = 7;
+            _t20 = _context31.v;
+            _iterator5.e(_t20);
           case 8:
-            _context29.p = 8;
+            _context31.p = 8;
             _iterator5.f();
-            return _context29.f(8);
+            return _context31.f(8);
           case 9:
             if (uploaded.length > 0) setNewImages(function (prev) {
               return [].concat(_toConsumableArray(prev), uploaded);
             });
           case 10:
-            return _context29.a(2);
+            return _context31.a(2);
         }
-      }, _callee29, null, [[2, 7, 8, 9]]);
+      }, _callee31, null, [[2, 7, 8, 9]]);
     }));
     return function addFiles(_x11) {
-      return _ref49.apply(this, arguments);
+      return _ref51.apply(this, arguments);
     };
   }();
 
   // 粘贴图片到留言区
   var onPaste = /*#__PURE__*/function () {
-    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(e) {
+    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee32(e) {
       var _e$clipboardData2;
       var items, files, _iterator6, _step6, it, f;
-      return _regenerator().w(function (_context30) {
-        while (1) switch (_context30.n) {
+      return _regenerator().w(function (_context32) {
+        while (1) switch (_context32.n) {
           case 0:
             items = (_e$clipboardData2 = e.clipboardData) === null || _e$clipboardData2 === void 0 ? void 0 : _e$clipboardData2.items;
             if (items) {
-              _context30.n = 1;
+              _context32.n = 1;
               break;
             }
-            return _context30.a(2);
+            return _context32.a(2);
           case 1:
             files = [];
             _iterator6 = _createForOfIteratorHelper(items);
@@ -8914,42 +8979,42 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref47) {
               _iterator6.f();
             }
             if (!(files.length > 0)) {
-              _context30.n = 2;
+              _context32.n = 2;
               break;
             }
             e.preventDefault();
-            _context30.n = 2;
+            _context32.n = 2;
             return addFiles(files);
           case 2:
-            return _context30.a(2);
+            return _context32.a(2);
         }
-      }, _callee30);
+      }, _callee32);
     }));
     return function onPaste(_x12) {
-      return _ref50.apply(this, arguments);
+      return _ref52.apply(this, arguments);
     };
   }();
   var onDrop = /*#__PURE__*/function () {
-    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee31(e) {
+    var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee33(e) {
       var _dropRef$current, _e$dataTransfer$files;
-      return _regenerator().w(function (_context31) {
-        while (1) switch (_context31.n) {
+      return _regenerator().w(function (_context33) {
+        while (1) switch (_context33.n) {
           case 0:
             e.preventDefault();
             (_dropRef$current = dropRef.current) === null || _dropRef$current === void 0 || _dropRef$current.classList.remove('drag-over');
             if (!((_e$dataTransfer$files = e.dataTransfer.files) !== null && _e$dataTransfer$files !== void 0 && _e$dataTransfer$files.length)) {
-              _context31.n = 1;
+              _context33.n = 1;
               break;
             }
-            _context31.n = 1;
+            _context33.n = 1;
             return addFiles(e.dataTransfer.files);
           case 1:
-            return _context31.a(2);
+            return _context33.a(2);
         }
-      }, _callee31);
+      }, _callee33);
     }));
     return function onDrop(_x13) {
-      return _ref51.apply(this, arguments);
+      return _ref53.apply(this, arguments);
     };
   }();
   var send = function send() {
@@ -8972,18 +9037,18 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref47) {
     setNewImages([]);
   };
   var removeReply = /*#__PURE__*/function () {
-    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee32(id) {
-      return _regenerator().w(function (_context32) {
-        while (1) switch (_context32.n) {
+    var _ref54 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee34(id) {
+      return _regenerator().w(function (_context34) {
+        while (1) switch (_context34.n) {
           case 0:
-            _context32.n = 1;
+            _context34.n = 1;
             return wsConfirm('确认删除这条留言?');
           case 1:
-            if (_context32.v) {
-              _context32.n = 2;
+            if (_context34.v) {
+              _context34.n = 2;
               break;
             }
-            return _context32.a(2);
+            return _context34.a(2);
           case 2:
             setReplies(function (prev) {
               return (prev || []).filter(function (r) {
@@ -8991,12 +9056,12 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref47) {
               });
             });
           case 3:
-            return _context32.a(2);
+            return _context34.a(2);
         }
-      }, _callee32);
+      }, _callee34);
     }));
     return function removeReply(_x14) {
-      return _ref52.apply(this, arguments);
+      return _ref54.apply(this, arguments);
     };
   }();
   var removeNewImage = function removeNewImage(idx) {

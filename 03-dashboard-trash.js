@@ -1,7 +1,7 @@
-// ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-138
-// APP_VERSION: 2026.05.30-fix138
-// ════════════════════════════════════════════════════════════════════
+// ====== cs-system 统一工作台 — 03-dashboard-trash ======
+// 版本 2026.06.02-fix140
+// 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
+//
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -22,16 +22,11 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-// ════════════════════════════════════════════════════════════════════
-// 📈 数据看板 + KPI 可点击 + 回收站 · fix28-138
-// APP_VERSION: 2026.05.30-fix138
-// ════════════════════════════════════════════════════════════════════
+// ====== cs-system 统一工作台 — 03-dashboard-trash ======
+// 版本 2026.06.02-fix140
+// 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
+//
 
-// ════════════════════════════════════════════════════════════════════
-// 🆕 fix52: 客户档案 360° Modal
-// 输入一个客户邮箱 → 跨模块查询:跟进 / 拒付 / 售后 / 评价 / 线下单
-// 帮客服一眼看清这个客户在系统里的完整历史
-// ════════════════════════════════════════════════════════════════════
 var Customer360Modal = function Customer360Modal(_ref) {
   var email = _ref.email,
     records = _ref.records,
@@ -6344,7 +6339,7 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref44) {
           case 1:
             _context10.p = 1;
             _context10.n = 2;
-            return CLOUD.client.from('system_settings').select('*').eq('key', 'alert_thresholds').single();
+            return CLOUD.client.from('system_settings').select('*').eq('key', 'alert_thresholds').maybeSingle();
           case 2:
             _yield$CLOUD$client$f3 = _context10.v;
             data = _yield$CLOUD$client$f3.data;
@@ -9192,3 +9187,9 @@ var ProductEditorModal = function ProductEditorModal(_ref65) {
     }
   }, saving ? '保存中...' : isEdit ? '💾 保存修改' : '+ 创建')))), document.body);
 };
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix49: 拍摄部对接配置 — WorkTrack-KPI Supabase URL + Anon Key
+// 由 Martin 提供;只有 super_admin / admin 能配置
+// 配置成功后,客服系统就能写入 WorkTrack-KPI 的 photo_logs 表
+// ════════════════════════════════════════════════════════════════════
