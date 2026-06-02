@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-137
-// APP_VERSION: 2026.05.30-fix137
+// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-138
+// APP_VERSION: 2026.05.30-fix138
 // ════════════════════════════════════════════════════════════════════
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _extends() { return _extends = Object.assign ? Object.assign.bind() : function (n) { for (var e = 1; e < arguments.length; e++) { var t = arguments[e]; for (var r in t) ({}).hasOwnProperty.call(t, r) && (n[r] = t[r]); } return n; }, _extends.apply(null, arguments); }
@@ -26,8 +26,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ════════════════════════════════════════════════════════════════════
-// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-137
-// APP_VERSION: 2026.05.30-fix137
+// 📚 知识库 + 跨部门 + 运费 + 快递发票 · fix28-138
+// APP_VERSION: 2026.05.30-fix138
 // ════════════════════════════════════════════════════════════════════
 
 // ============================================================
@@ -6678,14 +6678,35 @@ var CdmNewMessageModal = function CdmNewMessageModal(_ref41) {
       }, _callee14, null, [[0, 2]]);
     }))();
   }, []);
-  // 目标部门的人(active)
+  // 目标部门的人(active)· 🆕 fix138: org_directory 为空时从 shopOwners 兜底取人(财务/客服都能选到美工团队)
   var recipientOptions = useMemo(function () {
-    return orgDir.filter(function (p) {
+    var fromDir = orgDir.filter(function (p) {
       return p.system === toSystem && p.active;
     }).sort(function (a, b) {
       return (a.sortOrder || 0) - (b.sortOrder || 0);
     });
-  }, [orgDir, toSystem]);
+    if (fromDir.length) return fromDir;
+    var seen = new Set();
+    var out = [];
+    (shopOwners || []).filter(function (s) {
+      return s.system === toSystem && s.userId && s.userName;
+    }).forEach(function (s) {
+      if (!seen.has(s.userId)) {
+        seen.add(s.userId);
+        out.push({
+          id: s.userId,
+          staffId: s.userId,
+          name: s.userName,
+          role: '',
+          system: toSystem,
+          active: true
+        });
+      }
+    });
+    return out.sort(function (a, b) {
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [orgDir, toSystem, shopOwners]);
 
   // 🆕 v22-CY: 可选网站列表直接用预设(不再从 shopOwners 提取 — 避免拼写不一致)
   var availableShops = SHOPS_SELECTABLE;
