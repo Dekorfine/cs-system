@@ -1,5 +1,5 @@
 // ====== cs-system 统一工作台 — 05-quote-briefings ======
-// 版本 2026.06.03-fix144
+// 版本 2026.06.03-fix145
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system 统一工作台 — 05-quote-briefings ======
-// 版本 2026.06.03-fix144
+// 版本 2026.06.03-fix145
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 
@@ -2061,7 +2061,8 @@ var GlobalSearch = function GlobalSearch(_ref12) {
           status: status === null || status === void 0 ? void 0 : status.label,
           target: {
             tab: 'events',
-            subTab: 'aftersales'
+            subTab: 'aftersales',
+            recordId: a.id
           },
           data: a
         });
@@ -2089,7 +2090,8 @@ var GlobalSearch = function GlobalSearch(_ref12) {
           status: status === null || status === void 0 ? void 0 : status.label,
           target: {
             tab: 'events',
-            subTab: 'refills'
+            subTab: 'refills',
+            recordId: r.id
           },
           data: r
         });
@@ -2117,7 +2119,8 @@ var GlobalSearch = function GlobalSearch(_ref12) {
           status: status === null || status === void 0 ? void 0 : status.label,
           target: {
             tab: 'events',
-            subTab: 'refunds'
+            subTab: 'refunds',
+            recordId: r.id
           },
           data: r
         });
@@ -2255,7 +2258,8 @@ var GlobalSearch = function GlobalSearch(_ref12) {
           extra: urgency ? "\u23F0 ".concat(urgency.label, " \xB7 \u622A\u6B62 ").concat(c.deadline) : "\u622A\u6B62 ".concat(c.deadline),
           status: statusObj === null || statusObj === void 0 ? void 0 : statusObj.label,
           target: {
-            tab: 'chargebacks'
+            tab: 'chargebacks',
+            recordId: c.id
           },
           data: c
         });
@@ -2493,8 +2497,7 @@ var GlobalSearch = function GlobalSearch(_ref12) {
   }, [results]);
   var handleClick = function handleClick(item) {
     if (item.target && item.target.tab) {
-      setActiveTab(item.target.tab);
-      if (item.target.recordId && onJumpToRecord) onJumpToRecord(item.target.recordId);
+      if (onJumpToRecord) onJumpToRecord(item.target);else setActiveTab(item.target.tab);
     }
     onClose();
   };

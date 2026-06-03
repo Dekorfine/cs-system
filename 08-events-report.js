@@ -1,5 +1,5 @@
 // ====== cs-system 统一工作台 — 08-events-report ======
-// 版本 2026.06.03-fix144
+// 版本 2026.06.03-fix145
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -28,7 +28,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system 统一工作台 — 08-events-report ======
-// 版本 2026.06.03-fix144
+// 版本 2026.06.03-fix145
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 
@@ -38,7 +38,9 @@ var EventsModule = function EventsModule(_ref) {
     employees = _ref.employees,
     records = _ref.records,
     toast = _ref.toast,
-    cloudOn = _ref.cloudOn;
+    cloudOn = _ref.cloudOn,
+    focusId = _ref.focusId,
+    focusSub = _ref.focusSub;
   var _useState = useState('aftersales'),
     _useState2 = _slicedToArray(_useState, 2),
     subTab = _useState2[0],
@@ -79,7 +81,34 @@ var EventsModule = function EventsModule(_ref) {
     _useState18 = _slicedToArray(_useState17, 2),
     eventListModal = _useState18[0],
     setEventListModal = _useState18[1]; // 🆕 fix81: 数字点击弹出列表
-
+  // 🆕 fix145: 从搜索跳来 → 切到对应子表 + 找到该条事件 → 自动打开编辑;useRef 防重复
+  var evFocusRef = useRef(null);
+  useEffect(function () {
+    if (!focusId || focusId === evFocusRef.current) return;
+    var byKind = {
+      aftersales: [aftersales, 'aftersale'],
+      refills: [refills, 'refill'],
+      refunds: [refunds, 'refund']
+    };
+    var candidates = byKind[focusSub] ? [byKind[focusSub]] : [[aftersales, 'aftersale'], [refills, 'refill'], [refunds, 'refund']];
+    for (var _i = 0, _candidates = candidates; _i < _candidates.length; _i++) {
+      var _candidates$_i = _slicedToArray(_candidates[_i], 2),
+        arr = _candidates$_i[0],
+        kind = _candidates$_i[1];
+      var ev = (arr || []).find(function (x) {
+        return x.id === focusId;
+      });
+      if (ev) {
+        evFocusRef.current = focusId;
+        if (focusSub) setSubTab(focusSub);
+        setEditEvent({
+          kind: kind,
+          event: ev
+        });
+        break;
+      }
+    }
+  }, [focusId, focusSub, aftersales, refills, refunds]);
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var isFinance = user.role === 'finance' || isAdmin; // 财务+admin 都能管退款
 

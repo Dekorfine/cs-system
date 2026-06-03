@@ -1,5 +1,5 @@
 // ====== cs-system 统一工作台 — 06-chargebacks-offline ======
-// 版本 2026.06.03-fix144
+// 版本 2026.06.03-fix145
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,14 +25,15 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system 统一工作台 — 06-chargebacks-offline ======
-// 版本 2026.06.03-fix144
+// 版本 2026.06.03-fix145
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 
 var ChargebacksModule = function ChargebacksModule(_ref) {
   var user = _ref.user,
     employees = _ref.employees,
-    toast = _ref.toast;
+    toast = _ref.toast,
+    focusId = _ref.focusId;
   var _useState = useState([]),
     _useState2 = _slicedToArray(_useState, 2),
     list = _useState2[0],
@@ -45,6 +46,19 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
     _useState6 = _slicedToArray(_useState5, 2),
     editing = _useState6[0],
     setEditing = _useState6[1];
+  // 🆕 fix145: 从提醒/搜索跳来 → 等数据加载好,找到该条 → 自动打开编辑;useRef 防重复弹开
+  var cbFocusRef = useRef(null);
+  useEffect(function () {
+    if (focusId && focusId !== cbFocusRef.current) {
+      var cb = (list || []).find(function (x) {
+        return x.id === focusId;
+      });
+      if (cb) {
+        cbFocusRef.current = focusId;
+        setEditing(cb);
+      }
+    }
+  }, [focusId, list]);
   var _useState7 = useState(null),
     _useState8 = _slicedToArray(_useState7, 2),
     cbListModal = _useState8[0],
