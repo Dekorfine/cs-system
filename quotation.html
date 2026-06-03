@@ -2323,7 +2323,7 @@ function updateFreightLabel() {
 /* ============================================================
    LANGUAGE SWITCH
    ============================================================ */
-function setLanguage(lang) {
+async function setLanguage(lang) {
   document.querySelectorAll('[data-lang-key]').forEach(el => {
     const key = el.getAttribute('data-lang-key');
     const dict = translations[lang] || translations.en;
@@ -2335,7 +2335,7 @@ function setLanguage(lang) {
     const currentTerms = $('terms_conditions').value.trim();
     // Only ask if the current content actually differs from the preset (heuristic to avoid spurious prompts)
     if (currentTerms && currentTerms.length > 0) {
-      const regenerate = confirm(
+      const regenerate = await wsConfirm(
         'You have manually edited the Terms & Conditions.\n\n' +
         'OK = regenerate terms in the new language (your edits will be lost)\n' +
         'Cancel = keep your edits as-is (they will stay in the previous language)'
@@ -2996,8 +2996,8 @@ function restoreFromDraft() {
     return true;
   } catch(e) { return false; }
 }
-function newQuote() {
-  if (!confirm('Start a new quote? This clears the current form and the saved draft.')) return;
+async function newQuote() {
+  if (!(await wsConfirm('Start a new quote? This clears the current form and the saved draft.'))) return;
   localStorage.removeItem(draftKey);
   currentLoadedPath = null;
   currentLoadedSha = null;
@@ -3047,11 +3047,11 @@ function updateSaveSlotsDropdown(filter) {
   } else keys.forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = k; sel.appendChild(o); });
 }
 function filterSaveSlots() { updateSaveSlotsDropdown($('save_search').value); }
-function saveData() {
+async function saveData() {
   const data = collectFormData();
   const buyerName = getBuyerNameFromData(data) || $('pi_number').value || 'Quote';
   const defaultName = `${buyerName} - ${new Date().toLocaleDateString()}`;
-  const name = prompt('Enter a name for this entry:', defaultName);
+  const name = await wsPrompt('Enter a name for this entry:', defaultName);
   if (!name) return;
   const savedData = getSavedData();
   savedData[name] = data;
@@ -3068,11 +3068,11 @@ function loadData() {
   restoreDataToForm(d);
   showFeedback(`Loaded "${name}"!`);
 }
-function deleteData() {
+async function deleteData() {
   const sel = $('save_slots');
   const name = sel.value;
   if (!name || sel.options[sel.selectedIndex].disabled) { showFeedback('Please select an entry to delete.'); return; }
-  if (!confirm(`Delete "${name}"?`)) return;
+  if (!(await wsConfirm(`Delete "${name}"?`, {okText:'删除'}))) return;
   const data = getSavedData();
   delete data[name];
   localStorage.setItem(storageKey, JSON.stringify(data));
@@ -3111,7 +3111,7 @@ const SB_KEY = _sbCfg.key;
 // 🆕 fix25: 切换到新表 quotations (避开旧 repo 留下的 quotation_records 脏数据)
 const SB_TABLE = 'quotations';
 const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
-try { console.log('%c[报价单] quotation.html · 2026-06-03 fix67 — 健康检查改全 15 列(防"自测正常实际失败")', 'color:#0071e3'); } catch (e) {}
+try { console.log('%c[报价单] quotation.html · 2026-06-03 fix68 — 健康检查全列 + 所有弹窗改自定义(confirm/prompt)', 'color:#0071e3'); } catch (e) {}
 
 /* Sanitize a string into a filename-safe token.
    Keeps Unicode letters/digits, replaces whitespace + path separators
@@ -3321,10 +3321,10 @@ function saveSetup() {
   renderUserBar();
   loadCloudList();
 }
-function openSettings() {
+async function openSettings() {
   // 🆕 fix25: 改成简单 prompt,不阻塞主流程
   const cur = (getSettings().username || '').replace('guest', '');
-  const name = prompt('显示名称(可选,留空即可)\nDisplay name (optional, leave blank if not needed):', cur);
+  const name = await wsPrompt('显示名称(可选,留空即可)\nDisplay name (optional, leave blank if not needed):', cur);
   if (name === null) return;  // 取消
   localStorage.setItem(SETTINGS_KEY, JSON.stringify({ username: name.trim() || 'guest' }));
   renderUserBar();
@@ -4072,7 +4072,7 @@ async function cloudSave() {
   const payload = JSON.stringify(data);
   const sizeKB = Math.round(payload.length / 1024);
   if (sizeKB > 5000) {
-    if (!confirm(`This quote is ${sizeKB}KB (mostly from pasted images). Saving may be slow. Continue?`)) return;
+    if (!(await wsConfirm(`This quote is ${sizeKB}KB (mostly from pasted images). Saving may be slow. Continue?`))) return;
   }
 
   setCloudStatus('<span class="loading-spinner"></span> 保存到云端… · Saving…', '');
@@ -4115,11 +4115,11 @@ async function cloudSave() {
   if (currentLoadedPath && currentLoadedSha) {
     const { data: cur } = await sb.from(SB_TABLE).select('updated_at').eq('id', recordId).single();
     if (cur && cur.updated_at !== currentLoadedSha) {
-      const proceed = confirm(
+      const proceed = await wsConfirm(
         '⚠ 检测到冲突！\n\n' +
         '这条报价单在你加载后被云端修改过（可能是其他团队成员）。\n\n' +
         '确定 = 用你的版本覆盖他们的修改\n' +
-        '取消 = 放弃保存（建议：刷新列表后重新加载）'
+        '取消 = 放弃保存（建议:刷新列表后重新加载）'
       );
       if (!proceed) {
         setCloudStatus('已取消保存 — 请刷新查看最新内容', 'err');
@@ -4191,15 +4191,14 @@ async function promptFollowUpReminder(customerName, piRef) {
     showToast('💡 客户邮箱未填，可在跟进系统手动建提醒', 'info');
     return;
   }
-  const choice = prompt(
+  const choice = await wsPrompt(
     `📌 设置回访提醒\n\n` +
-    `客户：${customerName} (${buyerEmail})\n` +
-    `报价：${piRef || '(无 PI)'}\n\n` +
-    `输入回访天数，或直接回车跳过：\n` +
-    `  3  = 3 天后（推荐 · 新客户跟进）\n` +
-    `  7  = 7 天后（标准）\n` +
-    `  15 = 15 天后（长期跟进）\n` +
-    `  其他数字 = 自定义天数`,
+    `客户:${customerName} (${buyerEmail})\n` +
+    `报价:${piRef || '(无 PI)'}\n\n` +
+    `输入回访天数,或留空跳过:\n` +
+    `  3  = 3 天后(推荐 · 新客户跟进)\n` +
+    `  7  = 7 天后(标准)\n` +
+    `  15 = 15 天后(长期跟进)`,
     '7'
   );
   if (!choice || isNaN(parseInt(choice))) return;
@@ -4283,7 +4282,7 @@ async function cloudLoad() {
 
 // 软删除：把记录的 trashed 设为 true（不删除行）
 async function cloudDelete(id, sha, name) {
-  if (!confirm(`将 "${name}" 移到回收站？稍后可恢复。\nMove to Trash? You can restore it later.`)) return;
+  if (!(await wsConfirm(`将 "${name}" 移到回收站?稍后可恢复。\nMove to Trash? You can restore it later.`))) return;
   setCloudStatus('<span class="loading-spinner"></span> 移到回收站… · Moving to trash…', '');
   const updated = await sbUpdate(id, { trashed: true });
   if (updated) {
@@ -4297,7 +4296,7 @@ async function cloudDelete(id, sha, name) {
 }
 
 async function restoreFromTrash(id, sha, name) {
-  if (!confirm(`从回收站恢复 "${name}"？\nRestore from trash?`)) return;
+  if (!(await wsConfirm(`从回收站恢复 "${name}"?\nRestore from trash?`))) return;
   setCloudStatus('<span class="loading-spinner"></span> 恢复中… · Restoring…', '');
   const updated = await sbUpdate(id, { trashed: false });
   if (updated) {
@@ -4308,8 +4307,8 @@ async function restoreFromTrash(id, sha, name) {
 }
 
 async function permanentDelete(id, sha, name) {
-  if (!confirm(`永久删除 "${name}"？此操作无法撤销。\nPermanently delete? Cannot be undone.`)) return;
-  if (!confirm('确定要彻底删除吗？记录将永久消失。\nReally erase forever?')) return;
+  if (!(await wsConfirm(`永久删除 "${name}"?此操作无法撤销。\nPermanently delete? Cannot be undone.`, {okText:'永久删除'}))) return;
+  if (!(await wsConfirm('确定要彻底删除吗?记录将永久消失。\nReally erase forever?', {okText:'彻底删除'}))) return;
   setCloudStatus('<span class="loading-spinner"></span> 永久删除中… · Permanently deleting…', '');
   const ok = await sbDelete(id);
   if (ok) {
@@ -4322,8 +4321,8 @@ async function permanentDelete(id, sha, name) {
 async function emptyTrash() {
   const trashedRecords = cloudRecords.filter(r => r.trashed);
   if (!trashedRecords.length) { showToast('回收站已经是空的 · Trash is already empty', 'ok'); return; }
-  if (!confirm(`永久删除回收站全部 ${trashedRecords.length} 项？此操作无法撤销。\nPermanently delete all ${trashedRecords.length}? Cannot be undone.`)) return;
-  if (!confirm('回收站将被清空，确定继续？\nWill erase everything. Proceed?')) return;
+  if (!(await wsConfirm(`永久删除回收站全部 ${trashedRecords.length} 项?此操作无法撤销。\nPermanently delete all ${trashedRecords.length}? Cannot be undone.`, {okText:'清空'}))) return;
+  if (!(await wsConfirm('回收站将被清空,确定继续?\nWill erase everything. Proceed?', {okText:'清空'}))) return;
   setCloudStatus(`<span class="loading-spinner"></span> Emptying trash (${trashedRecords.length})…`, '');
   let successCount = 0;
   for (const r of trashedRecords) {
