@@ -431,16 +431,21 @@ function storeFromOrder(o, field) {
   return '未知';
 }
 // 🆕 按后台备注自动识别该单报哪盏灯:备注里有 "K115960-2=Estelle Alabaster Wall Sconce" 形式的子单→产品映射
+// fix: 全局扫描(一行多个也全收)+ 分隔符 = ＝ : :  + 产品名在「下一个子单号 / 硬分隔符 / 行尾」处断句(不串味)
+try { console.log('%c[快递发票] 2026-06-03 识别优化:多子单备注全局解析 + 合并单空格/、拆分', 'color:#0071e3'); } catch (e) {}
+const _CODE_RE = '[A-Za-z]{1,4}\\d{2,}(?:-\\d+)?';
 function noteProductMap(note) {
   const map = {};
-  String(note || '').split(/[\n\r·;；]+/).forEach(line => {
-    const m = line.match(/([A-Za-z]{1,4}\d{2,}(?:-\d+)?)\s*[=＝]\s*([^=＝\n]+?)(?:\s*[=＝].*)?$/);
-    if (m) {
-      const k = m[1].toUpperCase().replace(/\s/g, '');
-      const v = m[2].trim();
-      if (v && !/^(已发|已回|贴|超|加纸箱)/.test(v) && /[A-Za-z]/.test(v)) map[k] = v;
-    }
-  });
+  const s = String(note || '').replace(/\r/g, '\n');
+  // 组1=子单号;组2=产品名(惰性,遇到「下一个 子单号+分隔符」或 换行/·/;/;/| 或 行尾 即停)
+  const re = new RegExp('(' + _CODE_RE + ')\\s*[=＝:：]\\s*([^\\n]*?)(?=\\s*' + _CODE_RE + '\\s*[=＝:：]|[\\n·;；|]|$)', 'g');
+  let m;
+  while ((m = re.exec(s))) {
+    if (m[0] === '') { re.lastIndex++; continue; }  // 防零长匹配死循环
+    const k = m[1].toUpperCase().replace(/\s/g, '');
+    const v = (m[2] || '').trim().replace(/[,，、;；]+$/, '').trim();  // 去掉尾随分隔符
+    if (v && !/^(已发|已回|贴|超|加纸箱)/.test(v) && /[A-Za-z]/.test(v)) map[k] = v;
+  }
   return map;
 }
 function applyNoteSelection(items, note, orderNum) {
@@ -1526,7 +1531,7 @@ function MakeInvoice() {
       // 合并单 DF17280/DF17392 拆开收集所有 key
       const allKeys = [];
       rows.forEach(x => {
-        x.rawNo.split(/[\/,，]/).forEach(p => {
+        x.rawNo.split(/[\/,，、\s]+/).forEach(p => {
           const k = p.trim();
           if (k) allKeys.push(k);
         });
@@ -1535,7 +1540,7 @@ function MakeInvoice() {
       const newTickets = [];
       const unmatched = [];
       rows.forEach(row => {
-        const parts = row.rawNo.split(/[\/,，]/).map(s => s.trim()).filter(Boolean);
+        const parts = row.rawNo.split(/[\/,，、\s]+/).map(s => s.trim()).filter(Boolean);
         const orders = parts.map(p => map[p] || map[normOrderKey(p)]).filter(Boolean);
         if (!orders.length) {
           unmatched.push(row.rawNo);
