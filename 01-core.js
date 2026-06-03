@@ -1,5 +1,5 @@
 // ====== cs-system 统一工作台 — 01-core ======
-// 版本 2026.06.02-fix141
+// 版本 2026.06.03-fix143
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system 统一工作台 — 01-core ======
-// 版本 2026.06.02-fix141
+// 版本 2026.06.03-fix143
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 
@@ -474,7 +474,7 @@ var CLOUD = {
           case 1:
             // 🆕 fix139: 重表默认排除大体积列(图片 base64),列表秒开;详情/展开再按需取
             HEAVY = {
-              chargebacks: 'id,amount,currency,status,site,website,order_no,customer_name,customer_email,platform,reason,reason_detail,resolution,notes,deadline,opened_at,created_at,updated_at,created_by,created_by_name,assigned_to,assigned_to_names,cs_fault,cs_fault_emp,deleted'
+              chargebacks: 'id,amount,currency,status,site,website,order_no,customer_name,customer_email,platform,reason,reason_detail,resolution,notes,deadline,opened_at,created_at,updated_at,created_by,created_by_name,assigned_to,assigned_to_names,assigned_at,resolved_at,cs_fault,cs_fault_emp,deleted'
             };
             sel = opts.select || !opts.full && HEAVY[table] || '*';
             runQuery = /*#__PURE__*/function () {
@@ -1840,6 +1840,134 @@ var ImgPreviewModal = function ImgPreviewModal(_ref5) {
 try {
   window.ImgPreviewModal = ImgPreviewModal;
 } catch (e) {}
+
+// ====== fix143: 流程步骤条(对齐拍摄 worktrack 清晰展示)======
+// 人名哈希成固定颜色 —— 同一个人到处同色,一眼认人。
+var NAME_PALETTE = ['#dc2626', '#ea580c', '#d97706', '#65a30d', '#059669', '#0d9488', '#0891b2', '#2563eb', '#4f46e5', '#7c3aed', '#9333ea', '#c026d3', '#db2777', '#e11d48', '#b45309', '#0f766e'];
+function nameColor(name) {
+  if (!name) return '#78716c';
+  var h = 0;
+  for (var i = 0; i < name.length; i++) h = h * 31 + name.charCodeAt(i) >>> 0;
+  return NAME_PALETTE[h % NAME_PALETTE.length];
+}
+// 日期短显示 MM-DD(吃 ISO 串/日期串/时间戳)
+function fmtStepDate(v) {
+  if (!v) return '';
+  try {
+    var d = new Date(typeof v === 'number' ? v : String(v));
+    if (!isNaN(d.getTime())) return String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  } catch (e) {}
+  var s = String(v);
+  return s.length >= 10 ? s.slice(5, 10) : s;
+}
+try {
+  window.nameColor = nameColor;
+  window.fmtStepDate = fmtStepDate;
+} catch (e) {}
+
+// 横向步骤条:steps = [{ id, label, icon, who, when, done, color }]
+// 圆圈:已完成=主题色填充+白icon+柔投影;未完成=灰底+序号。下三行:阶段名 / 人名(nameColor上色, 已指派未做=「待 X」灰, 无人=—) / 日期。
+// 连接线:下一阶段已完成→点亮成下一阶段色,否则浅灰。给步骤条单独占一行、留足横向空间。
+var ProcessStepper = function ProcessStepper(_ref6) {
+  var steps = _ref6.steps;
+  if (!Array.isArray(steps) || steps.length === 0) return null;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'flex-start',
+      marginTop: 8,
+      width: '100%'
+    }
+  }, steps.map(function (s, i) {
+    return /*#__PURE__*/React.createElement(React.Fragment, {
+      key: s.id || i
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        flexShrink: 0,
+        width: 84
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 44,
+        height: 44,
+        borderRadius: '50%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 18,
+        color: '#fff',
+        background: s.done ? s.color : '#e7e5e4',
+        boxShadow: s.done ? "0 3px 8px ".concat(s.color, "66") : 'none'
+      }
+    }, s.done ? s.icon : /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#a8a29e',
+        fontSize: 15,
+        fontWeight: 700
+      }
+    }, i + 1)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        marginTop: 6,
+        lineHeight: 1.2,
+        fontWeight: 700,
+        color: s.done ? '#1c1917' : '#a8a29e'
+      }
+    }, i + 1, ". ", s.label), s.who ? s.done ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        lineHeight: 1.2,
+        fontWeight: 700,
+        color: nameColor(s.who),
+        maxWidth: 80,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      },
+      title: s.who
+    }, s.who) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        lineHeight: 1.2,
+        color: '#a8a29e',
+        maxWidth: 80,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      },
+      title: '待 ' + s.who
+    }, "\u5F85 ", s.who) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        lineHeight: 1.2,
+        color: '#d6d3d1'
+      }
+    }, "\u2014"), s.when && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 10,
+        color: '#a8a29e',
+        marginTop: 1,
+        lineHeight: 1.3
+      }
+    }, s.when)), i < steps.length - 1 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        height: 4,
+        borderRadius: 2,
+        flex: '1 1 0%',
+        minWidth: 14,
+        marginTop: 20,
+        background: steps[i + 1].done ? steps[i + 1].color : '#e7e5e4'
+      }
+    }));
+  }));
+};
+try {
+  window.ProcessStepper = ProcessStepper;
+} catch (e) {}
 function wsOrderSite(no) {
   var m = String(no || '').toUpperCase().match(/^([A-Z]+)/);
   if (!m) return null;
@@ -2129,12 +2257,12 @@ function submitPhotoRequest(_x10) {
 // 🆕 fix53 v3: 列出全部 photo_logs(不过滤 source),客户端按 sub-tab 筛选
 // 🆕 fix140: 分页 — 不再一次性 limit:500 全拉;默认拉最近 150 条(配 updated_at 索引),消费方「加载更多」按需追加。
 function _submitPhotoRequest() {
-  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(_ref6) {
+  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(_ref7) {
     var productName, sku, productImage, applicableShops, currentUser, reason, urgency, attachments, externalRefId, client, now, row, _yield$client$from$in, data, error;
     return _regenerator().w(function (_context13) {
       while (1) switch (_context13.n) {
         case 0:
-          productName = _ref6.productName, sku = _ref6.sku, productImage = _ref6.productImage, applicableShops = _ref6.applicableShops, currentUser = _ref6.currentUser, reason = _ref6.reason, urgency = _ref6.urgency, attachments = _ref6.attachments, externalRefId = _ref6.externalRefId;
+          productName = _ref7.productName, sku = _ref7.sku, productImage = _ref7.productImage, applicableShops = _ref7.applicableShops, currentUser = _ref7.currentUser, reason = _ref7.reason, urgency = _ref7.urgency, attachments = _ref7.attachments, externalRefId = _ref7.externalRefId;
           client = getWtkpiClient();
           if (client) {
             _context13.n = 1;
@@ -3075,13 +3203,13 @@ if (typeof window !== 'undefined') {
 
 // 📅 增强日期筛选 UI 组件
 // 支持:今天/本周/本月/全部 4 个快捷 chip + 更多弹窗(年月周精确选择)
-var AdvancedDateFilter = function AdvancedDateFilter(_ref7) {
-  var value = _ref7.value,
-    onChange = _ref7.onChange,
-    _ref7$size = _ref7.size,
-    size = _ref7$size === void 0 ? 'sm' : _ref7$size,
-    _ref7$extraChips = _ref7.extraChips,
-    extraChips = _ref7$extraChips === void 0 ? null : _ref7$extraChips;
+var AdvancedDateFilter = function AdvancedDateFilter(_ref8) {
+  var value = _ref8.value,
+    onChange = _ref8.onChange,
+    _ref8$size = _ref8.size,
+    size = _ref8$size === void 0 ? 'sm' : _ref8$size,
+    _ref8$extraChips = _ref8.extraChips,
+    extraChips = _ref8$extraChips === void 0 ? null : _ref8$extraChips;
   var _useState = useState(false),
     _useState2 = _slicedToArray(_useState, 2),
     open = _useState2[0],
@@ -3837,11 +3965,11 @@ var suggestDifficulty = function suggestDifficulty(cat, durationMin) {
 // ============================================================
 // 图标 (内联 SVG)
 // ============================================================
-var Icon = function Icon(_ref8) {
-  var name = _ref8.name,
-    _ref8$className = _ref8.className,
-    className = _ref8$className === void 0 ? 'w-4 h-4' : _ref8$className,
-    style = _ref8.style;
+var Icon = function Icon(_ref9) {
+  var name = _ref9.name,
+    _ref9$className = _ref9.className,
+    className = _ref9$className === void 0 ? 'w-4 h-4' : _ref9$className,
+    style = _ref9.style;
   var paths = {
     cs: 'M7 8h10M7 12h7m-7 4h4m1 5l-4-4H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-5l-4 4z',
     cash: 'M12 8c-1.66 0-3 .67-3 1.5S10.34 11 12 11s3-.67 3-1.5S13.66 8 12 8zm0 0V6m0 6v6m-9-3a9 9 0 1118 0 9 9 0 01-18 0z',
@@ -3906,9 +4034,9 @@ var useToast = function useToast() {
 // ============================================================
 // 登录 / Session
 // ============================================================
-var LoginScreen = function LoginScreen(_ref9) {
-  var employees = _ref9.employees,
-    onLogin = _ref9.onLogin;
+var LoginScreen = function LoginScreen(_ref0) {
+  var employees = _ref0.employees,
+    onLogin = _ref0.onLogin;
   var _useState9 = useState(''),
     _useState0 = _slicedToArray(_useState9, 2),
     selectedId = _useState0[0],
@@ -4528,27 +4656,27 @@ var LoginScreen = function LoginScreen(_ref9) {
 // ============================================================
 // 顶部导航
 // ============================================================
-var TopNav = function TopNav(_ref0) {
-  var user = _ref0.user,
-    activeTab = _ref0.activeTab,
-    setActiveTab = _ref0.setActiveTab,
-    onLogout = _ref0.onLogout,
-    stats = _ref0.stats,
-    notifPerm = _ref0.notifPerm,
-    requestNotifPerm = _ref0.requestNotifPerm,
-    cloudOn = _ref0.cloudOn,
-    employees = _ref0.employees,
-    switchAccount = _ref0.switchAccount,
-    onOpenSearch = _ref0.onOpenSearch,
-    _ref0$cdmUnreadCount = _ref0.cdmUnreadCount,
-    cdmUnreadCount = _ref0$cdmUnreadCount === void 0 ? 0 : _ref0$cdmUnreadCount,
-    _ref0$cdmUrgentUnread = _ref0.cdmUrgentUnread,
-    cdmUrgentUnread = _ref0$cdmUrgentUnread === void 0 ? 0 : _ref0$cdmUrgentUnread,
-    _ref0$topTabs = _ref0.topTabs,
-    topTabs = _ref0$topTabs === void 0 ? [] : _ref0$topTabs,
-    _ref0$sidebarHiddenCo = _ref0.sidebarHiddenCount,
-    sidebarHiddenCount = _ref0$sidebarHiddenCo === void 0 ? 0 : _ref0$sidebarHiddenCo,
-    onOpenCustomize = _ref0.onOpenCustomize;
+var TopNav = function TopNav(_ref1) {
+  var user = _ref1.user,
+    activeTab = _ref1.activeTab,
+    setActiveTab = _ref1.setActiveTab,
+    onLogout = _ref1.onLogout,
+    stats = _ref1.stats,
+    notifPerm = _ref1.notifPerm,
+    requestNotifPerm = _ref1.requestNotifPerm,
+    cloudOn = _ref1.cloudOn,
+    employees = _ref1.employees,
+    switchAccount = _ref1.switchAccount,
+    onOpenSearch = _ref1.onOpenSearch,
+    _ref1$cdmUnreadCount = _ref1.cdmUnreadCount,
+    cdmUnreadCount = _ref1$cdmUnreadCount === void 0 ? 0 : _ref1$cdmUnreadCount,
+    _ref1$cdmUrgentUnread = _ref1.cdmUrgentUnread,
+    cdmUrgentUnread = _ref1$cdmUrgentUnread === void 0 ? 0 : _ref1$cdmUrgentUnread,
+    _ref1$topTabs = _ref1.topTabs,
+    topTabs = _ref1$topTabs === void 0 ? [] : _ref1$topTabs,
+    _ref1$sidebarHiddenCo = _ref1.sidebarHiddenCount,
+    sidebarHiddenCount = _ref1$sidebarHiddenCo === void 0 ? 0 : _ref1$sidebarHiddenCo,
+    onOpenCustomize = _ref1.onOpenCustomize;
   var _useState21 = useState(false),
     _useState22 = _slicedToArray(_useState21, 2),
     switchModalOpen = _useState22[0],
@@ -5003,14 +5131,14 @@ var NavGroupDropdown = function NavGroupDropdown() {
 // 客服跟进表 - 主模块
 // ============================================================
 // 🆕 事件添加下拉菜单 - 把 6 个按钮折叠成一个,节省横向空间
-var EventActionDropdown = function EventActionDropdown(_ref1) {
-  var record = _ref1.record,
-    onAftersale = _ref1.onAftersale,
-    onRefill = _ref1.onRefill,
-    onRefund = _ref1.onRefund,
-    onChargeback = _ref1.onChargeback,
-    onCustom = _ref1.onCustom,
-    onPhoto = _ref1.onPhoto;
+var EventActionDropdown = function EventActionDropdown(_ref10) {
+  var record = _ref10.record,
+    onAftersale = _ref10.onAftersale,
+    onRefill = _ref10.onRefill,
+    onRefund = _ref10.onRefund,
+    onChargeback = _ref10.onChargeback,
+    onCustom = _ref10.onCustom,
+    onPhoto = _ref10.onPhoto;
   var _useState23 = useState(false),
     _useState24 = _slicedToArray(_useState23, 2),
     open = _useState24[0],

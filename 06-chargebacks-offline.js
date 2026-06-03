@@ -1,5 +1,5 @@
 // ====== cs-system 统一工作台 — 06-chargebacks-offline ======
-// 版本 2026.06.02-fix141
+// 版本 2026.06.03-fix143
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system 统一工作台 — 06-chargebacks-offline ======
-// 版本 2026.06.02-fix141
+// 版本 2026.06.03-fix143
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 
@@ -1017,7 +1017,43 @@ var ChargebackCard = function ChargebackCard(_ref5) {
       fontSize: 11,
       fontWeight: 600
     }
-  }, "\uD83D\uDDD1"))), expanded && /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDDD1"))), function () {
+    var handler = (cb.assigned_to_names || []).join(' / ');
+    var steps = [{
+      id: 'recv',
+      label: '受理',
+      icon: '📥',
+      who: cb.created_by_name,
+      when: fmtStepDate(cb.opened_at || cb.created_at),
+      done: !!cb.created_by_name && !!(cb.opened_at || cb.created_at),
+      color: '#2563eb'
+    }, {
+      id: 'proc',
+      label: '处理',
+      icon: '🔧',
+      who: handler,
+      when: fmtStepDate(cb.assigned_at),
+      done: !!handler && !!cb.assigned_at,
+      color: '#9333ea'
+    }, {
+      id: 'done',
+      label: '完成',
+      icon: '✅',
+      who: handler,
+      when: fmtStepDate(cb.resolved_at),
+      done: ['won', 'lost', 'closed'].includes(cb.status) && !!cb.resolved_at,
+      color: '#16a34a'
+    }];
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 10,
+        paddingTop: 10,
+        borderTop: '1px dashed var(--line)'
+      }
+    }, /*#__PURE__*/React.createElement(ProcessStepper, {
+      steps: steps
+    }));
+  }(), expanded && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
       padding: 10,
@@ -3366,7 +3402,42 @@ var OfflineOrderCard = function OfflineOrderCard(_ref18) {
       fontSize: 11,
       fontWeight: 600
     }
-  }, "\uD83D\uDDD1"))), expanded && /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDDD1"))), function () {
+    var steps = [{
+      id: 'entry',
+      label: '录入',
+      icon: '📝',
+      who: order.created_by_name,
+      when: fmtStepDate(order.created_at),
+      done: !!order.created_by_name && !!order.created_at,
+      color: '#2563eb'
+    }, {
+      id: 'paid',
+      label: '付款',
+      icon: '💰',
+      who: null,
+      when: fmtStepDate(order.paid_at),
+      done: !!order.paid_at || ['paid', 'dispatched'].includes(order.status),
+      color: '#d97706'
+    }, {
+      id: 'po',
+      label: '转跟单',
+      icon: '📤',
+      who: order.transferred_to_name,
+      when: fmtStepDate(order.transferred_at),
+      done: !!order.transferred_to_name && !!order.transferred_at,
+      color: '#16a34a'
+    }];
+    return /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 10,
+        paddingTop: 10,
+        borderTop: '1px dashed var(--line)'
+      }
+    }, /*#__PURE__*/React.createElement(ProcessStepper, {
+      steps: steps
+    }));
+  }(), expanded && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
       padding: 10,

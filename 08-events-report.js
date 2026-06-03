@@ -1,5 +1,5 @@
 // ====== cs-system 统一工作台 — 08-events-report ======
-// 版本 2026.06.02-fix141
+// 版本 2026.06.03-fix143
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -28,7 +28,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system 统一工作台 — 08-events-report ======
-// 版本 2026.06.02-fix141
+// 版本 2026.06.03-fix143
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 
@@ -4676,37 +4676,59 @@ var CompletionStatsBanner = function CompletionStatsBanner(_ref33) {
     }, "\u2713", s.total), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
-        justifyContent: 'center',
-        gap: 6,
-        marginTop: 4,
-        fontSize: 10
+        flexDirection: 'column',
+        gap: 3,
+        marginTop: 5
       }
     }, /*#__PURE__*/React.createElement("span", {
       onClick: function onClick(e) {
         e.stopPropagation();
-        handleClick(d, 'created', s.createdItems);
+        if (s.created > 0) handleClick(d, 'created', s.createdItems);
       },
       style: {
-        color: 'var(--ink-3)',
-        cursor: s.created > 0 && onClickStats ? 'pointer' : 'default',
-        textDecoration: s.created > 0 && onClickStats ? 'underline dotted' : 'none',
-        textUnderlineOffset: 2
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        fontSize: 12,
+        padding: '2px 8px',
+        borderRadius: 6,
+        background: '#eff6ff',
+        color: '#1d4ed8',
+        fontWeight: 500,
+        cursor: s.created > 0 && onClickStats ? 'pointer' : 'default'
       },
-      title: s.created > 0 && onClickStats ? "\u70B9\u51FB\u67E5\u770B\u65B0\u5EFA ".concat(s.created, " \u6761") : ''
-    }, "\uD83C\uDD95", s.created), s.pending > 0 && /*#__PURE__*/React.createElement("span", {
+      title: s.created > 0 && onClickStats ? "\u70B9\u51FB\u67E5\u770B\u65B0\u5EFA ".concat(s.created, " \u6761") : '本窗口暂无新建'
+    }, "\u65B0\u5EFA ", /*#__PURE__*/React.createElement("strong", {
+      style: {
+        marginLeft: 'auto',
+        fontSize: 13,
+        fontWeight: 600
+      }
+    }, s.created)), /*#__PURE__*/React.createElement("span", {
       onClick: function onClick(e) {
         e.stopPropagation();
-        handleClick(d, 'pending', s.pendingItems);
+        if (s.pending > 0) handleClick(d, 'pending', s.pendingItems);
       },
       style: {
-        color: '#ca8a04',
-        cursor: onClickStats ? 'pointer' : 'default',
-        textDecoration: onClickStats ? 'underline dotted' : 'none',
-        textUnderlineOffset: 2,
-        fontWeight: 600
+        display: 'flex',
+        alignItems: 'center',
+        gap: 5,
+        fontSize: 12,
+        padding: '2px 8px',
+        borderRadius: 6,
+        background: s.pending > 0 ? '#fef3c7' : '#f3f4f6',
+        color: s.pending > 0 ? '#b45309' : 'var(--ink-4)',
+        fontWeight: 600,
+        cursor: s.pending > 0 && onClickStats ? 'pointer' : 'default'
       },
-      title: onClickStats ? "\u70B9\u51FB\u67E5\u770B ".concat(s.pending, " \u6761\u65B0\u5EFA\u672A\u5B8C\u6210") : ''
-    }, "\u23F3", s.pending)), /*#__PURE__*/React.createElement("div", {
+      title: s.pending > 0 && onClickStats ? "\u70B9\u51FB\u67E5\u770B ".concat(s.pending, " \u6761\u65B0\u5EFA\u672A\u5B8C\u6210") : '本窗口无待办'
+    }, "\u5F85\u529E ", /*#__PURE__*/React.createElement("strong", {
+      style: {
+        marginLeft: 'auto',
+        fontSize: 13,
+        fontWeight: 600
+      }
+    }, s.pending))), /*#__PURE__*/React.createElement("div", {
       style: {
         marginTop: 4,
         height: 3,
