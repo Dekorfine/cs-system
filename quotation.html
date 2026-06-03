@@ -3111,6 +3111,7 @@ const SB_KEY = _sbCfg.key;
 // 🆕 fix25: 切换到新表 quotations (避开旧 repo 留下的 quotation_records 脏数据)
 const SB_TABLE = 'quotations';
 const sb = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SB_URL, SB_KEY) : null;
+try { console.log('%c[报价单] quotation.html · 2026-06-03 fix67 — 健康检查改全 15 列(防"自测正常实际失败")', 'color:#0071e3'); } catch (e) {}
 
 /* Sanitize a string into a filename-safe token.
    Keeps Unicode letters/digits, replaces whitespace + path separators
@@ -3456,27 +3457,39 @@ window.sbHealthCheck = async function() {
     }
   } catch (e) { console.error('❌ SELECT 异常:', e); }
   
-  // 2. 测试空 INSERT 看必填字段
-  console.log('\n[2] 测试最小 INSERT...');
+  // 2. 测试 INSERT —— 🆕 用和真实 cloudSave 完全一致的 15 列,缺列当场暴露(不再只测 8 列的假阳性)
+  console.log('\n[2] 测试完整 INSERT(15 列,与真实保存一致)...');
   const testId = 'healthcheck_' + Date.now();
+  const now = new Date().toISOString();
   try {
-    // 🆕 fix25: 用新 schema (created_by_name 替代 username)
     const { data, error } = await sb.from(SB_TABLE).insert({
       id: testId,
       created_by_name: 'healthcheck',
       pi_no: 'TEST',
+      quote_no: 'TEST-Q',
+      po_no: 'TEST-PO',
       buyer_name: '健康检查',
+      buyer_email: 'test@example.com',
       status: 'draft',
       amount: 0,
+      currency: 'USD',
+      customer_note: 'healthcheck',
       trashed: false,
       data: {},
+      created_at: now,
+      updated_at: now,
     }).select();
     if (error) {
       console.error('❌ INSERT 失败:', error);
       console.error('   code =', error.code, '| message =', error.message);
       console.error('   details =', error.details, '| hint =', error.hint);
+      if (/PGRST204|42703|column/i.test((error.code||'') + (error.message||''))) {
+        console.error('   👉 表缺列!上面 message/details 里就是缺的列名 —— 去 Supabase 给 quotations 补这列。');
+      } else if (/42501|permission|RLS|policy/i.test((error.code||'') + (error.message||''))) {
+        console.error('   👉 RLS 拦截!quotations 表缺 anon 的 INSERT 策略。');
+      }
     } else {
-      console.log('✓ INSERT 成功 · 删掉测试数据...');
+      console.log('✓ 完整 INSERT 成功(15 列全在)· 删掉测试数据...');
       await sb.from(SB_TABLE).delete().eq('id', testId);
       console.log('✓ 测试数据已清理');
     }
