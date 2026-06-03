@@ -1,5 +1,5 @@
 // ====== cs-system 统一工作台 — 06-chargebacks-offline ======
-// 版本 2026.06.02-fix140
+// 版本 2026.06.02-fix141
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system 统一工作台 — 06-chargebacks-offline ======
-// 版本 2026.06.02-fix140
+// 版本 2026.06.02-fix141
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 
@@ -3267,7 +3267,12 @@ var OfflineOrderCard = function OfflineOrderCard(_ref18) {
       gap: 8,
       flexWrap: 'wrap'
     }
-  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCCD ", order.ship_to_country || '', " ", order.ship_to_city || ''), order.paid_at && /*#__PURE__*/React.createElement("span", null, "\xB7 \u4ED8\u6B3E ", order.paid_at), products.length > 0 && /*#__PURE__*/React.createElement("span", null, "\xB7 \uD83D\uDECD ", products.length, " \u4EF6\u5546\u54C1"), /*#__PURE__*/React.createElement("span", null, "\xB7 \u5F55\u5165 ", order.created_by_name))), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", null, "\uD83D\uDCCD ", order.ship_to_country || '', " ", order.ship_to_city || ''), order.paid_at && /*#__PURE__*/React.createElement("span", null, "\xB7 \u4ED8\u6B3E ", order.paid_at), products.length > 0 && /*#__PURE__*/React.createElement("span", null, "\xB7 \uD83D\uDECD ", products.length, " \u4EF6\u5546\u54C1"), /*#__PURE__*/React.createElement("span", null, "\xB7 \u5F55\u5165 ", order.created_by_name)), /*#__PURE__*/React.createElement(AttachThumbs, {
+    files: attachments,
+    size: 48,
+    max: 6,
+    onPreview: window.__setPreviewImg
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 4,
@@ -6481,7 +6486,12 @@ var CustomInquiryCard = function CustomInquiryCard(_ref35) {
       color: '#713f12',
       whiteSpace: 'pre-wrap'
     }
-  }, "\uD83D\uDCAC ", item.requirement.slice(0, 200), item.requirement.length > 200 ? '...' : '')), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCAC ", item.requirement.slice(0, 200), item.requirement.length > 200 ? '...' : ''), /*#__PURE__*/React.createElement(AttachThumbs, {
+    files: [].concat(_toConsumableArray(refImgs), _toConsumableArray(photos)),
+    size: 48,
+    max: 8,
+    onPreview: window.__setPreviewImg
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 4,
@@ -7892,7 +7902,12 @@ var PhotoVerificationCard = function PhotoVerificationCard(_ref44) {
       fontSize: 12,
       color: '#713f12'
     }
-  }, "\uD83D\uDCAC ", item.difference_detail)), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCAC ", item.difference_detail), /*#__PURE__*/React.createElement(AttachThumbs, {
+    files: [].concat(_toConsumableArray(item.sales_photos || []), _toConsumableArray(item.actual_photos || [])),
+    size: 48,
+    max: 8,
+    onPreview: window.__setPreviewImg
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 4,

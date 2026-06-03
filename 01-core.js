@@ -1,5 +1,5 @@
 // ====== cs-system 统一工作台 — 01-core ======
-// 版本 2026.06.02-fix140
+// 版本 2026.06.02-fix141
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system 统一工作台 — 01-core ======
-// 版本 2026.06.02-fix140
+// 版本 2026.06.02-fix141
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 
@@ -1630,6 +1630,216 @@ function wsOpenImg(src) {
 try {
   window.wsOpenImg = wsOpenImg;
 } catch (e) {}
+
+// ====== fix141: 所见即所得截图展示(对齐拍摄 worktrack) ======
+// 统一取图函数:字符串原样;JSON 字符串 parse;对象取 url/dataUrl/data/image_url/base64;数组取首张。
+// 所有 <img src> 一律过它,杜绝 [object Object] 裂图。
+function imgDisplaySrc(v) {
+  if (!v) return '';
+  if (typeof v === 'string') {
+    var s = v.trim();
+    if (!s) return '';
+    if (s[0] === '{' || s[0] === '[') {
+      try {
+        return imgDisplaySrc(JSON.parse(s));
+      } catch (e) {
+        return s;
+      }
+    }
+    return s; // URL 或 dataURL 原样
+  }
+  if (Array.isArray(v)) return v.length ? imgDisplaySrc(v[0]) : '';
+  if (_typeof(v) === 'object') {
+    var direct = v.url || v.dataUrl || v.dataURL || v.data || v.image_url || v.imageUrl || v.src || v.publicUrl;
+    if (direct && typeof direct === 'string') return imgDisplaySrc(direct);
+    if (v.base64) return /^data:/i.test(v.base64) ? v.base64 : 'data:' + (v.mime || v.type || 'image/png') + ';base64,' + v.base64;
+  }
+  return '';
+}
+// mime/类型判定:image/* → 缩略图;其它(PDF/文档) → 文件,不当图
+function attMimeKind(a) {
+  var m = a && (a.mime || a.type) || '';
+  if (/^image\//i.test(m)) return 'image';
+  var src = imgDisplaySrc(a);
+  if (/^data:image\//i.test(src)) return 'image';
+  if (/\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(src)) return 'image';
+  if (/^application\/pdf/i.test(m) || /\.pdf(\?|$)/i.test(src)) return 'file';
+  if (m && !/^image\//i.test(m)) return 'file';
+  return src ? 'image' : 'file'; // 有 src 无 mime → 当图试渲染,裂图由 onError 兜底
+}
+function attName(a) {
+  if (a && _typeof(a) === 'object') return a.name || a.filename || a.title || '附件';
+  return '附件';
+}
+try {
+  window.imgDisplaySrc = imgDisplaySrc;
+  window.attMimeKind = attMimeKind;
+} catch (e) {}
+
+// 缩略图行:image/* 铺 48×48,其它显 📄 文件名。点击 onPreview(全屏看大图),stopPropagation 防触发卡片点击。
+var AttachThumbs = function AttachThumbs(_ref4) {
+  var files = _ref4.files,
+    _ref4$size = _ref4.size,
+    size = _ref4$size === void 0 ? 48 : _ref4$size,
+    _ref4$max = _ref4.max,
+    max = _ref4$max === void 0 ? 0 : _ref4$max,
+    onPreview = _ref4.onPreview;
+  var list = Array.isArray(files) ? files.filter(Boolean) : files ? [files] : [];
+  if (!list.length) return null;
+  var show = max > 0 ? list.slice(0, max) : list;
+  var more = max > 0 ? Math.max(0, list.length - max) : 0;
+  var preview = onPreview || typeof window !== 'undefined' && window.__setPreviewImg || function () {};
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: 4,
+      marginTop: 4
+    }
+  }, show.map(function (a, i) {
+    var kind = attMimeKind(a);
+    if (kind === 'image') {
+      var src = imgDisplaySrc(a);
+      return /*#__PURE__*/React.createElement("img", {
+        key: i,
+        src: src,
+        alt: "",
+        loading: "lazy",
+        onClick: function onClick(e) {
+          e.stopPropagation();
+          preview(a);
+        },
+        onError: function onError(e) {
+          e.currentTarget.style.display = 'none';
+        },
+        title: "\u70B9\u51FB\u770B\u5927\u56FE",
+        style: {
+          width: size,
+          height: size,
+          objectFit: 'cover',
+          borderRadius: 6,
+          border: '1px solid var(--line, #e5e7eb)',
+          cursor: 'zoom-in',
+          background: 'var(--bg-2, #f3f4f6)'
+        }
+      });
+    }
+    return /*#__PURE__*/React.createElement("a", {
+      key: i,
+      href: imgDisplaySrc(a) || '#',
+      target: "_blank",
+      rel: "noopener",
+      onClick: function onClick(e) {
+        return e.stopPropagation();
+      },
+      title: attName(a),
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        height: size,
+        padding: '0 8px',
+        borderRadius: 6,
+        border: '1px solid var(--line, #e5e7eb)',
+        fontSize: 11,
+        color: 'var(--ink-2, #374151)',
+        textDecoration: 'none',
+        maxWidth: 140,
+        overflow: 'hidden',
+        whiteSpace: 'nowrap'
+      }
+    }, "\uD83D\uDCC4 ", /*#__PURE__*/React.createElement("span", {
+      style: {
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      }
+    }, attName(a)));
+  }), more > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: size,
+      height: size,
+      borderRadius: 6,
+      border: '1px dashed var(--line, #e5e7eb)',
+      fontSize: 11,
+      color: 'var(--ink-3, #6b7280)'
+    }
+  }, "+", more));
+};
+try {
+  window.AttachThumbs = AttachThumbs;
+} catch (e) {}
+
+// App 级单例:全屏预览弹窗。点击任意处关闭;支持 dataURL/URL/对象,均过 imgDisplaySrc。
+var ImgPreviewModal = function ImgPreviewModal(_ref5) {
+  var img = _ref5.img,
+    onClose = _ref5.onClose;
+  if (!img) return null;
+  var src = imgDisplaySrc(img);
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: onClose,
+    style: {
+      position: 'fixed',
+      inset: 0,
+      zIndex: 99999,
+      background: 'rgba(0,0,0,0.82)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'zoom-out',
+      padding: 24
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: src,
+    alt: "",
+    onClick: function onClick(e) {
+      return e.stopPropagation();
+    },
+    style: {
+      maxWidth: '94vw',
+      maxHeight: '90vh',
+      objectFit: 'contain',
+      borderRadius: 8,
+      boxShadow: '0 12px 48px rgba(0,0,0,0.5)'
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose,
+    style: {
+      position: 'fixed',
+      top: 16,
+      right: 20,
+      background: 'rgba(255,255,255,0.92)',
+      border: 'none',
+      borderRadius: 20,
+      width: 40,
+      height: 40,
+      fontSize: 20,
+      cursor: 'pointer',
+      lineHeight: '40px'
+    }
+  }, "\u2715"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      wsOpenImg(src);
+    },
+    style: {
+      position: 'fixed',
+      bottom: 18,
+      right: 20,
+      background: 'rgba(255,255,255,0.92)',
+      border: 'none',
+      borderRadius: 8,
+      padding: '7px 14px',
+      fontSize: 12,
+      cursor: 'pointer'
+    }
+  }, "\u2197 \u539F\u56FE\u65B0\u6807\u7B7E"));
+};
+try {
+  window.ImgPreviewModal = ImgPreviewModal;
+} catch (e) {}
 function wsOrderSite(no) {
   var m = String(no || '').toUpperCase().match(/^([A-Z]+)/);
   if (!m) return null;
@@ -1919,12 +2129,12 @@ function submitPhotoRequest(_x10) {
 // 🆕 fix53 v3: 列出全部 photo_logs(不过滤 source),客户端按 sub-tab 筛选
 // 🆕 fix140: 分页 — 不再一次性 limit:500 全拉;默认拉最近 150 条(配 updated_at 索引),消费方「加载更多」按需追加。
 function _submitPhotoRequest() {
-  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(_ref4) {
+  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(_ref6) {
     var productName, sku, productImage, applicableShops, currentUser, reason, urgency, attachments, externalRefId, client, now, row, _yield$client$from$in, data, error;
     return _regenerator().w(function (_context13) {
       while (1) switch (_context13.n) {
         case 0:
-          productName = _ref4.productName, sku = _ref4.sku, productImage = _ref4.productImage, applicableShops = _ref4.applicableShops, currentUser = _ref4.currentUser, reason = _ref4.reason, urgency = _ref4.urgency, attachments = _ref4.attachments, externalRefId = _ref4.externalRefId;
+          productName = _ref6.productName, sku = _ref6.sku, productImage = _ref6.productImage, applicableShops = _ref6.applicableShops, currentUser = _ref6.currentUser, reason = _ref6.reason, urgency = _ref6.urgency, attachments = _ref6.attachments, externalRefId = _ref6.externalRefId;
           client = getWtkpiClient();
           if (client) {
             _context13.n = 1;
@@ -2865,13 +3075,13 @@ if (typeof window !== 'undefined') {
 
 // 📅 增强日期筛选 UI 组件
 // 支持:今天/本周/本月/全部 4 个快捷 chip + 更多弹窗(年月周精确选择)
-var AdvancedDateFilter = function AdvancedDateFilter(_ref5) {
-  var value = _ref5.value,
-    onChange = _ref5.onChange,
-    _ref5$size = _ref5.size,
-    size = _ref5$size === void 0 ? 'sm' : _ref5$size,
-    _ref5$extraChips = _ref5.extraChips,
-    extraChips = _ref5$extraChips === void 0 ? null : _ref5$extraChips;
+var AdvancedDateFilter = function AdvancedDateFilter(_ref7) {
+  var value = _ref7.value,
+    onChange = _ref7.onChange,
+    _ref7$size = _ref7.size,
+    size = _ref7$size === void 0 ? 'sm' : _ref7$size,
+    _ref7$extraChips = _ref7.extraChips,
+    extraChips = _ref7$extraChips === void 0 ? null : _ref7$extraChips;
   var _useState = useState(false),
     _useState2 = _slicedToArray(_useState, 2),
     open = _useState2[0],
@@ -3627,11 +3837,11 @@ var suggestDifficulty = function suggestDifficulty(cat, durationMin) {
 // ============================================================
 // 图标 (内联 SVG)
 // ============================================================
-var Icon = function Icon(_ref6) {
-  var name = _ref6.name,
-    _ref6$className = _ref6.className,
-    className = _ref6$className === void 0 ? 'w-4 h-4' : _ref6$className,
-    style = _ref6.style;
+var Icon = function Icon(_ref8) {
+  var name = _ref8.name,
+    _ref8$className = _ref8.className,
+    className = _ref8$className === void 0 ? 'w-4 h-4' : _ref8$className,
+    style = _ref8.style;
   var paths = {
     cs: 'M7 8h10M7 12h7m-7 4h4m1 5l-4-4H5a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-5l-4 4z',
     cash: 'M12 8c-1.66 0-3 .67-3 1.5S10.34 11 12 11s3-.67 3-1.5S13.66 8 12 8zm0 0V6m0 6v6m-9-3a9 9 0 1118 0 9 9 0 01-18 0z',
@@ -3696,9 +3906,9 @@ var useToast = function useToast() {
 // ============================================================
 // 登录 / Session
 // ============================================================
-var LoginScreen = function LoginScreen(_ref7) {
-  var employees = _ref7.employees,
-    onLogin = _ref7.onLogin;
+var LoginScreen = function LoginScreen(_ref9) {
+  var employees = _ref9.employees,
+    onLogin = _ref9.onLogin;
   var _useState9 = useState(''),
     _useState0 = _slicedToArray(_useState9, 2),
     selectedId = _useState0[0],
@@ -4318,27 +4528,27 @@ var LoginScreen = function LoginScreen(_ref7) {
 // ============================================================
 // 顶部导航
 // ============================================================
-var TopNav = function TopNav(_ref8) {
-  var user = _ref8.user,
-    activeTab = _ref8.activeTab,
-    setActiveTab = _ref8.setActiveTab,
-    onLogout = _ref8.onLogout,
-    stats = _ref8.stats,
-    notifPerm = _ref8.notifPerm,
-    requestNotifPerm = _ref8.requestNotifPerm,
-    cloudOn = _ref8.cloudOn,
-    employees = _ref8.employees,
-    switchAccount = _ref8.switchAccount,
-    onOpenSearch = _ref8.onOpenSearch,
-    _ref8$cdmUnreadCount = _ref8.cdmUnreadCount,
-    cdmUnreadCount = _ref8$cdmUnreadCount === void 0 ? 0 : _ref8$cdmUnreadCount,
-    _ref8$cdmUrgentUnread = _ref8.cdmUrgentUnread,
-    cdmUrgentUnread = _ref8$cdmUrgentUnread === void 0 ? 0 : _ref8$cdmUrgentUnread,
-    _ref8$topTabs = _ref8.topTabs,
-    topTabs = _ref8$topTabs === void 0 ? [] : _ref8$topTabs,
-    _ref8$sidebarHiddenCo = _ref8.sidebarHiddenCount,
-    sidebarHiddenCount = _ref8$sidebarHiddenCo === void 0 ? 0 : _ref8$sidebarHiddenCo,
-    onOpenCustomize = _ref8.onOpenCustomize;
+var TopNav = function TopNav(_ref0) {
+  var user = _ref0.user,
+    activeTab = _ref0.activeTab,
+    setActiveTab = _ref0.setActiveTab,
+    onLogout = _ref0.onLogout,
+    stats = _ref0.stats,
+    notifPerm = _ref0.notifPerm,
+    requestNotifPerm = _ref0.requestNotifPerm,
+    cloudOn = _ref0.cloudOn,
+    employees = _ref0.employees,
+    switchAccount = _ref0.switchAccount,
+    onOpenSearch = _ref0.onOpenSearch,
+    _ref0$cdmUnreadCount = _ref0.cdmUnreadCount,
+    cdmUnreadCount = _ref0$cdmUnreadCount === void 0 ? 0 : _ref0$cdmUnreadCount,
+    _ref0$cdmUrgentUnread = _ref0.cdmUrgentUnread,
+    cdmUrgentUnread = _ref0$cdmUrgentUnread === void 0 ? 0 : _ref0$cdmUrgentUnread,
+    _ref0$topTabs = _ref0.topTabs,
+    topTabs = _ref0$topTabs === void 0 ? [] : _ref0$topTabs,
+    _ref0$sidebarHiddenCo = _ref0.sidebarHiddenCount,
+    sidebarHiddenCount = _ref0$sidebarHiddenCo === void 0 ? 0 : _ref0$sidebarHiddenCo,
+    onOpenCustomize = _ref0.onOpenCustomize;
   var _useState21 = useState(false),
     _useState22 = _slicedToArray(_useState21, 2),
     switchModalOpen = _useState22[0],
@@ -4793,14 +5003,14 @@ var NavGroupDropdown = function NavGroupDropdown() {
 // 客服跟进表 - 主模块
 // ============================================================
 // 🆕 事件添加下拉菜单 - 把 6 个按钮折叠成一个,节省横向空间
-var EventActionDropdown = function EventActionDropdown(_ref9) {
-  var record = _ref9.record,
-    onAftersale = _ref9.onAftersale,
-    onRefill = _ref9.onRefill,
-    onRefund = _ref9.onRefund,
-    onChargeback = _ref9.onChargeback,
-    onCustom = _ref9.onCustom,
-    onPhoto = _ref9.onPhoto;
+var EventActionDropdown = function EventActionDropdown(_ref1) {
+  var record = _ref1.record,
+    onAftersale = _ref1.onAftersale,
+    onRefill = _ref1.onRefill,
+    onRefund = _ref1.onRefund,
+    onChargeback = _ref1.onChargeback,
+    onCustom = _ref1.onCustom,
+    onPhoto = _ref1.onPhoto;
   var _useState23 = useState(false),
     _useState24 = _slicedToArray(_useState23, 2),
     open = _useState24[0],
