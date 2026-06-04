@@ -1,5 +1,5 @@
 // ====== cs-system 统一工作台 — 01-core ======
-// 版本 2026.06.03-fix145
+// 版本 2026.06.03-fix146
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system 统一工作台 — 01-core ======
-// 版本 2026.06.03-fix145
+// 版本 2026.06.03-fix146
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 
@@ -1522,6 +1522,176 @@ if (typeof window !== 'undefined') {
 }
 
 // ════════════════════════════════════════════════════════════════════
+// 🆕 fix146: 云端账号表 cs_accounts(客服库)— 账号+密码登录,全设备共享。
+// 解决「主管在自己机器加的员工,换设备登不进」:账号从云端拉,不再只靠本机 localStorage。
+// account = 英文名(alias)小写;无英文名 → 用 id 去 u_ 前缀兜底。全唯一。
+function accountFor(e) {
+  if (e && e.account) return String(e.account).toLowerCase().trim();
+  var a = (e && e.alias || '').trim().toLowerCase().replace(/\s+/g, '');
+  return a || String(e && e.id || '').replace(/^u_/, '').toLowerCase();
+}
+function empToAccountRow(e) {
+  return {
+    id: e.id,
+    account: accountFor(e),
+    password: e.password || '123456',
+    name: e.name || '',
+    alias: e.alias || '',
+    sites: e.sites || '',
+    role: e.role || 'staff',
+    title: e.title || '',
+    team: e.team || '',
+    hide_from_list: !!e.hideFromList,
+    active: e.active !== false && !e.disabled,
+    updated_at: new Date().toISOString()
+  };
+}
+function accountRowToEmp(r) {
+  return {
+    id: r.id,
+    account: r.account,
+    password: r.password,
+    name: r.name,
+    alias: r.alias,
+    sites: r.sites,
+    role: r.role,
+    title: r.title || '',
+    team: r.team || '',
+    hideFromList: !!r.hide_from_list,
+    disabled: r.active === false
+  };
+}
+// 拉云端账号:成功→数组;失败(表不存在/未连)→null(调用方回退本地)
+function loadCloudAccounts() {
+  return _loadCloudAccounts.apply(this, arguments);
+}
+function _loadCloudAccounts() {
+  _loadCloudAccounts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+    var rows;
+    return _regenerator().w(function (_context10) {
+      while (1) switch (_context10.n) {
+        case 0:
+          _context10.n = 1;
+          return CLOUD.list('cs_accounts', {
+            limit: 1000,
+            full: true
+          });
+        case 1:
+          rows = _context10.v;
+          if (rows) {
+            _context10.n = 2;
+            break;
+          }
+          return _context10.a(2, null);
+        case 2:
+          return _context10.a(2, rows.map(accountRowToEmp));
+      }
+    }, _callee10);
+  }));
+  return _loadCloudAccounts.apply(this, arguments);
+}
+function saveCloudAccount(_x7) {
+  return _saveCloudAccount.apply(this, arguments);
+}
+function _saveCloudAccount() {
+  _saveCloudAccount = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(e) {
+    var _t9;
+    return _regenerator().w(function (_context11) {
+      while (1) switch (_context11.p = _context11.n) {
+        case 0:
+          _context11.p = 0;
+          _context11.n = 1;
+          return CLOUD.upsert('cs_accounts', empToAccountRow(e));
+        case 1:
+          return _context11.a(2, _context11.v);
+        case 2:
+          _context11.p = 2;
+          _t9 = _context11.v;
+          return _context11.a(2, null);
+      }
+    }, _callee11, null, [[0, 2]]);
+  }));
+  return _saveCloudAccount.apply(this, arguments);
+}
+function deleteCloudAccount(_x8) {
+  return _deleteCloudAccount.apply(this, arguments);
+} // 首次播种:把名单批量写入空表(直接用 client 批量 upsert)
+function _deleteCloudAccount() {
+  _deleteCloudAccount = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(id) {
+    var _t0;
+    return _regenerator().w(function (_context12) {
+      while (1) switch (_context12.p = _context12.n) {
+        case 0:
+          _context12.p = 0;
+          if (!CLOUD.client) {
+            _context12.n = 1;
+            break;
+          }
+          _context12.n = 1;
+          return CLOUD.client.from('cs_accounts')["delete"]().eq('id', id);
+        case 1:
+          _context12.n = 3;
+          break;
+        case 2:
+          _context12.p = 2;
+          _t0 = _context12.v;
+        case 3:
+          return _context12.a(2);
+      }
+    }, _callee12, null, [[0, 2]]);
+  }));
+  return _deleteCloudAccount.apply(this, arguments);
+}
+function seedCloudAccounts(_x9) {
+  return _seedCloudAccounts.apply(this, arguments);
+}
+function _seedCloudAccounts() {
+  _seedCloudAccounts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(list) {
+    var rows, _yield$CLOUD$client$f, error, _t1;
+    return _regenerator().w(function (_context13) {
+      while (1) switch (_context13.p = _context13.n) {
+        case 0:
+          _context13.p = 0;
+          if (CLOUD.client) {
+            _context13.n = 1;
+            break;
+          }
+          return _context13.a(2, false);
+        case 1:
+          rows = (list || []).map(empToAccountRow);
+          _context13.n = 2;
+          return CLOUD.client.from('cs_accounts').upsert(rows, {
+            onConflict: 'id'
+          });
+        case 2:
+          _yield$CLOUD$client$f = _context13.v;
+          error = _yield$CLOUD$client$f.error;
+          if (!error) {
+            _context13.n = 3;
+            break;
+          }
+          console.error('[账号播种] 失败', error);
+          return _context13.a(2, false);
+        case 3:
+          console.log('[账号播种] 已写入', rows.length, '个账号到云端 cs_accounts');
+          return _context13.a(2, true);
+        case 4:
+          _context13.p = 4;
+          _t1 = _context13.v;
+          console.error('[账号播种] 异常', _t1);
+          return _context13.a(2, false);
+      }
+    }, _callee13, null, [[0, 4]]);
+  }));
+  return _seedCloudAccounts.apply(this, arguments);
+}
+if (typeof window !== 'undefined') {
+  window.loadCloudAccounts = loadCloudAccounts;
+  window.saveCloudAccount = saveCloudAccount;
+  window.accountFor = accountFor;
+}
+
+// ════════════════════════════════════════════════════════════════════
 // 🆕 fix49: WorkTrack-KPI 跨系统 client(对接拍摄部 photo_logs 表)
 // 默认配置已硬编码 (Martin 提供的 publishable key,安全靠 RLS)
 // ⚙ 设置中心可覆盖(若 Martin 换 key)
@@ -1998,43 +2168,43 @@ function wsOrderAdminUrl(no) {
   return "https://".concat(d, "/admin/orders?query=").concat(encodeURIComponent(wsNormKey(no)));
 }
 var _wsOrderCache = {};
-function wsFetchOrderProducts(_x7) {
+function wsFetchOrderProducts(_x0) {
   return _wsFetchOrderProducts.apply(this, arguments);
 } // 🆕 fix49: 上传附件到 WorkTrack-KPI Storage `attachments` bucket;fix106: 只压缩图片,视频/其他文件原样上传
 function _wsFetchOrderProducts() {
-  _wsFetchOrderProducts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(orderNo) {
-    var base, domain, ck, hit, isWoo, _i2, _arr, nm, body, res, json, arr, _o$total_price_set, _o$total_price_set2, o, li, products, oid, orderUrl, cust, bill, email, cname, total, currency, country, _v, v, _t9;
-    return _regenerator().w(function (_context10) {
-      while (1) switch (_context10.p = _context10.n) {
+  _wsFetchOrderProducts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(orderNo) {
+    var base, domain, ck, hit, isWoo, _i2, _arr, nm, body, res, json, arr, _o$total_price_set, _o$total_price_set2, o, li, products, oid, orderUrl, cust, bill, email, cname, total, currency, country, _v, v, _t10;
+    return _regenerator().w(function (_context14) {
+      while (1) switch (_context14.p = _context14.n) {
         case 0:
           base = wsNormKey(orderNo);
           if (base) {
-            _context10.n = 1;
+            _context14.n = 1;
             break;
           }
-          return _context10.a(2, null);
+          return _context14.a(2, null);
         case 1:
           domain = wsGuessDomain(base);
           if (domain) {
-            _context10.n = 2;
+            _context14.n = 2;
             break;
           }
-          return _context10.a(2, null);
+          return _context14.a(2, null);
         case 2:
           ck = domain + '|' + base;
           hit = _wsOrderCache[ck];
           if (!(hit && Date.now() - hit.ts < 5 * 60 * 1000)) {
-            _context10.n = 3;
+            _context14.n = 3;
             break;
           }
-          return _context10.a(2, hit.v);
+          return _context14.a(2, hit.v);
         case 3:
           isWoo = /mooielight/i.test(domain);
-          _context10.p = 4;
+          _context14.p = 4;
           _i2 = 0, _arr = [base, '#' + base];
         case 5:
           if (!(_i2 < _arr.length)) {
-            _context10.n = 10;
+            _context14.n = 10;
             break;
           }
           nm = _arr[_i2];
@@ -2055,7 +2225,7 @@ function _wsFetchOrderProducts() {
               auto_save: false
             }
           };
-          _context10.n = 6;
+          _context14.n = 6;
           return fetch(EDGE_BASE_WS + '/' + (isWoo ? 'woo-api' : 'shopify-api'), {
             method: 'POST',
             headers: {
@@ -2066,22 +2236,22 @@ function _wsFetchOrderProducts() {
             body: JSON.stringify(body)
           });
         case 6:
-          res = _context10.v;
+          res = _context14.v;
           if (res.ok) {
-            _context10.n = 7;
+            _context14.n = 7;
             break;
           }
-          return _context10.a(3, 9);
+          return _context14.a(3, 9);
         case 7:
-          _context10.n = 8;
+          _context14.n = 8;
           return res.json()["catch"](function () {
             return null;
           });
         case 8:
-          json = _context10.v;
+          json = _context14.v;
           arr = json && (json.orders || json.data || []);
           if (!(json && json.ok !== false && Array.isArray(arr) && arr.length)) {
-            _context10.n = 9;
+            _context14.n = 9;
             break;
           }
           o = arr[0];
@@ -2118,18 +2288,18 @@ function _wsFetchOrderProducts() {
             ts: Date.now(),
             v: _v
           };
-          return _context10.a(2, _v);
+          return _context14.a(2, _v);
         case 9:
           _i2++;
-          _context10.n = 5;
+          _context14.n = 5;
           break;
         case 10:
-          _context10.n = 12;
+          _context14.n = 12;
           break;
         case 11:
-          _context10.p = 11;
-          _t9 = _context10.v;
-          console.warn('wsFetchOrderProducts', orderNo, _t9);
+          _context14.p = 11;
+          _t10 = _context14.v;
+          console.warn('wsFetchOrderProducts', orderNo, _t10);
         case 12:
           v = {
             products: [],
@@ -2140,61 +2310,61 @@ function _wsFetchOrderProducts() {
             ts: Date.now(),
             v: v
           };
-          return _context10.a(2, v);
+          return _context14.a(2, v);
       }
-    }, _callee10, null, [[4, 11]]);
+    }, _callee14, null, [[4, 11]]);
   }));
   return _wsFetchOrderProducts.apply(this, arguments);
 }
-function uploadAttachmentToWtkpi(_x8) {
+function uploadAttachmentToWtkpi(_x1) {
   return _uploadAttachmentToWtkpi.apply(this, arguments);
 } // 🆕 fix49: 通用图片压缩(类似 quotation 的 compressImageFile,但通用)
 function _uploadAttachmentToWtkpi() {
-  _uploadAttachmentToWtkpi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(file) {
-    var client, isImage, payload, ext, path, _yield$client$storage, error, _client$storage$from$, publicUrl, _t0;
-    return _regenerator().w(function (_context11) {
-      while (1) switch (_context11.n) {
+  _uploadAttachmentToWtkpi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(file) {
+    var client, isImage, payload, ext, path, _yield$client$storage, error, _client$storage$from$, publicUrl, _t11;
+    return _regenerator().w(function (_context15) {
+      while (1) switch (_context15.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context11.n = 1;
+            _context15.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置 — 请进 ⚙ 设置中心配置');
         case 1:
           isImage = (file.type || '').startsWith('image/'); // 🆕 fix106: 之前视频也被强行走 canvas 图片压缩 → new Image() 无法加载视频 → 失败。现在只有图片压缩,视频原样传。
           if (!isImage) {
-            _context11.n = 3;
+            _context15.n = 3;
             break;
           }
-          _context11.n = 2;
+          _context15.n = 2;
           return compressImageForUpload(file, 1600, 0.85);
         case 2:
-          _t0 = _context11.v;
-          _context11.n = 4;
+          _t11 = _context15.v;
+          _context15.n = 4;
           break;
         case 3:
-          _t0 = file;
+          _t11 = file;
         case 4:
-          payload = _t0;
+          payload = _t11;
           ext = (file.name || (isImage ? 'img.png' : 'file.bin')).split('.').pop() || (isImage ? 'png' : 'bin');
           path = "cs-requests/".concat(Date.now(), "-").concat(crypto.randomUUID().slice(0, 8), ".").concat(ext);
-          _context11.n = 5;
+          _context15.n = 5;
           return client.storage.from('attachments').upload(path, payload, {
             upsert: false,
             contentType: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream')
           });
         case 5:
-          _yield$client$storage = _context11.v;
+          _yield$client$storage = _context15.v;
           error = _yield$client$storage.error;
           if (!error) {
-            _context11.n = 6;
+            _context15.n = 6;
             break;
           }
           throw error;
         case 6:
           _client$storage$from$ = client.storage.from('attachments').getPublicUrl(path), publicUrl = _client$storage$from$.data.publicUrl;
-          return _context11.a(2, {
+          return _context15.a(2, {
             name: file.name || (isImage ? 'screenshot.png' : 'attachment'),
             url: publicUrl,
             mime: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
@@ -2203,19 +2373,19 @@ function _uploadAttachmentToWtkpi() {
             uploaded_at_ms: Date.now()
           });
       }
-    }, _callee11);
+    }, _callee15);
   }));
   return _uploadAttachmentToWtkpi.apply(this, arguments);
 }
-function compressImageForUpload(_x9, _x0, _x1) {
+function compressImageForUpload(_x10, _x11, _x12) {
   return _compressImageForUpload.apply(this, arguments);
 } // 🆕 fix49: 提交一个拍摄需求 — 写入 photo_logs 表
 function _compressImageForUpload() {
-  _compressImageForUpload = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(file, maxWidth, quality) {
-    return _regenerator().w(function (_context12) {
-      while (1) switch (_context12.n) {
+  _compressImageForUpload = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(file, maxWidth, quality) {
+    return _regenerator().w(function (_context16) {
+      while (1) switch (_context16.n) {
         case 0:
-          return _context12.a(2, new Promise(function (resolve, reject) {
+          return _context16.a(2, new Promise(function (resolve, reject) {
             var reader = new FileReader();
             reader.onload = function (e) {
               var img = new Image();
@@ -2247,25 +2417,25 @@ function _compressImageForUpload() {
             reader.readAsDataURL(file);
           }));
       }
-    }, _callee12);
+    }, _callee16);
   }));
   return _compressImageForUpload.apply(this, arguments);
 }
-function submitPhotoRequest(_x10) {
+function submitPhotoRequest(_x13) {
   return _submitPhotoRequest.apply(this, arguments);
 } // 🆕 fix49: 列出当前用户提的所有需求 / 全部需求(主管视角)
 // 🆕 fix53 v3: 列出全部 photo_logs(不过滤 source),客户端按 sub-tab 筛选
 // 🆕 fix140: 分页 — 不再一次性 limit:500 全拉;默认拉最近 150 条(配 updated_at 索引),消费方「加载更多」按需追加。
 function _submitPhotoRequest() {
-  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(_ref7) {
+  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(_ref7) {
     var productName, sku, productImage, applicableShops, currentUser, reason, urgency, attachments, externalRefId, client, now, row, _yield$client$from$in, data, error;
-    return _regenerator().w(function (_context13) {
-      while (1) switch (_context13.n) {
+    return _regenerator().w(function (_context17) {
+      while (1) switch (_context17.n) {
         case 0:
           productName = _ref7.productName, sku = _ref7.sku, productImage = _ref7.productImage, applicableShops = _ref7.applicableShops, currentUser = _ref7.currentUser, reason = _ref7.reason, urgency = _ref7.urgency, attachments = _ref7.attachments, externalRefId = _ref7.externalRefId;
           client = getWtkpiClient();
           if (client) {
-            _context13.n = 1;
+            _context17.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -2300,21 +2470,21 @@ function _submitPhotoRequest() {
             created_at_ms: now,
             updated_at: new Date().toISOString()
           };
-          _context13.n = 2;
+          _context17.n = 2;
           return client.from('photo_logs').insert(row).select().single();
         case 2:
-          _yield$client$from$in = _context13.v;
+          _yield$client$from$in = _context17.v;
           data = _yield$client$from$in.data;
           error = _yield$client$from$in.error;
           if (!error) {
-            _context13.n = 3;
+            _context17.n = 3;
             break;
           }
           throw error;
         case 3:
-          return _context13.a(2, data);
+          return _context17.a(2, data);
       }
-    }, _callee13);
+    }, _callee17);
   }));
   return _submitPhotoRequest.apply(this, arguments);
 }
@@ -2322,7 +2492,7 @@ function listPhotoRequests() {
   return _listPhotoRequests.apply(this, arguments);
 } // 🆕 fix53 v3: 协作编辑产品基础字段(merge,不覆盖)
 function _listPhotoRequests() {
-  _listPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
+  _listPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
     var opts,
       client,
       limit,
@@ -2330,53 +2500,53 @@ function _listPhotoRequests() {
       _yield$client$from$se2,
       data,
       error,
-      _args14 = arguments;
-    return _regenerator().w(function (_context14) {
-      while (1) switch (_context14.n) {
+      _args18 = arguments;
+    return _regenerator().w(function (_context18) {
+      while (1) switch (_context18.n) {
         case 0:
-          opts = _args14.length > 0 && _args14[0] !== undefined ? _args14[0] : {};
+          opts = _args18.length > 0 && _args18[0] !== undefined ? _args18[0] : {};
           client = getWtkpiClient();
           if (client) {
-            _context14.n = 1;
+            _context18.n = 1;
             break;
           }
-          return _context14.a(2, []);
+          return _context18.a(2, []);
         case 1:
           limit = opts.limit || 150;
           offset = opts.offset || 0;
-          _context14.n = 2;
+          _context18.n = 2;
           return client.from('photo_logs').select('*').order('updated_at', {
             ascending: false
           }).range(offset, offset + limit - 1);
         case 2:
-          _yield$client$from$se2 = _context14.v;
+          _yield$client$from$se2 = _context18.v;
           data = _yield$client$from$se2.data;
           error = _yield$client$from$se2.error;
           if (!error) {
-            _context14.n = 3;
+            _context18.n = 3;
             break;
           }
           console.error('[WTKPI] 拉需求列表失败', error);
-          return _context14.a(2, []);
+          return _context18.a(2, []);
         case 3:
-          return _context14.a(2, data || []);
+          return _context18.a(2, data || []);
       }
-    }, _callee14);
+    }, _callee18);
   }));
   return _listPhotoRequests.apply(this, arguments);
 }
-function updatePhotoRequestBasics(_x11, _x12) {
+function updatePhotoRequestBasics(_x14, _x15) {
   return _updatePhotoRequestBasics.apply(this, arguments);
 } // 🆕 fix53 v3: 追加附件/补充原因(merge external_request,不覆盖)
 function _updatePhotoRequestBasics() {
-  _updatePhotoRequestBasics = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(logId, basics) {
+  _updatePhotoRequestBasics = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(logId, basics) {
     var client, allowed, clean, _i3, _allowed, k, _yield$client$from$up2, error;
-    return _regenerator().w(function (_context15) {
-      while (1) switch (_context15.n) {
+    return _regenerator().w(function (_context19) {
+      while (1) switch (_context19.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context15.n = 1;
+            _context19.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -2388,48 +2558,48 @@ function _updatePhotoRequestBasics() {
             if (basics[k] !== undefined) clean[k] = basics[k];
           }
           clean.updated_at = new Date().toISOString();
-          _context15.n = 2;
+          _context19.n = 2;
           return client.from('photo_logs').update(clean).eq('id', logId);
         case 2:
-          _yield$client$from$up2 = _context15.v;
+          _yield$client$from$up2 = _context19.v;
           error = _yield$client$from$up2.error;
           if (!error) {
-            _context15.n = 3;
+            _context19.n = 3;
             break;
           }
           throw error;
         case 3:
-          return _context15.a(2);
+          return _context19.a(2);
       }
-    }, _callee15);
+    }, _callee19);
   }));
   return _updatePhotoRequestBasics.apply(this, arguments);
 }
-function appendToPhotoRequest(_x13, _x14) {
+function appendToPhotoRequest(_x16, _x17) {
   return _appendToPhotoRequest.apply(this, arguments);
 } // 🆕 fix53 v3: 批量录入 — 客服汇总员一次提交多条
 function _appendToPhotoRequest() {
-  _appendToPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(logId, additions) {
+  _appendToPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(logId, additions) {
     var _additions$attachment;
     var client, _yield$client$from$se3, row, e1, current, merged, _yield$client$from$up3, e2;
-    return _regenerator().w(function (_context16) {
-      while (1) switch (_context16.n) {
+    return _regenerator().w(function (_context20) {
+      while (1) switch (_context20.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context16.n = 1;
+            _context20.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
         case 1:
-          _context16.n = 2;
+          _context20.n = 2;
           return client.from('photo_logs').select('external_request').eq('id', logId).single();
         case 2:
-          _yield$client$from$se3 = _context16.v;
+          _yield$client$from$se3 = _context20.v;
           row = _yield$client$from$se3.data;
           e1 = _yield$client$from$se3.error;
           if (!e1) {
-            _context16.n = 3;
+            _context20.n = 3;
             break;
           }
           throw e1;
@@ -2443,38 +2613,38 @@ function _appendToPhotoRequest() {
             merged.reason = (current.reason || '') + "\n\n--- ".concat(new Date().toLocaleDateString('zh-CN'), " \u8865\u5145(").concat(additions.editor_name || '', ") ---\n") + additions.reason_append;
           }
           if (additions.urgency) merged.urgency = additions.urgency;
-          _context16.n = 4;
+          _context20.n = 4;
           return client.from('photo_logs').update({
             external_request: merged,
             updated_at: new Date().toISOString()
           }).eq('id', logId);
         case 4:
-          _yield$client$from$up3 = _context16.v;
+          _yield$client$from$up3 = _context20.v;
           e2 = _yield$client$from$up3.error;
           if (!e2) {
-            _context16.n = 5;
+            _context20.n = 5;
             break;
           }
           throw e2;
         case 5:
-          return _context16.a(2);
+          return _context20.a(2);
       }
-    }, _callee16);
+    }, _callee20);
   }));
   return _appendToPhotoRequest.apply(this, arguments);
 }
-function batchSubmitPhotoRequests(_x15, _x16, _x17) {
+function batchSubmitPhotoRequests(_x18, _x19, _x20) {
   return _batchSubmitPhotoRequests.apply(this, arguments);
 } // 暴露到 window,方便 React 组件调用
 function _batchSubmitPhotoRequests() {
-  _batchSubmitPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(rows, defaults, currentUser) {
+  _batchSubmitPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(rows, defaults, currentUser) {
     var client, now, batchId, inserts, results, succeeded, failed, errors;
-    return _regenerator().w(function (_context17) {
-      while (1) switch (_context17.n) {
+    return _regenerator().w(function (_context21) {
+      while (1) switch (_context21.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context17.n = 1;
+            _context21.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -2513,12 +2683,12 @@ function _batchSubmitPhotoRequests() {
               updated_at: new Date().toISOString()
             };
           });
-          _context17.n = 2;
+          _context21.n = 2;
           return Promise.allSettled(inserts.map(function (row) {
             return client.from('photo_logs').insert(row);
           }));
         case 2:
-          results = _context17.v;
+          results = _context21.v;
           succeeded = results.filter(function (r) {
             return r.status === 'fulfilled' && !r.value.error;
           }).length;
@@ -2530,14 +2700,14 @@ function _batchSubmitPhotoRequests() {
             var _r$reason, _r$value2;
             return ((_r$reason = r.reason) === null || _r$reason === void 0 ? void 0 : _r$reason.message) || ((_r$value2 = r.value) === null || _r$value2 === void 0 || (_r$value2 = _r$value2.error) === null || _r$value2 === void 0 ? void 0 : _r$value2.message) || 'unknown';
           });
-          return _context17.a(2, {
+          return _context21.a(2, {
             succeeded: succeeded,
             failed: failed,
             errors: errors,
             batchId: batchId
           });
       }
-    }, _callee17);
+    }, _callee21);
   }));
   return _batchSubmitPhotoRequests.apply(this, arguments);
 }
@@ -4039,8 +4209,8 @@ var LoginScreen = function LoginScreen(_ref0) {
     onLogin = _ref0.onLogin;
   var _useState9 = useState(''),
     _useState0 = _slicedToArray(_useState9, 2),
-    selectedId = _useState0[0],
-    setSelectedId = _useState0[1];
+    account = _useState0[0],
+    setAccount = _useState0[1];
   var _useState1 = useState(''),
     _useState10 = _slicedToArray(_useState1, 2),
     password = _useState10[0],
@@ -4049,102 +4219,56 @@ var LoginScreen = function LoginScreen(_ref0) {
     _useState12 = _slicedToArray(_useState11, 2),
     error = _useState12[0],
     setError = _useState12[1];
-
-  // 🆕 fix46: 密码区改成 Modal,Modal 的 autoFocus 会自动聚焦,不需要 scrollIntoView
-  // 留 ref 给 Modal 内部元素引用
-  var passwordSectionRef = useRef(null);
-  var passwordInputRef = useRef(null);
-  // 选中员工后调试输出 + 兜底聚焦
+  var acctRef = useRef(null);
   useEffect(function () {
-    if (selectedId) {
-      console.log('[fix46] 选中员工:', selectedId, '· 弹出密码 Modal');
-      setTimeout(function () {
-        var _passwordInputRef$cur;
-        return (_passwordInputRef$cur = passwordInputRef.current) === null || _passwordInputRef$cur === void 0 ? void 0 : _passwordInputRef$cur.focus();
-      }, 100);
-    }
-  }, [selectedId]);
-
-  // 🔒 老板秘密登录入口
-  var _useState13 = useState(false),
-    _useState14 = _slicedToArray(_useState13, 2),
-    bossLoginOpen = _useState14[0],
-    setBossLoginOpen = _useState14[1];
-  var _useState15 = useState(''),
-    _useState16 = _slicedToArray(_useState15, 2),
-    bossName = _useState16[0],
-    setBossName = _useState16[1];
-  var _useState17 = useState(''),
-    _useState18 = _slicedToArray(_useState17, 2),
-    bossPwd = _useState18[0],
-    setBossPwd = _useState18[1];
-  var _useState19 = useState(''),
-    _useState20 = _slicedToArray(_useState19, 2),
-    bossError = _useState20[0],
-    setBossError = _useState20[1];
-  var tryBossLogin = function tryBossLogin() {
-    var hiddenUsers = employees.filter(function (e) {
-      return e.hideFromList;
-    });
-    var inputName = bossName.trim().toLowerCase();
-    var userByName = hiddenUsers.find(function (u) {
-      return u.name.toLowerCase() === inputName;
-    });
-    if (!userByName) {
-      // 账号不存在 — 可能 localStorage 没同步,告知用户
-      var allHidden = hiddenUsers.map(function (u) {
-        return u.name;
-      }).join(' / ') || '(无)';
-      setBossError("\u8D26\u53F7\u4E0D\u5B58\u5728 \xB7 \u5F53\u524D\u7CFB\u7EDF\u4E2D\u7684\u7BA1\u7406\u8D26\u53F7:".concat(allHidden));
-      return;
-    }
-    if (userByName.password !== bossPwd) {
-      setBossError('密码不正确');
-      return;
-    }
-    onLogin(userByName);
-  };
-  var sel = employees.find(function (e) {
-    return e.id === selectedId;
-  });
+    setTimeout(function () {
+      return acctRef.current && acctRef.current.focus();
+    }, 120);
+  }, []);
   var tryLogin = function tryLogin() {
+    var acc = account.trim().toLowerCase();
+    if (!acc) {
+      setError('请输入账号');
+      return;
+    }
+    // 账号匹配(含隐藏老板):account 字段 / 英文名 / id 去 u_ 前缀,全部小写比对
+    var sel = employees.find(function (e) {
+      return accountFor(e) === acc;
+    }) || employees.find(function (e) {
+      return (e.alias || '').trim().toLowerCase() === acc;
+    }) || employees.find(function (e) {
+      return String(e.id || '').replace(/^u_/, '').toLowerCase() === acc;
+    });
     if (!sel) {
-      setError('请选择账号');
+      setError('账号不存在 — 请联系主管确认你的账号');
       return;
     }
-    if (sel.password !== password) {
-      // 🆕 fix40: 详细的密码错误诊断
-      console.warn('[登录失败] 用户:', sel.name, '· 输入密码长度:', password.length, '· 期望长度:', (sel.password || '').length);
-      setError("\u5BC6\u7801\u4E0D\u6B63\u786E (".concat(sel.name, ")\u3002\u5982\u679C\u5FD8\u8BB0\u5BC6\u7801\u8BF7\u8054\u7CFB\u7BA1\u7406\u5458\u91CD\u8BBE\u3002"));
+    if ((sel.password || '') !== password) {
+      console.warn('[登录失败] 账号:', acc, '· 密码长度', password.length);
+      setError('密码不正确 — 如忘记请联系主管重设');
       return;
     }
-    console.log('[登录成功] 用户:', sel.name, '· 角色:', sel.role);
+    console.log('[登录成功] 账号:', acc, '· 用户:', sel.name, '· 角色:', sel.role);
     onLogin(sel);
-  };
-
-  // 员工头像配色 (Apple system colors)
-  var avatarColors = ['#0071e3', '#34c759', '#ff9500', '#ff3b30', '#5e5ce6', '#af52de', '#ff2d55', '#5ac8fa', '#ffcc00', '#a2845e', '#8e8e93'];
-  var colorOf = function colorOf(id) {
-    var idx = (employees.findIndex(function (e) {
-      return e.id === id;
-    }) || 0) % avatarColors.length;
-    return avatarColors[idx];
   };
   return /*#__PURE__*/React.createElement("div", {
     className: "login-bg",
     "data-login-screen": true
   }, /*#__PURE__*/React.createElement("div", {
-    className: "login-card fade-in"
+    className: "login-card fade-in",
+    style: {
+      maxWidth: 420
+    }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: '48px 48px 24px',
+      padding: '48px 44px 22px',
       textAlign: 'center',
       borderBottom: '1px solid var(--line)'
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "font-display",
     style: {
-      fontSize: '40px',
+      fontSize: '38px',
       fontWeight: 600,
       letterSpacing: '-.022em',
       marginBottom: '6px'
@@ -4155,219 +4279,47 @@ var LoginScreen = function LoginScreen(_ref0) {
       fontSize: '15px',
       fontWeight: 400
     }
-  }, "\u9009\u62E9\u4F60\u7684\u8D26\u53F7\u7EE7\u7EED")), /*#__PURE__*/React.createElement("div", {
+  }, "\u8F93\u5165\u8D26\u53F7\u548C\u5BC6\u7801\u767B\u5F55")), /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: '32px 48px'
+      padding: '30px 44px 34px'
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "grid grid-cols-3 md:grid-cols-5 gap-3",
+  }, /*#__PURE__*/React.createElement("label", {
     style: {
-      gap: '14px'
-    }
-  }, employees.filter(function (e) {
-    return !e.hideFromList;
-  }).map(function (e) {
-    var isSelected = selectedId === e.id;
-    var initials = (e.name || '?').slice(-1);
-    return /*#__PURE__*/React.createElement("div", {
-      key: e.id,
-      className: "emp-card".concat(isSelected ? ' selected' : ''),
-      onClick: function onClick() {
-        setSelectedId(e.id);
-        setError('');
-        setPassword('');
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      className: "emp-avatar-lg",
-      style: {
-        background: colorOf(e.id)
-      }
-    }, initials), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: '14px',
-        fontWeight: 500,
-        color: 'var(--ink)',
-        letterSpacing: '-.003em'
-      }
-    }, e.name, e.alias && /*#__PURE__*/React.createElement("span", {
-      style: {
-        color: 'var(--ink-3)',
-        fontWeight: 400,
-        marginLeft: 4
-      }
-    }, e.alias)), e.role === 'super_admin' && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: '11px',
-        color: 'var(--accent)',
-        marginTop: 2,
-        fontWeight: 600
-      }
-    }, "\uD83D\uDC51 ", e.title || '总管 · Manager'), e.role === 'admin' && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: '11px',
-        color: 'var(--accent)',
-        marginTop: 2,
-        fontWeight: 500
-      }
-    }, "\u2B50 ", e.title || '主管 · Admin'), e.role === 'finance' && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: '11px',
-        color: '#a85e00',
-        marginTop: 2,
-        fontWeight: 500
-      }
-    }, "\uD83D\uDCB0 ", e.title || '财务 · Finance'), e.role === 'hr' && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: '11px',
-        color: '#7c3aed',
-        marginTop: 2,
-        fontWeight: 600
-      }
-    }, "\uD83E\uDDD1\u200D\uD83D\uDCBC ", e.title || '人事 · HR'), e.sites && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: '11px',
-        color: 'var(--ink-4)',
-        marginTop: 3
-      }
-    }, e.sites));
-  })), employees.filter(function (e) {
-    return !e.hideFromList;
-  }).length === 0 ? /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: 'center',
-      padding: '32px 20px',
-      background: '#fef3c7',
-      border: '1px solid #fcd34d',
-      borderRadius: 12,
-      color: '#78350f',
-      fontSize: 13,
-      marginTop: 18
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 28,
-      marginBottom: 8
-    }
-  }, "\u26A0"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontWeight: 600,
-      marginBottom: 8
-    }
-  }, "\u5458\u5DE5\u5217\u8868\u4E3A\u7A7A"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 12
-    }
-  }, "\u53EF\u80FD\u662F localStorage \u635F\u574F\u6216\u8FD8\u6CA1\u52A0\u8F7D\u3002\u70B9\u4E0B\u9762\u6309\u94AE\u91CD\u7F6E\u540E\u91CD\u8BD5\u3002"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      localStorage.clear();
-      window.location.reload();
-    },
-    style: {
-      padding: '8px 16px',
-      background: '#0071e3',
-      color: 'white',
-      border: 'none',
-      borderRadius: 8,
-      cursor: 'pointer',
-      fontSize: 13,
-      fontWeight: 600,
-      fontFamily: 'inherit'
-    }
-  }, "\uD83D\uDD04 \u6E05\u7A7A\u7F13\u5B58\u5E76\u5237\u65B0")) : /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: 'center',
-      marginTop: 18
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      var allNames = employees.map(function (e) {
-        return '• ' + e.name + (e.alias ? ' (' + e.alias + ')' : '') + (e.hideFromList ? ' — 管理员·走右下秘密入口' : '');
-      }).join('\n');
-      var visible = employees.filter(function (e) {
-        return !e.hideFromList;
-      }).length;
-      var hidden = employees.filter(function (e) {
-        return e.hideFromList;
-      }).length;
-      alert("\uD83D\uDCCB \u7CFB\u7EDF\u91CC\u73B0\u6709 ".concat(employees.length, " \u4E2A\u8D26\u53F7 (\u663E\u793A ").concat(visible, ", \u9690\u85CF ").concat(hidden, "):\n\n").concat(allNames, "\n\n\u627E\u4E0D\u5230\u4F60?\n\u2022 \u666E\u901A\u5458\u5DE5 \u2014 \u8054\u7CFB\u7BA1\u7406\u5458\u5728 \u2699 \u8BBE\u7F6E\u4E2D\u5FC3\u6DFB\u52A0\n\u2022 \u7BA1\u7406\u5458/\u8001\u677F \u2014 \u70B9\u53F3\u4E0B\u89D2 \uD83D\uDD10 \u7BA1\u7406\u5458 \u8D70\u79D8\u5BC6\u5165\u53E3"));
-    },
-    style: {
-      background: 'none',
-      border: 'none',
-      color: 'var(--ink-3)',
+      display: 'block',
       fontSize: 12,
-      cursor: 'pointer',
-      textDecoration: 'underline',
-      fontFamily: 'inherit'
+      fontWeight: 600,
+      color: 'var(--ink-2)',
+      marginBottom: 6
     }
-  }, "\uD83D\uDD0D \u627E\u4E0D\u5230\u4F60\u7684\u8D26\u53F7?"))), sel && /*#__PURE__*/React.createElement("div", {
-    className: "login-pwd-backdrop",
-    onClick: function onClick() {
-      setSelectedId('');
-      setPassword('');
+  }, "\u8D26\u53F7"), /*#__PURE__*/React.createElement("input", {
+    ref: acctRef,
+    value: account,
+    autoCapitalize: "off",
+    autoCorrect: "off",
+    spellCheck: false,
+    onChange: function onChange(e) {
+      setAccount(e.target.value);
       setError('');
     },
-    style: {
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,.55)',
-      zIndex: 10000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 20,
-      animation: 'fade-in .2s ease-out'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "login-pwd-modal",
-    onClick: function onClick(e) {
-      return e.stopPropagation();
+    onKeyDown: function onKeyDown(e) {
+      if (e.key === 'Enter') {
+        var p = document.getElementById('login-pwd');
+        if (p) p.focus();
+      }
     },
-    ref: passwordSectionRef,
+    placeholder: "\u4F60\u7684\u8D26\u53F7(\u82F1\u6587\u540D\u5C0F\u5199,\u5982 nicole)",
     style: {
-      background: 'white',
-      borderRadius: 18,
-      maxWidth: 400,
+      fontSize: 15,
+      padding: '12px 14px',
+      borderRadius: 10,
       width: '100%',
-      padding: '28px 32px',
-      boxShadow: '0 20px 60px rgba(0,0,0,.25)',
-      animation: 'slide-up .25s ease-out'
+      border: '1px solid var(--line)',
+      outline: 'none',
+      fontFamily: 'inherit',
+      marginBottom: 16,
+      boxSizing: 'border-box'
     }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 14,
-      marginBottom: 18
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "emp-avatar-lg",
-    style: {
-      background: colorOf(sel.id),
-      width: 54,
-      height: 54,
-      fontSize: 20,
-      margin: 0
-    }
-  }, (sel.name || '?').slice(-1)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      minWidth: 0
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 18,
-      fontWeight: 600,
-      color: 'var(--ink)',
-      letterSpacing: '-.022em'
-    }
-  }, "\u6B22\u8FCE,", sel.name, sel.alias && " ".concat(sel.alias)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 13,
-      color: 'var(--ink-3)',
-      marginTop: 2
-    }
-  }, sel.role === 'super_admin' ? "\uD83D\uDC51 ".concat(sel.title || '客服部总管') : sel.role === 'admin' ? "\u2B50 ".concat(sel.title || '主管账号') : sel.role === 'finance' ? "\uD83D\uDCB0 ".concat(sel.title || '财务账号') : sel.title || '员工账号'))), /*#__PURE__*/React.createElement("label", {
+  }), /*#__PURE__*/React.createElement("label", {
     style: {
       display: 'block',
       fontSize: 12,
@@ -4376,7 +4328,7 @@ var LoginScreen = function LoginScreen(_ref0) {
       marginBottom: 6
     }
   }, "\u5BC6\u7801"), /*#__PURE__*/React.createElement("input", {
-    ref: passwordInputRef,
+    id: "login-pwd",
     type: "password",
     value: password,
     onChange: function onChange(e) {
@@ -4387,7 +4339,6 @@ var LoginScreen = function LoginScreen(_ref0) {
       return e.key === 'Enter' && tryLogin();
     },
     placeholder: "\u8F93\u5165\u5BC6\u7801",
-    autoFocus: true,
     className: error ? 'input-error' : '',
     style: {
       fontSize: 15,
@@ -4396,12 +4347,13 @@ var LoginScreen = function LoginScreen(_ref0) {
       width: '100%',
       border: '1px solid var(--line)',
       outline: 'none',
-      fontFamily: 'inherit'
+      fontFamily: 'inherit',
+      boxSizing: 'border-box'
     }
   }), error && /*#__PURE__*/React.createElement("div", {
     className: "fade-in",
     style: {
-      marginTop: 12,
+      marginTop: 14,
       padding: '10px 14px',
       borderRadius: 10,
       background: '#fef2f2',
@@ -4417,240 +4369,25 @@ var LoginScreen = function LoginScreen(_ref0) {
     style: {
       fontSize: 16
     }
-  }, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("span", null, error)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 10,
-      marginTop: 18
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "btn-sec",
-    onClick: function onClick() {
-      setSelectedId('');
-      setPassword('');
-      setError('');
-    },
-    style: {
-      padding: '11px 18px',
-      fontSize: 14
-    }
-  }, "\u53D6\u6D88"), /*#__PURE__*/React.createElement("button", {
+  }, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("span", null, error)), /*#__PURE__*/React.createElement("button", {
     className: "btn-pri",
     onClick: tryLogin,
     style: {
-      flex: 1,
-      padding: '11px 24px',
+      width: '100%',
+      marginTop: 20,
+      padding: '13px 24px',
       fontSize: 15,
       fontWeight: 600
     }
-  }, "\u7EE7\u7EED \u2192")), /*#__PURE__*/React.createElement("div", {
+  }, "\u767B\u5F55 \u2192"), /*#__PURE__*/React.createElement("div", {
     style: {
-      marginTop: 14,
-      fontSize: 11,
-      color: 'var(--ink-4)',
-      textAlign: 'center'
-    }
-  }, "\u9ED8\u8BA4\u5BC6\u7801:\u4E3B\u7BA1 admin123 \xB7 \u5458\u5DE5 123456"))), !sel && /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: '0 48px 40px',
-      textAlign: 'center',
-      color: 'var(--ink-4)',
-      fontSize: '13px'
-    }
-  }, "\u2191 \u9009\u62E9\u4E00\u4E2A\u8D26\u53F7\u5F00\u59CB")), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      setBossLoginOpen(true);
-      setBossError('');
-    },
-    title: "\u7BA1\u7406\u5458\u767B\u5F55",
-    style: {
-      position: 'fixed',
-      right: 18,
-      bottom: 14,
-      padding: '5px 12px',
-      border: '1px solid rgba(0,0,0,.08)',
-      background: 'rgba(255,255,255,.7)',
-      borderRadius: 14,
-      cursor: 'pointer',
-      fontSize: 11,
-      color: '#86868b',
-      fontFamily: 'inherit',
-      opacity: .7,
-      transition: 'opacity .15s, color .15s, border-color .15s',
-      backdropFilter: 'blur(8px)'
-    },
-    onMouseEnter: function onMouseEnter(e) {
-      e.currentTarget.style.opacity = '1';
-      e.currentTarget.style.color = 'var(--accent)';
-      e.currentTarget.style.borderColor = 'var(--accent)';
-    },
-    onMouseLeave: function onMouseLeave(e) {
-      e.currentTarget.style.opacity = '0.7';
-      e.currentTarget.style.color = '#86868b';
-      e.currentTarget.style.borderColor = 'rgba(0,0,0,.08)';
-    }
-  }, "\uD83D\uDD10 \u7BA1\u7406\u5458"), bossLoginOpen && /*#__PURE__*/React.createElement("div", {
-    onClick: function onClick() {
-      return setBossLoginOpen(false);
-    },
-    style: {
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,.55)',
-      zIndex: 9999,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 20
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    onClick: function onClick(e) {
-      return e.stopPropagation();
-    },
-    style: {
-      background: 'white',
-      borderRadius: 14,
-      maxWidth: 400,
-      width: '100%',
-      padding: 28
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      textAlign: 'center',
-      marginBottom: 20
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 36,
-      marginBottom: 8
-    }
-  }, "\uD83D\uDD12"), /*#__PURE__*/React.createElement("div", {
-    className: "font-display",
-    style: {
-      fontSize: 17,
-      fontWeight: 600
-    }
-  }, "\u7BA1\u7406\u5165\u53E3"), /*#__PURE__*/React.createElement("div", {
-    style: {
+      marginTop: 16,
       fontSize: 12,
-      color: 'var(--ink-3)',
-      marginTop: 4
+      color: 'var(--ink-4)',
+      textAlign: 'center',
+      lineHeight: 1.7
     }
-  }, "\u4EC5\u9650\u6388\u6743\u4EBA\u5458")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 10
-    }
-  }, /*#__PURE__*/React.createElement("label", {
-    style: {
-      fontSize: 11,
-      fontWeight: 600,
-      color: 'var(--ink-2)',
-      display: 'block',
-      marginBottom: 4
-    }
-  }, "\u7528\u6237\u540D"), /*#__PURE__*/React.createElement("input", {
-    value: bossName,
-    onChange: function onChange(e) {
-      setBossName(e.target.value);
-      setBossError('');
-    },
-    onKeyDown: function onKeyDown(e) {
-      return e.key === 'Enter' && tryBossLogin();
-    },
-    placeholder: "\u8F93\u5165\u7528\u6237\u540D",
-    className: bossError ? 'input-error' : '',
-    style: {
-      width: '100%',
-      padding: '10px 12px',
-      border: '1px solid var(--line)',
-      borderRadius: 8,
-      fontSize: 14,
-      fontFamily: 'inherit'
-    }
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      marginBottom: 14
-    }
-  }, /*#__PURE__*/React.createElement("label", {
-    style: {
-      fontSize: 11,
-      fontWeight: 600,
-      color: 'var(--ink-2)',
-      display: 'block',
-      marginBottom: 4
-    }
-  }, "\u5BC6\u7801"), /*#__PURE__*/React.createElement("input", {
-    type: "password",
-    value: bossPwd,
-    onChange: function onChange(e) {
-      setBossPwd(e.target.value);
-      setBossError('');
-    },
-    onKeyDown: function onKeyDown(e) {
-      return e.key === 'Enter' && tryBossLogin();
-    },
-    placeholder: "\u8F93\u5165\u5BC6\u7801",
-    autoFocus: true,
-    className: bossError ? 'input-error' : '',
-    style: {
-      width: '100%',
-      padding: '10px 12px',
-      border: '1px solid var(--line)',
-      borderRadius: 8,
-      fontSize: 14,
-      fontFamily: 'inherit'
-    }
-  })), bossError && /*#__PURE__*/React.createElement("div", {
-    className: "fade-in",
-    style: {
-      padding: '10px 14px',
-      background: '#fef2f2',
-      border: '1px solid #fca5a5',
-      borderRadius: 8,
-      fontSize: 13,
-      color: '#991b1b',
-      fontWeight: 600,
-      marginBottom: 12,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 8,
-      justifyContent: 'center'
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 16
-    }
-  }, "\u26A0\uFE0F"), /*#__PURE__*/React.createElement("span", null, bossError)), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: 'flex',
-      gap: 8
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return setBossLoginOpen(false);
-    },
-    className: "btn-sec",
-    style: {
-      flex: 1,
-      padding: '10px'
-    }
-  }, "\u53D6\u6D88"), /*#__PURE__*/React.createElement("button", {
-    onClick: tryBossLogin,
-    disabled: !bossName.trim() || !bossPwd,
-    style: {
-      flex: 2,
-      padding: '10px',
-      background: 'var(--accent)',
-      color: 'white',
-      border: 'none',
-      borderRadius: 8,
-      cursor: 'pointer',
-      fontFamily: 'inherit',
-      fontWeight: 600,
-      fontSize: 14,
-      opacity: bossName.trim() && bossPwd ? 1 : 0.5
-    }
-  }, "\u8FDB\u5165")))));
+  }, "\u8D26\u53F7\u4E00\u822C\u662F\u4F60\u7684\u82F1\u6587\u540D\u5C0F\u5199(\u5982 ", /*#__PURE__*/React.createElement("b", null, "nicole"), " / ", /*#__PURE__*/React.createElement("b", null, "sally"), ")\u3002", /*#__PURE__*/React.createElement("br", null), "\u627E\u4E0D\u5230\u8D26\u53F7\u6216\u5FD8\u8BB0\u5BC6\u7801?\u8054\u7CFB\u4E3B\u7BA1\u3002"))));
 };
 
 // ============================================================
@@ -4677,10 +4414,10 @@ var TopNav = function TopNav(_ref1) {
     _ref1$sidebarHiddenCo = _ref1.sidebarHiddenCount,
     sidebarHiddenCount = _ref1$sidebarHiddenCo === void 0 ? 0 : _ref1$sidebarHiddenCo,
     onOpenCustomize = _ref1.onOpenCustomize;
-  var _useState21 = useState(false),
-    _useState22 = _slicedToArray(_useState21, 2),
-    switchModalOpen = _useState22[0],
-    setSwitchModalOpen = _useState22[1];
+  var _useState13 = useState(false),
+    _useState14 = _slicedToArray(_useState13, 2),
+    switchModalOpen = _useState14[0],
+    setSwitchModalOpen = _useState14[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var isFinanceVisible = user.role === 'finance' || user.role === 'admin' || user.role === 'super_admin';
 
@@ -5139,19 +4876,19 @@ var EventActionDropdown = function EventActionDropdown(_ref10) {
     onChargeback = _ref10.onChargeback,
     onCustom = _ref10.onCustom,
     onPhoto = _ref10.onPhoto;
-  var _useState23 = useState(false),
-    _useState24 = _slicedToArray(_useState23, 2),
-    open = _useState24[0],
-    setOpen = _useState24[1];
+  var _useState15 = useState(false),
+    _useState16 = _slicedToArray(_useState15, 2),
+    open = _useState16[0],
+    setOpen = _useState16[1];
   var btnRef = React.useRef(null);
   var menuRef = React.useRef(null);
-  var _useState25 = useState({
+  var _useState17 = useState({
       top: 0,
       left: 0
     }),
-    _useState26 = _slicedToArray(_useState25, 2),
-    menuPos = _useState26[0],
-    setMenuPos = _useState26[1];
+    _useState18 = _slicedToArray(_useState17, 2),
+    menuPos = _useState18[0],
+    setMenuPos = _useState18[1];
   useEffect(function () {
     if (!open) return;
     var onDocClick = function onDocClick(e) {

@@ -1,5 +1,5 @@
 // ====== cs-system 统一工作台 — 04-admin-finance ======
-// 版本 2026.06.03-fix145
+// 版本 2026.06.03-fix146
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system 统一工作台 — 04-admin-finance ======
-// 版本 2026.06.03-fix145
+// 版本 2026.06.03-fix146
 // 预编译切片(由 workspace.html 切出),浏览器按序加载直接执行
 //
 
@@ -693,6 +693,7 @@ var AdminModule = function AdminModule(_ref5) {
     setEmployees(function (prev) {
       return [].concat(_toConsumableArray(prev), [emp]);
     });
+    saveCloudAccount(emp); // 🆕 fix146: 同步到云端,新人任何设备都能登录
     setNewEmp({
       name: '',
       alias: '',
@@ -701,7 +702,7 @@ var AdminModule = function AdminModule(_ref5) {
       role: 'staff'
     });
     setShowNew(false);
-    toast('✓ 已添加员工 ' + emp.name);
+    toast('✓ 已添加 ' + emp.name + ' · 账号:' + accountFor(emp) + ' · 密码:' + emp.password);
   };
   var updateEmp = function updateEmp(id, patch) {
     setEmployees(function (prev) {
@@ -709,6 +710,10 @@ var AdminModule = function AdminModule(_ref5) {
         return e.id === id ? _objectSpread(_objectSpread({}, e), patch) : e;
       });
     });
+    var cur = employees.find(function (e) {
+      return e.id === id;
+    });
+    if (cur) saveCloudAccount(_objectSpread(_objectSpread({}, cur), patch)); // 🆕 fix146: 改动同步云端
   };
   var deleteEmp = /*#__PURE__*/function () {
     var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(id) {
@@ -740,6 +745,7 @@ var AdminModule = function AdminModule(_ref5) {
                 return e.id !== id;
               });
             });
+            deleteCloudAccount(id); // 🆕 fix146: 云端同步删除
             toast('✗ 已删除');
           case 4:
             return _context7.a(2);
@@ -1051,7 +1057,7 @@ var AdminModule = function AdminModule(_ref5) {
     className: "btn-sec",
     title: "\u628A\u5BA2\u670D\u90E8\u4EBA\u5458\u53D1\u5E03\u5230\u4E09\u7CFB\u7EDF\u5171\u4EAB\u76EE\u5F55(\u7F8E\u5DE5/\u5BA2\u670D/\u8DDF\u5355\u4E92\u76F8\u53EF\u89C1,\u53D1\u5DE5\u5355\u80FD\u9009\u5230\u5177\u4F53\u4EBA)",
     onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-      var n, _t5;
+      var n, okAcc, _t5;
       return _regenerator().w(function (_context9) {
         while (1) switch (_context9.p = _context9.n) {
           case 0:
@@ -1060,17 +1066,22 @@ var AdminModule = function AdminModule(_ref5) {
             return window.publishMyStaff(employees, user.name + (user.alias ? ' ' + user.alias : ''));
           case 1:
             n = _context9.v;
-            toast("\u2713 \u5DF2\u540C\u6B65 ".concat(n, " \u540D\u5BA2\u670D\u4EBA\u5458\u5230\u5171\u4EAB\u76EE\u5F55"));
-            _context9.n = 3;
-            break;
+            _context9.n = 2;
+            return seedCloudAccounts(employees);
           case 2:
-            _context9.p = 2;
+            okAcc = _context9.v;
+            // 🆕 fix146: 同时把全部登录账号推到 cs_accounts
+            toast("\u2713 \u5DF2\u540C\u6B65 ".concat(n, " \u540D\u5230\u5171\u4EAB\u76EE\u5F55") + (okAcc ? " \xB7 ".concat(employees.length, " \u4E2A\u767B\u5F55\u8D26\u53F7\u5DF2\u4E0A\u4E91") : ' · ⚠登录账号未上云(cs_accounts 表?)'));
+            _context9.n = 4;
+            break;
+          case 3:
+            _context9.p = 3;
             _t5 = _context9.v;
             toast('❌ 同步失败:' + (_t5.message || _t5));
-          case 3:
+          case 4:
             return _context9.a(2);
         }
-      }, _callee9, null, [[0, 2]]);
+      }, _callee9, null, [[0, 3]]);
     }))
   }, "\uD83D\uDD04 \u540C\u6B65\u5230\u5171\u4EAB\u76EE\u5F55"), /*#__PURE__*/React.createElement("button", {
     className: "btn-pri",
