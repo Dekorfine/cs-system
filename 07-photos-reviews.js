@@ -1,5 +1,5 @@
 // ====== cs-system — 07-photos-reviews ======
-// 版本 2026.06.03-fix149
+// 版本 2026.06.03-fix150
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 07-photos-reviews ======
-// 版本 2026.06.03-fix149
+// 版本 2026.06.03-fix150
 // 预编译切片
 //
 
@@ -1500,7 +1500,7 @@ var ReviewEditor = function ReviewEditor(_ref9) {
   var handleUrlChange = function handleUrlChange(url) {
     setProductUrl(url);
     if (url && !productName) setProductName(extractProductNameFromURL(url));
-    if (url && !site) setSite(extractSiteFromURL(url));
+    if (url && !site) setSite(siteToDomain('', url));
   };
   var handleSubmit = /*#__PURE__*/function () {
     var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
@@ -1530,7 +1530,7 @@ var ReviewEditor = function ReviewEditor(_ref9) {
               product_url: productUrl.trim(),
               product_name: productName.trim() || null,
               product_image: images && images[0] && images[0].url || null,
-              site: site || null,
+              site: siteToDomain(site, productUrl.trim()) || null,
               platform: platform || null,
               priority: priority,
               notes: notes.trim() || null,
@@ -1557,7 +1557,7 @@ var ReviewEditor = function ReviewEditor(_ref9) {
               product_name: productName.trim() || null,
               product_url: productUrl.trim(),
               product_image: images && images[0] && images[0].url || null,
-              site: site || null,
+              site: siteToDomain(site, productUrl.trim()) || null,
               platform: platform || null,
               need_count: needCount,
               priority: priority || 'normal',
@@ -1730,7 +1730,7 @@ var ReviewEditor = function ReviewEditor(_ref9) {
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: ""
-  }, "(\u9009\u586B)"), allSites.map(function (s) {
+  }, "(\u9009\u586B)"), REVIEW_DOMAINS.map(function (s) {
     return /*#__PURE__*/React.createElement("option", {
       key: s,
       value: s

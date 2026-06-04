@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.03-fix149
+// 版本 2026.06.03-fix150
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.03-fix149
+// 版本 2026.06.03-fix150
 // 预编译切片
 //
 
@@ -2912,6 +2912,67 @@ var SHOPS_PRESET = [{
 var SHOPS_SELECTABLE = SHOPS_PRESET.filter(function (s) {
   return s.id !== 'other';
 });
+
+// 🆕 评价任务 site 统一用【公开域名】(与美工 AI 提示词、worktrack 配置一致)
+var REVIEW_DOMAINS = ['vakkerlight.com', 'radium.com', 'pinlighting.com', 'dekorfine.com', 'docos.us', 'mooiehome.com', 'lumioshine.com', 'rayonshine.com', 'mooijane.com', 'mooielight.com'];
+// 订单代码 / 品牌名 / 内部店铺名 → 公开域名(别名,大小写无关)
+var SITE_ALIAS_DOMAIN = {
+  vk: 'vakkerlight.com',
+  v: 'vakkerlight.com',
+  k: 'vakkerlight.com',
+  vakkerlight: 'vakkerlight.com',
+  vakkerlighting: 'vakkerlight.com',
+  rd: 'radium.com',
+  radium: 'radium.com',
+  radilum: 'radium.com',
+  vakkerge: 'radium.com',
+  pl: 'pinlighting.com',
+  pinlighting: 'pinlighting.com',
+  vkfrench: 'pinlighting.com',
+  df: 'dekorfine.com',
+  dekorfine: 'dekorfine.com',
+  dc: 'docos.us',
+  docos: 'docos.us',
+  docolight: 'docos.us',
+  decora: 'docos.us',
+  mh: 'mooiehome.com',
+  mooiehome: 'mooiehome.com',
+  vkwholesale: 'mooiehome.com',
+  ls: 'lumioshine.com',
+  lumioshine: 'lumioshine.com',
+  docolamp: 'lumioshine.com',
+  rs: 'rayonshine.com',
+  rayonshine: 'rayonshine.com',
+  decormote: 'rayonshine.com',
+  mj: 'mooijane.com',
+  jd: 'mooijane.com',
+  mooijane: 'mooijane.com',
+  janedecor: 'mooijane.com',
+  myjewelry: 'mooijane.com',
+  ml: 'mooielight.com',
+  mo: 'mooielight.com',
+  mooielight: 'mooielight.com'
+};
+// 把任意写法(产品链接 / 代码 / 品牌 / 域名)规范成公开域名
+var siteToDomain = function siteToDomain(raw, url) {
+  if (url) {
+    try {
+      var h = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+      var hit = REVIEW_DOMAINS.find(function (d) {
+        return h === d || h.endsWith('.' + d);
+      });
+      if (hit) return hit;
+      var key = Object.keys(SITE_ALIAS_DOMAIN).find(function (k) {
+        return k.length >= 3 && h.includes(k);
+      });
+      if (key) return SITE_ALIAS_DOMAIN[key];
+    } catch (e) {}
+  }
+  var r = (raw || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '');
+  if (!r) return '';
+  if (REVIEW_DOMAINS.includes(r)) return r;
+  return SITE_ALIAS_DOMAIN[r] || (raw || '').trim();
+};
 
 // ════════════════════════════════════════════════════════════════════
 // 🆕 fix57: 邮件模板预置库 — 跨境电商灯具客服 15 个高频场景
