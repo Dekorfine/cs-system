@@ -1329,6 +1329,8 @@ function MakeInvoice() {
     items: t.items.filter((_, i) => i !== idx)
   })); // 🆕 人工删除多余产品
   const rmTicket = id => setTickets(p => p.filter(t => t.id !== id));
+  // 🆕 省州是否必填:按收件国。美/加/澳/中/墨/巴/马/日 用省州;欧洲多数、英国、阿联酋等无省州 → 可空
+  const needState = a => ['US', 'USA', 'CA', 'CAN', 'AU', 'AUS', 'CN', 'CHN', 'MX', 'MEX', 'BR', 'BRA', 'MY', 'JP'].includes(((a && (a.country_code || a.country)) || '').trim().toUpperCase());
   const validate = t => {
     const m = [];
     const a = t.address || {};
@@ -1337,7 +1339,7 @@ function MakeInvoice() {
       if (!(a.phone || t.customerPhone)) m.push('电话');
       if (!a.zip) m.push('邮编');
       if (!a.city) m.push('城市');
-      if (!a.province) m.push('省州');
+      if (needState(a) && !(a.province || a.province_code)) m.push('省州');
       if (!a.address1) m.push('地址');
       if (!t.customerEmail) m.push('邮箱');
       if (!(t.items || []).some(it => it.selected !== false)) m.push('产品');
@@ -2457,7 +2459,7 @@ function MakeInvoice() {
       }, "\u7701\u5DDE *"), /*#__PURE__*/React.createElement("input", {
         className: "inp",
         style: {
-          borderColor: a.province ? '#d8d8dc' : '#fca5a5'
+          borderColor: (a.province || a.province_code || !needState(a)) ? '#d8d8dc' : '#fca5a5'
         },
         value: a.province || '',
         onChange: e => upTicket(t.id, {
