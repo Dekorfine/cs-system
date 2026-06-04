@@ -1,5 +1,5 @@
 // ====== cs-system — 07-photos-reviews ======
-// 版本 2026.06.03-fix150
+// 版本 2026.06.03-fix151
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 07-photos-reviews ======
-// 版本 2026.06.03-fix150
+// 版本 2026.06.03-fix151
 // 预编译切片
 //
 
@@ -1396,10 +1396,10 @@ var ReviewEditor = function ReviewEditor(_ref9) {
     _useState38 = _slicedToArray(_useState37, 2),
     assignedTo = _useState38[0],
     setAssignedTo = _useState38[1];
-  var _useState39 = useState(1),
+  var _useState39 = useState(10),
     _useState40 = _slicedToArray(_useState39, 2),
     batchCount = _useState40[0],
-    setBatchCount = _useState40[1]; // 一次创建多少个相同任务（每个 = 1 条评价）
+    setBatchCount = _useState40[1]; // 🆕 默认 10(没特别要求就 10,常用 5/10/15;不要 1)
   var _useState41 = useState(review !== null && review !== void 0 && review.product_image ? [{
       id: 'pi0',
       url: review.product_image,
@@ -1841,7 +1841,12 @@ var ReviewEditor = function ReviewEditor(_ref9) {
       display: 'block',
       marginBottom: 4
     }
-  }, "\u9700\u8981\u51E0\u6761\u8BC4\u4EF7"), /*#__PURE__*/React.createElement("input", {
+  }, "\u9700\u8981\u51E0\u6761\u8BC4\u4EF7 ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 400,
+      color: 'var(--ink-4)'
+    }
+  }, "\xB7 \u6CA1\u7279\u522B\u8981\u6C42\u5C31\u586B 10,\u5E38\u7528 5/10/15")), /*#__PURE__*/React.createElement("input", {
     type: "number",
     min: 1,
     max: 20,
