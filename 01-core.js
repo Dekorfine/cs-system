@@ -1,5 +1,5 @@
-// ====== cs-system 统一工作台 — 01-core ======
-// 版本 2026.06.03-fix148
+// ====== cs-system — 01-core ======
+// 版本 2026.06.03-fix149
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -22,8 +22,8 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-// ====== cs-system 统一工作台 — 01-core ======
-// 版本 2026.06.03-fix148
+// ====== cs-system — 01-core ======
+// 版本 2026.06.03-fix149
 // 预编译切片
 //
 
@@ -1361,27 +1361,155 @@ var getCdmClient = function getCdmClient() {
   }
 };
 
-// ════════════════════════════════════════════════════════════════════
+// 🆕 产品评价任务存在【共享库 xyhbwqugbnowfjuhqhsj】的 product_reviews(worktrack/美工读这里,不是客服 CLOUD 库)
+function prReviewsList() {
+  return _prReviewsList.apply(this, arguments);
+}
+function _prReviewsList() {
+  _prReviewsList = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+    var opts,
+      c,
+      q,
+      _yield$q,
+      data,
+      error,
+      _args0 = arguments,
+      _t9;
+    return _regenerator().w(function (_context0) {
+      while (1) switch (_context0.p = _context0.n) {
+        case 0:
+          opts = _args0.length > 0 && _args0[0] !== undefined ? _args0[0] : {};
+          c = getCdmClient();
+          if (c) {
+            _context0.n = 1;
+            break;
+          }
+          return _context0.a(2, null);
+        case 1:
+          _context0.p = 1;
+          q = c.from('product_reviews').select('*');
+          if (opts.order) q = q.order(opts.order.col, {
+            ascending: opts.order.asc !== false
+          });
+          if (opts.limit) q = q.limit(opts.limit);
+          _context0.n = 2;
+          return q;
+        case 2:
+          _yield$q = _context0.v;
+          data = _yield$q.data;
+          error = _yield$q.error;
+          if (!error) {
+            _context0.n = 3;
+            break;
+          }
+          console.error('[product_reviews] list 失败', error);
+          return _context0.a(2, null);
+        case 3:
+          return _context0.a(2, data || []);
+        case 4:
+          _context0.p = 4;
+          _t9 = _context0.v;
+          console.error('[product_reviews] list 异常', _t9);
+          return _context0.a(2, null);
+      }
+    }, _callee0, null, [[1, 4]]);
+  }));
+  return _prReviewsList.apply(this, arguments);
+}
+function prReviewUpsert(_x5) {
+  return _prReviewUpsert.apply(this, arguments);
+}
+function _prReviewUpsert() {
+  _prReviewUpsert = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(row) {
+    var c, _yield$c$from$upsert$, data, error, _t0;
+    return _regenerator().w(function (_context1) {
+      while (1) switch (_context1.p = _context1.n) {
+        case 0:
+          c = getCdmClient();
+          if (c) {
+            _context1.n = 1;
+            break;
+          }
+          return _context1.a(2, null);
+        case 1:
+          _context1.p = 1;
+          _context1.n = 2;
+          return c.from('product_reviews').upsert(row).select();
+        case 2:
+          _yield$c$from$upsert$ = _context1.v;
+          data = _yield$c$from$upsert$.data;
+          error = _yield$c$from$upsert$.error;
+          if (!error) {
+            _context1.n = 3;
+            break;
+          }
+          console.error('[product_reviews] upsert 失败', error);
+          return _context1.a(2, null);
+        case 3:
+          return _context1.a(2, data);
+        case 4:
+          _context1.p = 4;
+          _t0 = _context1.v;
+          console.error('[product_reviews] upsert 异常', _t0);
+          return _context1.a(2, null);
+      }
+    }, _callee1, null, [[1, 4]]);
+  }));
+  return _prReviewUpsert.apply(this, arguments);
+}
+function prReviewInsert(_x6) {
+  return _prReviewInsert.apply(this, arguments);
+} // ════════════════════════════════════════════════════════════════════
 // 🆕 fix62 v5: 三系统共享人员目录 org_directory(跟 cross_dept_messages 同库)
 // 客服系统 system='cs' · 发布本系统人员 + 读全部门人员做接收人下拉
 // ════════════════════════════════════════════════════════════════════
+function _prReviewInsert() {
+  _prReviewInsert = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(rows) {
+    var c, _yield$c$from$insert, error;
+    return _regenerator().w(function (_context10) {
+      while (1) switch (_context10.n) {
+        case 0:
+          c = getCdmClient();
+          if (c) {
+            _context10.n = 1;
+            break;
+          }
+          throw new Error('共享库(消息总线)未初始化');
+        case 1:
+          _context10.n = 2;
+          return c.from('product_reviews').insert(rows);
+        case 2:
+          _yield$c$from$insert = _context10.v;
+          error = _yield$c$from$insert.error;
+          if (!error) {
+            _context10.n = 3;
+            break;
+          }
+          throw error;
+        case 3:
+          return _context10.a(2);
+      }
+    }, _callee10);
+  }));
+  return _prReviewInsert.apply(this, arguments);
+}
 var ORG_SYSTEM = 'cs'; // 客服系统标识(跟单系统改 'po')
 
 // 发布本系统人员到共享目录(upsert,不删人用 active=false)
-function publishMyStaff(_x5, _x6) {
+function publishMyStaff(_x7, _x8) {
   return _publishMyStaff.apply(this, arguments);
 } // 读共享目录(全部门所有人)
 // 🆕 fix140: 客户端缓存 — org_directory 基本静态(几十行),5 分钟内多组件/重渲染共用一份,不再每次重拉。
 //           force=true 强制刷新(发布后/手动刷新用)。
 function _publishMyStaff() {
-  _publishMyStaff = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(staffList, updatedBy) {
+  _publishMyStaff = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(staffList, updatedBy) {
     var client, rows, _yield$client$from$up, error;
-    return _regenerator().w(function (_context0) {
-      while (1) switch (_context0.n) {
+    return _regenerator().w(function (_context11) {
+      while (1) switch (_context11.n) {
         case 0:
           client = getCdmClient();
           if (client) {
-            _context0.n = 1;
+            _context11.n = 1;
             break;
           }
           throw new Error('消息总线未初始化');
@@ -1415,15 +1543,15 @@ function _publishMyStaff() {
               updated_by: updatedBy || 'system'
             };
           });
-          _context0.n = 2;
+          _context11.n = 2;
           return client.from('org_directory').upsert(rows, {
             onConflict: 'id'
           });
         case 2:
-          _yield$client$from$up = _context0.v;
+          _yield$client$from$up = _context11.v;
           error = _yield$client$from$up.error;
           if (!error) {
-            _context0.n = 3;
+            _context11.n = 3;
             break;
           }
           throw error;
@@ -1432,9 +1560,9 @@ function _publishMyStaff() {
             ts: 0,
             data: null
           }; // 🆕 fix140: 发布后失效缓存,下次 load 拿最新
-          return _context0.a(2, rows.length);
+          return _context11.a(2, rows.length);
       }
-    }, _callee0);
+    }, _callee11);
   }));
   return _publishMyStaff.apply(this, arguments);
 }
@@ -1447,7 +1575,7 @@ function loadOrgDirectory() {
   return _loadOrgDirectory.apply(this, arguments);
 }
 function _loadOrgDirectory() {
-  _loadOrgDirectory = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
+  _loadOrgDirectory = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
     var force,
       now,
       client,
@@ -1455,39 +1583,39 @@ function _loadOrgDirectory() {
       data,
       error,
       mapped,
-      _args1 = arguments;
-    return _regenerator().w(function (_context1) {
-      while (1) switch (_context1.n) {
+      _args12 = arguments;
+    return _regenerator().w(function (_context12) {
+      while (1) switch (_context12.n) {
         case 0:
-          force = _args1.length > 0 && _args1[0] !== undefined ? _args1[0] : false;
+          force = _args12.length > 0 && _args12[0] !== undefined ? _args12[0] : false;
           now = Date.now();
           if (!(!force && _orgDirCache.data && now - _orgDirCache.ts < ORG_DIR_TTL)) {
-            _context1.n = 1;
+            _context12.n = 1;
             break;
           }
-          return _context1.a(2, _orgDirCache.data);
+          return _context12.a(2, _orgDirCache.data);
         case 1:
           client = getCdmClient();
           if (client) {
-            _context1.n = 2;
+            _context12.n = 2;
             break;
           }
-          return _context1.a(2, _orgDirCache.data || []);
+          return _context12.a(2, _orgDirCache.data || []);
         case 2:
-          _context1.n = 3;
+          _context12.n = 3;
           return client.from('org_directory').select('*').order('sort_order', {
             ascending: true
           });
         case 3:
-          _yield$client$from$se = _context1.v;
+          _yield$client$from$se = _context12.v;
           data = _yield$client$from$se.data;
           error = _yield$client$from$se.error;
           if (!error) {
-            _context1.n = 4;
+            _context12.n = 4;
             break;
           }
           console.error('[org_directory] 读取失败', error);
-          return _context1.a(2, _orgDirCache.data || []);
+          return _context12.a(2, _orgDirCache.data || []);
         case 4:
           mapped = (data || []).map(function (r) {
             return {
@@ -1510,9 +1638,9 @@ function _loadOrgDirectory() {
             ts: now,
             data: mapped
           }; // 🆕 fix140
-          return _context1.a(2, mapped);
+          return _context12.a(2, mapped);
       }
-    }, _callee1);
+    }, _callee12);
   }));
   return _loadOrgDirectory.apply(this, arguments);
 }
@@ -1566,122 +1694,122 @@ function loadCloudAccounts() {
   return _loadCloudAccounts.apply(this, arguments);
 }
 function _loadCloudAccounts() {
-  _loadCloudAccounts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+  _loadCloudAccounts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
     var rows;
-    return _regenerator().w(function (_context10) {
-      while (1) switch (_context10.n) {
+    return _regenerator().w(function (_context13) {
+      while (1) switch (_context13.n) {
         case 0:
-          _context10.n = 1;
+          _context13.n = 1;
           return CLOUD.list('cs_accounts', {
             limit: 1000,
             full: true
           });
         case 1:
-          rows = _context10.v;
+          rows = _context13.v;
           if (rows) {
-            _context10.n = 2;
+            _context13.n = 2;
             break;
           }
-          return _context10.a(2, null);
+          return _context13.a(2, null);
         case 2:
-          return _context10.a(2, rows.map(accountRowToEmp));
+          return _context13.a(2, rows.map(accountRowToEmp));
       }
-    }, _callee10);
+    }, _callee13);
   }));
   return _loadCloudAccounts.apply(this, arguments);
 }
-function saveCloudAccount(_x7) {
+function saveCloudAccount(_x9) {
   return _saveCloudAccount.apply(this, arguments);
 }
 function _saveCloudAccount() {
-  _saveCloudAccount = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(e) {
-    var _t9;
-    return _regenerator().w(function (_context11) {
-      while (1) switch (_context11.p = _context11.n) {
+  _saveCloudAccount = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(e) {
+    var _t1;
+    return _regenerator().w(function (_context14) {
+      while (1) switch (_context14.p = _context14.n) {
         case 0:
-          _context11.p = 0;
-          _context11.n = 1;
+          _context14.p = 0;
+          _context14.n = 1;
           return CLOUD.upsert('cs_accounts', empToAccountRow(e));
         case 1:
-          return _context11.a(2, _context11.v);
+          return _context14.a(2, _context14.v);
         case 2:
-          _context11.p = 2;
-          _t9 = _context11.v;
-          return _context11.a(2, null);
+          _context14.p = 2;
+          _t1 = _context14.v;
+          return _context14.a(2, null);
       }
-    }, _callee11, null, [[0, 2]]);
+    }, _callee14, null, [[0, 2]]);
   }));
   return _saveCloudAccount.apply(this, arguments);
 }
-function deleteCloudAccount(_x8) {
+function deleteCloudAccount(_x0) {
   return _deleteCloudAccount.apply(this, arguments);
 } // 首次播种:把名单批量写入空表(直接用 client 批量 upsert)
 function _deleteCloudAccount() {
-  _deleteCloudAccount = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(id) {
-    var _t0;
-    return _regenerator().w(function (_context12) {
-      while (1) switch (_context12.p = _context12.n) {
+  _deleteCloudAccount = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(id) {
+    var _t10;
+    return _regenerator().w(function (_context15) {
+      while (1) switch (_context15.p = _context15.n) {
         case 0:
-          _context12.p = 0;
+          _context15.p = 0;
           if (!CLOUD.client) {
-            _context12.n = 1;
+            _context15.n = 1;
             break;
           }
-          _context12.n = 1;
+          _context15.n = 1;
           return CLOUD.client.from('cs_accounts')["delete"]().eq('id', id);
         case 1:
-          _context12.n = 3;
+          _context15.n = 3;
           break;
         case 2:
-          _context12.p = 2;
-          _t0 = _context12.v;
+          _context15.p = 2;
+          _t10 = _context15.v;
         case 3:
-          return _context12.a(2);
+          return _context15.a(2);
       }
-    }, _callee12, null, [[0, 2]]);
+    }, _callee15, null, [[0, 2]]);
   }));
   return _deleteCloudAccount.apply(this, arguments);
 }
-function seedCloudAccounts(_x9) {
+function seedCloudAccounts(_x1) {
   return _seedCloudAccounts.apply(this, arguments);
 }
 function _seedCloudAccounts() {
-  _seedCloudAccounts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(list) {
-    var rows, _yield$CLOUD$client$f, error, _t1;
-    return _regenerator().w(function (_context13) {
-      while (1) switch (_context13.p = _context13.n) {
+  _seedCloudAccounts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(list) {
+    var rows, _yield$CLOUD$client$f, error, _t11;
+    return _regenerator().w(function (_context16) {
+      while (1) switch (_context16.p = _context16.n) {
         case 0:
-          _context13.p = 0;
+          _context16.p = 0;
           if (CLOUD.client) {
-            _context13.n = 1;
+            _context16.n = 1;
             break;
           }
-          return _context13.a(2, false);
+          return _context16.a(2, false);
         case 1:
           rows = (list || []).map(empToAccountRow);
-          _context13.n = 2;
+          _context16.n = 2;
           return CLOUD.client.from('cs_accounts').upsert(rows, {
             onConflict: 'id'
           });
         case 2:
-          _yield$CLOUD$client$f = _context13.v;
+          _yield$CLOUD$client$f = _context16.v;
           error = _yield$CLOUD$client$f.error;
           if (!error) {
-            _context13.n = 3;
+            _context16.n = 3;
             break;
           }
           console.error('[账号播种] 失败', error);
-          return _context13.a(2, false);
+          return _context16.a(2, false);
         case 3:
           console.log('[账号播种] 已写入', rows.length, '个账号到云端 cs_accounts');
-          return _context13.a(2, true);
+          return _context16.a(2, true);
         case 4:
-          _context13.p = 4;
-          _t1 = _context13.v;
-          console.error('[账号播种] 异常', _t1);
-          return _context13.a(2, false);
+          _context16.p = 4;
+          _t11 = _context16.v;
+          console.error('[账号播种] 异常', _t11);
+          return _context16.a(2, false);
       }
-    }, _callee13, null, [[0, 4]]);
+    }, _callee16, null, [[0, 4]]);
   }));
   return _seedCloudAccounts.apply(this, arguments);
 }
@@ -2168,43 +2296,43 @@ function wsOrderAdminUrl(no) {
   return "https://".concat(d, "/admin/orders?query=").concat(encodeURIComponent(wsNormKey(no)));
 }
 var _wsOrderCache = {};
-function wsFetchOrderProducts(_x0) {
+function wsFetchOrderProducts(_x10) {
   return _wsFetchOrderProducts.apply(this, arguments);
 } // 🆕 fix49: 上传附件到 WorkTrack-KPI Storage `attachments` bucket;fix106: 只压缩图片,视频/其他文件原样上传
 function _wsFetchOrderProducts() {
-  _wsFetchOrderProducts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(orderNo) {
-    var base, domain, ck, hit, isWoo, _i2, _arr, nm, body, res, json, arr, _o$total_price_set, _o$total_price_set2, o, li, products, oid, orderUrl, cust, bill, email, cname, total, currency, country, _v, v, _t10;
-    return _regenerator().w(function (_context14) {
-      while (1) switch (_context14.p = _context14.n) {
+  _wsFetchOrderProducts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(orderNo) {
+    var base, domain, ck, hit, isWoo, _i2, _arr, nm, body, res, json, arr, _o$total_price_set, _o$total_price_set2, o, li, products, oid, orderUrl, cust, bill, email, cname, total, currency, country, _v, v, _t12;
+    return _regenerator().w(function (_context17) {
+      while (1) switch (_context17.p = _context17.n) {
         case 0:
           base = wsNormKey(orderNo);
           if (base) {
-            _context14.n = 1;
+            _context17.n = 1;
             break;
           }
-          return _context14.a(2, null);
+          return _context17.a(2, null);
         case 1:
           domain = wsGuessDomain(base);
           if (domain) {
-            _context14.n = 2;
+            _context17.n = 2;
             break;
           }
-          return _context14.a(2, null);
+          return _context17.a(2, null);
         case 2:
           ck = domain + '|' + base;
           hit = _wsOrderCache[ck];
           if (!(hit && Date.now() - hit.ts < 5 * 60 * 1000)) {
-            _context14.n = 3;
+            _context17.n = 3;
             break;
           }
-          return _context14.a(2, hit.v);
+          return _context17.a(2, hit.v);
         case 3:
           isWoo = /mooielight/i.test(domain);
-          _context14.p = 4;
+          _context17.p = 4;
           _i2 = 0, _arr = [base, '#' + base];
         case 5:
           if (!(_i2 < _arr.length)) {
-            _context14.n = 10;
+            _context17.n = 10;
             break;
           }
           nm = _arr[_i2];
@@ -2225,7 +2353,7 @@ function _wsFetchOrderProducts() {
               auto_save: false
             }
           };
-          _context14.n = 6;
+          _context17.n = 6;
           return fetch(EDGE_BASE_WS + '/' + (isWoo ? 'woo-api' : 'shopify-api'), {
             method: 'POST',
             headers: {
@@ -2236,22 +2364,22 @@ function _wsFetchOrderProducts() {
             body: JSON.stringify(body)
           });
         case 6:
-          res = _context14.v;
+          res = _context17.v;
           if (res.ok) {
-            _context14.n = 7;
+            _context17.n = 7;
             break;
           }
-          return _context14.a(3, 9);
+          return _context17.a(3, 9);
         case 7:
-          _context14.n = 8;
+          _context17.n = 8;
           return res.json()["catch"](function () {
             return null;
           });
         case 8:
-          json = _context14.v;
+          json = _context17.v;
           arr = json && (json.orders || json.data || []);
           if (!(json && json.ok !== false && Array.isArray(arr) && arr.length)) {
-            _context14.n = 9;
+            _context17.n = 9;
             break;
           }
           o = arr[0];
@@ -2288,18 +2416,18 @@ function _wsFetchOrderProducts() {
             ts: Date.now(),
             v: _v
           };
-          return _context14.a(2, _v);
+          return _context17.a(2, _v);
         case 9:
           _i2++;
-          _context14.n = 5;
+          _context17.n = 5;
           break;
         case 10:
-          _context14.n = 12;
+          _context17.n = 12;
           break;
         case 11:
-          _context14.p = 11;
-          _t10 = _context14.v;
-          console.warn('wsFetchOrderProducts', orderNo, _t10);
+          _context17.p = 11;
+          _t12 = _context17.v;
+          console.warn('wsFetchOrderProducts', orderNo, _t12);
         case 12:
           v = {
             products: [],
@@ -2310,61 +2438,61 @@ function _wsFetchOrderProducts() {
             ts: Date.now(),
             v: v
           };
-          return _context14.a(2, v);
+          return _context17.a(2, v);
       }
-    }, _callee14, null, [[4, 11]]);
+    }, _callee17, null, [[4, 11]]);
   }));
   return _wsFetchOrderProducts.apply(this, arguments);
 }
-function uploadAttachmentToWtkpi(_x1) {
+function uploadAttachmentToWtkpi(_x11) {
   return _uploadAttachmentToWtkpi.apply(this, arguments);
 } // 🆕 fix49: 通用图片压缩(类似 quotation 的 compressImageFile,但通用)
 function _uploadAttachmentToWtkpi() {
-  _uploadAttachmentToWtkpi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(file) {
-    var client, isImage, payload, ext, path, _yield$client$storage, error, _client$storage$from$, publicUrl, _t11;
-    return _regenerator().w(function (_context15) {
-      while (1) switch (_context15.n) {
+  _uploadAttachmentToWtkpi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(file) {
+    var client, isImage, payload, ext, path, _yield$client$storage, error, _client$storage$from$, publicUrl, _t13;
+    return _regenerator().w(function (_context18) {
+      while (1) switch (_context18.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context15.n = 1;
+            _context18.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置 — 请进 ⚙ 设置中心配置');
         case 1:
           isImage = (file.type || '').startsWith('image/'); // 🆕 fix106: 之前视频也被强行走 canvas 图片压缩 → new Image() 无法加载视频 → 失败。现在只有图片压缩,视频原样传。
           if (!isImage) {
-            _context15.n = 3;
+            _context18.n = 3;
             break;
           }
-          _context15.n = 2;
+          _context18.n = 2;
           return compressImageForUpload(file, 1600, 0.85);
         case 2:
-          _t11 = _context15.v;
-          _context15.n = 4;
+          _t13 = _context18.v;
+          _context18.n = 4;
           break;
         case 3:
-          _t11 = file;
+          _t13 = file;
         case 4:
-          payload = _t11;
+          payload = _t13;
           ext = (file.name || (isImage ? 'img.png' : 'file.bin')).split('.').pop() || (isImage ? 'png' : 'bin');
           path = "cs-requests/".concat(Date.now(), "-").concat(crypto.randomUUID().slice(0, 8), ".").concat(ext);
-          _context15.n = 5;
+          _context18.n = 5;
           return client.storage.from('attachments').upload(path, payload, {
             upsert: false,
             contentType: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream')
           });
         case 5:
-          _yield$client$storage = _context15.v;
+          _yield$client$storage = _context18.v;
           error = _yield$client$storage.error;
           if (!error) {
-            _context15.n = 6;
+            _context18.n = 6;
             break;
           }
           throw error;
         case 6:
           _client$storage$from$ = client.storage.from('attachments').getPublicUrl(path), publicUrl = _client$storage$from$.data.publicUrl;
-          return _context15.a(2, {
+          return _context18.a(2, {
             name: file.name || (isImage ? 'screenshot.png' : 'attachment'),
             url: publicUrl,
             mime: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
@@ -2373,19 +2501,19 @@ function _uploadAttachmentToWtkpi() {
             uploaded_at_ms: Date.now()
           });
       }
-    }, _callee15);
+    }, _callee18);
   }));
   return _uploadAttachmentToWtkpi.apply(this, arguments);
 }
-function compressImageForUpload(_x10, _x11, _x12) {
+function compressImageForUpload(_x12, _x13, _x14) {
   return _compressImageForUpload.apply(this, arguments);
 } // 🆕 fix49: 提交一个拍摄需求 — 写入 photo_logs 表
 function _compressImageForUpload() {
-  _compressImageForUpload = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(file, maxWidth, quality) {
-    return _regenerator().w(function (_context16) {
-      while (1) switch (_context16.n) {
+  _compressImageForUpload = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(file, maxWidth, quality) {
+    return _regenerator().w(function (_context19) {
+      while (1) switch (_context19.n) {
         case 0:
-          return _context16.a(2, new Promise(function (resolve, reject) {
+          return _context19.a(2, new Promise(function (resolve, reject) {
             var reader = new FileReader();
             reader.onload = function (e) {
               var img = new Image();
@@ -2417,25 +2545,25 @@ function _compressImageForUpload() {
             reader.readAsDataURL(file);
           }));
       }
-    }, _callee16);
+    }, _callee19);
   }));
   return _compressImageForUpload.apply(this, arguments);
 }
-function submitPhotoRequest(_x13) {
+function submitPhotoRequest(_x15) {
   return _submitPhotoRequest.apply(this, arguments);
 } // 🆕 fix49: 列出当前用户提的所有需求 / 全部需求(主管视角)
 // 🆕 fix53 v3: 列出全部 photo_logs(不过滤 source),客户端按 sub-tab 筛选
 // 🆕 fix140: 分页 — 不再一次性 limit:500 全拉;默认拉最近 150 条(配 updated_at 索引),消费方「加载更多」按需追加。
 function _submitPhotoRequest() {
-  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(_ref7) {
+  _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(_ref7) {
     var productName, sku, productImage, applicableShops, currentUser, reason, urgency, attachments, externalRefId, client, now, row, _yield$client$from$in, data, error;
-    return _regenerator().w(function (_context17) {
-      while (1) switch (_context17.n) {
+    return _regenerator().w(function (_context20) {
+      while (1) switch (_context20.n) {
         case 0:
           productName = _ref7.productName, sku = _ref7.sku, productImage = _ref7.productImage, applicableShops = _ref7.applicableShops, currentUser = _ref7.currentUser, reason = _ref7.reason, urgency = _ref7.urgency, attachments = _ref7.attachments, externalRefId = _ref7.externalRefId;
           client = getWtkpiClient();
           if (client) {
-            _context17.n = 1;
+            _context20.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -2470,21 +2598,21 @@ function _submitPhotoRequest() {
             created_at_ms: now,
             updated_at: new Date().toISOString()
           };
-          _context17.n = 2;
+          _context20.n = 2;
           return client.from('photo_logs').insert(row).select().single();
         case 2:
-          _yield$client$from$in = _context17.v;
+          _yield$client$from$in = _context20.v;
           data = _yield$client$from$in.data;
           error = _yield$client$from$in.error;
           if (!error) {
-            _context17.n = 3;
+            _context20.n = 3;
             break;
           }
           throw error;
         case 3:
-          return _context17.a(2, data);
+          return _context20.a(2, data);
       }
-    }, _callee17);
+    }, _callee20);
   }));
   return _submitPhotoRequest.apply(this, arguments);
 }
@@ -2492,7 +2620,7 @@ function listPhotoRequests() {
   return _listPhotoRequests.apply(this, arguments);
 } // 🆕 fix53 v3: 协作编辑产品基础字段(merge,不覆盖)
 function _listPhotoRequests() {
-  _listPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
+  _listPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
     var opts,
       client,
       limit,
@@ -2500,53 +2628,53 @@ function _listPhotoRequests() {
       _yield$client$from$se2,
       data,
       error,
-      _args18 = arguments;
-    return _regenerator().w(function (_context18) {
-      while (1) switch (_context18.n) {
+      _args21 = arguments;
+    return _regenerator().w(function (_context21) {
+      while (1) switch (_context21.n) {
         case 0:
-          opts = _args18.length > 0 && _args18[0] !== undefined ? _args18[0] : {};
+          opts = _args21.length > 0 && _args21[0] !== undefined ? _args21[0] : {};
           client = getWtkpiClient();
           if (client) {
-            _context18.n = 1;
+            _context21.n = 1;
             break;
           }
-          return _context18.a(2, []);
+          return _context21.a(2, []);
         case 1:
           limit = opts.limit || 150;
           offset = opts.offset || 0;
-          _context18.n = 2;
+          _context21.n = 2;
           return client.from('photo_logs').select('*').order('updated_at', {
             ascending: false
           }).range(offset, offset + limit - 1);
         case 2:
-          _yield$client$from$se2 = _context18.v;
+          _yield$client$from$se2 = _context21.v;
           data = _yield$client$from$se2.data;
           error = _yield$client$from$se2.error;
           if (!error) {
-            _context18.n = 3;
+            _context21.n = 3;
             break;
           }
           console.error('[WTKPI] 拉需求列表失败', error);
-          return _context18.a(2, []);
+          return _context21.a(2, []);
         case 3:
-          return _context18.a(2, data || []);
+          return _context21.a(2, data || []);
       }
-    }, _callee18);
+    }, _callee21);
   }));
   return _listPhotoRequests.apply(this, arguments);
 }
-function updatePhotoRequestBasics(_x14, _x15) {
+function updatePhotoRequestBasics(_x16, _x17) {
   return _updatePhotoRequestBasics.apply(this, arguments);
 } // 🆕 fix53 v3: 追加附件/补充原因(merge external_request,不覆盖)
 function _updatePhotoRequestBasics() {
-  _updatePhotoRequestBasics = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(logId, basics) {
+  _updatePhotoRequestBasics = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(logId, basics) {
     var client, allowed, clean, _i3, _allowed, k, _yield$client$from$up2, error;
-    return _regenerator().w(function (_context19) {
-      while (1) switch (_context19.n) {
+    return _regenerator().w(function (_context22) {
+      while (1) switch (_context22.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context19.n = 1;
+            _context22.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -2558,48 +2686,48 @@ function _updatePhotoRequestBasics() {
             if (basics[k] !== undefined) clean[k] = basics[k];
           }
           clean.updated_at = new Date().toISOString();
-          _context19.n = 2;
+          _context22.n = 2;
           return client.from('photo_logs').update(clean).eq('id', logId);
         case 2:
-          _yield$client$from$up2 = _context19.v;
+          _yield$client$from$up2 = _context22.v;
           error = _yield$client$from$up2.error;
           if (!error) {
-            _context19.n = 3;
+            _context22.n = 3;
             break;
           }
           throw error;
         case 3:
-          return _context19.a(2);
+          return _context22.a(2);
       }
-    }, _callee19);
+    }, _callee22);
   }));
   return _updatePhotoRequestBasics.apply(this, arguments);
 }
-function appendToPhotoRequest(_x16, _x17) {
+function appendToPhotoRequest(_x18, _x19) {
   return _appendToPhotoRequest.apply(this, arguments);
 } // 🆕 fix53 v3: 批量录入 — 客服汇总员一次提交多条
 function _appendToPhotoRequest() {
-  _appendToPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(logId, additions) {
+  _appendToPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(logId, additions) {
     var _additions$attachment;
     var client, _yield$client$from$se3, row, e1, current, merged, _yield$client$from$up3, e2;
-    return _regenerator().w(function (_context20) {
-      while (1) switch (_context20.n) {
+    return _regenerator().w(function (_context23) {
+      while (1) switch (_context23.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context20.n = 1;
+            _context23.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
         case 1:
-          _context20.n = 2;
+          _context23.n = 2;
           return client.from('photo_logs').select('external_request').eq('id', logId).single();
         case 2:
-          _yield$client$from$se3 = _context20.v;
+          _yield$client$from$se3 = _context23.v;
           row = _yield$client$from$se3.data;
           e1 = _yield$client$from$se3.error;
           if (!e1) {
-            _context20.n = 3;
+            _context23.n = 3;
             break;
           }
           throw e1;
@@ -2613,38 +2741,38 @@ function _appendToPhotoRequest() {
             merged.reason = (current.reason || '') + "\n\n--- ".concat(new Date().toLocaleDateString('zh-CN'), " \u8865\u5145(").concat(additions.editor_name || '', ") ---\n") + additions.reason_append;
           }
           if (additions.urgency) merged.urgency = additions.urgency;
-          _context20.n = 4;
+          _context23.n = 4;
           return client.from('photo_logs').update({
             external_request: merged,
             updated_at: new Date().toISOString()
           }).eq('id', logId);
         case 4:
-          _yield$client$from$up3 = _context20.v;
+          _yield$client$from$up3 = _context23.v;
           e2 = _yield$client$from$up3.error;
           if (!e2) {
-            _context20.n = 5;
+            _context23.n = 5;
             break;
           }
           throw e2;
         case 5:
-          return _context20.a(2);
+          return _context23.a(2);
       }
-    }, _callee20);
+    }, _callee23);
   }));
   return _appendToPhotoRequest.apply(this, arguments);
 }
-function batchSubmitPhotoRequests(_x18, _x19, _x20) {
+function batchSubmitPhotoRequests(_x20, _x21, _x22) {
   return _batchSubmitPhotoRequests.apply(this, arguments);
 } // 暴露到 window,方便 React 组件调用
 function _batchSubmitPhotoRequests() {
-  _batchSubmitPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(rows, defaults, currentUser) {
+  _batchSubmitPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(rows, defaults, currentUser) {
     var client, now, batchId, inserts, results, succeeded, failed, errors;
-    return _regenerator().w(function (_context21) {
-      while (1) switch (_context21.n) {
+    return _regenerator().w(function (_context24) {
+      while (1) switch (_context24.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context21.n = 1;
+            _context24.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -2683,12 +2811,12 @@ function _batchSubmitPhotoRequests() {
               updated_at: new Date().toISOString()
             };
           });
-          _context21.n = 2;
+          _context24.n = 2;
           return Promise.allSettled(inserts.map(function (row) {
             return client.from('photo_logs').insert(row);
           }));
         case 2:
-          results = _context21.v;
+          results = _context24.v;
           succeeded = results.filter(function (r) {
             return r.status === 'fulfilled' && !r.value.error;
           }).length;
@@ -2700,14 +2828,14 @@ function _batchSubmitPhotoRequests() {
             var _r$reason, _r$value2;
             return ((_r$reason = r.reason) === null || _r$reason === void 0 ? void 0 : _r$reason.message) || ((_r$value2 = r.value) === null || _r$value2 === void 0 || (_r$value2 = _r$value2.error) === null || _r$value2 === void 0 ? void 0 : _r$value2.message) || 'unknown';
           });
-          return _context21.a(2, {
+          return _context24.a(2, {
             succeeded: succeeded,
             failed: failed,
             errors: errors,
             batchId: batchId
           });
       }
-    }, _callee21);
+    }, _callee24);
   }));
   return _batchSubmitPhotoRequests.apply(this, arguments);
 }

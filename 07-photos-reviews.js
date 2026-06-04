@@ -1,5 +1,5 @@
-// ====== cs-system 统一工作台 — 07-photos-reviews ======
-// 版本 2026.06.03-fix148
+// ====== cs-system — 07-photos-reviews ======
+// 版本 2026.06.03-fix149
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -22,8 +22,8 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-// ====== cs-system 统一工作台 — 07-photos-reviews ======
-// 版本 2026.06.03-fix148
+// ====== cs-system — 07-photos-reviews ======
+// 版本 2026.06.03-fix149
 // 预编译切片
 //
 
@@ -83,7 +83,7 @@ var ReviewsModule = function ReviewsModule(_ref) {
             setLoading(true);
             _context.p = 1;
             _context.n = 2;
-            return CLOUD.list('product_reviews', {
+            return prReviewsList({
               order: {
                 col: 'created_at',
                 asc: false
@@ -143,7 +143,7 @@ var ReviewsModule = function ReviewsModule(_ref) {
             return _context2.a(2);
           case 3:
             _context2.n = 4;
-            return CLOUD.upsert('product_reviews', _objectSpread(_objectSpread({}, r), {}, {
+            return prReviewUpsert(_objectSpread(_objectSpread({}, r), {}, {
               deleted: true,
               updated_at: new Date().toISOString()
             }));
@@ -178,7 +178,7 @@ var ReviewsModule = function ReviewsModule(_ref) {
               updated_at: now
             });
             _context3.n = 1;
-            return CLOUD.upsert('product_reviews', payload);
+            return prReviewUpsert(payload);
           case 1:
             res = _context3.v;
             if (res) {
@@ -217,7 +217,7 @@ var ReviewsModule = function ReviewsModule(_ref) {
               updated_at: new Date().toISOString()
             });
             _context4.n = 3;
-            return CLOUD.upsert('product_reviews', payload);
+            return prReviewUpsert(payload);
           case 3:
             res = _context4.v;
             if (res) {
@@ -1504,7 +1504,7 @@ var ReviewEditor = function ReviewEditor(_ref9) {
   };
   var handleSubmit = /*#__PURE__*/function () {
     var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
-      var now, userName, assignedEmp, payload, res, count, payloads, i, _yield$CLOUD$client$f, error, _t4;
+      var now, userName, assignedEmp, payload, res, needCount, rid, row, _t4;
       return _regenerator().w(function (_context7) {
         while (1) switch (_context7.p = _context7.n) {
           case 0:
@@ -1534,14 +1534,10 @@ var ReviewEditor = function ReviewEditor(_ref9) {
               platform: platform || null,
               priority: priority,
               notes: notes.trim() || null,
-              assigned_to: assignedTo || null,
-              assigned_to_name: assignedEmp ? assignedEmp.name + (assignedEmp.alias ? ' ' + assignedEmp.alias : '') : null,
-              assigned_at: assignedTo && !review.assigned_at ? now : review.assigned_at,
-              assigned_by_name: assignedTo && !review.assigned_by_name ? userName : review.assigned_by_name,
               updated_at: now
             });
             _context7.n = 2;
-            return CLOUD.upsert('product_reviews', payload);
+            return prReviewUpsert(payload);
           case 2:
             res = _context7.v;
             if (res) {
@@ -1550,58 +1546,46 @@ var ReviewEditor = function ReviewEditor(_ref9) {
             } else {
               alertSaveError('保存产品评价');
             }
-            _context7.n = 8;
+            _context7.n = 7;
             break;
           case 3:
-            // 新建（可批量）
-            count = Math.max(1, Math.min(20, parseInt(batchCount) || 1));
-            payloads = [];
-            for (i = 0; i < count; i++) {
-              payloads.push({
-                product_url: productUrl.trim(),
-                product_name: productName.trim() || null,
-                product_image: images && images[0] && images[0].url || null,
-                site: site || null,
-                platform: platform || null,
-                priority: priority,
-                notes: notes.trim() || null,
-                created_by: user.id,
-                created_by_name: userName,
-                created_at: now,
-                assigned_to: assignedTo || null,
-                assigned_to_name: assignedEmp ? assignedEmp.name + (assignedEmp.alias ? ' ' + assignedEmp.alias : '') : null,
-                assigned_at: assignedTo ? now : null,
-                assigned_by_name: assignedTo ? userName : null,
-                status: 'pending',
-                updated_at: now
-              });
-            }
+            // 🆕 新建:一条任务 = 一行;need_count = 需要的评价条数。写入【共享库 xyhbwqugbnowfjuhqhsj】product_reviews(worktrack 读这里)
+            needCount = Math.max(1, Math.min(50, parseInt(batchCount) || 1));
+            rid = 'rv-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+            row = {
+              id: rid,
+              product_name: productName.trim() || null,
+              product_url: productUrl.trim(),
+              product_image: images && images[0] && images[0].url || null,
+              site: site || null,
+              platform: platform || null,
+              need_count: needCount,
+              priority: priority || 'normal',
+              notes: notes.trim() || null,
+              status: 'open',
+              created_by: user.id,
+              created_by_name: userName,
+              created_at: now,
+              updated_at: now
+            };
             _context7.p = 4;
             _context7.n = 5;
-            return CLOUD.client.from('product_reviews').insert(payloads);
+            return prReviewInsert([row]);
           case 5:
-            _yield$CLOUD$client$f = _context7.v;
-            error = _yield$CLOUD$client$f.error;
-            if (!error) {
-              _context7.n = 6;
-              break;
-            }
-            throw error;
-          case 6:
-            toast(count > 1 ? "\u2713 \u5DF2\u6279\u91CF\u53D1\u5E03 ".concat(count, " \u4E2A\u4EFB\u52A1") : '✓ 已发布任务');
+            toast('✓ 已发布评价任务 · 需 ' + needCount + ' 条评价');
             onSaved();
-            _context7.n = 8;
+            _context7.n = 7;
             break;
-          case 7:
-            _context7.p = 7;
+          case 6:
+            _context7.p = 6;
             _t4 = _context7.v;
-            alert('保存失败: ' + _t4.message);
-          case 8:
+            alert('发布失败(写入共享库 product_reviews): ' + (_t4.message || _t4));
+          case 7:
             setSaving(false);
-          case 9:
+          case 8:
             return _context7.a(2);
         }
-      }, _callee7, null, [[4, 7]]);
+      }, _callee7, null, [[4, 6]]);
     }));
     return function handleSubmit() {
       return _ref1.apply(this, arguments);
@@ -1950,7 +1934,7 @@ var ReviewEditor = function ReviewEditor(_ref9) {
       fontSize: 10,
       color: 'var(--ink-3)'
     }
-  }, !isEdit && batchCount > 1 && /*#__PURE__*/React.createElement(React.Fragment, null, "\uD83D\uDCA1 \u5C06\u521B\u5EFA ", /*#__PURE__*/React.createElement("strong", null, batchCount), " \u4E2A\u72EC\u7ACB\u4EFB\u52A1")), /*#__PURE__*/React.createElement("div", {
+  }, !isEdit && batchCount > 1 && /*#__PURE__*/React.createElement(React.Fragment, null, "\uD83D\uDCA1 \u8FD9\u6761\u4EFB\u52A1\u9700\u8981 ", /*#__PURE__*/React.createElement("strong", null, batchCount), " \u6761\u8BC4\u4EF7")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 6
@@ -1976,7 +1960,7 @@ var ReviewEditor = function ReviewEditor(_ref9) {
       fontSize: 13,
       opacity: saving ? 0.5 : 1
     }
-  }, saving ? '保存中...' : isEdit ? '保存修改' : "\uD83D\uDCE2 ".concat(batchCount > 1 ? '批量' : '', "\u53D1\u5E03").concat(batchCount > 1 ? ' (' + batchCount + ' 个)' : ''))))));
+  }, saving ? '保存中...' : isEdit ? '保存修改' : '📢 发布任务')))));
 };
 
 // 完成 modal
@@ -2050,7 +2034,7 @@ var ReviewCompleteModal = function ReviewCompleteModal(_ref10) {
               updated_at: now
             });
             _context8.n = 3;
-            return CLOUD.upsert('product_reviews', payload);
+            return prReviewUpsert(payload);
           case 3:
             res = _context8.v;
             if (res) {
