@@ -884,7 +884,7 @@ async function buildYundingWorkbook(t) {
 try { console.log('%c[快递发票] 2026-06-04 新增 河池(加拿大/英国/欧盟) + 信源(加拿大) · 模板独立文件 fetch 加载', 'color:#0071e3'); } catch(e){}
 const TPL_HS = '9405100000', TPL_UNIT = 500, TPL_MAT_CN = '金属', TPL_MAT_EN = 'Metal', TPL_USE = '照明';
 // 模板改为同目录独立文件 + 运行时 fetch(去掉内嵌 base64/atob,避免被杀毒误判为 HTML 走私木马)
-const TPL_FILES = { hechi_ca: 'hechi_ca.xlsx', hechi_uk: 'hechi_uk.xlsx', hechi_eu: 'hechi_eu.xlsx', xinyuan_ca: 'xinyuan_ca.xlsx' };
+const TPL_FILES = { hechi_ca: 'hechi_ca.xlsx', hechi_uk: 'hechi_uk.xlsx', hechi_eu: 'hechi_eu.xlsx', xinyuan_ca: 'xinyuan_ca.xlsx', yunding: 'yunding.xlsx' };
 const TPL_DIR = 'fapiao-templates/';  // 与本页同目录下的子文件夹(GitHub Pages 同源)
 const _tplCache = {};
 async function tplLoadWb(key) {
@@ -940,7 +940,32 @@ async function buildXinyuanCA(t) {               // 信源·加拿大 (V95649 ·
   let r = 10; for (const it of _tplSel(t)) { const q = _tplQy(it); iv.getCell('A' + r).value = _tplEn(it) + '/' + _tplCn(it); iv.getCell('B' + r).value = '金属，塑料'; iv.getCell('C' + r).value = TPL_HS; iv.getCell('D' + r).value = q; iv.getCell('E' + r).value = TPL_UNIT; iv.getCell('F' + r).value = TPL_UNIT * q; r++; }
   return wb;
 }
+async function buildYundingTpl(t) {            // 云鼎·FBA专线(填原生模板「模板示例」)
+  const wb = await tplLoadWb('yunding'); const ws = wb.getWorksheet('模板示例'); const a = t.address || {};
+  const ref = t.ydRef || t.orderNumber; const sel = _tplSel(t);
+  // 订单信息(B列,B:C 合并)
+  ws.getCell('B3').value = ref; ws.getCell('B4').value = YD_CHANNEL; ws.getCell('B5').value = '美国';
+  ws.getCell('B6').value = t.weight || ''; ws.getCell('B7').value = '买单报关'; ws.getCell('B8').value = t.battery || '否';
+  ws.getCell('B9').value = '否'; ws.getCell('B10').value = '/'; ws.getCell('B11').value = '/'; ws.getCell('B12').value = '/';
+  // 收件人信息(E列,E:F 合并)
+  ws.getCell('E4').value = a.company || ''; ws.getCell('E5').value = a.name || t.customerName || '';
+  ws.getCell('E6').value = a.phone || t.customerPhone || ''; ws.getCell('E7').value = a.zip || '';
+  ws.getCell('E8').value = a.city || ''; ws.getCell('E9').value = a.province || a.province_code || '';
+  ws.getCell('E10').value = a.address1 || ''; ws.getCell('E11').value = a.address2 || ''; ws.getCell('E12').value = t.customerEmail || '';
+  // 装箱单产品(第15行起)
+  let r = 15;
+  for (const it of sel) {
+    const qty = parseInt(it.quantity) || 1;
+    ws.getCell('A' + r).value = ref; ws.getCell('D' + r).value = it.lampCn || '吊灯'; ws.getCell('E' + r).value = it.lampEn || 'Chandelier';
+    ws.getCell('F' + r).value = YD_HS; ws.getCell('G' + r).value = qty; ws.getCell('H' + r).value = 500 * qty; ws.getCell('S' + r).value = it.salesUrl || '';
+    const img = await ydFetchImg(it.image_url);
+    if (img) { try { const id = wb.addImage({ buffer: img.buf, extension: img.ext }); ws.addImage(id, { tl: { col: 17, row: r - 1 }, ext: { width: 84, height: 84 } }); } catch (e) {} }
+    r++;
+  }
+  return wb;
+}
 const TPL_COURIERS = {
+  yunding:    { name: '云鼎',        build: buildYundingTpl, zh: '云鼎' },
   hechi_ca:   { name: '河池·加拿大', build: buildHechiCA,  zh: '河池加拿大' },
   hechi_uk:   { name: '河池·英国',   build: buildHechiUK,  zh: '河池英国' },
   hechi_eu:   { name: '河池·欧盟',   build: buildHechiEU,  zh: '河池欧盟' },
@@ -1421,7 +1446,6 @@ function MakeInvoice() {
     setExporting(false);
   };
   const exportExcel = () => {
-    if (courier === 'yunding') return exportYunding();
     if (TPL_COURIERS[courier]) return exportTemplate(courier);
     return exportChanghui();
   };
@@ -2129,7 +2153,7 @@ function MakeInvoice() {
     style: {
       flex: 1
     }
-  }), courier !== 'yunding' && /*#__PURE__*/React.createElement("div", {
+  }), !TPL_COURIERS[courier] && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -2160,7 +2184,7 @@ function MakeInvoice() {
   }, "\u5E94\u7528\u5168\u90E8")), /*#__PURE__*/React.createElement("button", {
     className: "btn btn-sm",
     onClick: () => setTickets([])
-  }, "\u6E05\u7A7A"), courier !== 'yunding' && /*#__PURE__*/React.createElement("button", {
+  }, "\u6E05\u7A7A"), !TPL_COURIERS[courier] && /*#__PURE__*/React.createElement("button", {
     className: "btn",
     onClick: () => setShowPreview(true)
   }, "\uD83D\uDC41 \u9884\u89C8\u5168\u90E8"), /*#__PURE__*/React.createElement("button", {
@@ -2868,7 +2892,7 @@ function MakeInvoice() {
         flexWrap: 'wrap',
         marginBottom: 8
       }
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
+    }, courier === 'changhui' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("span", {
       className: "lbl"
     }, "\u6E20\u9053 *"), /*#__PURE__*/React.createElement("select", {
       className: "inp",
