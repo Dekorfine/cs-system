@@ -1304,13 +1304,15 @@ function MakeInvoice() {
     setQuickResult(null);
     try {
       const base = normOrderKey(raw);
+      const noHash = raw.replace(/^#+/, '');
+      const variants = [...new Set([raw, noHash, '#' + noHash, base, '#' + base].filter(Boolean))]; // 🆕 带#/不带# 都试(Shopify订单名常带#)
       const c = getClient();
       let o = null;
       if (c) {
         try {
           const {
             data
-          } = await c.from('shopify_orders').select('*').or(`shopify_order_number.eq.${raw},shopify_order_number.eq.${base},shopify_order_id.eq.${base}`).limit(1);
+          } = await c.from('shopify_orders').select('*').or(variants.map(v => `shopify_order_number.eq.${v}`).join(',') + `,shopify_order_id.eq.${base}`).limit(1);
           if (data && data.length) o = parseOrder(data[0], storeField || detectStoreField(data[0]));
         } catch (e) {}
       }
@@ -1540,9 +1542,11 @@ function MakeInvoice() {
     const expanded = [];
     keys.filter(Boolean).forEach(k => {
       const s = String(k).trim();
-      if (s) expanded.push(s);
+      if (!s) return;
+      const noHash = s.replace(/^#+/, '');
       const n = normOrderKey(s);
-      if (n && n !== s) expanded.push(n);
+      // 🆕 带#/不带# 都查(Shopify 订单名常带#,清单里常不带)
+      [s, noHash, '#' + noHash, n, '#' + n].forEach(v => { if (v) expanded.push(v); });
     });
     const uniq = [...new Set(expanded)];
     // 🆕 ④ 本地批量查并行:20个/批,每轮并发 5 批
@@ -1563,7 +1567,7 @@ function MakeInvoice() {
         const p = parseOrder(o, field);
         const k1 = String(o.shopify_order_number || '').trim(),
           k2 = String(o.shopify_order_id || '').trim();
-        if (k1) map[k1] = p;
+        if (k1) { map[k1] = p; const k1n = k1.replace(/^#+/, ''); if (k1n && k1n !== k1) map[k1n] = p; }  // 🆕 #DC34071 和 DC34071 都建索引
         if (k2) map[k2] = p;
       });
     }
