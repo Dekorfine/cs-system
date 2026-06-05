@@ -166,6 +166,7 @@ const DECLARE = {
 // 🆕 订单号归一:结尾 BU = 补发配件(查库时只用基础单号查地址/订单);结尾 -N = 子单,剥离
 function normOrderKey(k) {
   let s = String(k || '').trim().replace(/\s+/g, '');
+  s = s.replace(/^#+/, ''); // 🆕 昌晖现在订单号带 #(#RD19905)→ 去掉,加不加 # 都能匹配
   const m = s.match(/BU-([A-Za-z0-9]+)$/i); // XBU-Y(补发并换新单号)→ 用新单号 Y(如 V95907BU-K113962 → K113962)
   if (m) return m[1];
   s = s.replace(/BU$/i, ''); // XBU(补发,无新号)→ 基础单号 X(如 V105631BU → V105631)
@@ -903,6 +904,8 @@ const COUNTRY_CN = {
 const COUNTRY_CODE = {};  // 二字码 → {cn, en}(反查,D 列若已是 CA 这种)
 Object.entries(COUNTRY_CN).forEach(([cn, v]) => { if (!COUNTRY_CODE[v.code]) COUNTRY_CODE[v.code] = { cn, en: v.en }; });
 const EU_CODES = ['DE', 'FR', 'ES', 'IT', 'NL', 'BE', 'IE', 'AT', 'PT', 'PL', 'SE', 'DK', 'FI', 'GR', 'CZ', 'HU', 'RO', 'LU', 'SK', 'SI', 'HR', 'BG', 'LT', 'LV', 'EE', 'CY', 'MT'];
+// 🆕 手动改国家时的下拉选项(去重,常用在前)
+const COUNTRY_PICK = ['加拿大', '英国', '美国', '墨西哥', '菲律宾', '澳大利亚', '新西兰', '德国', '法国', '西班牙', '意大利', '荷兰', '比利时', '爱尔兰', '奥地利', '葡萄牙', '波兰', '瑞典', '丹麦', '芬兰', '希腊', '捷克'];
 // 解析交接清单"国家"列(中文名 或 二字码) → {code, en, cn}
 function resolveCountry(raw) {
   const r = (raw || '').trim(); if (!r) return null;
@@ -1011,7 +1014,7 @@ async function buildYundingTpl(t) {            // 云鼎·FBA专线(填原生模
 }
 async function buildChanghuiAU(t) {            // 昌晖·澳洲/新西兰(填原生模板「运单信息」· AU/NZ 同模板,国家由 H5 区分)
   const wb = await tplLoadWb('changhui_au'); const ws = wb.getWorksheet('运单信息'); const a = t.address || {};
-  const ref = t.carrierRef || t.refNo || t.orderNumber;        // 原单号 = 店小秘 XM8T 客户参考号(快递只认这个,绝不删)
+  const ref = '#' + String(t.orderNumber || t.carrierRef || '').replace(/^#+/, '');  // 🆕 原单号 = #+我们的订单号(昌晖现在要带#)
   const cc = (t.country && t.country.code) || a.country_code || 'AU';
   ws.getCell('B3').value = ref; ws.getCell('F3').value = t.pieces || 1;
   ws.getCell('H3').value = a.name || t.customerName || ''; ws.getCell('M3').value = t.customerEmail || '';
@@ -1382,6 +1385,13 @@ function MakeInvoice() {
     ...t,
     ...patch
   } : t));
+  // 🆕 逐单手动改国家(自动识别错时)→ 模板自动跟着变:河池按国家、信源恒通用、昌晖澳新 AU/NZ
+  const setTicketCountry = (id, cnName) => setTickets(p => p.map(t => {
+    if (t.id !== id) return t;
+    const c = resolveCountry(cnName);
+    const tplKey = t.tplKey === 'xinyuan_ca' ? 'xinyuan_ca' : (t.tplKey === 'changhui_au' ? 'changhui_au' : hechiTplKey(c));
+    return { ...t, country: c, tplKey, address: t.address ? { ...t.address, country_code: c && c.code } : t.address };
+  }));
   const upItem = (id, idx, patch) => setTickets(p => p.map(t => t.id !== id ? t : {
     ...t,
     items: t.items.map((it, i) => i === idx ? {
@@ -2391,7 +2401,15 @@ function MakeInvoice() {
           background: '#e0f2fe',
           color: '#075985'
         }
-      }, "\uD83C\uDFEA ", t.store), t.isMerged && /*#__PURE__*/React.createElement("span", {
+      }, "\uD83C\uDFEA ", t.store), t.tplKey && /*#__PURE__*/React.createElement("select", {
+        value: (t.country && t.country.cn) || '',
+        onChange: e => setTicketCountry(t.id, e.target.value),
+        title: '自动识别错了可手动改国家(模板会自动跟着变)',
+        style: { fontSize: 11, padding: '2px 6px', border: '1px solid #d8d8dc', borderRadius: 6, background: 'white' }
+      }, /*#__PURE__*/React.createElement("option", { value: '' }, '选国家'), COUNTRY_PICK.map(cn => /*#__PURE__*/React.createElement("option", { key: cn, value: cn }, cn))), t.tplKey && /*#__PURE__*/React.createElement("span", {
+        className: "pill",
+        style: { background: '#f3e8ff', color: '#6b21a8' }
+      }, "\uD83D\uDCC4 ", (TPL_COURIERS[t.tplKey] && TPL_COURIERS[t.tplKey].name) || t.tplKey), t.isMerged && /*#__PURE__*/React.createElement("span", {
         className: "pill",
         style: {
           background: '#fce7f3',
