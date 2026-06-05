@@ -368,6 +368,17 @@ async function lookupShopifyLive(orderNo, shopDomain, save) {  // V20260605:save
   }
   return null;
 }
+// 🆕 扫全店实时抓:先按基础单号猜店,猜不到/没查到 → 挨个扫所有已知店铺;都带 auto_save(查到即入库,下次秒出)
+async function liveFetchAnyStore(base) {
+  let o = await lookupShopifyLive(base, null, true).catch(() => null);
+  if (o) return o;
+  const domains = [...new Set(Object.values(PREFIX_TO_DOMAIN))];
+  for (const d of domains) {
+    o = await lookupShopifyLive(base, d, true).catch(() => null);
+    if (o) return o;
+  }
+  return null;
+}
 const CHANNELS = ['美森加班海运小包', '美国海运美森加班船'];
 
 // 店铺字段探测 + 规范名映射(跟单已确认:店铺字段=shop_domain,方案A加 store_label/store_code)
@@ -1611,13 +1622,14 @@ function MakeInvoice() {
       });
     }
     if (field && !storeField) setStoreField(field);
-    // 🆕 ① Shopify 实时兜底:本地没命中的(去重按基础单号),并发 6 个一批(原来逐个 200ms,大批量快 10 倍)
+    // 🆕 ① Shopify 实时兜底:本地没命中的(去重按基础单号)→ 扫全店实时抓 + 查到即入库
+    //   并发降到 3、批间隔 250ms:扫全店调用量大,务必找全又不打爆 Shopify 限流(宁慢勿漏)
     const missing = uniq.filter(k => !map[k]);
     const missingBases = [...new Set(missing.map(k => normOrderKey(k)).filter(Boolean))];
-    const CONC = 6;
+    const CONC = 3;
     for (let i = 0; i < missingBases.length; i += CONC) {
       const batch = missingBases.slice(i, i + CONC);
-      const results = await Promise.all(batch.map(bk => lookupShopifyLive(bk, null, true).catch(() => null)));  // 🆕 批量查到的单也入库缓存,下次未找到更少
+      const results = await Promise.all(batch.map(bk => liveFetchAnyStore(bk).catch(() => null)));  // 🆕 扫全店(原来只查猜的店,BU/老单猜店不准就漏)
       batch.forEach((baseKey, j) => {
         const p = results[j];
         if (p) {
@@ -1629,7 +1641,7 @@ function MakeInvoice() {
           });
         }
       });
-      if (i + CONC < missingBases.length) await new Promise(r => setTimeout(r, 80)); // 批间小停,避免打爆接口
+      if (i + CONC < missingBases.length) await new Promise(r => setTimeout(r, 250)); // 批间停 250ms,扫全店防限流
     }
     return map;
   };
