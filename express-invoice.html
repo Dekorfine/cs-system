@@ -1322,7 +1322,15 @@ function MakeInvoice() {
         o = await lookupShopifyLive(raw);
       }
       if (!o) {
-        setQuickErr('未找到订单 ' + raw + '(本地 + 实时都没查到)');
+        // 🆕 猜的店没查到 → 扫一遍所有已知店铺(单条查单可接受;覆盖店映射不准/B2B导入单)
+        const domains = [...new Set(Object.values(PREFIX_TO_DOMAIN))];
+        for (const d of domains) {
+          o = await lookupShopifyLive(raw, d).catch(() => null);
+          if (o) break;
+        }
+      }
+      if (!o) {
+        setQuickErr('未找到订单 ' + raw + '(本地 + 实时全店都没查到)');
         setQuickLoading(false);
         return;
       }
