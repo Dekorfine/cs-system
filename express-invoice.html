@@ -1842,7 +1842,68 @@ function MakeInvoice() {
     } catch (e) { setErr('导入失败:' + (e.message || e)); }
     setImporting(false);
   };
-  const importSheet = file => (courier === 'hechi' || courier === 'xinyuan') ? importHechiHandoff(file, courier) : ((courier === 'yunding' || TPL_COURIERS[courier]) ? importYundingSheet(file) : importOrderSheet(file));
+  // 🆕 昌晖澳新:上传店小秘数据表 → 读「订单编号(我们的,匹配)/客户参考号(XM8T,留底)/目的地→AU·NZ/渠道/件数」;美国行跳过(走「昌晖」导出)
+  const importChanghuiData = async (file) => {
+    setImporting(true); setErr(''); setImportReport(null);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+      let hr = -1, orderCol = -1, refCol = -1, destCol = -1, channelCol = -1, pieceCol = -1;
+      for (let i = 0; i < Math.min(aoa.length, 10); i++) {
+        const row = (aoa[i] || []).map(x => String(x == null ? '' : x).trim());
+        const oi = row.findIndex(h => /订单编号|客户订单号|订单号/.test(h) && !/参考/.test(h));
+        if (oi >= 0) {
+          hr = i; orderCol = oi;
+          refCol = row.findIndex(h => /客户参考号|参考号|reference/i.test(h));
+          destCol = row.findIndex(h => /目的地|目的国家|destination|country/i.test(h));
+          channelCol = row.findIndex(h => /收货渠道|渠道|channel/i.test(h));
+          pieceCol = row.findIndex(h => /外包装件数|总件数|件数|箱数/.test(h));
+          break;
+        }
+      }
+      if (hr < 0) throw new Error('没找到「订单编号」列 — 请确认上传的是昌晖店小秘数据表');
+      const get = (r, i) => i >= 0 ? String((r && r[i]) == null ? '' : r[i]).trim() : '';
+      const rows = [], seen = new Set();
+      for (let i = hr + 1; i < aoa.length; i++) {
+        const r = aoa[i] || [];
+        const raw = get(r, orderCol);
+        if (!raw || /合计|总计|签字|日期|比如|示例|手动加上去/i.test(raw)) continue;
+        if (seen.has(raw)) continue; seen.add(raw);
+        rows.push({ rawNo: raw, ref: get(r, refCol), dest: get(r, destCol), channel: get(r, channelCol), pieces: get(r, pieceCol) });
+      }
+      if (!rows.length) throw new Error('没读到订单编号(请确认「订单编号」列已手填我们的单号)');
+      const allKeys = [];
+      rows.forEach(x => x.rawNo.split(/[\/,，、\s]+/).forEach(p => { const k = p.trim(); if (k) allKeys.push(k); }));
+      const map = await bulkFetchByKeys(allKeys);
+      const newTickets = [], unmatched = [], skippedUS = [];
+      rows.forEach(row => {
+        const country = resolveCountry(row.dest);
+        if (country && country.code === 'US') { skippedUS.push(row.rawNo); return; }   // 美国走「昌晖」导出,这里跳过
+        const parts = row.rawNo.split(/[\/,，、\s]+/).map(s => s.trim()).filter(Boolean);
+        const orders = parts.map(p => map[p] || map[normOrderKey(p)]).filter(Boolean);
+        if (!orders.length) { unmatched.push(row.rawNo); return; }
+        const items = [];
+        orders.forEach(o => (o.items || []).forEach(it => items.push({ ...it, selected: true })));
+        const t = makeTicket(orders[0], items);
+        t.country = country;          // 澳大利亚 AU / 新西兰 NZ(读目的地自动区分,不用手动改)
+        t.tplKey = 'changhui_au';
+        t.carrierRef = row.ref || '';  // XM8T 客户参考号(留底)
+        t.channel = row.channel || '';
+        t.pieceCount = row.pieces || '';
+        t.ydRef = parts.join('-');
+        t.sheetOrderNo = row.rawNo;
+        if (country && t.address) t.address = { ...t.address, country_code: country.code };
+        newTickets.push(t);
+      });
+      setTickets(prev => [...prev, ...newTickets]);
+      setImportReport({ total: rows.length, matched: newTickets.length, unmatched, note: skippedUS.length ? `跳过 ${skippedUS.length} 条美国(请用「昌晖」导出)` : '' });
+      setConn('ok');
+    } catch (e) { setErr('导入失败:' + (e.message || e)); }
+    setImporting(false);
+  };
+  const importSheet = file => (courier === 'hechi' || courier === 'xinyuan') ? importHechiHandoff(file, courier) : (courier === 'changhui_au' ? importChanghuiData(file) : ((courier === 'yunding' || TPL_COURIERS[courier]) ? importYundingSheet(file) : importOrderSheet(file)));
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "card"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2219,7 +2280,10 @@ function MakeInvoice() {
       background: importReport.unmatched.length ? '#fee2e2' : '#f0f0f2',
       color: importReport.unmatched.length ? '#b91c1c' : '#86868b'
     }
-  }, "\u2717 \u672A\u627E\u5230 ", importReport.unmatched.length), importReport.unmatched.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\u2717 \u672A\u627E\u5230 ", importReport.unmatched.length), importReport.note && /*#__PURE__*/React.createElement("span", {
+    className: "pill",
+    style: { background: '#fef3c7', color: '#92400e', marginLeft: 6 }
+  }, importReport.note), importReport.unmatched.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "muted",
     style: {
       marginTop: 6,
