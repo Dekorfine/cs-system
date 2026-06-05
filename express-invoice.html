@@ -310,7 +310,7 @@ function normalizeOrderShape(raw, shopDomain) {
   console.warn('[normalizeOrderShape] 未识别的订单形状', raw);
   return raw;
 }
-async function lookupShopifyLive(orderNo, shopDomain) {
+async function lookupShopifyLive(orderNo, shopDomain, save) {  // V20260605:save=true 时查到即入库(沉淀给做发票用)
   const base = normOrderKey(orderNo);
   if (!base) return null;
   shopDomain = shopDomain || guessShopDomain(base);
@@ -335,7 +335,7 @@ async function lookupShopifyLive(orderNo, shopDomain) {
           name: nm,
           status: 'any',
           limit: 5,
-          auto_save: false
+          auto_save: !!save   // V20260605:查到老单即入库 · 下次秒出 · 做发票直接用
         }
       };
       const res = await fetch(EDGE_BASE + '/' + (isWoo ? 'woo-api' : 'shopify-api'), {
@@ -1319,13 +1319,13 @@ function MakeInvoice() {
         } catch (e) {}
       }
       if (!o) {
-        o = await lookupShopifyLive(raw);
+        o = await lookupShopifyLive(raw, null, true);   // V20260605:查到即入库
       }
       if (!o) {
         // 🆕 猜的店没查到 → 扫一遍所有已知店铺(单条查单可接受;覆盖店映射不准/B2B导入单)
         const domains = [...new Set(Object.values(PREFIX_TO_DOMAIN))];
         for (const d of domains) {
-          o = await lookupShopifyLive(raw, d).catch(() => null);
+          o = await lookupShopifyLive(raw, d, true).catch(() => null);   // V20260605:扫全店查到即入库
           if (o) break;
         }
       }
@@ -1617,7 +1617,7 @@ function MakeInvoice() {
     const CONC = 6;
     for (let i = 0; i < missingBases.length; i += CONC) {
       const batch = missingBases.slice(i, i + CONC);
-      const results = await Promise.all(batch.map(bk => lookupShopifyLive(bk).catch(() => null)));
+      const results = await Promise.all(batch.map(bk => lookupShopifyLive(bk, null, true).catch(() => null)));  // 🆕 批量查到的单也入库缓存,下次未找到更少
       batch.forEach((baseKey, j) => {
         const p = results[j];
         if (p) {
