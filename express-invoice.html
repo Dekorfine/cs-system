@@ -1310,9 +1310,10 @@ function MakeInvoice() {
       let o = null;
       if (c) {
         try {
-          const {
-            data
-          } = await c.from('shopify_orders').select('*').or(variants.map(v => `shopify_order_number.eq.${v}`).join(',') + `,shopify_order_id.eq.${base}`).limit(1);
+          let { data } = await c.from('shopify_orders').select('*').in('shopify_order_number', variants).limit(1);  // 🆕 .in() 数组值会正确编码,# 不会截断 URL
+          if ((!data || !data.length) && /^\d+$/.test(base)) {
+            ({ data } = await c.from('shopify_orders').select('*').eq('shopify_order_id', base).limit(1));  // base 纯数字才按 id 查
+          }
           if (data && data.length) o = parseOrder(data[0], storeField || detectStoreField(data[0]));
         } catch (e) {}
       }
@@ -1556,8 +1557,7 @@ function MakeInvoice() {
     for (let i = 0; i < chunks.length; i += PAR) {
       const group = chunks.slice(i, i + PAR);
       const datas = await Promise.all(group.map(chunk => {
-        const orExpr = chunk.map(n => `shopify_order_number.eq.${n},shopify_order_id.eq.${n}`).join(',');
-        return c.from('shopify_orders').select('*').or(orExpr).limit(chunk.length * 4).then(r => {
+        return c.from('shopify_orders').select('*').in('shopify_order_number', chunk).limit(chunk.length * 4).then(r => {  // 🆕 .in() 正确编码 #,不会截断 URL
           if (r.error) throw r.error;
           return r.data || [];
         });
