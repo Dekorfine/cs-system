@@ -981,7 +981,7 @@ async function buildXinyuanCA(t) {               // 信源·加拿大 (V95649 ·
   const iv = wb.getWorksheet('Commercial Invoice发票');
   iv.getCell('J2').value = _tplSel(t).reduce((s, it) => s + _tplQy(it), 0); iv.getCell('K2').value = t.weight || '';
   iv.getCell('B3').value = a.name || t.customerName || ''; iv.getCell('E3').value = a.phone || t.customerPhone || '';
-  iv.getCell('B4').value = 'Canada'; iv.getCell('E5').value = t.customerEmail || ''; iv.getCell('B5').value = a.province || ''; iv.getCell('B6').value = a.city || ''; iv.getCell('E6').value = a.zip || ''; iv.getCell('B7').value = a.address1 || '';
+  iv.getCell('B4').value = (t.country && t.country.en) || 'Canada'; iv.getCell('E5').value = t.customerEmail || ''; iv.getCell('B5').value = a.province || ''; iv.getCell('B6').value = a.city || ''; iv.getCell('E6').value = a.zip || ''; iv.getCell('B7').value = a.address1 || '';
   let r = 10; for (const it of _tplSel(t)) { const q = _tplQy(it); iv.getCell('A' + r).value = _tplEn(it) + '/' + _tplCn(it); iv.getCell('B' + r).value = '金属，塑料'; iv.getCell('C' + r).value = TPL_HS; iv.getCell('D' + r).value = q; iv.getCell('E' + r).value = TPL_UNIT; iv.getCell('F' + r).value = TPL_UNIT * q; await _tplEmbedImg(wb, iv, it, 6, r - 1); r++; }
   return wb;
 }
@@ -1029,6 +1029,8 @@ async function buildChanghuiAU(t) {            // 昌晖·澳洲/新西兰(填�
 
 const TPL_COURIERS = {
   yunding:    { name: '云鼎',        build: buildYundingTpl, zh: '云鼎' },
+  hechi:      { name: '河池(自动按国家)', build: buildHechiCA, zh: '河池' },
+  xinyuan:    { name: '信源(通用模板)',   build: buildXinyuanCA, zh: '信源' },
   hechi_ca:   { name: '河池·加拿大', build: buildHechiCA,  zh: '河池加拿大' },
   hechi_uk:   { name: '河池·英国',   build: buildHechiUK,  zh: '河池英国' },
   hechi_eu:   { name: '河池·欧盟',   build: buildHechiEU,  zh: '河池欧盟' },
@@ -1049,10 +1051,8 @@ const COURIERS = {
     channel: YD_CHANNEL,
     hs: YD_HS
   },
-  hechi_ca:   { name: '河池·加拿大', mode: 'template' },
-  hechi_uk:   { name: '河池·英国',   mode: 'template' },
-  hechi_eu:   { name: '河池·欧盟',   mode: 'template' },
-  xinyuan_ca: { name: '信源·加拿大', mode: 'template' },
+  hechi:      { name: '河池(自动按国家)', mode: 'template' },
+  xinyuan:    { name: '信源(通用模板)',   mode: 'template' },
   changhui_au:{ name: '昌晖·澳新',   mode: 'template' }
 };
 // 🆕 云鼎产品整理:保留检测到的真实灯型(壁灯/吊灯/枝形吊灯…,和「建议申报」一致)· 只把 HS 固定为云鼎口径 8539510000 · 同灯型(中英文名相同)合并成一行、数量累加 · 逐行可改
@@ -1435,7 +1435,8 @@ function MakeInvoice() {
   const ydFileName = t => {
     const ref = t.ydRef || t.orderNumber;
     const pc = parseInt(t.pieceCount) || (t.items || []).filter(it => it.selected !== false).reduce((s, it) => s + (parseInt(it.quantity) || 0), 0);
-    return safeName(ref) + (pc ? ` 1票${pc}件` : '');
+    const cn = (t.country && t.country.cn) ? ' ' + t.country.cn : '';   // 🆕 国家中文全称
+    return safeName(ref) + cn + (pc ? ` 1票${pc}件` : '');
   };
   const exportYunding = async () => {
     if (!window.ExcelJS) {
@@ -1487,10 +1488,12 @@ function MakeInvoice() {
   const exportTemplate = async (key) => {
     if (!window.ExcelJS) { setErr('ExcelJS 未加载,请刷新页面重试'); return; }
     const def = TPL_COURIERS[key];
+    const buildFor = (t) => (TPL_COURIERS[t.tplKey] || def).build(t);   // 🆕 河池/信源:每单按自己的 tplKey 选模板
+    const zhName = (def && def.zh) || (COURIERS[key] && COURIERS[key].name) || key;
     setExporting(true); setErr('');
     try {
       if (tickets.length === 1) {
-        const wb = await def.build(tickets[0]);
+        const wb = await buildFor(tickets[0]);
         const buf = await wb.xlsx.writeBuffer();
         const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const url = URL.createObjectURL(blob);
@@ -1500,13 +1503,13 @@ function MakeInvoice() {
         if (!window.JSZip) { setErr('JSZip 未加载,请刷新页面重试'); setExporting(false); return; }
         const zip = new window.JSZip();
         for (const t of tickets) {
-          const wb = await def.build(t);
+          const wb = await buildFor(t);
           const buf = await wb.xlsx.writeBuffer();
           zip.file(ydFileName(t) + '.xlsx', buf);
         }
         const content = await zip.generateAsync({ type: 'blob' });
         const url = URL.createObjectURL(content);
-        const aTag = document.createElement('a'); aTag.href = url; aTag.download = `${def.zh}发票_${dateStr}_${tickets.length}单.zip`; aTag.click();
+        const aTag = document.createElement('a'); aTag.href = url; aTag.download = `${zhName}发票_${dateStr}_${tickets.length}单.zip`; aTag.click();
         URL.revokeObjectURL(url);
       }
     } catch (e) { setErr('导出失败:' + (e.message || e)); }
@@ -1769,7 +1772,67 @@ function MakeInvoice() {
     }
     setImporting(false);
   };
-  const importSheet = file => (courier === 'yunding' || TPL_COURIERS[courier]) ? importYundingSheet(file) : importOrderSheet(file);
+  // 🆕 河池/信源:上传交接清单 → 读「单号/国家/件数/带电」→ 每单按国家选模板(河池 CA/UK/EU 独立;信源全用通用模板)
+  const importHechiHandoff = async (file, family) => {
+    setImporting(true); setErr(''); setImportReport(null);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+      let hr = -1, orderCol = -1, countryCol = -1, pieceCol = -1, batteryCol = -1;
+      for (let i = 0; i < Math.min(aoa.length, 10); i++) {
+        const row = (aoa[i] || []).map(x => String(x == null ? '' : x).trim());
+        let oi = row.findIndex(h => /^(单号|订单号|订单编号)$/.test(h));
+        if (oi < 0) oi = row.findIndex(h => /单号|订单号|订单编号/.test(h) && !/序号/.test(h));
+        if (oi >= 0) {
+          hr = i; orderCol = oi;
+          countryCol = row.findIndex(h => /国家|country/i.test(h));
+          pieceCol = row.findIndex(h => /件数|箱数|^数量$/.test(h));
+          batteryCol = row.findIndex(h => /带电|品名/.test(h));
+          break;
+        }
+      }
+      if (hr < 0) throw new Error('没找到「单号」列 — 请确认上传的是河池/信源交接清单');
+      const get = (r, i) => i >= 0 ? String((r && r[i]) == null ? '' : r[i]).trim() : '';
+      const rows = [], seen = new Set();
+      for (let i = hr + 1; i < aoa.length; i++) {
+        const r = aoa[i] || [];
+        const raw = get(r, orderCol);
+        if (!raw || /合计|总计|签字|signature|日期/i.test(raw)) continue;
+        if (seen.has(raw)) continue; seen.add(raw);
+        rows.push({ rawNo: raw, country: get(r, countryCol), pieces: get(r, pieceCol), battery: get(r, batteryCol) });
+      }
+      if (!rows.length) throw new Error('没读到单号');
+      const allKeys = [];
+      rows.forEach(x => x.rawNo.split(/[\/,，、\s]+/).forEach(p => { const k = p.trim(); if (k) allKeys.push(k); }));
+      const map = await bulkFetchByKeys(allKeys);
+      const newTickets = [], unmatched = [];
+      rows.forEach(row => {
+        const parts = row.rawNo.split(/[\/,，、\s]+/).map(s => s.trim()).filter(Boolean);
+        const orders = parts.map(p => map[p] || map[normOrderKey(p)]).filter(Boolean);
+        if (!orders.length) { unmatched.push(row.rawNo); return; }
+        const items = [];
+        orders.forEach(o => (o.items || []).forEach(it => items.push({ ...it, selected: true })));
+        const t = makeTicket(orders[0], items);
+        const country = resolveCountry(row.country);
+        t.country = country;
+        t.tplKey = (family === 'xinyuan') ? 'xinyuan_ca' : hechiTplKey(country);
+        t.battery = (/是|带电|有/.test(row.battery) && !/否|不/.test(row.battery)) ? '是' : '否';
+        t.pieceCount = row.pieces || '';
+        t.ydRef = parts.join('-');
+        t.sheetOrderNo = row.rawNo;
+        t.isMerged = parts.length > 1;
+        if (country && t.address) t.address = { ...t.address, country_code: country.code };
+        newTickets.push(t);
+      });
+      setTickets(prev => [...prev, ...newTickets]);
+      setImportReport({ total: rows.length, matched: newTickets.length, unmatched });
+      setConn('ok');
+    } catch (e) { setErr('导入失败:' + (e.message || e)); }
+    setImporting(false);
+  };
+  const importSheet = file => (courier === 'hechi' || courier === 'xinyuan') ? importHechiHandoff(file, courier) : ((courier === 'yunding' || TPL_COURIERS[courier]) ? importYundingSheet(file) : importOrderSheet(file));
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "card"
   }, /*#__PURE__*/React.createElement("div", {
