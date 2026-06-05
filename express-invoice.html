@@ -1101,6 +1101,7 @@ function MakeInvoice() {
   const [tickets, setTickets] = useState([]);
   const [importing, setImporting] = useState(false); // 🆕 fix86: 批量建票中
   const [importReport, setImportReport] = useState(null); // 🆕 fix86: {total,matched,unmatched[]}
+  const [detectNote, setDetectNote] = useState(''); // 🆕 自动识别快递的提示
   const importRef = useRef(null); // 🆕 fix86
   const [lightboxImg, setLightboxImg] = useState(null); // 🆕 fix90: 点缩略图看大图
   const [storeField, setStoreField] = useState(null);
@@ -1437,12 +1438,42 @@ function MakeInvoice() {
   const basketPg = Math.min(basketPage, basketTotalPages);
   const pagedTickets = tickets.length > BASKET_PAGE_SIZE ? tickets.slice((basketPg - 1) * BASKET_PAGE_SIZE, basketPg * BASKET_PAGE_SIZE) : tickets;
   const [exporting, setExporting] = useState(false);
-  const exportChanghui = () => {
+  const exportChanghui = async () => {
     const tpl = COURIERS.changhui;
-    const ws = XLSX.utils.aoa_to_sheet([tpl.headers, ...tickets.map(tpl.build)]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
-    XLSX.writeFile(wb, `昌晖发票_${dateStr}_${tickets.length}票.xlsx`);
+    const auTickets = tickets.filter(t => t.tplKey === 'changhui_au');   // 澳新 → Commercial Invoice
+    const usTickets = tickets.filter(t => t.tplKey !== 'changhui_au');   // 美国等 → 系统表
+    // 没有澳新 → 维持原行为:直接出系统表
+    if (!auTickets.length) {
+      const ws = XLSX.utils.aoa_to_sheet([tpl.headers, ...usTickets.map(tpl.build)]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+      XLSX.writeFile(wb, `昌晖发票_${dateStr}_${usTickets.length}票.xlsx`);
+      return;
+    }
+    // 混合 → 打 ZIP:美国系统表(1个) + 澳新 Commercial Invoice(每单1个)
+    if (!window.ExcelJS) { setErr('ExcelJS 未加载,请刷新页面重试'); return; }
+    if (!window.JSZip) { setErr('JSZip 未加载,请刷新页面重试'); return; }
+    setExporting(true); setErr('');
+    try {
+      const zip = new window.JSZip();
+      if (usTickets.length) {
+        const ws = XLSX.utils.aoa_to_sheet([tpl.headers, ...usTickets.map(tpl.build)]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+        zip.file(`昌晖美国系统表_${usTickets.length}票.xlsx`, XLSX.write(wb, { type: 'array', bookType: 'xlsx' }));
+      }
+      for (const t of auTickets) {
+        const wb = await buildChanghuiAU(t);
+        const buf = await wb.xlsx.writeBuffer();
+        zip.file('澳新发票/' + ydFileName(t) + '.xlsx', buf);
+      }
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const aTag = document.createElement('a'); aTag.href = url;
+      aTag.download = `昌晖_${dateStr}_美国${usTickets.length}+澳新${auTickets.length}.zip`; aTag.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { setErr('导出失败:' + (e.message || e)); }
+    setExporting(false);
   };
   const safeName = s => String(s || '订单').replace(/[\\/:*?"<>|]/g, '_').slice(0, 80);
   const ydFileName = t => {
@@ -1623,6 +1654,7 @@ function MakeInvoice() {
       let orderCol = find(/订单编号/, /订单号/, /^订单$/, /\border\b/i); // 我们手填 MH4490
       const refCol = find(/客户参考号/, /参考号/, /reference/i); // 北简 XM8T
       const channelCol = find(/收货渠道/, /渠道/, /channel/i);
+      const destCol = find(/目的国家/, /目的地/, /destination/i, /country/i); // 🆕 目的国家(US/AU/NZ 或 美国/澳洲/新西兰)
       const weightCol = find(/收货实重/, /收货.*实重/, /^实重$/, /实重/, /重量/, /weight/i); // 🆕 实际重量(收货实重),非计费结算重
       const piecesCol = find(/总件数/, /件数/, /箱数/, /pieces/i); // 总件数优先 → 外包装件数
       const pieceColExact = find(/^件数$/, /^件数/); // 北简「件数」(实际收货件数)→ 申报数量
@@ -1646,6 +1678,7 @@ function MakeInvoice() {
           orderNumber: on,
           carrierRef: ref,
           channel: get(r, channelCol),
+          dest: get(r, destCol),
           weight: get(r, weightCol),
           pieces: get(r, piecesCol),
           pieceCount: get(r, pieceColExact),
@@ -1681,6 +1714,15 @@ function MakeInvoice() {
         if (inp.pieces) t.packageCount = inp.pieces;
         if (inp.pieceCount) t.pieceCount = inp.pieceCount; // 🆕 北简实际件数 → 申报数量
         if (inp.note) t.prepNote = inp.note;
+        // 🆕 按目的国家:澳洲/新西兰 标 tplKey=changhui_au(导出时自动出 Commercial Invoice);美国等不标(进系统表)
+        const country = resolveCountry(inp.dest);
+        if (country) {
+          t.country = country;
+          if (country.code === 'AU' || country.code === 'NZ') {
+            t.tplKey = 'changhui_au';
+            if (t.address) t.address = { ...t.address, country_code: country.code };
+          }
+        }
         newTickets.push(t);
       });
       setTickets(prev => [...prev, ...newTickets]);
@@ -1908,6 +1950,43 @@ function MakeInvoice() {
     setImporting(false);
   };
   const importSheet = file => (courier === 'hechi' || courier === 'xinyuan') ? importHechiHandoff(file, courier) : (courier === 'changhui_au' ? importChanghuiData(file) : ((courier === 'yunding' || TPL_COURIERS[courier]) ? importYundingSheet(file) : importOrderSheet(file)));
+
+  // 🆕 自动识别快递:先看文件名关键词,再看表头特征
+  const detectCourier = async (file) => {
+    const name = file.name || '';
+    if (/昌晖|长辉|changhui|店小秘|北简/i.test(name)) return { key: 'changhui', label: '昌晖', reason: '文件名' };
+    if (/信源|xinyuan/i.test(name)) return { key: 'xinyuan', label: '信源(通用模板)', reason: '文件名' };
+    if (/河池|hechi/i.test(name)) return { key: 'hechi', label: '河池(自动按国家)', reason: '文件名' };
+    if (/云鼎|yunding/i.test(name)) return { key: 'yunding', label: '云鼎', reason: '文件名' };
+    // 文件名没写 → 看表头特征
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+      const heads = [];
+      for (let i = 0; i < Math.min(aoa.length, 6); i++) (aoa[i] || []).forEach(c => { const s = String(c == null ? '' : c).trim(); if (s) heads.push(s); });
+      const H = heads.join('|');
+      if (/客户参考号|收货渠道|目的国家/.test(H) && /客户订单号|订单编号|渠道/.test(H)) return { key: 'changhui', label: '昌晖', reason: '表头特征(含客户参考号/收货渠道/目的国家)' };
+      if (/品名（是否带电）|是否带电|是否FBA|业务员/.test(H) && /单号|国家/.test(H)) return { key: 'hechi', label: '河池(默认,如是信源请手动改)', reason: '表头特征·河池与信源同列,默认河池' };
+      if (/FBA仓库|报关类型/.test(H)) return { key: 'yunding', label: '云鼎', reason: '表头特征' };
+    } catch (e) {}
+    return { key: '', label: '', reason: '' };
+  };
+  // 🆕 上传即自动识别快递 → 设下拉 → 调对应解析器(不依赖 setState 同步)
+  const autoImport = async (file) => {
+    setDetectNote('');
+    const det = await detectCourier(file);
+    const key = det.key || courier;
+    if (det.key && det.key !== courier) setCourier(det.key);
+    if (det.key) setDetectNote(`已自动识别快递:${det.label} · 依据:${det.reason}。识别错了可在上方「快递公司」下拉手动改后重新上传。`);
+    else setDetectNote('没能自动识别快递,请在上方「快递公司」下拉手动选择后重新上传(或检查文件名是否含 昌晖/河池/信源/云鼎)。');
+    if (key === 'hechi' || key === 'xinyuan') return importHechiHandoff(file, key);
+    if (key === 'changhui_au') return importChanghuiData(file);
+    if (key === 'changhui') return importOrderSheet(file);
+    if (key === 'yunding' || TPL_COURIERS[key]) return importYundingSheet(file);
+    return importOrderSheet(file);
+  };
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     className: "card"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2263,10 +2342,21 @@ function MakeInvoice() {
       display: 'none'
     },
     onChange: e => {
-      if (e.target.files[0]) importSheet(e.target.files[0]);
+      if (e.target.files[0]) autoImport(e.target.files[0]);
       e.target.value = '';
     }
-  })), importReport && /*#__PURE__*/React.createElement("div", {
+  })), detectNote && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      padding: '8px 12px',
+      borderRadius: 8,
+      background: '#eff6ff',
+      border: '1px solid #bfdbfe',
+      color: '#1e40af',
+      fontSize: 12.5,
+      lineHeight: 1.6
+    }
+  }, "🚚 ", detectNote), importReport && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
       fontSize: 12,
