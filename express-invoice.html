@@ -1014,7 +1014,7 @@ async function buildYundingTpl(t) {            // 云鼎·FBA专线(填原生模
 }
 async function buildChanghuiAU(t) {            // 昌晖·澳洲/新西兰(填原生模板「运单信息」· AU/NZ 同模板,国家由 H5 区分)
   const wb = await tplLoadWb('changhui_au'); const ws = wb.getWorksheet('运单信息'); const a = t.address || {};
-  const ref = '#' + String(t.orderNumber || t.carrierRef || '').replace(/^#+/, '');  // 🆕 原单号 = #+我们的订单号(昌晖现在要带#)
+  const ref = String(t.orderNumber || t.carrierRef || '').replace(/^#+/, '');  // 🆕 原单号 = 我们的订单号(不带#,匹配已能识别加不加#)
   const cc = (t.country && t.country.code) || a.country_code || 'AU';
   ws.getCell('B3').value = ref; ws.getCell('F3').value = t.pieces || 1;
   ws.getCell('H3').value = a.name || t.customerName || ''; ws.getCell('M3').value = t.customerEmail || '';
