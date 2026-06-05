@@ -194,7 +194,8 @@ const PREFIX_TO_DOMAIN = {
   JD: 'janedecor.myshopify.com',
   MJ: 'janedecor.myshopify.com',
   // mooijane 老订单已被 JD(janedecor)接管
-  ML: 'mooielight.com' // WooCommerce → 走 woo-api
+  ML: 'mooielight.com', // WooCommerce → 走 woo-api
+  MO: 'mooielight.com' // WooCommerce(MO13202 = Woo 单号 13202)
   // (Mooiehome 若出现新前缀再补)
 };
 function guessShopDomain(orderNo) {
@@ -311,7 +312,7 @@ function normalizeOrderShape(raw, shopDomain) {
   return raw;
 }
 async function lookupShopifyLive(orderNo, shopDomain, save) {  // V20260605:save=true 时查到即入库(沉淀给做发票用)
-  if (window.__EDGE_AUTH_FAILED) return null; // 🆕 已确认 Edge 鉴权失败(401)→ 不再发请求,避免刷屏
+  if (window.__LIVE_OFF) return null; // 🆕 实时查已不可用(401/超时)→ 本次不再发请求,避免卡死/刷屏
   const base = normOrderKey(orderNo);
   if (!base) return null;
   shopDomain = shopDomain || guessShopDomain(base);
@@ -320,8 +321,18 @@ async function lookupShopifyLive(orderNo, shopDomain, save) {  // V20260605:save
   const hit = _liveCache[ck];
   if (hit && Date.now() - hit.ts < LIVE_TTL) return hit.order;
   const isWoo = /mooielight/i.test(shopDomain);
+  const wooNum = base.replace(/[^0-9]/g, ''); // MO13202 → 13202(Woo 单号是纯数字)
+  const names = isWoo ? [wooNum || base] : [base, '#' + base];
+  // 🆕 核对返回单号是否真的等于所查单号(防搜不到时返回的随便一单被当结果);Woo 比数字部分
+  const numMatch = got => {
+    const g = normOrderKey(got || '').toUpperCase();
+    const b = base.toUpperCase();
+    if (g === b) return true;
+    if (isWoo) { const gn = g.replace(/\D/g, ''), bn = b.replace(/\D/g, ''); return !!gn && gn === bn; }
+    return false;
+  };
   try {
-    for (const nm of [base, '#' + base]) {
+    for (const nm of names) {
       const body = isWoo ? {
         store_id: 'mooielight',
         action: 'list_orders',
@@ -339,18 +350,32 @@ async function lookupShopifyLive(orderNo, shopDomain, save) {  // V20260605:save
           auto_save: !!save   // V20260605:查到老单即入库 · 下次秒出 · 做发票直接用
         }
       };
-      const res = await fetch(EDGE_BASE + '/' + (isWoo ? 'woo-api' : 'shopify-api'), {
-        method: 'POST',
-        headers: {
-          'Authorization': 'Bearer ' + ORDERS_KEY,
-          'apikey': ORDERS_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-      if (res.status === 401 || res.status === 403) { // 🆕 鉴权失败(publishable key 非 JWT / Edge 开了 Verify JWT)→ 置标志,后续不再调
-        window.__EDGE_AUTH_FAILED = true;
-        console.warn('[shopify-api 鉴权失败 ' + res.status + '] 需跟单关闭 shopify-api 的 Verify JWT(或改用合法 JWT key)');
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 6000); // 🆕 6s 超时,防 Edge 无响应卡死
+      let res;
+      try {
+        res = await fetch(EDGE_BASE + '/' + (isWoo ? 'woo-api' : 'shopify-api'), {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + ORDERS_KEY,
+            'apikey': ORDERS_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body),
+          signal: ctrl.signal
+        });
+      } catch (fe) { // 🆕 超时/网络错 → 停掉实时,放行本地(不卡整批)
+        clearTimeout(timer);
+        window.__LIVE_OFF = true;
+        window.__LIVE_OFF_MSG = '实时查接口无响应/超时,已暂停实时查;本地库已有的单不受影响。可能是 shopify-api 没部署好或鉴权卡住——请让跟单检查 shopify-api(401 需 --no-verify-jwt 重新部署)。刷新页面可重试实时。';
+        console.warn('[shopify-api 无响应/超时]', fe && fe.name);
+        return null;
+      }
+      clearTimeout(timer);
+      if (res.status === 401 || res.status === 403) { // 🆕 鉴权失败(publishable key 非 JWT / Edge 开了 Verify JWT)→ 止血
+        window.__LIVE_OFF = true;
+        window.__LIVE_OFF_MSG = '实时查接口鉴权失败(401):shopify-api 开了 Verify JWT,当前 publishable key 过不了网关。本地库已有的单不受影响。请让跟单用 --no-verify-jwt 重新部署 shopify-api(函数内部已用 service key 自行鉴权);部署后刷新再试即可补回老单/B2B单。';
+        console.warn('[shopify-api 鉴权失败 ' + res.status + '] 需跟单关闭 Verify JWT');
         return null;
       }
       if (!res.ok) continue;
@@ -360,28 +385,20 @@ async function lookupShopifyLive(orderNo, shopDomain, save) {  // V20260605:save
       } catch {}
       const arr = json && (json.orders || json.data || []);
       if (json && json.ok !== false && Array.isArray(arr) && arr.length) {
-        const o = normalizeOrderShape(arr[0], shopDomain);
-        const p = parseOrder(o, detectStoreField(o));
-        _liveCache[ck] = {
-          ts: Date.now(),
-          order: p
-        };
-        return p;
+        // 🆕 遍历候选,只接受单号真正匹配的那一单(不再盲取 arr[0])
+        for (const cand of arr) {
+          const o = normalizeOrderShape(cand, shopDomain);
+          const p = parseOrder(o, detectStoreField(o));
+          if (numMatch(p.orderNumber)) {
+            _liveCache[ck] = { ts: Date.now(), order: p };
+            return p;
+          }
+        }
+        // 候选里没有真正匹配的 → 不接受,继续下个 name(或返回 null)
       }
     }
   } catch (e) {
     console.warn('[Shopify兜底失败]', orderNo, e);
-  }
-  return null;
-}
-// 🆕 扫全店实时抓:先按基础单号猜店,猜不到/没查到 → 挨个扫所有已知店铺;都带 auto_save(查到即入库,下次秒出)
-async function liveFetchAnyStore(base) {
-  let o = await lookupShopifyLive(base, null, true).catch(() => null);
-  if (o) return o;
-  const domains = [...new Set(Object.values(PREFIX_TO_DOMAIN))];
-  for (const d of domains) {
-    o = await lookupShopifyLive(base, d, true).catch(() => null);
-    if (o) return o;
   }
   return null;
 }
@@ -1336,20 +1353,12 @@ function MakeInvoice() {
         } catch (e) {}
       }
       if (!o) {
-        o = await lookupShopifyLive(raw, null, true);   // V20260605:查到即入库
+        o = await lookupShopifyLive(raw, null, true);   // 按订单号前缀直奔对应店铺实时查 + 查到即入库(不盲扫全店)
       }
       if (!o) {
-        // 🆕 猜的店没查到 → 扫一遍所有已知店铺(单条查单可接受;覆盖店映射不准/B2B导入单)
-        const domains = [...new Set(Object.values(PREFIX_TO_DOMAIN))];
-        for (const d of domains) {
-          o = await lookupShopifyLive(raw, d, true).catch(() => null);   // V20260605:扫全店查到即入库
-          if (o) break;
-        }
-      }
-      if (!o) {
-        setQuickErr(window.__EDGE_AUTH_FAILED
-          ? '实时查接口鉴权失败(401):shopify-api 开了 Verify JWT,publishable key 过不了。请让跟单用 --no-verify-jwt 重新部署 shopify-api 后再查。本地库已有的单不受影响。'
-          : '未找到订单 ' + raw + '(本地 + 实时全店都没查到)');
+        setQuickErr(window.__LIVE_OFF
+          ? (window.__LIVE_OFF_MSG || '实时查接口暂不可用') + '(本订单可能未进本地库)'
+          : '未找到订单 ' + raw + '(本地 + 实时都没查到 — 可能是很久以前的单还没进库)');
         setQuickLoading(false);
         return;
       }
@@ -1630,14 +1639,15 @@ function MakeInvoice() {
       });
     }
     if (field && !storeField) setStoreField(field);
-    // 🆕 ① Shopify 实时兜底:本地没命中的(去重按基础单号)→ 扫全店实时抓 + 查到即入库
-    //   并发降到 3、批间隔 250ms:扫全店调用量大,务必找全又不打爆 Shopify 限流(宁慢勿漏)
+    // 🆕 ① Shopify 实时兜底:本地没命中的(去重按基础单号)→ 按订单号前缀直奔对应店铺实时抓 + 查到即入库
+    //   不盲扫全店:前缀已对应店铺(RD→Radilum、V→Vakker…),每单只查 1 个店,快且省;遇 401 立即止血,不苦等
     const missing = uniq.filter(k => !map[k]);
     const missingBases = [...new Set(missing.map(k => normOrderKey(k)).filter(Boolean))];
-    const CONC = 3;
+    const CONC = 8;
     for (let i = 0; i < missingBases.length; i += CONC) {
+      if (window.__LIVE_OFF) break; // 🆕 实时已不可用(401/超时)→ 不再实时,把能本地查的先给客服改,剩下当未找到
       const batch = missingBases.slice(i, i + CONC);
-      const results = await Promise.all(batch.map(bk => liveFetchAnyStore(bk).catch(() => null)));  // 🆕 扫全店(原来只查猜的店,BU/老单猜店不准就漏)
+      const results = await Promise.all(batch.map(bk => lookupShopifyLive(bk, null, true).catch(() => null)));  // 按前缀直奔单店
       batch.forEach((baseKey, j) => {
         const p = results[j];
         if (p) {
@@ -1649,9 +1659,9 @@ function MakeInvoice() {
           });
         }
       });
-      if (i + CONC < missingBases.length) await new Promise(r => setTimeout(r, 250)); // 批间停 250ms,扫全店防限流
+      if (i + CONC < missingBases.length) await new Promise(r => setTimeout(r, 100)); // 批间小停防限流(单店调用量小)
     }
-    if (window.__EDGE_AUTH_FAILED) setErr('⚠️ 实时查接口鉴权失败(401):shopify-api Edge Function 开了 Verify JWT,当前 publishable key 过不了网关。没进本地库的单(老单/B2B/补发)实时也查不到。请让跟单用 --no-verify-jwt 重新部署 shopify-api(函数内部已用 service key 自行鉴权);部署后再上传即可补回这些单。');
+    if (window.__LIVE_OFF) setErr('⚠️ ' + (window.__LIVE_OFF_MSG || '实时查接口暂不可用') + ' · 没进本地库的单(老单/B2B/补发)本次未实时查到,列在"未找到"里,稍后回库或部署修好后再上传即可补回。');
     return map;
   };
   // 🆕 fix86/88: 上传北简表 → 按「订单编号」(或客户参考号)查库自动建票
