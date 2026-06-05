@@ -364,11 +364,14 @@ async function lookupShopifyLive(orderNo, shopDomain, save) {  // V20260605:save
           body: JSON.stringify(body),
           signal: ctrl.signal
         });
-      } catch (fe) { // 🆕 超时/网络错 → 停掉实时,放行本地(不卡整批)
+      } catch (fe) { // 🆕 单个超时/网络错 → 只算这单没查到,继续后面的(不连坐);累计多次才判定整体不可用
         clearTimeout(timer);
-        window.__LIVE_OFF = true;
-        window.__LIVE_OFF_MSG = '实时查接口无响应/超时,已暂停实时查;本地库已有的单不受影响。可能是 shopify-api 没部署好或鉴权卡住——请让跟单检查 shopify-api(401 需 --no-verify-jwt 重新部署)。刷新页面可重试实时。';
-        console.warn('[shopify-api 无响应/超时]', fe && fe.name);
+        window.__LIVE_TIMEOUTS = (window.__LIVE_TIMEOUTS || 0) + 1;
+        console.warn('[shopify-api 单次无响应/超时]', shopDomain, base, fe && fe.name, '累计', window.__LIVE_TIMEOUTS);
+        if (window.__LIVE_TIMEOUTS >= 12) {
+          window.__LIVE_OFF = true;
+          window.__LIVE_OFF_MSG = '实时查接口多次无响应/超时,已暂停;本地库已有的单不受影响。请让跟单检查 shopify-api 是否部署正常(401 需 --no-verify-jwt 重新部署)。刷新页面可重试。';
+        }
         return null;
       }
       clearTimeout(timer);
@@ -1642,6 +1645,7 @@ function MakeInvoice() {
     // 🆕 ① Shopify 实时兜底:本地没命中的(去重按基础单号)→ 按订单号前缀直奔对应店铺实时抓 + 查到即入库
     //   不盲扫全店:前缀已对应店铺(RD→Radilum、V→Vakker…),每单只查 1 个店,快且省;遇 401 立即止血,不苦等
     const missing = uniq.filter(k => !map[k]);
+    window.__LIVE_TIMEOUTS = 0; // 🆕 每次批量重置超时计数(单个超时不连坐,累计 12 次才判定整体不可用)
     const missingBases = [...new Set(missing.map(k => normOrderKey(k)).filter(Boolean))];
     const CONC = 8;
     for (let i = 0; i < missingBases.length; i += CONC) {
