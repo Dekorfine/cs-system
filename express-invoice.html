@@ -311,6 +311,7 @@ function normalizeOrderShape(raw, shopDomain) {
   return raw;
 }
 async function lookupShopifyLive(orderNo, shopDomain, save) {  // V20260605:save=true 时查到即入库(沉淀给做发票用)
+  if (window.__EDGE_AUTH_FAILED) return null; // 🆕 已确认 Edge 鉴权失败(401)→ 不再发请求,避免刷屏
   const base = normOrderKey(orderNo);
   if (!base) return null;
   shopDomain = shopDomain || guessShopDomain(base);
@@ -347,6 +348,11 @@ async function lookupShopifyLive(orderNo, shopDomain, save) {  // V20260605:save
         },
         body: JSON.stringify(body)
       });
+      if (res.status === 401 || res.status === 403) { // 🆕 鉴权失败(publishable key 非 JWT / Edge 开了 Verify JWT)→ 置标志,后续不再调
+        window.__EDGE_AUTH_FAILED = true;
+        console.warn('[shopify-api 鉴权失败 ' + res.status + '] 需跟单关闭 shopify-api 的 Verify JWT(或改用合法 JWT key)');
+        return null;
+      }
       if (!res.ok) continue;
       const json = await res.json().catch(() => null);
       try {
@@ -1341,7 +1347,9 @@ function MakeInvoice() {
         }
       }
       if (!o) {
-        setQuickErr('未找到订单 ' + raw + '(本地 + 实时全店都没查到)');
+        setQuickErr(window.__EDGE_AUTH_FAILED
+          ? '实时查接口鉴权失败(401):shopify-api 开了 Verify JWT,publishable key 过不了。请让跟单用 --no-verify-jwt 重新部署 shopify-api 后再查。本地库已有的单不受影响。'
+          : '未找到订单 ' + raw + '(本地 + 实时全店都没查到)');
         setQuickLoading(false);
         return;
       }
@@ -1643,6 +1651,7 @@ function MakeInvoice() {
       });
       if (i + CONC < missingBases.length) await new Promise(r => setTimeout(r, 250)); // 批间停 250ms,扫全店防限流
     }
+    if (window.__EDGE_AUTH_FAILED) setErr('⚠️ 实时查接口鉴权失败(401):shopify-api Edge Function 开了 Verify JWT,当前 publishable key 过不了网关。没进本地库的单(老单/B2B/补发)实时也查不到。请让跟单用 --no-verify-jwt 重新部署 shopify-api(函数内部已用 service key 自行鉴权);部署后再上传即可补回这些单。');
     return map;
   };
   // 🆕 fix86/88: 上传北简表 → 按「订单编号」(或客户参考号)查库自动建票
