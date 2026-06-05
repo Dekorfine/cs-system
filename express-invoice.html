@@ -662,7 +662,7 @@ function parseOrder(o, field) {
 }
 
 // 昌晖 73 列
-const CH_BASE = ['客户订单号（必填）', '渠道必填）', '目的国家（必填）', '外包装件数（必填）', '重量（必填）', '收件人公司名', '收件人姓名（必填）', '收件人省州（必填）', '收件人城市（必填）', '收件人邮编（必填）', '收件人地址（必填）', '收件人门牌号', '收件人电话（必填）', '收件人传真', '收件人邮箱', '收件人证件类型'];
+const CH_BASE = ['客户订单号（必填）', '客户订单号（必填）', '渠道必填）', '目的国家（必填）', '外包装件数（必填）', '重量（必填）', '收件人公司名', '收件人姓名（必填）', '收件人省州（必填）', '收件人城市（必填）', '收件人邮编（必填）', '收件人地址（必填）', '收件人门牌号', '收件人电话（必填）', '收件人传真', '收件人邮箱', '收件人证件类型'];
 function chProd() {
   const a = [];
   for (let i = 1; i <= 5; i++) {
@@ -680,25 +680,26 @@ function buildChanghuiRow(t) {
   const totalQty = sel.reduce((s, it) => s + (parseInt(it.quantity) || 1), 0); // 个数 = 选中产品单位总数
   const isSmall = /小包/.test(t.channel || ''); // 海运小包 = 一票一件
   const recvPieces = parseInt(t.pieceCount) || parseInt(t.packageCount) || 0; // 北简实际件数
-  row[0] = t.carrierRef || t.orderNumber;
-  row[1] = t.channel || '';
-  row[2] = a.country_code || a.country || 'US'; // 🆕 客户订单号列=客户参考号(XM8T,快递公司核对用,不能删);我们的订单号写进运单备注
-  row[3] = t.packageCount || '';
-  row[4] = t.weight || '';
-  row[5] = a.company || '';
-  row[6] = a.name || t.customerName || '';
-  row[7] = a.province || '';
-  row[8] = a.city || '';
-  row[9] = {
+  row[0] = t.sheetOrderNo || t.orderNumber || ''; // A 订单号 = 我方单号(原始,如 RD18106BU)
+  row[1] = t.carrierRef || '';                    // B 客户订单号 = 客户参考号 XM8T...(昌晖必填,核对用)
+  row[2] = t.channel || '';                       // C 渠道
+  row[3] = a.country_code || a.country || 'US';   // D 目的国家
+  row[4] = t.packageCount || '';                  // E 外包装件数
+  row[5] = t.weight || '';                        // F 重量
+  row[6] = a.company || '';                       // G 公司
+  row[7] = a.name || t.customerName || '';        // H 姓名
+  row[8] = a.province || '';                      // I 省州
+  row[9] = a.city || '';                          // J 城市
+  row[10] = {                                     // K 邮编(强制文本,防丢前导0)
     v: a.zip || '',
     t: 's'
   };
-  row[10] = [a.address1, a.address2].filter(Boolean).join(', ');
-  row[12] = a.phone || t.customerPhone || '';
-  row[14] = t.customerEmail || '';
+  row[11] = [a.address1, a.address2].filter(Boolean).join(', '); // L 地址
+  row[13] = a.phone || t.customerPhone || '';     // N 电话
+  row[15] = t.customerEmail || '';                // P 邮箱
   sel.slice(0, 5).forEach((it, bi) => {
     const first = bi === 0;
-    const start = 16 + (first ? 0 : 12 + (bi - 1) * 11);
+    const start = 17 + (first ? 0 : 12 + (bi - 1) * 11); // 🆕 产品起始列 16→17(前面多了 XM 列)
     let c = start;
     // 🆕 申报数量:小包固定1;单一产品按北简实际件数;多产品保留各自订单数量
     let qty = parseInt(it.quantity) || 1;
