@@ -1700,7 +1700,9 @@ function MakeInvoice() {
         pieceCol = -1;
       for (let i = 0; i < Math.min(aoa.length, 10); i++) {
         const row = (aoa[i] || []).map(x => String(x == null ? '' : x).trim());
-        const oi = row.findIndex(h => /单号|订单号|订单编号/.test(h));
+        // 🆕 优先精确匹配「单号/订单号/订单编号」,且明确排除「序号」(序号列只是行号 1,2,3…,不能当单号)
+        let oi = row.findIndex(h => /^(单号|订单号|订单编号)$/.test(h));
+        if (oi < 0) oi = row.findIndex(h => /单号|订单号|订单编号/.test(h) && !/序号/.test(h));
         if (oi >= 0) {
           hr = i;
           orderCol = oi;
@@ -1708,7 +1710,7 @@ function MakeInvoice() {
           break;
         }
       }
-      if (hr < 0) throw new Error('没找到「单号」列 — 请确认上传的是云鼎交接清单');
+      if (hr < 0) throw new Error('没找到「单号」列 — 请确认上传的是河池/信源/云鼎交接清单');
       const get = (r, i) => i >= 0 ? String((r && r[i]) == null ? '' : r[i]).trim() : '';
       const rows = [];
       const seen = new Set();
