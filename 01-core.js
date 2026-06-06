@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix155
+// 版本 2026.06.05-fix156
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix155
+// 版本 2026.06.05-fix156
 // 预编译切片
 //
 
@@ -1219,7 +1219,7 @@ var INITIAL_EMPLOYEES = [
   title: '老板 · 角色管理',
   hideFromList: true
 }];
-var CATEGORIES = ['咨询', '物流', '查单', '核实', '安装说明', '改地址', '退货', '报价', '售后', '补发', '取消订单', '定制咨询', '实拍', '拒付', '加急', '邮件查询', '价格', '运费', '定金', '库存', '工厂进度', '质量问题', '图片提供', '样品', '促销活动'];
+var CATEGORIES = ['咨询', '物流', '查单', '核实', '安装说明', '改地址', '退货', '报价', '售后', '补发', '取消订单', '定制咨询', '实拍', '拒付', '加急', '邮件查询', '价格', '运费', '定金', '库存', '工厂进度', '质量问题', '图片提供', '样品', '促销活动', 'WhatsApp'];
 var SITES = ['MJ', 'DC', 'VK', 'DF', 'LS', 'RS', 'MH', 'PL', 'MO', 'RD', '海服']; // 🆕 fix51: J → MH (Mooiehome 取代 JaneDecor)
 
 // 🆕 fix82: 订单号前缀 → 网站 兜底映射
