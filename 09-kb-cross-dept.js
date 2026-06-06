@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix154
+// 版本 2026.06.05-fix155
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix154
+// 版本 2026.06.05-fix155
 // 预编译切片
 //
 
@@ -6389,9 +6389,8 @@ var CdmMessageCard = function CdmMessageCard(_ref40) {
   var dueAt = getDueAt(msg, cdmTimeoutConfig);
   var dueDays = Math.round((dueAt - Date.now()) / 86400000);
   var watcherCount = Array.isArray(msg.watchers) ? msg.watchers.length : 0;
-  // 🆕 发起人本人 或 管理员/主管 可在列表卡片上直接删除(软删除)
-  var isAdmin = user.role === 'admin' || user.role === 'super_admin';
-  var canDelete = msg.from_system === MY_SYSTEM && (msg.from_user_id === user.id || isAdmin);
+  // 🆕 任何客服都可删除(共享消息,软删除可恢复)
+  var canDelete = true;
   var delMsg = /*#__PURE__*/function () {
     var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(e) {
       var c, _t1;
@@ -8244,7 +8243,7 @@ var CdmDetailModal = function CdmDetailModal(_ref47) {
     };
   }();
   var isSender = msg.from_system === MY_SYSTEM && (msg.from_user_id === user.id || isAdmin);
-  var canDelete = isSender || isAdmin; // 🆕 发起方本人 或 管理员/主管 可删除
+  var canDelete = true; // 🆕 任何客服都可删除(共享消息,软删除可恢复)
   var deleteMsg = /*#__PURE__*/function () {
     var _ref55 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26() {
       var client, _yield$client$from$up3, error, _t21;
