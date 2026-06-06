@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix156
+// 版本 2026.06.05-fix157
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix156
+// 版本 2026.06.05-fix157
 // 预编译切片
 //
 
@@ -6393,12 +6393,12 @@ var CdmMessageCard = function CdmMessageCard(_ref40) {
   var canDelete = true;
   var delMsg = /*#__PURE__*/function () {
     var _ref41 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(e) {
-      var c, _t1;
+      var c, _yield$c$from$update$2, error, r, _t1;
       return _regenerator().w(function (_context15) {
         while (1) switch (_context15.p = _context15.n) {
           case 0:
             e.stopPropagation();
-            if (window.confirm('删除这条跨部门消息?\n所有部门都不再显示(软删除,数据库可恢复)。测试单可放心删。')) {
+            if (window.confirm('删除这条跨部门消息?\n所有部门都不再显示。测试单可放心删。')) {
               _context15.n = 1;
               break;
             }
@@ -6419,17 +6419,35 @@ var CdmMessageCard = function CdmMessageCard(_ref40) {
               updated_at: new Date().toISOString()
             }).eq('id', msg.id);
           case 3:
-            onReload && onReload();
-            _context15.n = 5;
-            break;
+            _yield$c$from$update$2 = _context15.v;
+            error = _yield$c$from$update$2.error;
+            if (!(error && /deleted/i.test(error.message || ''))) {
+              _context15.n = 5;
+              break;
+            }
+            _context15.n = 4;
+            return c.from('cross_dept_messages')["delete"]().eq('id', msg.id);
           case 4:
-            _context15.p = 4;
+            r = _context15.v;
+            error = r.error;
+          case 5:
+            if (!error) {
+              _context15.n = 6;
+              break;
+            }
+            throw error;
+          case 6:
+            onReload && onReload();
+            _context15.n = 8;
+            break;
+          case 7:
+            _context15.p = 7;
             _t1 = _context15.v;
             alert('删除失败: ' + (_t1.message || _t1));
-          case 5:
+          case 8:
             return _context15.a(2);
         }
-      }, _callee14, null, [[2, 4]]);
+      }, _callee14, null, [[2, 7]]);
     }));
     return function delMsg(_x9) {
       return _ref41.apply(this, arguments);
@@ -8246,7 +8264,7 @@ var CdmDetailModal = function CdmDetailModal(_ref47) {
   var canDelete = true; // 🆕 任何客服都可删除(共享消息,软删除可恢复)
   var deleteMsg = /*#__PURE__*/function () {
     var _ref55 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26() {
-      var client, _yield$client$from$up3, error, _t21;
+      var client, _yield$client$from$up3, error, r, _t21;
       return _regenerator().w(function (_context29) {
         while (1) switch (_context29.p = _context29.n) {
           case 0:
@@ -8256,7 +8274,7 @@ var CdmDetailModal = function CdmDetailModal(_ref47) {
             }
             return _context29.a(2);
           case 1:
-            if (window.confirm('确定删除这条跨部门消息?\n删除后所有部门都不再显示它(软删除,数据库里仍可恢复)。\n测试单可放心删。')) {
+            if (window.confirm('确定删除这条跨部门消息?\n删除后所有部门都不再显示它。\n测试单可放心删。')) {
               _context29.n = 2;
               break;
             }
@@ -8279,25 +8297,35 @@ var CdmDetailModal = function CdmDetailModal(_ref47) {
           case 4:
             _yield$client$from$up3 = _context29.v;
             error = _yield$client$from$up3.error;
+            if (!(error && /deleted/i.test(error.message || ''))) {
+              _context29.n = 6;
+              break;
+            }
+            _context29.n = 5;
+            return client.from('cross_dept_messages')["delete"]().eq('id', msg.id);
+          case 5:
+            r = _context29.v;
+            error = r.error;
+          case 6:
             if (!error) {
-              _context29.n = 5;
+              _context29.n = 7;
               break;
             }
             throw error;
-          case 5:
+          case 7:
             toast('✓ 已删除该消息');
             onChanged && onChanged();
             onClose && onClose();
-            _context29.n = 7;
+            _context29.n = 9;
             break;
-          case 6:
-            _context29.p = 6;
+          case 8:
+            _context29.p = 8;
             _t21 = _context29.v;
             alert('删除失败: ' + (_t21.message || _t21));
-          case 7:
+          case 9:
             return _context29.a(2);
         }
-      }, _callee26, null, [[3, 6]]);
+      }, _callee26, null, [[3, 8]]);
     }));
     return function deleteMsg() {
       return _ref55.apply(this, arguments);
