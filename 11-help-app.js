@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix152
+// 版本 2026.06.05-fix153
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix152
+// 版本 2026.06.05-fix153
 // 预编译切片
 //
 
@@ -2027,7 +2027,7 @@ var App = function App() {
     setCdmTimeoutConfig = _useState36[1];
 
   // 🆕 fix140: 列表轻量列(不含 attachments/thread 巨型 base64)— 初拉与增量补拉共用
-  var CDM_LIST_COLS = 'id,from_system,from_user_id,from_user_name,to_system,to_user_id,to_user_name,category,priority,title,body,related_ref,related_type,related_shop,assigned_to_id,assigned_to_name,assigned_by_id,assigned_by_name,assigned_at_ms,watchers,status,read_by,created_at_ms,updated_at';
+  var CDM_LIST_COLS = 'id,from_system,from_user_id,from_user_name,to_system,to_user_id,to_user_name,category,priority,title,body,related_ref,related_type,related_shop,assigned_to_id,assigned_to_name,assigned_by_id,assigned_by_name,assigned_at_ms,watchers,status,read_by,created_at_ms,updated_at,deleted';
   // 列表态永远不留大列(详情按需取,详情态在各 Modal 局部 state 里)
   var cdmLight = function cdmLight(m) {
     return _objectSpread(_objectSpread({}, m), {}, {
@@ -2098,12 +2098,14 @@ var App = function App() {
           case 7:
             cdmBumpWatermark(data); // 🆕 fix140
             // 🆕 fix137: 列表项补 attachments/thread 空数组(轻量列不含它们),避免消费方读 .length/.filter 报错导致整页崩
-            setCdmMessages((data || []).map(function (m) {
+            setCdmMessages((data || []).filter(function (m) {
+              return !m.deleted;
+            }).map(function (m) {
               return _objectSpread(_objectSpread({}, m), {}, {
                 attachments: Array.isArray(m.attachments) ? m.attachments : [],
                 thread: Array.isArray(m.thread) ? m.thread : []
               });
-            }));
+            })); // 🆕 过滤已删除
             _context0.n = 9;
             break;
           case 8:
@@ -2165,8 +2167,8 @@ var App = function App() {
                 return m.id;
               }));
               var fresh = data.filter(function (m) {
-                return !ids.has(m.id);
-              }).map(cdmLight);
+                return !ids.has(m.id) && !m.deleted;
+              }).map(cdmLight); // 🆕 过滤已删除
               return fresh.length ? [].concat(_toConsumableArray(fresh), _toConsumableArray(prev)) : prev;
             });
             _context1.n = 6;
@@ -3532,7 +3534,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix152';
+var APP_VERSION = '2026.06.05-fix153';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
