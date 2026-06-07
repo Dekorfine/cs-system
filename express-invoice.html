@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>快递发票制作</title>
+<title>快递发票制作 · build 0607-IMG3</title>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <!-- 🚀 预编译:已离线编译 JSX,移除 babel-standalone -->
@@ -954,6 +954,7 @@ async function buildYundingWorkbook(t) {
 // 自测:Node ExcelJS 端到端 4/4 通过(数据正确+结构保留)
 // ════════════════════════════════════════════════════════════════════
 try { console.log('%c[快递发票] 2026-06-04 新增 河池(加拿大/英国/欧盟) + 信源(加拿大) · 模板独立文件 fetch 加载', 'color:#0071e3'); } catch(e){}
+try { console.log('%c[快递发票] build 0607-IMG3 · 批量自动补图(本地无图→实时补)+ webp转PNG + 嵌图诊断 + 昌晖XM列', 'color:#16a34a;font-weight:bold;font-size:14px'); } catch(e){}
 const TPL_HS = '9405100000', TPL_UNIT = 500, TPL_MAT_CN = '金属', TPL_MAT_EN = 'Metal', TPL_USE = '照明';
 // 模板改为同目录独立文件 + 运行时 fetch(去掉内嵌 base64/atob,避免被杀毒误判为 HTML 走私木马)
 const TPL_FILES = { hechi_ca: 'hechi_ca.xlsx', hechi_uk: 'hechi_uk.xlsx', hechi_eu: 'hechi_eu.xlsx', xinyuan_ca: 'xinyuan_ca.xlsx', yunding: 'yunding.xlsx', changhui_au: 'changhui_au.xlsx' };
