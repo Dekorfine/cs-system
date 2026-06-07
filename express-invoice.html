@@ -752,28 +752,32 @@ async function _imgBlobToPng(blob) {
     return await pngBlob.arrayBuffer();
   } catch (e) { return null; }
 }
+var _imgDiag = { calls: 0, noUrl: 0, ok: 0, fail: 0, failUrls: [] };
+function _imgDiagReset() { _imgDiag = { calls: 0, noUrl: 0, ok: 0, fail: 0, failUrls: [] }; }
 async function ydFetchImg(url) {
-  if (!url) return null;
+  _imgDiag.calls++;
+  if (!url) { _imgDiag.noUrl++; return null; }
+  const _fail = () => { _imgDiag.fail++; if (_imgDiag.failUrls.length < 5) _imgDiag.failUrls.push(String(url).slice(0, 90)); return null; };
   try {
     let blob;
     if (/^data:/i.test(url)) {
       blob = await (await fetch(url)).blob();
     } else {
       const res = await fetch(url, { mode: 'cors' });
-      if (!res.ok) return null;
+      if (!res.ok) return _fail();
       blob = await res.blob();
     }
     // 🆕 统一转 PNG:Shopify 现多发 webp,直接嵌会裂图/无图;转 PNG 后所有渠道都能正常嵌
     const png = await _imgBlobToPng(blob);
-    if (png && png.byteLength) return { buf: png, ext: 'png' };
+    if (png && png.byteLength) { _imgDiag.ok++; return { buf: png, ext: 'png' }; }
     // 兜底:本就是 png/jpeg/gif 的原样嵌
     const tp = (blob.type || '').toLowerCase();
-    if (tp.includes('png')) return { buf: await blob.arrayBuffer(), ext: 'png' };
-    if (tp.includes('jpeg') || tp.includes('jpg')) return { buf: await blob.arrayBuffer(), ext: 'jpeg' };
-    if (tp.includes('gif')) return { buf: await blob.arrayBuffer(), ext: 'gif' };
-    return null;
+    if (tp.includes('png')) { _imgDiag.ok++; return { buf: await blob.arrayBuffer(), ext: 'png' }; }
+    if (tp.includes('jpeg') || tp.includes('jpg')) { _imgDiag.ok++; return { buf: await blob.arrayBuffer(), ext: 'jpeg' }; }
+    if (tp.includes('gif')) { _imgDiag.ok++; return { buf: await blob.arrayBuffer(), ext: 'gif' }; }
+    return _fail();
   } catch (e) {
-    return null;
+    return _fail();
   }
 }
 // 用 ExcelJS 构建一张云鼎发票(一个订单)。ref=客户参考号(文件名),sel=选中产品(每个不同产品一行)
@@ -1603,6 +1607,7 @@ function MakeInvoice() {
     const buildFor = (t) => (TPL_COURIERS[t.tplKey] || def).build(t);   // 🆕 河池/信源:每单按自己的 tplKey 选模板
     const zhName = (def && def.zh) || (COURIERS[key] && COURIERS[key].name) || key;
     setExporting(true); setErr('');
+    _imgDiagReset();
     try {
       if (tickets.length === 1) {
         const wb = await buildFor(tickets[0]);
@@ -1625,6 +1630,18 @@ function MakeInvoice() {
         URL.revokeObjectURL(url);
       }
     } catch (e) { setErr('导出失败:' + (e.message || e)); }
+    // 🆕 嵌图诊断:有问题才提示,定位"没图片url" vs "取图失败"
+    try {
+      const d = _imgDiag;
+      if (d.calls > 0 && (d.noUrl > 0 || d.fail > 0)) {
+        let msg = `📷 嵌图诊断 · 共 ${d.calls} 个产品行\n✅ 成功嵌图 ${d.ok}\n⚠️ 无产品图url ${d.noUrl}\n❌ 取图失败 ${d.fail}`;
+        if (d.failUrls.length) msg += `\n\n失败地址样例:\n` + d.failUrls.join('\n');
+        if (d.ok === 0 && d.noUrl > 0) msg += `\n\n→ 订单查询根本没返回产品图地址(接口/数据问题,非格式)。把这段发给跟单:让订单实时查询接口在行项目里带上产品图 image_url。`;
+        else if (d.fail > 0) msg += `\n\n→ 取图失败,多为跨域(CORS)或图片地址失效。把上面失败地址发我。`;
+        console.log('[嵌图诊断]', d);
+        alert(msg);
+      }
+    } catch (e) {}
     setExporting(false);
   };
   const exportExcel = () => {
