@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix158
+// 版本 2026.06.05-fix160
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix158
+// 版本 2026.06.05-fix160
 // 预编译切片
 //
 
@@ -73,7 +73,7 @@ var CSGridCard = function CSGridCard(_ref) {
   })) === null || _employees$find === void 0 ? void 0 : _employees$find.name) || '—';
   var diff = CS_DIFFICULTY_META[r.difficulty];
   var shots = (r.screenshots || []).filter(function (s) {
-    return s && s.data;
+    return s && (s.data || s.url);
   });
   var email = (r.customer || '').trim();
   var shopName = (r.site || '').trim();
@@ -3661,7 +3661,7 @@ var CSModule = function CSModule(_ref2) {
     }, "\uD83D\uDCE6", ev.refills.length), ev.refunds.length > 0 && /*#__PURE__*/React.createElement("span", {
       title: "\u9000\u6B3E"
     }, "\uD83D\uDCB0", ev.refunds.length))), ((_r$screenshots3 = r.screenshots) === null || _r$screenshots3 === void 0 ? void 0 : _r$screenshots3.filter(function (s) {
-      return s && s.data;
+      return s && (s.data || s.url);
     }).length) > 0 && /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
@@ -3670,15 +3670,15 @@ var CSModule = function CSModule(_ref2) {
         marginBottom: editable ? 8 : 0
       }
     }, r.screenshots.filter(function (s) {
-      return s && s.data;
+      return s && (s.data || s.url);
     }).slice(0, 8).map(function (s, i) {
       return /*#__PURE__*/React.createElement("img", {
         key: s.id || i,
-        src: s.data,
+        src: imgDisplaySrc(s),
         alt: s.name || '',
         className: "img-thumb",
         onClick: function onClick() {
-          return setLightboxImg(s.data);
+          return setLightboxImg(imgDisplaySrc(s));
         },
         style: {
           width: 44,
@@ -9891,11 +9891,11 @@ var FollowUpModal = function FollowUpModal(_ref36) {
       key: s.id,
       className: "relative group"
     }, /*#__PURE__*/React.createElement("img", {
-      src: s.data,
+      src: imgDisplaySrc(s),
       alt: s.name,
       className: "thumb",
       onClick: function onClick() {
-        return setViewingImg(s.data);
+        return setViewingImg(imgDisplaySrc(s));
       }
     }), !readonly && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
@@ -9995,11 +9995,11 @@ var FollowUpModal = function FollowUpModal(_ref36) {
       key: s.id,
       className: "relative group"
     }, /*#__PURE__*/React.createElement("img", {
-      src: s.data,
+      src: imgDisplaySrc(s),
       alt: s.name,
       className: "thumb",
       onClick: function onClick() {
-        return setViewingImg(s.data);
+        return setViewingImg(imgDisplaySrc(s));
       }
     }), !readonly && /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {

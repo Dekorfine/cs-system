@@ -1,8 +1,9 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix158
+// 版本 2026.06.05-fix160
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
@@ -23,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix158
+// 版本 2026.06.05-fix160
 // 预编译切片
 //
 
@@ -1537,6 +1538,19 @@ var App = function App() {
     if (cleaned.escalateReason === undefined) cleaned.escalateReason = null;
     // status 不能空
     if (!cleaned.status) cleaned.status = 'pending';
+    // 🆕 IO优化:截图已传 Storage(有 url)的,云端只存 url,不再存 base64(行体积大幅缩小,Disk IO 降)
+    var slimShot = function slimShot(s) {
+      return s && s.url && s.data ? _objectSpread(_objectSpread({}, s), {}, {
+        data: ''
+      }) : s;
+    };
+    if (Array.isArray(cleaned.screenshots)) cleaned.screenshots = cleaned.screenshots.map(slimShot);
+    if (Array.isArray(cleaned.feedbackShots)) cleaned.feedbackShots = cleaned.feedbackShots.map(slimShot);
+    if (Array.isArray(cleaned.followUps)) cleaned.followUps = cleaned.followUps.map(function (f) {
+      return f && Array.isArray(f.screenshots) ? _objectSpread(_objectSpread({}, f), {}, {
+        screenshots: f.screenshots.map(slimShot)
+      }) : f;
+    });
     // 🆕 剥离已被云端拒绝的字段（schema cache 不识别的）
     skipFieldsRef.current.forEach(function (field) {
       delete cleaned[field];
@@ -1544,9 +1558,212 @@ var App = function App() {
     return cleaned;
   };
 
+  // 🆕 IO优化:把记录里的 base64 截图上传到 Storage,记下 url(本会话保留 data 供显示;入库由 sanitize 剥 base64)
+  var ensureRecordShotsUploaded = /*#__PURE__*/function () {
+    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(records) {
+      var uploadShot, _iterator, _step, r, _iterator2, _step2, s, _iterator3, _step3, _s, _iterator4, _step4, f, _iterator5, _step5, _s2, _t4, _t5, _t6, _t7, _t8;
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
+          case 0:
+            uploadShot = /*#__PURE__*/function () {
+              var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(s) {
+                var dataUrl, blob, file, res, _t3;
+                return _regenerator().w(function (_context5) {
+                  while (1) switch (_context5.p = _context5.n) {
+                    case 0:
+                      if (!(!s || s.url || !s.data)) {
+                        _context5.n = 1;
+                        break;
+                      }
+                      return _context5.a(2);
+                    case 1:
+                      _context5.p = 1;
+                      dataUrl = /^data:/i.test(s.data) ? s.data : 'data:' + (s.mime || s.type || 'image/png') + ';base64,' + s.data;
+                      _context5.n = 2;
+                      return fetch(dataUrl);
+                    case 2:
+                      _context5.n = 3;
+                      return _context5.v.blob();
+                    case 3:
+                      blob = _context5.v;
+                      file = new File([blob], s.name || 'shot.png', {
+                        type: blob.type || 'image/png'
+                      });
+                      _context5.n = 4;
+                      return CLOUD.uploadImage('attachments', file, 'cs-records/');
+                    case 4:
+                      res = _context5.v;
+                      if (res && res.url) {
+                        s.url = res.url;
+                        s.path = res.path;
+                      }
+                      _context5.n = 6;
+                      break;
+                    case 5:
+                      _context5.p = 5;
+                      _t3 = _context5.v;
+                      console.warn('截图传Storage失败,保留base64', _t3);
+                    case 6:
+                      return _context5.a(2);
+                  }
+                }, _callee5, null, [[1, 5]]);
+              }));
+              return function uploadShot(_x2) {
+                return _ref13.apply(this, arguments);
+              };
+            }();
+            _iterator = _createForOfIteratorHelper(records || []);
+            _context6.p = 1;
+            _iterator.s();
+          case 2:
+            if ((_step = _iterator.n()).done) {
+              _context6.n = 30;
+              break;
+            }
+            r = _step.value;
+            if (!Array.isArray(r.screenshots)) {
+              _context6.n = 9;
+              break;
+            }
+            _iterator2 = _createForOfIteratorHelper(r.screenshots);
+            _context6.p = 3;
+            _iterator2.s();
+          case 4:
+            if ((_step2 = _iterator2.n()).done) {
+              _context6.n = 6;
+              break;
+            }
+            s = _step2.value;
+            _context6.n = 5;
+            return uploadShot(s);
+          case 5:
+            _context6.n = 4;
+            break;
+          case 6:
+            _context6.n = 8;
+            break;
+          case 7:
+            _context6.p = 7;
+            _t4 = _context6.v;
+            _iterator2.e(_t4);
+          case 8:
+            _context6.p = 8;
+            _iterator2.f();
+            return _context6.f(8);
+          case 9:
+            if (!Array.isArray(r.feedbackShots)) {
+              _context6.n = 16;
+              break;
+            }
+            _iterator3 = _createForOfIteratorHelper(r.feedbackShots);
+            _context6.p = 10;
+            _iterator3.s();
+          case 11:
+            if ((_step3 = _iterator3.n()).done) {
+              _context6.n = 13;
+              break;
+            }
+            _s = _step3.value;
+            _context6.n = 12;
+            return uploadShot(_s);
+          case 12:
+            _context6.n = 11;
+            break;
+          case 13:
+            _context6.n = 15;
+            break;
+          case 14:
+            _context6.p = 14;
+            _t5 = _context6.v;
+            _iterator3.e(_t5);
+          case 15:
+            _context6.p = 15;
+            _iterator3.f();
+            return _context6.f(15);
+          case 16:
+            if (!Array.isArray(r.followUps)) {
+              _context6.n = 29;
+              break;
+            }
+            _iterator4 = _createForOfIteratorHelper(r.followUps);
+            _context6.p = 17;
+            _iterator4.s();
+          case 18:
+            if ((_step4 = _iterator4.n()).done) {
+              _context6.n = 26;
+              break;
+            }
+            f = _step4.value;
+            if (!(f && Array.isArray(f.screenshots))) {
+              _context6.n = 25;
+              break;
+            }
+            _iterator5 = _createForOfIteratorHelper(f.screenshots);
+            _context6.p = 19;
+            _iterator5.s();
+          case 20:
+            if ((_step5 = _iterator5.n()).done) {
+              _context6.n = 22;
+              break;
+            }
+            _s2 = _step5.value;
+            _context6.n = 21;
+            return uploadShot(_s2);
+          case 21:
+            _context6.n = 20;
+            break;
+          case 22:
+            _context6.n = 24;
+            break;
+          case 23:
+            _context6.p = 23;
+            _t6 = _context6.v;
+            _iterator5.e(_t6);
+          case 24:
+            _context6.p = 24;
+            _iterator5.f();
+            return _context6.f(24);
+          case 25:
+            _context6.n = 18;
+            break;
+          case 26:
+            _context6.n = 28;
+            break;
+          case 27:
+            _context6.p = 27;
+            _t7 = _context6.v;
+            _iterator4.e(_t7);
+          case 28:
+            _context6.p = 28;
+            _iterator4.f();
+            return _context6.f(28);
+          case 29:
+            _context6.n = 2;
+            break;
+          case 30:
+            _context6.n = 32;
+            break;
+          case 31:
+            _context6.p = 31;
+            _t8 = _context6.v;
+            _iterator.e(_t8);
+          case 32:
+            _context6.p = 32;
+            _iterator.f();
+            return _context6.f(32);
+          case 33:
+            return _context6.a(2);
+        }
+      }, _callee6, null, [[19, 23, 24, 25], [17, 27, 28, 29], [10, 14, 15, 16], [3, 7, 8, 9], [1, 31, 32, 33]]);
+    }));
+    return function ensureRecordShotsUploaded(_x) {
+      return _ref12.apply(this, arguments);
+    };
+  }();
+
   // 🆕 智能上传 - 检测 schema 错误自动剥离字段重试
   var uploadRecordsWithRetry = /*#__PURE__*/function () {
-    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(recordsToUpload) {
+    var _ref14 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(recordsToUpload) {
       var maxRetries,
         meaningful,
         attempt,
@@ -1556,50 +1773,53 @@ var App = function App() {
         match,
         missingField,
         variants,
-        _args5 = arguments;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.n) {
+        _args7 = arguments;
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.n) {
           case 0:
-            maxRetries = _args5.length > 1 && _args5[1] !== undefined ? _args5[1] : 5;
+            maxRetries = _args7.length > 1 && _args7[1] !== undefined ? _args7[1] : 5;
             // 🆕 过滤掉完全空白的"未填内容"行 - 用户点+加一行但没填任何字段的
             // 已删除的也包括（让 deleted=true 能同步）
             meaningful = (recordsToUpload || []).filter(function (r) {
               return r.deleted || isRecordMeaningful(r);
             });
             if (!(meaningful.length === 0)) {
-              _context5.n = 1;
+              _context7.n = 1;
               break;
             }
-            return _context5.a(2, {
+            return _context7.a(2, {
               ok: true,
               skipped: (recordsToUpload === null || recordsToUpload === void 0 ? void 0 : recordsToUpload.length) || 0
             });
           case 1:
-            attempt = 0;
+            _context7.n = 2;
+            return ensureRecordShotsUploaded(meaningful);
           case 2:
+            attempt = 0;
+          case 3:
             if (!(attempt < maxRetries)) {
-              _context5.n = 6;
+              _context7.n = 7;
               break;
             }
             cleaned = meaningful.map(sanitizeRecordForCloud);
-            _context5.n = 3;
+            _context7.n = 4;
             return CLOUD.client.from('workspace_records').upsert(cleaned);
-          case 3:
-            _yield$CLOUD$client$f2 = _context5.v;
+          case 4:
+            _yield$CLOUD$client$f2 = _context7.v;
             error = _yield$CLOUD$client$f2.error;
             if (error) {
-              _context5.n = 4;
+              _context7.n = 5;
               break;
             }
-            return _context5.a(2, {
+            return _context7.a(2, {
               ok: true
             });
-          case 4:
+          case 5:
             // 成功
             // 提取错误中的字段名："Could not find the 'XXX' column"
             match = (error.message || '').match(/Could not find the '([^']+)' column/i);
             if (!match) {
-              _context5.n = 5;
+              _context7.n = 6;
               break;
             }
             missingField = match[1]; // 🆕 fix8: 剥离任意 schema 缓存里找不到的列(不再限定白名单)
@@ -1614,18 +1834,18 @@ var App = function App() {
             });
             console.warn("[fix8 schema-retry] workspace_records \u7F3A\u5C11\u5217 \"".concat(missingField, "\",\u5DF2\u81EA\u52A8\u5265\u79BB\u91CD\u8BD5 (\u7B2C ").concat(attempt + 1, "/").concat(maxRetries, " \u6B21)\u3002\u5EFA\u8BAE\u4E3B\u7BA1\u5728 Supabase \u8865\u5EFA\u8BE5\u5217\u3002"));
             attempt++;
-            return _context5.a(3, 2);
-          case 5:
-            throw error;
+            return _context7.a(3, 3);
           case 6:
-            throw new Error('多次重试后仍然失败');
+            throw error;
           case 7:
-            return _context5.a(2);
+            throw new Error('多次重试后仍然失败');
+          case 8:
+            return _context7.a(2);
         }
-      }, _callee5);
+      }, _callee7);
     }));
-    return function uploadRecordsWithRetry(_x) {
-      return _ref12.apply(this, arguments);
+    return function uploadRecordsWithRetry(_x3) {
+      return _ref14.apply(this, arguments);
     };
   }();
 
@@ -1638,34 +1858,34 @@ var App = function App() {
     setCloudSyncError = _useState20[1];
   useEffect(function () {
     if (!cloudOn || !user) return;
-    var t = setTimeout(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-      var current, _t3;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+    var t = setTimeout(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
+      var current, _t9;
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.p = _context8.n) {
           case 0:
             current = recordsRef.current;
             if (!(current.length === 0)) {
-              _context6.n = 1;
+              _context8.n = 1;
               break;
             }
-            return _context6.a(2);
+            return _context8.a(2);
           case 1:
-            _context6.p = 1;
-            _context6.n = 2;
+            _context8.p = 1;
+            _context8.n = 2;
             return uploadRecordsWithRetry(current);
           case 2:
             setCloudSyncError(null);
-            _context6.n = 4;
+            _context8.n = 4;
             break;
           case 3:
-            _context6.p = 3;
-            _t3 = _context6.v;
-            console.error('云端写入失败', _t3);
-            setCloudSyncError(_t3.message);
+            _context8.p = 3;
+            _t9 = _context8.v;
+            console.error('云端写入失败', _t9);
+            setCloudSyncError(_t9.message);
           case 4:
-            return _context6.a(2);
+            return _context8.a(2);
         }
-      }, _callee6, null, [[1, 3]]);
+      }, _callee8, null, [[1, 3]]);
     })), 1500);
     return function () {
       return clearTimeout(t);
@@ -1765,8 +1985,8 @@ var App = function App() {
   // 🆕 fix7: 全局申请主管协助 helper — 任何编辑器都可调用 window.__requestSupervisorAssistance(...)
   // 避免给每个 editor 都加 employees / cloudOn / toast props
   useEffect(function () {
-    window.__requestSupervisorAssistance = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
-      var _ref15,
+    window.__requestSupervisorAssistance = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+      var _ref17,
         entityType,
         entityId,
         entityTitle,
@@ -1781,44 +2001,44 @@ var App = function App() {
         ticket,
         _yield$CLOUD$client$f3,
         error,
-        _args7 = arguments,
-        _t4;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.p = _context7.n) {
+        _args9 = arguments,
+        _t0;
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.p = _context9.n) {
           case 0:
-            _ref15 = _args7.length > 0 && _args7[0] !== undefined ? _args7[0] : {}, entityType = _ref15.entityType, entityId = _ref15.entityId, entityTitle = _ref15.entityTitle, level = _ref15.level;
+            _ref17 = _args9.length > 0 && _args9[0] !== undefined ? _args9[0] : {}, entityType = _ref17.entityType, entityId = _ref17.entityId, entityTitle = _ref17.entityTitle, level = _ref17.level;
             if (user) {
-              _context7.n = 1;
+              _context9.n = 1;
               break;
             }
             alert('请先登录');
-            return _context7.a(2);
+            return _context9.a(2);
           case 1:
             // 默认根据角色判断升级目标:staff/finance → admin,admin → super_admin,super_admin 已在顶
             autoLevel = level || (user.role === 'admin' ? 'boss' : 'admin');
             if (!(user.role === 'super_admin')) {
-              _context7.n = 2;
+              _context9.n = 2;
               break;
             }
             alert('你已是最高级别(老板),无需升级');
-            return _context7.a(2);
+            return _context9.a(2);
           case 2:
-            _context7.n = 3;
+            _context9.n = 3;
             return wsPrompt("\uD83D\uDCBC \u7533\u8BF7".concat(autoLevel === 'boss' ? '老板' : '主管', "\u534F\u52A9\n\n\u8BF7\u586B\u5199\u9700\u8981\u5904\u7406\u7684\u539F\u56E0 (\u5C06\u521B\u5EFA\u5DE5\u5355):"), '');
           case 3:
-            reason = _context7.v;
+            reason = _context9.v;
             if (!(reason === null)) {
-              _context7.n = 4;
+              _context9.n = 4;
               break;
             }
-            return _context7.a(2);
+            return _context9.a(2);
           case 4:
             if (reason.trim()) {
-              _context7.n = 5;
+              _context9.n = 5;
               break;
             }
             alert('请填写原因');
-            return _context7.a(2);
+            return _context9.a(2);
           case 5:
             targetRole = autoLevel === 'boss' ? 'super_admin' : 'admin';
             candidates = (employees || []).filter(function (e) {
@@ -1828,11 +2048,11 @@ var App = function App() {
               return e.role === targetRole;
             });
             if (!(allCandidates.length === 0)) {
-              _context7.n = 6;
+              _context9.n = 6;
               break;
             }
             alert("\u6CA1\u6709\u627E\u5230".concat(autoLevel === 'boss' ? '老板' : '主管', "\u8D26\u53F7"));
-            return _context7.a(2);
+            return _context9.a(2);
           case 6:
             target = allCandidates[0];
             targetLabel = autoLevel === 'boss' ? '老板' : '主管';
@@ -1853,39 +2073,39 @@ var App = function App() {
               created_at: nowISO(),
               updated_at: nowISO()
             };
-            _context7.p = 7;
+            _context9.p = 7;
             if (!(cloudOn && CLOUD.client)) {
-              _context7.n = 10;
+              _context9.n = 10;
               break;
             }
-            _context7.n = 8;
+            _context9.n = 8;
             return CLOUD.client.from('workspace_tickets').upsert(ticket);
           case 8:
-            _yield$CLOUD$client$f3 = _context7.v;
+            _yield$CLOUD$client$f3 = _context9.v;
             error = _yield$CLOUD$client$f3.error;
             if (!error) {
-              _context7.n = 9;
+              _context9.n = 9;
               break;
             }
             throw error;
           case 9:
-            _context7.n = 11;
+            _context9.n = 11;
             break;
           case 10:
             STORE.set('tickets_local', [ticket].concat(_toConsumableArray(STORE.get('tickets_local', []))));
           case 11:
             toast("\u2713 \u5DF2\u7533\u8BF7".concat(targetLabel, " ").concat(target.name, " \u534F\u52A9"));
-            _context7.n = 13;
+            _context9.n = 13;
             break;
           case 12:
-            _context7.p = 12;
-            _t4 = _context7.v;
-            alert("\u274C \u7533\u8BF7\u5931\u8D25: ".concat(_t4.message, "\n\n\u5EFA\u8BAE:\u5DE5\u5355\u53EF\u80FD\u672A\u5728\u4E91\u7AEF\u521B\u5EFA,\u4F46\u672C\u5730\u5DF2\u8BB0\u5F55"));
+            _context9.p = 12;
+            _t0 = _context9.v;
+            alert("\u274C \u7533\u8BF7\u5931\u8D25: ".concat(_t0.message, "\n\n\u5EFA\u8BAE:\u5DE5\u5355\u53EF\u80FD\u672A\u5728\u4E91\u7AEF\u521B\u5EFA,\u4F46\u672C\u5730\u5DF2\u8BB0\u5F55"));
             STORE.set('tickets_local', [ticket].concat(_toConsumableArray(STORE.get('tickets_local', []))));
           case 13:
-            return _context7.a(2);
+            return _context9.a(2);
         }
-      }, _callee7, null, [[7, 12]]);
+      }, _callee9, null, [[7, 12]]);
     }));
     return function () {
       delete window.__requestSupervisorAssistance;
@@ -1903,31 +2123,31 @@ var App = function App() {
     setRefundProcessors = _useState28[1];
   useEffect(function () {
     if (!cloudOn || !CLOUD.client) return;
-    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
-      var _data$value2, _yield$CLOUD$client$f4, data, ids, _t5;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.p = _context8.n) {
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+      var _data$value2, _yield$CLOUD$client$f4, data, ids, _t1;
+      return _regenerator().w(function (_context0) {
+        while (1) switch (_context0.p = _context0.n) {
           case 0:
-            _context8.p = 0;
-            _context8.n = 1;
+            _context0.p = 0;
+            _context0.n = 1;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'refund_processors').single();
           case 1:
-            _yield$CLOUD$client$f4 = _context8.v;
+            _yield$CLOUD$client$f4 = _context0.v;
             data = _yield$CLOUD$client$f4.data;
             ids = data === null || data === void 0 || (_data$value2 = data.value) === null || _data$value2 === void 0 ? void 0 : _data$value2.user_ids;
             if (Array.isArray(ids) && ids.length > 0) {
               setRefundProcessors(ids);
               STORE.set('refund_processors_cache', ids);
             }
-            _context8.n = 3;
+            _context0.n = 3;
             break;
           case 2:
-            _context8.p = 2;
-            _t5 = _context8.v;
+            _context0.p = 2;
+            _t1 = _context0.v;
           case 3:
-            return _context8.a(2);
+            return _context0.a(2);
         }
-      }, _callee8, null, [[0, 2]]);
+      }, _callee0, null, [[0, 2]]);
     }))();
   }, [cloudOn]);
 
@@ -1941,26 +2161,26 @@ var App = function App() {
     };
     window.__refundProcessors = refundProcessors;
     window.__setRefundProcessors = /*#__PURE__*/function () {
-      var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(newIds, currentUserName) {
-        var userNames, _yield$CLOUD$client$f5, error, _t6;
-        return _regenerator().w(function (_context9) {
-          while (1) switch (_context9.p = _context9.n) {
+      var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(newIds, currentUserName) {
+        var userNames, _yield$CLOUD$client$f5, error, _t10;
+        return _regenerator().w(function (_context1) {
+          while (1) switch (_context1.p = _context1.n) {
             case 0:
               if (!(!cloudOn || !CLOUD.client)) {
-                _context9.n = 1;
+                _context1.n = 1;
                 break;
               }
               alert('云端未连接,无法保存');
-              return _context9.a(2, false);
+              return _context1.a(2, false);
             case 1:
-              _context9.p = 1;
+              _context1.p = 1;
               userNames = newIds.map(function (id) {
                 var e = (employees || []).find(function (em) {
                   return em.id === id;
                 });
                 return e ? e.name + (e.alias ? ' ' + e.alias : '') : id;
               });
-              _context9.n = 2;
+              _context1.n = 2;
               return CLOUD.client.from('system_settings').upsert({
                 key: 'refund_processors',
                 value: {
@@ -1971,27 +2191,27 @@ var App = function App() {
                 updated_by_name: currentUserName || (user === null || user === void 0 ? void 0 : user.name) || 'unknown'
               });
             case 2:
-              _yield$CLOUD$client$f5 = _context9.v;
+              _yield$CLOUD$client$f5 = _context1.v;
               error = _yield$CLOUD$client$f5.error;
               if (!error) {
-                _context9.n = 3;
+                _context1.n = 3;
                 break;
               }
               throw error;
             case 3:
               setRefundProcessors(newIds);
               STORE.set('refund_processors_cache', newIds);
-              return _context9.a(2, true);
+              return _context1.a(2, true);
             case 4:
-              _context9.p = 4;
-              _t6 = _context9.v;
-              alert('保存退款处理人配置失败: ' + (_t6.message || _t6));
-              return _context9.a(2, false);
+              _context1.p = 4;
+              _t10 = _context1.v;
+              alert('保存退款处理人配置失败: ' + (_t10.message || _t10));
+              return _context1.a(2, false);
           }
-        }, _callee9, null, [[1, 4]]);
+        }, _callee1, null, [[1, 4]]);
       }));
-      return function (_x2, _x3) {
-        return _ref17.apply(this, arguments);
+      return function (_x4, _x5) {
+        return _ref19.apply(this, arguments);
       };
     }();
     return function () {
@@ -2027,7 +2247,7 @@ var App = function App() {
     setCdmTimeoutConfig = _useState36[1];
 
   // 🆕 fix140: 列表轻量列(不含 attachments/thread 巨型 base64)— 初拉与增量补拉共用
-  var CDM_LIST_COLS = 'id,from_system,from_user_id,from_user_name,to_system,to_user_id,to_user_name,category,priority,title,body,related_ref,related_type,related_shop,assigned_to_id,assigned_to_name,assigned_by_id,assigned_by_name,assigned_at_ms,watchers,status,read_by,created_at_ms,updated_at,deleted';
+  var CDM_LIST_COLS = 'id,from_system,from_user_id,from_user_name,to_system,to_user_id,to_user_name,category,priority,title,body,related_ref,related_type,related_shop,assigned_to_id,assigned_to_name,assigned_by_id,assigned_by_name,assigned_at_ms,watchers,status,read_by,created_at_ms,updated_at';
   // 列表态永远不留大列(详情按需取,详情态在各 Modal 局部 state 里)
   var cdmLight = function cdmLight(m) {
     return _objectSpread(_objectSpread({}, m), {}, {
@@ -2044,54 +2264,54 @@ var App = function App() {
     cdmMaxCreatedRef.current = mx;
   };
   var loadCdmMessages = /*#__PURE__*/function () {
-    var _ref18 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
-      var client, cutoffMs, _yield$client$from$se, data, error, fb, _t7;
-      return _regenerator().w(function (_context0) {
-        while (1) switch (_context0.p = _context0.n) {
+    var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+      var client, cutoffMs, _yield$client$from$se, data, error, fb, _t11;
+      return _regenerator().w(function (_context10) {
+        while (1) switch (_context10.p = _context10.n) {
           case 0:
             if (!cdmLoadingRef.current) {
-              _context0.n = 1;
+              _context10.n = 1;
               break;
             }
-            return _context0.a(2);
+            return _context10.a(2);
           case 1:
             // 防止重复请求
             client = getCdmClient();
             if (client) {
-              _context0.n = 2;
+              _context10.n = 2;
               break;
             }
-            return _context0.a(2);
+            return _context10.a(2);
           case 2:
             cdmLoadingRef.current = true;
             setCdmLoading(true);
-            _context0.p = 3;
+            _context10.p = 3;
             // 拉最近 90 天 500 条 · 🆕 fix136: 列表只取轻量列(不含 attachments/thread 巨型 base64),详情再按需取
             cutoffMs = Date.now() - 90 * 24 * 3600 * 1000;
-            _context0.n = 4;
+            _context10.n = 4;
             return client.from('cross_dept_messages').select(CDM_LIST_COLS).gte('created_at_ms', cutoffMs).order('created_at_ms', {
               ascending: false
             }).limit(500);
           case 4:
-            _yield$client$from$se = _context0.v;
+            _yield$client$from$se = _context10.v;
             data = _yield$client$from$se.data;
             error = _yield$client$from$se.error;
             if (!error) {
-              _context0.n = 6;
+              _context10.n = 6;
               break;
             }
             console.warn('[CDM] 轻量列查询失败,回退 select(*):', error.message || error);
-            _context0.n = 5;
+            _context10.n = 5;
             return client.from('cross_dept_messages').select('*').gte('created_at_ms', cutoffMs).order('created_at_ms', {
               ascending: false
             }).limit(500);
           case 5:
-            fb = _context0.v;
+            fb = _context10.v;
             data = fb.data;
             error = fb.error;
           case 6:
             if (!error) {
-              _context0.n = 7;
+              _context10.n = 7;
               break;
             }
             throw error;
@@ -2106,60 +2326,60 @@ var App = function App() {
                 thread: Array.isArray(m.thread) ? m.thread : []
               });
             })); // 🆕 过滤已删除
-            _context0.n = 9;
+            _context10.n = 9;
             break;
           case 8:
-            _context0.p = 8;
-            _t7 = _context0.v;
-            console.warn('[CDM] 加载消息失败', _t7);
+            _context10.p = 8;
+            _t11 = _context10.v;
+            console.warn('[CDM] 加载消息失败', _t11);
           case 9:
             cdmLoadingRef.current = false;
             setCdmLoading(false);
           case 10:
-            return _context0.a(2);
+            return _context10.a(2);
         }
-      }, _callee0, null, [[3, 8]]);
+      }, _callee10, null, [[3, 8]]);
     }));
     return function loadCdmMessages() {
-      return _ref18.apply(this, arguments);
+      return _ref20.apply(this, arguments);
     };
   }();
 
   // 🆕 fix140: realtime 兜底 — payload 不完整时,按时间水位只增量补拉新行(正常返回 0 行,极轻)
   var cdmIncrementalFetch = /*#__PURE__*/function () {
-    var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
-      var client, since, _yield$client$from$se2, data, error, _t8;
-      return _regenerator().w(function (_context1) {
-        while (1) switch (_context1.p = _context1.n) {
+    var _ref21 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+      var client, since, _yield$client$from$se2, data, error, _t12;
+      return _regenerator().w(function (_context11) {
+        while (1) switch (_context11.p = _context11.n) {
           case 0:
             client = getCdmClient();
             if (client) {
-              _context1.n = 1;
+              _context11.n = 1;
               break;
             }
-            return _context1.a(2);
+            return _context11.a(2);
           case 1:
             since = cdmMaxCreatedRef.current;
             if (since) {
-              _context1.n = 2;
+              _context11.n = 2;
               break;
             }
-            return _context1.a(2, loadCdmMessages());
+            return _context11.a(2, loadCdmMessages());
           case 2:
-            _context1.p = 2;
-            _context1.n = 3;
+            _context11.p = 2;
+            _context11.n = 3;
             return client.from('cross_dept_messages').select(CDM_LIST_COLS).gt('created_at_ms', since).order('created_at_ms', {
               ascending: false
             }).limit(200);
           case 3:
-            _yield$client$from$se2 = _context1.v;
+            _yield$client$from$se2 = _context11.v;
             data = _yield$client$from$se2.data;
             error = _yield$client$from$se2.error;
             if (!(error || !data || !data.length)) {
-              _context1.n = 4;
+              _context11.n = 4;
               break;
             }
-            return _context1.a(2);
+            return _context11.a(2);
           case 4:
             cdmBumpWatermark(data);
             setCdmMessages(function (prev) {
@@ -2171,18 +2391,18 @@ var App = function App() {
               }).map(cdmLight); // 🆕 过滤已删除
               return fresh.length ? [].concat(_toConsumableArray(fresh), _toConsumableArray(prev)) : prev;
             });
-            _context1.n = 6;
+            _context11.n = 6;
             break;
           case 5:
-            _context1.p = 5;
-            _t8 = _context1.v;
+            _context11.p = 5;
+            _t12 = _context11.v;
           case 6:
-            return _context1.a(2);
+            return _context11.a(2);
         }
-      }, _callee1, null, [[2, 5]]);
+      }, _callee11, null, [[2, 5]]);
     }));
     return function cdmIncrementalFetch() {
-      return _ref19.apply(this, arguments);
+      return _ref21.apply(this, arguments);
     };
   }();
   var scheduleCdmCatchup = function scheduleCdmCatchup() {
@@ -2194,27 +2414,27 @@ var App = function App() {
 
   // 🆕 v22-CV/CW: 加载 shop_owners 和 cdm_timeout_config
   var loadShopOwners = /*#__PURE__*/function () {
-    var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
-      var client, _yield$client$from$se3, data, error, _t9;
-      return _regenerator().w(function (_context10) {
-        while (1) switch (_context10.p = _context10.n) {
+    var _ref22 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+      var client, _yield$client$from$se3, data, error, _t13;
+      return _regenerator().w(function (_context12) {
+        while (1) switch (_context12.p = _context12.n) {
           case 0:
             client = getCdmClient();
             if (client) {
-              _context10.n = 1;
+              _context12.n = 1;
               break;
             }
-            return _context10.a(2);
+            return _context12.a(2);
           case 1:
-            _context10.p = 1;
-            _context10.n = 2;
+            _context12.p = 1;
+            _context12.n = 2;
             return client.from('shop_owners').select('*').order('shop_name');
           case 2:
-            _yield$client$from$se3 = _context10.v;
+            _yield$client$from$se3 = _context12.v;
             data = _yield$client$from$se3.data;
             error = _yield$client$from$se3.error;
             if (!error) {
-              _context10.n = 3;
+              _context12.n = 3;
               break;
             }
             throw error;
@@ -2231,61 +2451,61 @@ var App = function App() {
                 createdAtMs: r.created_at_ms
               };
             }));
-            _context10.n = 5;
+            _context12.n = 5;
             break;
           case 4:
-            _context10.p = 4;
-            _t9 = _context10.v;
-            console.warn('[CDM] 加载 shop_owners 失败', _t9);
+            _context12.p = 4;
+            _t13 = _context12.v;
+            console.warn('[CDM] 加载 shop_owners 失败', _t13);
           case 5:
-            return _context10.a(2);
+            return _context12.a(2);
         }
-      }, _callee10, null, [[1, 4]]);
+      }, _callee12, null, [[1, 4]]);
     }));
     return function loadShopOwners() {
-      return _ref20.apply(this, arguments);
+      return _ref22.apply(this, arguments);
     };
   }();
   var loadCdmTimeoutConfig = /*#__PURE__*/function () {
-    var _ref21 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
-      var client, _yield$client$from$se4, data, error, _t0;
-      return _regenerator().w(function (_context11) {
-        while (1) switch (_context11.p = _context11.n) {
+    var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+      var client, _yield$client$from$se4, data, error, _t14;
+      return _regenerator().w(function (_context13) {
+        while (1) switch (_context13.p = _context13.n) {
           case 0:
             client = getCdmClient();
             if (client) {
-              _context11.n = 1;
+              _context13.n = 1;
               break;
             }
-            return _context11.a(2);
+            return _context13.a(2);
           case 1:
-            _context11.p = 1;
-            _context11.n = 2;
+            _context13.p = 1;
+            _context13.n = 2;
             return client.from('app_config').select('value').eq('key', 'cdm_timeout_config').maybeSingle();
           case 2:
-            _yield$client$from$se4 = _context11.v;
+            _yield$client$from$se4 = _context13.v;
             data = _yield$client$from$se4.data;
             error = _yield$client$from$se4.error;
             if (!error) {
-              _context11.n = 3;
+              _context13.n = 3;
               break;
             }
             throw error;
           case 3:
             setCdmTimeoutConfig((data === null || data === void 0 ? void 0 : data.value) || {});
-            _context11.n = 5;
+            _context13.n = 5;
             break;
           case 4:
-            _context11.p = 4;
-            _t0 = _context11.v;
-            console.warn('[CDM] 加载 cdm_timeout_config 失败', _t0);
+            _context13.p = 4;
+            _t14 = _context13.v;
+            console.warn('[CDM] 加载 cdm_timeout_config 失败', _t14);
           case 5:
-            return _context11.a(2);
+            return _context13.a(2);
         }
-      }, _callee11, null, [[1, 4]]);
+      }, _callee13, null, [[1, 4]]);
     }));
     return function loadCdmTimeoutConfig() {
-      return _ref21.apply(this, arguments);
+      return _ref23.apply(this, arguments);
     };
   }();
   useEffect(function () {
@@ -2740,53 +2960,53 @@ var App = function App() {
     };
   }, [user]);
   var onLogout = /*#__PURE__*/function () {
-    var _ref22 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
-      return _regenerator().w(function (_context12) {
-        while (1) switch (_context12.n) {
+    var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
+      return _regenerator().w(function (_context14) {
+        while (1) switch (_context14.n) {
           case 0:
-            _context12.n = 1;
+            _context14.n = 1;
             return wsConfirm('确认退出登录？');
           case 1:
-            if (_context12.v) {
-              _context12.n = 2;
+            if (_context14.v) {
+              _context14.n = 2;
               break;
             }
-            return _context12.a(2);
+            return _context14.a(2);
           case 2:
             setUser(null);
             STORE.del('current_user');
             STORE.del('impersonate_origin'); // 清除模拟身份
           case 3:
-            return _context12.a(2);
+            return _context14.a(2);
         }
-      }, _callee12);
+      }, _callee14);
     }));
     return function onLogout() {
-      return _ref22.apply(this, arguments);
+      return _ref24.apply(this, arguments);
     };
   }();
 
   // 🆕 切换账号 - 主管/老板免密查看模式
   var switchAccount = /*#__PURE__*/function () {
-    var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(targetEmployee) {
+    var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(targetEmployee) {
       var isAdminViewer, ok, origin, _newUser, password, newUser;
-      return _regenerator().w(function (_context13) {
-        while (1) switch (_context13.n) {
+      return _regenerator().w(function (_context15) {
+        while (1) switch (_context15.n) {
           case 0:
             isAdminViewer = user && (user.role === 'admin' || user.role === 'super_admin'); // 主管/老板:无需密码,以查看模式切换
             if (!(isAdminViewer && targetEmployee.id !== user.id)) {
-              _context13.n = 3;
+              _context15.n = 3;
               break;
             }
-            _context13.n = 1;
+            _context15.n = 1;
             return wsConfirm("\uD83D\uDC41 \u4EE5 ".concat(targetEmployee.name).concat(targetEmployee.alias ? ' ' + targetEmployee.alias : '', " \u7684\u8EAB\u4EFD\u67E5\u770B\n\n") + "\u8FD9\u662F\u67E5\u770B\u6A21\u5F0F \u2014 \u4F60\u53EF\u4EE5\u770B\u5230\u8BE5\u5458\u5DE5\u7684\u6240\u6709\u6570\u636E,\u9876\u90E8\u4F1A\u663E\u793A\u660E\u663E\u6807\u8BC6,\u968F\u65F6\u53EF\u4E00\u952E\u5207\u56DE\u3002\n\n" + "\u7EE7\u7EED\u5417?");
           case 1:
-            ok = _context13.v;
+            ok = _context15.v;
             if (ok) {
-              _context13.n = 2;
+              _context15.n = 2;
               break;
             }
-            return _context13.a(2);
+            return _context15.a(2);
           case 2:
             // 记录原始身份(切回用)
             origin = STORE.get('impersonate_origin', null);
@@ -2804,31 +3024,31 @@ var App = function App() {
             setUser(_newUser);
             STORE.set('current_user', _newUser);
             toast("\uD83D\uDC41 \u5DF2\u5207\u6362\u5230 ".concat(_newUser.name, " \u89C6\u89D2 \xB7 \u9876\u90E8\u53EF\u4E00\u952E\u5207\u56DE"));
-            return _context13.a(2);
+            return _context15.a(2);
           case 3:
-            _context13.n = 4;
+            _context15.n = 4;
             return wsPrompt("\u5207\u6362\u5230 ".concat(targetEmployee.name).concat(targetEmployee.alias ? ' ' + targetEmployee.alias : '', " \u7684\u8D26\u53F7\n\n\u8BF7\u8F93\u5165\u8BE5\u8D26\u53F7\u7684\u5BC6\u7801\uFF1A"));
           case 4:
-            password = _context13.v;
+            password = _context15.v;
             if (!(password === null)) {
-              _context13.n = 5;
+              _context15.n = 5;
               break;
             }
-            return _context13.a(2);
+            return _context15.a(2);
           case 5:
             if (password) {
-              _context13.n = 6;
+              _context15.n = 6;
               break;
             }
             alert('密码不能为空');
-            return _context13.a(2);
+            return _context15.a(2);
           case 6:
             if (!(password !== targetEmployee.password)) {
-              _context13.n = 7;
+              _context15.n = 7;
               break;
             }
             alert('❌ 密码错误');
-            return _context13.a(2);
+            return _context15.a(2);
           case 7:
             newUser = _objectSpread({}, targetEmployee);
             setUser(newUser);
@@ -2836,12 +3056,12 @@ var App = function App() {
             STORE.del('impersonate_origin');
             toast("\u2713 \u5DF2\u5207\u6362\u5230 ".concat(newUser.name).concat(newUser.alias ? ' ' + newUser.alias : ''));
           case 8:
-            return _context13.a(2);
+            return _context15.a(2);
         }
-      }, _callee13);
+      }, _callee15);
     }));
-    return function switchAccount(_x4) {
-      return _ref23.apply(this, arguments);
+    return function switchAccount(_x6) {
+      return _ref25.apply(this, arguments);
     };
   }();
 
@@ -2954,13 +3174,13 @@ var App = function App() {
     var isAdminRole = user.role === 'admin' || user.role === 'super_admin';
     if (!isAdminRole) return;
     var fetchDR = /*#__PURE__*/function () {
-      var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
-        var data, _t1;
-        return _regenerator().w(function (_context14) {
-          while (1) switch (_context14.p = _context14.n) {
+      var _ref26 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
+        var data, _t15;
+        return _regenerator().w(function (_context16) {
+          while (1) switch (_context16.p = _context16.n) {
             case 0:
-              _context14.p = 0;
-              _context14.n = 1;
+              _context16.p = 0;
+              _context16.n = 1;
               return CLOUD.list('delete_requests', {
                 order: {
                   col: 'requested_at',
@@ -2969,20 +3189,20 @@ var App = function App() {
                 limit: 200
               });
             case 1:
-              data = _context14.v;
+              data = _context16.v;
               STORE.set('delete_requests_cache', data || []);
-              _context14.n = 3;
+              _context16.n = 3;
               break;
             case 2:
-              _context14.p = 2;
-              _t1 = _context14.v;
+              _context16.p = 2;
+              _t15 = _context16.v;
             case 3:
-              return _context14.a(2);
+              return _context16.a(2);
           }
-        }, _callee14, null, [[0, 2]]);
+        }, _callee16, null, [[0, 2]]);
       }));
       return function fetchDR() {
-        return _ref24.apply(this, arguments);
+        return _ref26.apply(this, arguments);
       };
     }();
     fetchDR();
@@ -3279,13 +3499,13 @@ var App = function App() {
       color: '#854d0e'
     }
   }, "\u26A0 ", /*#__PURE__*/React.createElement("strong", null, "\u4E91\u7AEF\u5199\u5165\u5931\u8D25"), "\uFF1A", cloudSyncError.slice(0, 100), " \xB7 \u6570\u636E\u53EF\u80FD\u672A\u540C\u6B65\u5230\u4E91\u7AEF \xB7", /*#__PURE__*/React.createElement("button", {
-    onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
-      var skipped, _t10;
-      return _regenerator().w(function (_context15) {
-        while (1) switch (_context15.p = _context15.n) {
+    onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
+      var skipped, _t16;
+      return _regenerator().w(function (_context17) {
+        while (1) switch (_context17.p = _context17.n) {
           case 0:
-            _context15.p = 0;
-            _context15.n = 1;
+            _context17.p = 0;
+            _context17.n = 1;
             return uploadRecordsWithRetry(records);
           case 1:
             setCloudSyncError(null);
@@ -3295,17 +3515,17 @@ var App = function App() {
             } else {
               toast("\u2713 \u5DF2\u6210\u529F\u4E0A\u4F20 ".concat(records.length, " \u6761\u8BB0\u5F55\u5230\u4E91\u7AEF"));
             }
-            _context15.n = 3;
+            _context17.n = 3;
             break;
           case 2:
-            _context15.p = 2;
-            _t10 = _context15.v;
-            setCloudSyncError(_t10.message);
-            alert('❌ 上传失败：' + _t10.message);
+            _context17.p = 2;
+            _t16 = _context17.v;
+            setCloudSyncError(_t16.message);
+            alert('❌ 上传失败：' + _t16.message);
           case 3:
-            return _context15.a(2);
+            return _context17.a(2);
         }
-      }, _callee15, null, [[0, 2]]);
+      }, _callee17, null, [[0, 2]]);
     })),
     style: {
       marginLeft: 8,
@@ -3517,9 +3737,9 @@ var App = function App() {
     allTabs: allTabs,
     layoutPrefs: layoutPrefs,
     defaultTopKeys: DEFAULT_TOP_KEYS,
-    onSave: function onSave(_ref26) {
-      var newTopKeys = _ref26.topKeys,
-        newSidebarOrder = _ref26.sidebarOrder;
+    onSave: function onSave(_ref28) {
+      var newTopKeys = _ref28.topKeys,
+        newSidebarOrder = _ref28.sidebarOrder;
       return setLayoutPrefs(function (p) {
         return _objectSpread(_objectSpread({}, p), {}, {
           topKeys: newTopKeys,
@@ -3534,7 +3754,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix158';
+var APP_VERSION = '2026.06.05-fix160';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

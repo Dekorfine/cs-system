@@ -1,11 +1,12 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix158
+// 版本 2026.06.05-fix160
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _regeneratorValues(e) { if (null != e) { var t = e["function" == typeof Symbol && Symbol.iterator || "@@iterator"], r = 0; if (t) return t.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) return { next: function next() { return e && r >= e.length && (e = void 0), { value: e && e[r++], done: !e }; } }; } throw new TypeError(_typeof(e) + " is not iterable"); }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i["return"]) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
@@ -23,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix158
+// 版本 2026.06.05-fix160
 // 预编译切片
 //
 
@@ -461,22 +462,29 @@ var CLOUD = {
     var _arguments = arguments,
       _this2 = this;
     return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-      var opts, HEAVY, sel, runQuery, _yield$runQuery, data, error, _yield$runQuery2, _t2;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
+      var opts, HEAVY, sel, runQuery, _yield$runQuery, data, error, guard, _loop, _ret, _yield$runQuery2, _t2;
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
             opts = _arguments.length > 1 && _arguments[1] !== undefined ? _arguments[1] : {};
             if (_this2.client) {
-              _context3.n = 1;
+              _context4.n = 1;
               break;
             }
-            return _context3.a(2, null);
+            return _context4.a(2, null);
           case 1:
             // 🆕 fix139: 重表默认排除大体积列(图片 base64),列表秒开;详情/展开再按需取
             HEAVY = {
-              chargebacks: 'id,amount,currency,status,site,order_no,customer_name,customer_email,platform,reason,reason_detail,resolution,notes,deadline,opened_at,created_at,updated_at,created_by,created_by_name,assigned_to,assigned_to_names,assigned_at,resolved_at,cs_fault,cs_fault_emp,deleted'
+              chargebacks: 'id,amount,currency,status,site,order_no,customer_name,customer_email,platform,reason,reason_detail,resolution,notes,deadline,opened_at,created_at,updated_at,created_by,created_by_name,assigned_to,assigned_to_names,assigned_at,resolved_at,cs_fault,cs_fault_emp'
             };
-            sel = opts.select || !opts.full && HEAVY[table] || '*';
+            sel = opts.select || !opts.full && HEAVY[table] || '*'; // 🆕 IO优化:预先剥掉本会话已知缺失的列,避免每次先报错再回退
+            if (sel !== '*' && _this2._missingColumns[table] && _this2._missingColumns[table].size) {
+              sel = sel.split(',').map(function (c) {
+                return c.trim();
+              }).filter(function (c) {
+                return c && !_this2._missingColumns[table].has(c);
+              }).join(',') || '*';
+            }
             runQuery = /*#__PURE__*/function () {
               var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(selStr) {
                 var q;
@@ -505,40 +513,101 @@ var CLOUD = {
                 return _ref.apply(this, arguments);
               };
             }();
-            _context3.p = 2;
-            _context3.n = 3;
+            _context4.p = 2;
+            _context4.n = 3;
             return runQuery(sel);
           case 3:
-            _yield$runQuery = _context3.v;
+            _yield$runQuery = _context4.v;
             data = _yield$runQuery.data;
             error = _yield$runQuery.error;
-            if (!(error && sel !== '*')) {
-              _context3.n = 5;
+            // 🆕 IO优化:精简列里若有不存在的列 → 只剥掉那一列重查(不要直接 select(*),否则把 base64 大字段全拉,Disk IO 暴涨)
+            guard = 0;
+            _loop = /*#__PURE__*/_regenerator().m(function _loop() {
+              var msg, m, bad, _yield$runQuery3;
+              return _regenerator().w(function (_context3) {
+                while (1) switch (_context3.n) {
+                  case 0:
+                    msg = error.message || '';
+                    m = msg.match(/column\s+(?:[\w]+\.)?["']?([\w]+)["']?\s+does not exist/i) || msg.match(/Could not find the '([^']+)' column/i);
+                    bad = m && (m[1] || m[2]);
+                    if (bad) {
+                      _context3.n = 1;
+                      break;
+                    }
+                    return _context3.a(2, 0);
+                  case 1:
+                    if (!_this2._missingColumns[table]) _this2._missingColumns[table] = new Set();
+                    _this2._missingColumns[table].add(bad);
+                    _this2._persistMissing();
+                    sel = sel.split(',').map(function (c) {
+                      return c.trim();
+                    }).filter(function (c) {
+                      return c && c !== bad;
+                    }).join(',');
+                    console.warn('[list] ' + table + ' 列 "' + bad + '" 不存在,剥离后重查(不拉全列)');
+                    if (sel) {
+                      _context3.n = 2;
+                      break;
+                    }
+                    sel = '*';
+                    return _context3.a(2, 0);
+                  case 2:
+                    _context3.n = 3;
+                    return runQuery(sel);
+                  case 3:
+                    _yield$runQuery3 = _context3.v;
+                    data = _yield$runQuery3.data;
+                    error = _yield$runQuery3.error;
+                    guard++;
+                  case 4:
+                    return _context3.a(2);
+                }
+              }, _loop);
+            });
+          case 4:
+            if (!(error && sel !== '*' && guard < 8)) {
+              _context4.n = 7;
               break;
             }
-            // 精简列出错(列名不符等)→ 回退全列,绝不让列表崩
-            console.warn('[fix139] list ' + table + ' 精简列失败,回退 select(*)', error.message);
-            _context3.n = 4;
+            return _context4.d(_regeneratorValues(_loop()), 5);
+          case 5:
+            _ret = _context4.v;
+            if (!(_ret === 0)) {
+              _context4.n = 6;
+              break;
+            }
+            return _context4.a(3, 7);
+          case 6:
+            _context4.n = 4;
+            break;
+          case 7:
+            if (!(error && sel !== '*')) {
+              _context4.n = 9;
+              break;
+            }
+            // 仍出错才最后兜底全列,绝不让列表崩
+            console.warn('[list] ' + table + ' 精简列仍失败,最后回退 select(*)', error.message);
+            _context4.n = 8;
             return runQuery('*');
-          case 4:
-            _yield$runQuery2 = _context3.v;
+          case 8:
+            _yield$runQuery2 = _context4.v;
             data = _yield$runQuery2.data;
             error = _yield$runQuery2.error;
-          case 5:
+          case 9:
             if (!error) {
-              _context3.n = 6;
+              _context4.n = 10;
               break;
             }
             throw error;
-          case 6:
-            return _context3.a(2, data || []);
-          case 7:
-            _context3.p = 7;
-            _t2 = _context3.v;
+          case 10:
+            return _context4.a(2, data || []);
+          case 11:
+            _context4.p = 11;
+            _t2 = _context4.v;
             console.error('CLOUD.list', table, _t2);
-            return _context3.a(2, null);
+            return _context4.a(2, null);
         }
-      }, _callee3, null, [[2, 7]]);
+      }, _callee3, null, [[2, 11]]);
     }))();
   },
   _lastError: null,
@@ -589,19 +658,19 @@ var CLOUD = {
       _this4 = this;
     return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
       var _retryCount, known, cleanRow, _yield$_this4$client$, data, error, colMatch, missing, stripped, _t3;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
+      return _regenerator().w(function (_context5) {
+        while (1) switch (_context5.p = _context5.n) {
           case 0:
             _retryCount = _arguments2.length > 2 && _arguments2[2] !== undefined ? _arguments2[2] : 0;
             if (_this4.client) {
-              _context4.n = 1;
+              _context5.n = 1;
               break;
             }
             _this4._lastError = {
               message: '云同步未配置或离线模式',
               table: table
             };
-            return _context4.a(2, null);
+            return _context5.a(2, null);
           case 1:
             // 先剥离已知该表缺失的字段
             known = _this4._missingColumns[table];
@@ -612,22 +681,22 @@ var CLOUD = {
                 delete cleanRow[col];
               });
             }
-            _context4.p = 2;
-            _context4.n = 3;
+            _context5.p = 2;
+            _context5.n = 3;
             return _this4.client.from(table).upsert(cleanRow).select();
           case 3:
-            _yield$_this4$client$ = _context4.v;
+            _yield$_this4$client$ = _context5.v;
             data = _yield$_this4$client$.data;
             error = _yield$_this4$client$.error;
             if (!error) {
-              _context4.n = 5;
+              _context5.n = 5;
               break;
             }
             // 🆕 fix8: 检测 "Could not find the 'X' column of 'TABLE' in the schema cache" (PGRST204)
             // 自动剥离该字段重试 (最多 5 次,避免死循环)
             colMatch = (error.message || '').match(/Could not find the '([^']+)' column/i);
             if (!(colMatch && _retryCount < 5)) {
-              _context4.n = 4;
+              _context5.n = 4;
               break;
             }
             missing = colMatch[1];
@@ -637,7 +706,7 @@ var CLOUD = {
             _this4._retryStats.total++; // 🆕 fix140: 诊断计数
             _this4._retryStats.byTable[table] = (_this4._retryStats.byTable[table] || 0) + 1;
             console.warn("[fix8 schema-retry] \u8868 \"".concat(table, "\" \u7F3A\u5C11\u5217 \"").concat(missing, "\",\u81EA\u52A8\u5265\u79BB\u91CD\u8BD5 (\u7B2C ").concat(_retryCount + 1, "/5 \u6B21)"));
-            return _context4.a(2, _this4.upsert(table, row, _retryCount + 1));
+            return _context5.a(2, _this4.upsert(table, row, _retryCount + 1));
           case 4:
             // 详细错误信息保留
             _this4._lastError = {
@@ -661,10 +730,10 @@ var CLOUD = {
               stripped = _toConsumableArray(_this4._missingColumns[table] || []).join(', ');
               console.warn("[fix8 schema-retry] \u5DF2\u4FDD\u5B58\u5230 \"".concat(table, "\",\u4F46\u5265\u79BB\u4E86\u4E91\u7AEF\u4E0D\u8BC6\u522B\u7684\u5B57\u6BB5: ").concat(stripped, "\u3002\u5EFA\u8BAE\u4E3B\u7BA1\u5728 Supabase SQL Editor \u8865\u5EFA\u76F8\u5E94\u5217\u3002"));
             }
-            return _context4.a(2, data);
+            return _context5.a(2, data);
           case 6:
-            _context4.p = 6;
-            _t3 = _context4.v;
+            _context5.p = 6;
+            _t3 = _context5.v;
             if (!_this4._lastError) {
               _this4._lastError = {
                 message: _t3.message || String(_t3),
@@ -672,7 +741,7 @@ var CLOUD = {
               };
             }
             console.error('CLOUD.upsert', table, _t3);
-            return _context4.a(2, null);
+            return _context5.a(2, null);
         }
       }, _callee4, null, [[2, 6]]);
     }))();
@@ -681,33 +750,33 @@ var CLOUD = {
     var _this5 = this;
     return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
       var _yield$_this5$client$, error, _t4;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.p = _context5.n) {
+      return _regenerator().w(function (_context6) {
+        while (1) switch (_context6.p = _context6.n) {
           case 0:
             if (_this5.client) {
-              _context5.n = 1;
+              _context6.n = 1;
               break;
             }
-            return _context5.a(2, false);
+            return _context6.a(2, false);
           case 1:
-            _context5.p = 1;
-            _context5.n = 2;
+            _context6.p = 1;
+            _context6.n = 2;
             return _this5.client.from(table)["delete"]().eq('id', id);
           case 2:
-            _yield$_this5$client$ = _context5.v;
+            _yield$_this5$client$ = _context6.v;
             error = _yield$_this5$client$.error;
             if (!error) {
-              _context5.n = 3;
+              _context6.n = 3;
               break;
             }
             throw error;
           case 3:
-            return _context5.a(2, true);
+            return _context6.a(2, true);
           case 4:
-            _context5.p = 4;
-            _t4 = _context5.v;
+            _context6.p = 4;
+            _t4 = _context6.v;
             console.error('CLOUD.del', table, _t4);
-            return _context5.a(2, false);
+            return _context6.a(2, false);
         }
       }, _callee5, null, [[1, 4]]);
     }))();
@@ -718,45 +787,45 @@ var CLOUD = {
       _this6 = this;
     return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
       var prefix, _file$name, ext, fname, _yield$_this6$client$, data, error, _this6$client$storage, urlData, _t5;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.p = _context7.n) {
           case 0:
             prefix = _arguments3.length > 2 && _arguments3[2] !== undefined ? _arguments3[2] : '';
             if (_this6.client) {
-              _context6.n = 1;
+              _context7.n = 1;
               break;
             }
-            return _context6.a(2, null);
+            return _context7.a(2, null);
           case 1:
-            _context6.p = 1;
+            _context7.p = 1;
             ext = (((_file$name = file.name) === null || _file$name === void 0 ? void 0 : _file$name.split('.').pop()) || 'png').toLowerCase();
             fname = "".concat(prefix).concat(Date.now(), "_").concat(Math.random().toString(36).slice(2, 7), ".").concat(ext);
-            _context6.n = 2;
+            _context7.n = 2;
             return _this6.client.storage.from(bucket).upload(fname, file, {
               upsert: false,
               contentType: file.type || 'image/png'
             });
           case 2:
-            _yield$_this6$client$ = _context6.v;
+            _yield$_this6$client$ = _context7.v;
             data = _yield$_this6$client$.data;
             error = _yield$_this6$client$.error;
             if (!error) {
-              _context6.n = 3;
+              _context7.n = 3;
               break;
             }
             throw error;
           case 3:
             _this6$client$storage = _this6.client.storage.from(bucket).getPublicUrl(data.path), urlData = _this6$client$storage.data;
-            return _context6.a(2, {
+            return _context7.a(2, {
               path: data.path,
               url: urlData.publicUrl
             });
           case 4:
-            _context6.p = 4;
-            _t5 = _context6.v;
+            _context7.p = 4;
+            _t5 = _context7.v;
             console.error('CLOUD.uploadImage', _t5);
             _this6._lastError = _t5;
-            return _context6.a(2, null);
+            return _context7.a(2, null);
         }
       }, _callee6, null, [[1, 4]]);
     }))();
@@ -765,33 +834,33 @@ var CLOUD = {
     var _this7 = this;
     return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
       var _yield$_this7$client$, error, _t6;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.p = _context7.n) {
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.p = _context8.n) {
           case 0:
             if (_this7.client) {
-              _context7.n = 1;
+              _context8.n = 1;
               break;
             }
-            return _context7.a(2, false);
+            return _context8.a(2, false);
           case 1:
-            _context7.p = 1;
-            _context7.n = 2;
+            _context8.p = 1;
+            _context8.n = 2;
             return _this7.client.storage.from(bucket).remove([path]);
           case 2:
-            _yield$_this7$client$ = _context7.v;
+            _yield$_this7$client$ = _context8.v;
             error = _yield$_this7$client$.error;
             if (!error) {
-              _context7.n = 3;
+              _context8.n = 3;
               break;
             }
             throw error;
           case 3:
-            return _context7.a(2, true);
+            return _context8.a(2, true);
           case 4:
-            _context7.p = 4;
-            _t6 = _context7.v;
+            _context8.p = 4;
+            _t6 = _context8.v;
             console.error('CLOUD.deleteImage', _t6);
-            return _context7.a(2, false);
+            return _context8.a(2, false);
         }
       }, _callee7, null, [[1, 4]]);
     }))();
@@ -802,36 +871,36 @@ var CLOUD = {
       _this8 = this;
     return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
       var prefix, safeName, fname, _yield$_this8$client$, data, error, _this8$client$storage, urlData, _t7;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.p = _context8.n) {
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.p = _context9.n) {
           case 0:
             prefix = _arguments4.length > 2 && _arguments4[2] !== undefined ? _arguments4[2] : '';
             if (_this8.client) {
-              _context8.n = 1;
+              _context9.n = 1;
               break;
             }
-            return _context8.a(2, null);
+            return _context9.a(2, null);
           case 1:
-            _context8.p = 1;
+            _context9.p = 1;
             safeName = (file.name || 'file').replace(/[^\w\u4e00-\u9fa5.-]/g, '_').slice(0, 80);
             fname = "".concat(prefix).concat(Date.now(), "_").concat(Math.random().toString(36).slice(2, 7), "_").concat(safeName);
-            _context8.n = 2;
+            _context9.n = 2;
             return _this8.client.storage.from(bucket).upload(fname, file, {
               upsert: false,
               contentType: file.type || 'application/octet-stream'
             });
           case 2:
-            _yield$_this8$client$ = _context8.v;
+            _yield$_this8$client$ = _context9.v;
             data = _yield$_this8$client$.data;
             error = _yield$_this8$client$.error;
             if (!error) {
-              _context8.n = 3;
+              _context9.n = 3;
               break;
             }
             throw error;
           case 3:
             _this8$client$storage = _this8.client.storage.from(bucket).getPublicUrl(data.path), urlData = _this8$client$storage.data;
-            return _context8.a(2, {
+            return _context9.a(2, {
               path: data.path,
               url: urlData.publicUrl,
               name: file.name,
@@ -839,10 +908,10 @@ var CLOUD = {
               type: file.type || 'application/octet-stream'
             });
           case 4:
-            _context8.p = 4;
-            _t7 = _context8.v;
+            _context9.p = 4;
+            _t7 = _context9.v;
             console.error('CLOUD.uploadFile', _t7);
-            return _context8.a(2, null);
+            return _context9.a(2, null);
         }
       }, _callee8, null, [[1, 4]]);
     }))();
@@ -888,14 +957,14 @@ function notifyCoordinator(_x2, _x3, _x4) {
 function _notifyCoordinator() {
   _notifyCoordinator = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(kind, eventData, creator) {
     var kindLabel, targetId, summary, _ISSUE_TYPES$find, issue, itemsList, _REFUND_TYPES$find, type, ticket, _t8;
-    return _regenerator().w(function (_context9) {
-      while (1) switch (_context9.p = _context9.n) {
+    return _regenerator().w(function (_context0) {
+      while (1) switch (_context0.p = _context0.n) {
         case 0:
           if (CLOUD.client) {
-            _context9.n = 1;
+            _context0.n = 1;
             break;
           }
-          return _context9.a(2);
+          return _context0.a(2);
         case 1:
           // 离线模式跳过
           kindLabel = kind === 'aftersale' ? '🔧 售后' : kind === 'refill' ? '📦 补件' : '💰 退款';
@@ -934,25 +1003,25 @@ function _notifyCoordinator() {
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           };
-          _context9.p = 2;
+          _context0.p = 2;
           if (CLOUD.client) {
-            _context9.n = 3;
+            _context0.n = 3;
             break;
           }
-          return _context9.a(2);
+          return _context0.a(2);
         case 3:
-          _context9.n = 4;
+          _context0.n = 4;
           return CLOUD.client.from('workspace_tickets').upsert(ticket);
         case 4:
-          _context9.n = 6;
+          _context0.n = 6;
           break;
         case 5:
-          _context9.p = 5;
-          _t8 = _context9.v;
+          _context0.p = 5;
+          _t8 = _context0.v;
           console.warn('自动通知协调员失败:', _t8.message);
           // 不阻塞主流程
         case 6:
-          return _context9.a(2);
+          return _context0.a(2);
       }
     }, _callee9, null, [[2, 5]]);
   }));
@@ -1373,44 +1442,44 @@ function _prReviewsList() {
       _yield$q,
       data,
       error,
-      _args0 = arguments,
+      _args1 = arguments,
       _t9;
-    return _regenerator().w(function (_context0) {
-      while (1) switch (_context0.p = _context0.n) {
+    return _regenerator().w(function (_context1) {
+      while (1) switch (_context1.p = _context1.n) {
         case 0:
-          opts = _args0.length > 0 && _args0[0] !== undefined ? _args0[0] : {};
+          opts = _args1.length > 0 && _args1[0] !== undefined ? _args1[0] : {};
           c = getCdmClient();
           if (c) {
-            _context0.n = 1;
+            _context1.n = 1;
             break;
           }
-          return _context0.a(2, null);
+          return _context1.a(2, null);
         case 1:
-          _context0.p = 1;
+          _context1.p = 1;
           q = c.from('product_reviews').select('*');
           if (opts.order) q = q.order(opts.order.col, {
             ascending: opts.order.asc !== false
           });
           if (opts.limit) q = q.limit(opts.limit);
-          _context0.n = 2;
+          _context1.n = 2;
           return q;
         case 2:
-          _yield$q = _context0.v;
+          _yield$q = _context1.v;
           data = _yield$q.data;
           error = _yield$q.error;
           if (!error) {
-            _context0.n = 3;
+            _context1.n = 3;
             break;
           }
           console.error('[product_reviews] list 失败', error);
-          return _context0.a(2, null);
+          return _context1.a(2, null);
         case 3:
-          return _context0.a(2, data || []);
+          return _context1.a(2, data || []);
         case 4:
-          _context0.p = 4;
-          _t9 = _context0.v;
+          _context1.p = 4;
+          _t9 = _context1.v;
           console.error('[product_reviews] list 异常', _t9);
-          return _context0.a(2, null);
+          return _context1.a(2, null);
       }
     }, _callee0, null, [[1, 4]]);
   }));
@@ -1422,36 +1491,36 @@ function prReviewUpsert(_x5) {
 function _prReviewUpsert() {
   _prReviewUpsert = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(row) {
     var c, _yield$c$from$upsert$, data, error, _t0;
-    return _regenerator().w(function (_context1) {
-      while (1) switch (_context1.p = _context1.n) {
+    return _regenerator().w(function (_context10) {
+      while (1) switch (_context10.p = _context10.n) {
         case 0:
           c = getCdmClient();
           if (c) {
-            _context1.n = 1;
+            _context10.n = 1;
             break;
           }
-          return _context1.a(2, null);
+          return _context10.a(2, null);
         case 1:
-          _context1.p = 1;
-          _context1.n = 2;
+          _context10.p = 1;
+          _context10.n = 2;
           return c.from('product_reviews').upsert(row).select();
         case 2:
-          _yield$c$from$upsert$ = _context1.v;
+          _yield$c$from$upsert$ = _context10.v;
           data = _yield$c$from$upsert$.data;
           error = _yield$c$from$upsert$.error;
           if (!error) {
-            _context1.n = 3;
+            _context10.n = 3;
             break;
           }
           console.error('[product_reviews] upsert 失败', error);
-          return _context1.a(2, null);
+          return _context10.a(2, null);
         case 3:
-          return _context1.a(2, data);
+          return _context10.a(2, data);
         case 4:
-          _context1.p = 4;
-          _t0 = _context1.v;
+          _context10.p = 4;
+          _t0 = _context10.v;
           console.error('[product_reviews] upsert 异常', _t0);
-          return _context1.a(2, null);
+          return _context10.a(2, null);
       }
     }, _callee1, null, [[1, 4]]);
   }));
@@ -1466,28 +1535,28 @@ function prReviewInsert(_x6) {
 function _prReviewInsert() {
   _prReviewInsert = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(rows) {
     var c, _yield$c$from$insert, error;
-    return _regenerator().w(function (_context10) {
-      while (1) switch (_context10.n) {
+    return _regenerator().w(function (_context11) {
+      while (1) switch (_context11.n) {
         case 0:
           c = getCdmClient();
           if (c) {
-            _context10.n = 1;
+            _context11.n = 1;
             break;
           }
           throw new Error('共享库(消息总线)未初始化');
         case 1:
-          _context10.n = 2;
+          _context11.n = 2;
           return c.from('product_reviews').insert(rows);
         case 2:
-          _yield$c$from$insert = _context10.v;
+          _yield$c$from$insert = _context11.v;
           error = _yield$c$from$insert.error;
           if (!error) {
-            _context10.n = 3;
+            _context11.n = 3;
             break;
           }
           throw error;
         case 3:
-          return _context10.a(2);
+          return _context11.a(2);
       }
     }, _callee10);
   }));
@@ -1504,12 +1573,12 @@ function publishMyStaff(_x7, _x8) {
 function _publishMyStaff() {
   _publishMyStaff = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(staffList, updatedBy) {
     var client, rows, _yield$client$from$up, error;
-    return _regenerator().w(function (_context11) {
-      while (1) switch (_context11.n) {
+    return _regenerator().w(function (_context12) {
+      while (1) switch (_context12.n) {
         case 0:
           client = getCdmClient();
           if (client) {
-            _context11.n = 1;
+            _context12.n = 1;
             break;
           }
           throw new Error('消息总线未初始化');
@@ -1543,15 +1612,15 @@ function _publishMyStaff() {
               updated_by: updatedBy || 'system'
             };
           });
-          _context11.n = 2;
+          _context12.n = 2;
           return client.from('org_directory').upsert(rows, {
             onConflict: 'id'
           });
         case 2:
-          _yield$client$from$up = _context11.v;
+          _yield$client$from$up = _context12.v;
           error = _yield$client$from$up.error;
           if (!error) {
-            _context11.n = 3;
+            _context12.n = 3;
             break;
           }
           throw error;
@@ -1560,7 +1629,7 @@ function _publishMyStaff() {
             ts: 0,
             data: null
           }; // 🆕 fix140: 发布后失效缓存,下次 load 拿最新
-          return _context11.a(2, rows.length);
+          return _context12.a(2, rows.length);
       }
     }, _callee11);
   }));
@@ -1583,39 +1652,39 @@ function _loadOrgDirectory() {
       data,
       error,
       mapped,
-      _args12 = arguments;
-    return _regenerator().w(function (_context12) {
-      while (1) switch (_context12.n) {
+      _args13 = arguments;
+    return _regenerator().w(function (_context13) {
+      while (1) switch (_context13.n) {
         case 0:
-          force = _args12.length > 0 && _args12[0] !== undefined ? _args12[0] : false;
+          force = _args13.length > 0 && _args13[0] !== undefined ? _args13[0] : false;
           now = Date.now();
           if (!(!force && _orgDirCache.data && now - _orgDirCache.ts < ORG_DIR_TTL)) {
-            _context12.n = 1;
+            _context13.n = 1;
             break;
           }
-          return _context12.a(2, _orgDirCache.data);
+          return _context13.a(2, _orgDirCache.data);
         case 1:
           client = getCdmClient();
           if (client) {
-            _context12.n = 2;
+            _context13.n = 2;
             break;
           }
-          return _context12.a(2, _orgDirCache.data || []);
+          return _context13.a(2, _orgDirCache.data || []);
         case 2:
-          _context12.n = 3;
+          _context13.n = 3;
           return client.from('org_directory').select('*').order('sort_order', {
             ascending: true
           });
         case 3:
-          _yield$client$from$se = _context12.v;
+          _yield$client$from$se = _context13.v;
           data = _yield$client$from$se.data;
           error = _yield$client$from$se.error;
           if (!error) {
-            _context12.n = 4;
+            _context13.n = 4;
             break;
           }
           console.error('[org_directory] 读取失败', error);
-          return _context12.a(2, _orgDirCache.data || []);
+          return _context13.a(2, _orgDirCache.data || []);
         case 4:
           mapped = (data || []).map(function (r) {
             return {
@@ -1638,7 +1707,7 @@ function _loadOrgDirectory() {
             ts: now,
             data: mapped
           }; // 🆕 fix140
-          return _context12.a(2, mapped);
+          return _context13.a(2, mapped);
       }
     }, _callee12);
   }));
@@ -1696,23 +1765,23 @@ function loadCloudAccounts() {
 function _loadCloudAccounts() {
   _loadCloudAccounts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
     var rows;
-    return _regenerator().w(function (_context13) {
-      while (1) switch (_context13.n) {
+    return _regenerator().w(function (_context14) {
+      while (1) switch (_context14.n) {
         case 0:
-          _context13.n = 1;
+          _context14.n = 1;
           return CLOUD.list('cs_accounts', {
             limit: 1000,
             full: true
           });
         case 1:
-          rows = _context13.v;
+          rows = _context14.v;
           if (rows) {
-            _context13.n = 2;
+            _context14.n = 2;
             break;
           }
-          return _context13.a(2, null);
+          return _context14.a(2, null);
         case 2:
-          return _context13.a(2, rows.map(accountRowToEmp));
+          return _context14.a(2, rows.map(accountRowToEmp));
       }
     }, _callee13);
   }));
@@ -1724,18 +1793,18 @@ function saveCloudAccount(_x9) {
 function _saveCloudAccount() {
   _saveCloudAccount = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(e) {
     var _t1;
-    return _regenerator().w(function (_context14) {
-      while (1) switch (_context14.p = _context14.n) {
+    return _regenerator().w(function (_context15) {
+      while (1) switch (_context15.p = _context15.n) {
         case 0:
-          _context14.p = 0;
-          _context14.n = 1;
+          _context15.p = 0;
+          _context15.n = 1;
           return CLOUD.upsert('cs_accounts', empToAccountRow(e));
         case 1:
-          return _context14.a(2, _context14.v);
+          return _context15.a(2, _context15.v);
         case 2:
-          _context14.p = 2;
-          _t1 = _context14.v;
-          return _context14.a(2, null);
+          _context15.p = 2;
+          _t1 = _context15.v;
+          return _context15.a(2, null);
       }
     }, _callee14, null, [[0, 2]]);
   }));
@@ -1747,24 +1816,24 @@ function deleteCloudAccount(_x0) {
 function _deleteCloudAccount() {
   _deleteCloudAccount = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(id) {
     var _t10;
-    return _regenerator().w(function (_context15) {
-      while (1) switch (_context15.p = _context15.n) {
+    return _regenerator().w(function (_context16) {
+      while (1) switch (_context16.p = _context16.n) {
         case 0:
-          _context15.p = 0;
+          _context16.p = 0;
           if (!CLOUD.client) {
-            _context15.n = 1;
+            _context16.n = 1;
             break;
           }
-          _context15.n = 1;
+          _context16.n = 1;
           return CLOUD.client.from('cs_accounts')["delete"]().eq('id', id);
         case 1:
-          _context15.n = 3;
+          _context16.n = 3;
           break;
         case 2:
-          _context15.p = 2;
-          _t10 = _context15.v;
+          _context16.p = 2;
+          _t10 = _context16.v;
         case 3:
-          return _context15.a(2);
+          return _context16.a(2);
       }
     }, _callee15, null, [[0, 2]]);
   }));
@@ -1776,38 +1845,38 @@ function seedCloudAccounts(_x1) {
 function _seedCloudAccounts() {
   _seedCloudAccounts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(list) {
     var rows, _yield$CLOUD$client$f, error, _t11;
-    return _regenerator().w(function (_context16) {
-      while (1) switch (_context16.p = _context16.n) {
+    return _regenerator().w(function (_context17) {
+      while (1) switch (_context17.p = _context17.n) {
         case 0:
-          _context16.p = 0;
+          _context17.p = 0;
           if (CLOUD.client) {
-            _context16.n = 1;
+            _context17.n = 1;
             break;
           }
-          return _context16.a(2, false);
+          return _context17.a(2, false);
         case 1:
           rows = (list || []).map(empToAccountRow);
-          _context16.n = 2;
+          _context17.n = 2;
           return CLOUD.client.from('cs_accounts').upsert(rows, {
             onConflict: 'id'
           });
         case 2:
-          _yield$CLOUD$client$f = _context16.v;
+          _yield$CLOUD$client$f = _context17.v;
           error = _yield$CLOUD$client$f.error;
           if (!error) {
-            _context16.n = 3;
+            _context17.n = 3;
             break;
           }
           console.error('[账号播种] 失败', error);
-          return _context16.a(2, false);
+          return _context17.a(2, false);
         case 3:
           console.log('[账号播种] 已写入', rows.length, '个账号到云端 cs_accounts');
-          return _context16.a(2, true);
+          return _context17.a(2, true);
         case 4:
-          _context16.p = 4;
-          _t11 = _context16.v;
+          _context17.p = 4;
+          _t11 = _context17.v;
           console.error('[账号播种] 异常', _t11);
-          return _context16.a(2, false);
+          return _context17.a(2, false);
       }
     }, _callee16, null, [[0, 4]]);
   }));
@@ -2302,37 +2371,37 @@ function wsFetchOrderProducts(_x10) {
 function _wsFetchOrderProducts() {
   _wsFetchOrderProducts = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(orderNo) {
     var base, domain, ck, hit, isWoo, _i2, _arr, nm, body, res, json, arr, _o$total_price_set, _o$total_price_set2, o, li, products, oid, orderUrl, cust, bill, email, cname, total, currency, country, _v, v, _t12;
-    return _regenerator().w(function (_context17) {
-      while (1) switch (_context17.p = _context17.n) {
+    return _regenerator().w(function (_context18) {
+      while (1) switch (_context18.p = _context18.n) {
         case 0:
           base = wsNormKey(orderNo);
           if (base) {
-            _context17.n = 1;
+            _context18.n = 1;
             break;
           }
-          return _context17.a(2, null);
+          return _context18.a(2, null);
         case 1:
           domain = wsGuessDomain(base);
           if (domain) {
-            _context17.n = 2;
+            _context18.n = 2;
             break;
           }
-          return _context17.a(2, null);
+          return _context18.a(2, null);
         case 2:
           ck = domain + '|' + base;
           hit = _wsOrderCache[ck];
           if (!(hit && Date.now() - hit.ts < 5 * 60 * 1000)) {
-            _context17.n = 3;
+            _context18.n = 3;
             break;
           }
-          return _context17.a(2, hit.v);
+          return _context18.a(2, hit.v);
         case 3:
           isWoo = /mooielight/i.test(domain);
-          _context17.p = 4;
+          _context18.p = 4;
           _i2 = 0, _arr = [base, '#' + base];
         case 5:
           if (!(_i2 < _arr.length)) {
-            _context17.n = 10;
+            _context18.n = 10;
             break;
           }
           nm = _arr[_i2];
@@ -2353,7 +2422,7 @@ function _wsFetchOrderProducts() {
               auto_save: false
             }
           };
-          _context17.n = 6;
+          _context18.n = 6;
           return fetch(EDGE_BASE_WS + '/' + (isWoo ? 'woo-api' : 'shopify-api'), {
             method: 'POST',
             headers: {
@@ -2364,22 +2433,22 @@ function _wsFetchOrderProducts() {
             body: JSON.stringify(body)
           });
         case 6:
-          res = _context17.v;
+          res = _context18.v;
           if (res.ok) {
-            _context17.n = 7;
+            _context18.n = 7;
             break;
           }
-          return _context17.a(3, 9);
+          return _context18.a(3, 9);
         case 7:
-          _context17.n = 8;
+          _context18.n = 8;
           return res.json()["catch"](function () {
             return null;
           });
         case 8:
-          json = _context17.v;
+          json = _context18.v;
           arr = json && (json.orders || json.data || []);
           if (!(json && json.ok !== false && Array.isArray(arr) && arr.length)) {
-            _context17.n = 9;
+            _context18.n = 9;
             break;
           }
           o = arr[0];
@@ -2416,17 +2485,17 @@ function _wsFetchOrderProducts() {
             ts: Date.now(),
             v: _v
           };
-          return _context17.a(2, _v);
+          return _context18.a(2, _v);
         case 9:
           _i2++;
-          _context17.n = 5;
+          _context18.n = 5;
           break;
         case 10:
-          _context17.n = 12;
+          _context18.n = 12;
           break;
         case 11:
-          _context17.p = 11;
-          _t12 = _context17.v;
+          _context18.p = 11;
+          _t12 = _context18.v;
           console.warn('wsFetchOrderProducts', orderNo, _t12);
         case 12:
           v = {
@@ -2438,7 +2507,7 @@ function _wsFetchOrderProducts() {
             ts: Date.now(),
             v: v
           };
-          return _context17.a(2, v);
+          return _context18.a(2, v);
       }
     }, _callee17, null, [[4, 11]]);
   }));
@@ -2450,26 +2519,26 @@ function uploadAttachmentToWtkpi(_x11) {
 function _uploadAttachmentToWtkpi() {
   _uploadAttachmentToWtkpi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(file) {
     var client, isImage, payload, ext, path, _yield$client$storage, error, _client$storage$from$, publicUrl, _t13;
-    return _regenerator().w(function (_context18) {
-      while (1) switch (_context18.n) {
+    return _regenerator().w(function (_context19) {
+      while (1) switch (_context19.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context18.n = 1;
+            _context19.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置 — 请进 ⚙ 设置中心配置');
         case 1:
           isImage = (file.type || '').startsWith('image/'); // 🆕 fix106: 之前视频也被强行走 canvas 图片压缩 → new Image() 无法加载视频 → 失败。现在只有图片压缩,视频原样传。
           if (!isImage) {
-            _context18.n = 3;
+            _context19.n = 3;
             break;
           }
-          _context18.n = 2;
+          _context19.n = 2;
           return compressImageForUpload(file, 1600, 0.85);
         case 2:
-          _t13 = _context18.v;
-          _context18.n = 4;
+          _t13 = _context19.v;
+          _context19.n = 4;
           break;
         case 3:
           _t13 = file;
@@ -2477,22 +2546,22 @@ function _uploadAttachmentToWtkpi() {
           payload = _t13;
           ext = (file.name || (isImage ? 'img.png' : 'file.bin')).split('.').pop() || (isImage ? 'png' : 'bin');
           path = "cs-requests/".concat(Date.now(), "-").concat(crypto.randomUUID().slice(0, 8), ".").concat(ext);
-          _context18.n = 5;
+          _context19.n = 5;
           return client.storage.from('attachments').upload(path, payload, {
             upsert: false,
             contentType: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream')
           });
         case 5:
-          _yield$client$storage = _context18.v;
+          _yield$client$storage = _context19.v;
           error = _yield$client$storage.error;
           if (!error) {
-            _context18.n = 6;
+            _context19.n = 6;
             break;
           }
           throw error;
         case 6:
           _client$storage$from$ = client.storage.from('attachments').getPublicUrl(path), publicUrl = _client$storage$from$.data.publicUrl;
-          return _context18.a(2, {
+          return _context19.a(2, {
             name: file.name || (isImage ? 'screenshot.png' : 'attachment'),
             url: publicUrl,
             mime: payload.type || file.type || (isImage ? 'image/jpeg' : 'application/octet-stream'),
@@ -2510,10 +2579,10 @@ function compressImageForUpload(_x12, _x13, _x14) {
 } // 🆕 fix49: 提交一个拍摄需求 — 写入 photo_logs 表
 function _compressImageForUpload() {
   _compressImageForUpload = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(file, maxWidth, quality) {
-    return _regenerator().w(function (_context19) {
-      while (1) switch (_context19.n) {
+    return _regenerator().w(function (_context20) {
+      while (1) switch (_context20.n) {
         case 0:
-          return _context19.a(2, new Promise(function (resolve, reject) {
+          return _context20.a(2, new Promise(function (resolve, reject) {
             var reader = new FileReader();
             reader.onload = function (e) {
               var img = new Image();
@@ -2557,13 +2626,13 @@ function submitPhotoRequest(_x15) {
 function _submitPhotoRequest() {
   _submitPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(_ref7) {
     var productName, sku, productImage, applicableShops, currentUser, reason, urgency, attachments, externalRefId, client, now, row, _yield$client$from$in, data, error;
-    return _regenerator().w(function (_context20) {
-      while (1) switch (_context20.n) {
+    return _regenerator().w(function (_context21) {
+      while (1) switch (_context21.n) {
         case 0:
           productName = _ref7.productName, sku = _ref7.sku, productImage = _ref7.productImage, applicableShops = _ref7.applicableShops, currentUser = _ref7.currentUser, reason = _ref7.reason, urgency = _ref7.urgency, attachments = _ref7.attachments, externalRefId = _ref7.externalRefId;
           client = getWtkpiClient();
           if (client) {
-            _context20.n = 1;
+            _context21.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -2598,19 +2667,19 @@ function _submitPhotoRequest() {
             created_at_ms: now,
             updated_at: new Date().toISOString()
           };
-          _context20.n = 2;
+          _context21.n = 2;
           return client.from('photo_logs').insert(row).select().single();
         case 2:
-          _yield$client$from$in = _context20.v;
+          _yield$client$from$in = _context21.v;
           data = _yield$client$from$in.data;
           error = _yield$client$from$in.error;
           if (!error) {
-            _context20.n = 3;
+            _context21.n = 3;
             break;
           }
           throw error;
         case 3:
-          return _context20.a(2, data);
+          return _context21.a(2, data);
       }
     }, _callee20);
   }));
@@ -2628,36 +2697,36 @@ function _listPhotoRequests() {
       _yield$client$from$se2,
       data,
       error,
-      _args21 = arguments;
-    return _regenerator().w(function (_context21) {
-      while (1) switch (_context21.n) {
+      _args22 = arguments;
+    return _regenerator().w(function (_context22) {
+      while (1) switch (_context22.n) {
         case 0:
-          opts = _args21.length > 0 && _args21[0] !== undefined ? _args21[0] : {};
+          opts = _args22.length > 0 && _args22[0] !== undefined ? _args22[0] : {};
           client = getWtkpiClient();
           if (client) {
-            _context21.n = 1;
+            _context22.n = 1;
             break;
           }
-          return _context21.a(2, []);
+          return _context22.a(2, []);
         case 1:
           limit = opts.limit || 150;
           offset = opts.offset || 0;
-          _context21.n = 2;
+          _context22.n = 2;
           return client.from('photo_logs').select('*').order('updated_at', {
             ascending: false
           }).range(offset, offset + limit - 1);
         case 2:
-          _yield$client$from$se2 = _context21.v;
+          _yield$client$from$se2 = _context22.v;
           data = _yield$client$from$se2.data;
           error = _yield$client$from$se2.error;
           if (!error) {
-            _context21.n = 3;
+            _context22.n = 3;
             break;
           }
           console.error('[WTKPI] 拉需求列表失败', error);
-          return _context21.a(2, []);
+          return _context22.a(2, []);
         case 3:
-          return _context21.a(2, data || []);
+          return _context22.a(2, data || []);
       }
     }, _callee21);
   }));
@@ -2669,12 +2738,12 @@ function updatePhotoRequestBasics(_x16, _x17) {
 function _updatePhotoRequestBasics() {
   _updatePhotoRequestBasics = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(logId, basics) {
     var client, allowed, clean, _i3, _allowed, k, _yield$client$from$up2, error;
-    return _regenerator().w(function (_context22) {
-      while (1) switch (_context22.n) {
+    return _regenerator().w(function (_context23) {
+      while (1) switch (_context23.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context22.n = 1;
+            _context23.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -2686,18 +2755,18 @@ function _updatePhotoRequestBasics() {
             if (basics[k] !== undefined) clean[k] = basics[k];
           }
           clean.updated_at = new Date().toISOString();
-          _context22.n = 2;
+          _context23.n = 2;
           return client.from('photo_logs').update(clean).eq('id', logId);
         case 2:
-          _yield$client$from$up2 = _context22.v;
+          _yield$client$from$up2 = _context23.v;
           error = _yield$client$from$up2.error;
           if (!error) {
-            _context22.n = 3;
+            _context23.n = 3;
             break;
           }
           throw error;
         case 3:
-          return _context22.a(2);
+          return _context23.a(2);
       }
     }, _callee22);
   }));
@@ -2710,24 +2779,24 @@ function _appendToPhotoRequest() {
   _appendToPhotoRequest = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(logId, additions) {
     var _additions$attachment;
     var client, _yield$client$from$se3, row, e1, current, merged, _yield$client$from$up3, e2;
-    return _regenerator().w(function (_context23) {
-      while (1) switch (_context23.n) {
+    return _regenerator().w(function (_context24) {
+      while (1) switch (_context24.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context23.n = 1;
+            _context24.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
         case 1:
-          _context23.n = 2;
+          _context24.n = 2;
           return client.from('photo_logs').select('external_request').eq('id', logId).single();
         case 2:
-          _yield$client$from$se3 = _context23.v;
+          _yield$client$from$se3 = _context24.v;
           row = _yield$client$from$se3.data;
           e1 = _yield$client$from$se3.error;
           if (!e1) {
-            _context23.n = 3;
+            _context24.n = 3;
             break;
           }
           throw e1;
@@ -2741,21 +2810,21 @@ function _appendToPhotoRequest() {
             merged.reason = (current.reason || '') + "\n\n--- ".concat(new Date().toLocaleDateString('zh-CN'), " \u8865\u5145(").concat(additions.editor_name || '', ") ---\n") + additions.reason_append;
           }
           if (additions.urgency) merged.urgency = additions.urgency;
-          _context23.n = 4;
+          _context24.n = 4;
           return client.from('photo_logs').update({
             external_request: merged,
             updated_at: new Date().toISOString()
           }).eq('id', logId);
         case 4:
-          _yield$client$from$up3 = _context23.v;
+          _yield$client$from$up3 = _context24.v;
           e2 = _yield$client$from$up3.error;
           if (!e2) {
-            _context23.n = 5;
+            _context24.n = 5;
             break;
           }
           throw e2;
         case 5:
-          return _context23.a(2);
+          return _context24.a(2);
       }
     }, _callee23);
   }));
@@ -2767,12 +2836,12 @@ function batchSubmitPhotoRequests(_x20, _x21, _x22) {
 function _batchSubmitPhotoRequests() {
   _batchSubmitPhotoRequests = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(rows, defaults, currentUser) {
     var client, now, batchId, inserts, results, succeeded, failed, errors;
-    return _regenerator().w(function (_context24) {
-      while (1) switch (_context24.n) {
+    return _regenerator().w(function (_context25) {
+      while (1) switch (_context25.n) {
         case 0:
           client = getWtkpiClient();
           if (client) {
-            _context24.n = 1;
+            _context25.n = 1;
             break;
           }
           throw new Error('拍摄部 Supabase 未配置');
@@ -2811,12 +2880,12 @@ function _batchSubmitPhotoRequests() {
               updated_at: new Date().toISOString()
             };
           });
-          _context24.n = 2;
+          _context25.n = 2;
           return Promise.allSettled(inserts.map(function (row) {
             return client.from('photo_logs').insert(row);
           }));
         case 2:
-          results = _context24.v;
+          results = _context25.v;
           succeeded = results.filter(function (r) {
             return r.status === 'fulfilled' && !r.value.error;
           }).length;
@@ -2828,7 +2897,7 @@ function _batchSubmitPhotoRequests() {
             var _r$reason, _r$value2;
             return ((_r$reason = r.reason) === null || _r$reason === void 0 ? void 0 : _r$reason.message) || ((_r$value2 = r.value) === null || _r$value2 === void 0 || (_r$value2 = _r$value2.error) === null || _r$value2 === void 0 ? void 0 : _r$value2.message) || 'unknown';
           });
-          return _context24.a(2, {
+          return _context25.a(2, {
             succeeded: succeeded,
             failed: failed,
             errors: errors,
