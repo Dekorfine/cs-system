@@ -732,18 +732,46 @@ const YD_CHANNEL = 'YL-洛杉矶直送超大件卡派';
 const YD_HS = '8539510000';
 const YD_HEADS = ['箱序号*', '物品FBA ID', 'Reference ID', '物品中文名*', '物品英文名*', '海关编码*', '单箱数量*', '申报单价（USD）*', '材质(中英文)*', '用途(中英文)*', '品牌*', '型号*', '单箱净重*', '单箱毛重*', '长*', '宽*', '高*', '产品图片*', '销售链接'];
 // 浏览器端抓产品图 → ArrayBuffer(跨域失败则返回 null,跳过嵌图)
+async function _imgBlobToPng(blob) {
+  // 用 canvas 把任意图片(webp/jpeg/png/gif…)重新编码成 PNG,保证 ExcelJS 能嵌(只认 png/jpeg/gif)
+  try {
+    const url = URL.createObjectURL(blob);
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = () => reject(new Error('img load fail'));
+      im.src = url;
+    });
+    const w = img.naturalWidth || 300, h = img.naturalHeight || 300;
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    try { URL.revokeObjectURL(url); } catch (e) {}
+    const pngBlob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    if (!pngBlob) return null;
+    return await pngBlob.arrayBuffer();
+  } catch (e) { return null; }
+}
 async function ydFetchImg(url) {
   if (!url) return null;
   try {
-    const res = await fetch(url, {
-      mode: 'cors'
-    });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return {
-      buf: await blob.arrayBuffer(),
-      ext: blob.type && blob.type.includes('png') ? 'png' : blob.type && blob.type.includes('webp') ? 'png' : 'jpeg'
-    };
+    let blob;
+    if (/^data:/i.test(url)) {
+      blob = await (await fetch(url)).blob();
+    } else {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) return null;
+      blob = await res.blob();
+    }
+    // 🆕 统一转 PNG:Shopify 现多发 webp,直接嵌会裂图/无图;转 PNG 后所有渠道都能正常嵌
+    const png = await _imgBlobToPng(blob);
+    if (png && png.byteLength) return { buf: png, ext: 'png' };
+    // 兜底:本就是 png/jpeg/gif 的原样嵌
+    const tp = (blob.type || '').toLowerCase();
+    if (tp.includes('png')) return { buf: await blob.arrayBuffer(), ext: 'png' };
+    if (tp.includes('jpeg') || tp.includes('jpg')) return { buf: await blob.arrayBuffer(), ext: 'jpeg' };
+    if (tp.includes('gif')) return { buf: await blob.arrayBuffer(), ext: 'gif' };
+    return null;
   } catch (e) {
     return null;
   }
@@ -1696,7 +1724,25 @@ function MakeInvoice() {
         return -1;
       };
       let orderCol = find(/订单编号/, /订单号/, /^订单$/, /\border\b/i); // 我们手填 MH4490
-      const refCol = find(/客户参考号/, /参考号/, /reference/i); // 北简 XM8T
+      let refCol = find(/客户参考号/, /参考号/, /reference/i); // 北简 XM8T
+      // 🆕 XM 客户参考号兜底:源表(昌晖格式)可能把 XM 列也叫「客户订单号」(模板有两个),或表头不规范
+      //   ① 找第二个「客户订单号/客户单号/订单号」列(≠orderCol)  ② 扫数据里值以 XM 开头的列
+      if (refCol < 0) {
+        for (let ci = 0; ci < header.length; ci++) {
+          if (ci === orderCol) continue;
+          if (/客户订单号|客户单号|客户参考|客户订单/.test(header[ci])) { refCol = ci; break; }
+        }
+      }
+      if (refCol < 0) {
+        const maxC = Math.max(...aoa.slice(0, 12).map(r => (r || []).length), 0);
+        for (let ci = 0; ci < maxC && refCol < 0; ci++) {
+          if (ci === orderCol) continue;
+          for (let ri = 1; ri < Math.min(aoa.length, 12); ri++) {
+            const v = String((aoa[ri] || [])[ci] == null ? '' : (aoa[ri] || [])[ci]).trim();
+            if (/^XM\w/i.test(v)) { refCol = ci; break; }
+          }
+        }
+      }
       const channelCol = find(/收货渠道/, /渠道/, /channel/i);
       const destCol = find(/目的国家/, /目的地/, /destination/i, /country/i); // 🆕 目的国家(US/AU/NZ 或 美国/澳洲/新西兰)
       const weightCol = find(/收货实重/, /收货.*实重/, /^实重$/, /实重/, /重量/, /weight/i); // 🆕 实际重量(收货实重),非计费结算重
