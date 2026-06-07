@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix157
+// 版本 2026.06.05-fix158
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix157
+// 版本 2026.06.05-fix158
 // 预编译切片
 //
 
@@ -195,6 +195,8 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
       return c.status !== 'won' && c.status !== 'lost' && c.status !== 'closed';
     });else if (filterStatus === 'mine') l = l.filter(function (c) {
       return (c.assigned_to || []).includes(user.id) || c.created_by === user.id;
+    });else if (filterStatus === 'awaiting') l = l.filter(function (c) {
+      return c.status === 'awaiting' || c.status === 'responded';
     });else if (filterStatus !== 'all') l = l.filter(function (c) {
       return c.status === filterStatus;
     });
@@ -218,8 +220,8 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
     // 🆕 fix75: 排序(模仿电脑文件管理器)
     var CB_STATUS_ORDER = {
       pending: 0,
-      evidence: 1,
-      submitted: 2,
+      responded: 1,
+      awaiting: 2,
       won: 3,
       lost: 4,
       closed: 5
@@ -351,6 +353,12 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
     label: '⏳ 待证据',
     cnt: list.filter(function (c) {
       return c.status === 'pending';
+    }).length
+  }, {
+    key: 'awaiting',
+    label: '🏦 等争议结果',
+    cnt: list.filter(function (c) {
+      return c.status === 'awaiting' || c.status === 'responded';
     }).length
   }, {
     key: 'won',
@@ -563,34 +571,34 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
     items: list,
     statusLabels: {
       pending: {
-        label: '待证据',
-        color: '#ca8a04',
-        bg: '#fef9c3'
+        label: '待提交证据',
+        color: '#dc2626',
+        bg: '#fef2f2'
       },
-      submitted: {
-        label: '已提交',
-        color: '#0369a1',
-        bg: '#e0f2fe'
+      responded: {
+        label: '已提交证据',
+        color: '#854d0e',
+        bg: '#fef3c7'
       },
-      under_review: {
-        label: '审核中',
-        color: '#7c3aed',
-        bg: '#f5f3ff'
+      awaiting: {
+        label: '等争议结果·银行处理中',
+        color: '#1e40af',
+        bg: '#dbeafe'
       },
       won: {
         label: '胜诉',
-        color: '#16a34a',
+        color: '#15803d',
         bg: '#dcfce7'
       },
       lost: {
         label: '败诉',
-        color: '#dc2626',
-        bg: '#fee2e2'
+        color: '#525252',
+        bg: '#f5f5f7'
       },
       closed: {
         label: '已关闭',
-        color: '#6b7280',
-        bg: '#f3f4f6'
+        color: '#737373',
+        bg: '#f5f5f7'
       }
     },
     getSite: function getSite(c) {
@@ -955,7 +963,30 @@ var ChargebackCard = function ChargebackCard(_ref5) {
       fontSize: 11,
       fontWeight: 600
     }
-  }, "\uD83D\uDCE4 \u6807\u8BB0\u5DF2\u63D0\u4EA4\u8BC1\u636E"), cb.status === 'responded' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDCE4 \u6807\u8BB0\u5DF2\u63D0\u4EA4\u8BC1\u636E"), cb.status === 'responded' && /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setStatus('awaiting');
+    },
+    style: {
+      padding: '5px 12px',
+      background: '#1e40af',
+      color: 'white',
+      border: 'none',
+      borderRadius: 5,
+      cursor: 'pointer',
+      fontSize: 11,
+      fontWeight: 600
+    }
+  }, "\u23F3 \u63D0\u4EA4\u540E\xB7\u7B49\u94F6\u884C\u88C1\u51B3(90-120\u5929)"), cb.status === 'awaiting' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
+    style: {
+      padding: '5px 8px',
+      background: '#dbeafe',
+      color: '#1e40af',
+      borderRadius: 5,
+      fontSize: 11,
+      fontWeight: 600
+    }
+  }, "\u23F3 \u7B49\u94F6\u884C\u88C1\u51B3\u4E2D"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setStatus('won');
     },

@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix157
+// 版本 2026.06.05-fix158
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix157
+// 版本 2026.06.05-fix158
 // 预编译切片
 //
 
@@ -3139,6 +3139,11 @@ var CHARGEBACK_STATUSES = [{
   bg: '#fef3c7',
   color: '#854d0e'
 }, {
+  key: 'awaiting',
+  label: '等待裁决·银行处理中',
+  bg: '#dbeafe',
+  color: '#1e40af'
+}, {
   key: 'won',
   label: '胜诉',
   bg: '#dcfce7',
@@ -3267,7 +3272,8 @@ var daysUntil = function daysUntil(dateStr) {
 
 // 拒付紧迫度计算
 var getChargebackUrgency = function getChargebackUrgency(cb) {
-  if (cb.status === 'won' || cb.status === 'lost' || cb.status === 'closed') return null;
+  // 🆕 截止倒计时/逾期 只对「待提交证据」有效;一旦已提交证据/等待银行裁决/已结案,不再催办
+  if (cb.status !== 'pending') return null;
   var days = daysUntil(cb.deadline);
   if (days === null) return null;
   if (days < 0) return {
