@@ -752,8 +752,8 @@ async function _imgBlobToPng(blob) {
     return await pngBlob.arrayBuffer();
   } catch (e) { return null; }
 }
-var _imgDiag = { calls: 0, noUrl: 0, ok: 0, fail: 0, failUrls: [] };
-function _imgDiagReset() { _imgDiag = { calls: 0, noUrl: 0, ok: 0, fail: 0, failUrls: [] }; }
+var _imgDiag = { calls: 0, noUrl: 0, ok: 0, fail: 0, embedded: 0, failUrls: [] };
+function _imgDiagReset() { _imgDiag = { calls: 0, noUrl: 0, ok: 0, fail: 0, embedded: 0, failUrls: [] }; }
 async function ydFetchImg(url) {
   _imgDiag.calls++;
   if (!url) { _imgDiag.noUrl++; return null; }
@@ -940,6 +940,7 @@ async function buildYundingWorkbook(t) {
             height: 84
           }
         });
+        _imgDiag.embedded++;
       } catch (e) {}
     }
     r++;
@@ -1010,7 +1011,7 @@ const _tplCn = it => it.lampCn || '吊灯', _tplEn = it => it.lampEn || 'Chandel
 async function _tplEmbedImg(wb, ws, it, col, row) {
   try {
     const img = await ydFetchImg(it.image_url);
-    if (img) { const id = wb.addImage({ buffer: img.buf, extension: img.ext }); ws.addImage(id, { tl: { col, row }, ext: { width: 84, height: 84 } }); }
+    if (img) { const id = wb.addImage({ buffer: img.buf, extension: img.ext }); ws.addImage(id, { tl: { col, row }, ext: { width: 84, height: 84 } }); _imgDiag.embedded++; }
   } catch (e) {}
 }
 
@@ -1077,7 +1078,7 @@ async function buildYundingTpl(t) {            // 云鼎·FBA专线(填原生模
     ws.getCell('A' + r).value = ref; ws.getCell('D' + r).value = it.lampCn || '吊灯'; ws.getCell('E' + r).value = it.lampEn || 'Chandelier';
     ws.getCell('F' + r).value = YD_HS; ws.getCell('G' + r).value = qty; ws.getCell('H' + r).value = 500 * qty; ws.getCell('S' + r).value = it.salesUrl || '';
     const img = await ydFetchImg(it.image_url);
-    if (img) { try { const id = wb.addImage({ buffer: img.buf, extension: img.ext }); ws.addImage(id, { tl: { col: 17, row: r - 1 }, ext: { width: 84, height: 84 } }); } catch (e) {} }
+    if (img) { try { const id = wb.addImage({ buffer: img.buf, extension: img.ext }); ws.addImage(id, { tl: { col: 17, row: r - 1 }, ext: { width: 84, height: 84 } }); _imgDiag.embedded++; } catch (e) {} }
     r++;
   }
   return wb;
@@ -1561,6 +1562,7 @@ function MakeInvoice() {
     }
     setExporting(true);
     setErr('');
+    _imgDiagReset();
     try {
       if (tickets.length === 1) {
         const wb = await buildYundingWorkbook(tickets[0]);
@@ -1599,6 +1601,18 @@ function MakeInvoice() {
     } catch (e) {
       setErr('导出失败:' + (e.message || e));
     }
+    try {
+      const d = _imgDiag;
+      if (d.calls > 0) {
+        let msg = `📷 嵌图诊断 · 取图 ${d.calls} 次\n✅ 取图成功 ${d.ok}\n🖼 实际嵌入工作表 ${d.embedded}\n⚠️ 无产品图url ${d.noUrl}\n❌ 取图失败 ${d.fail}`;
+        if (d.failUrls.length) msg += `\n\n失败地址样例:\n` + d.failUrls.join('\n');
+        if (d.ok > 1 && d.embedded <= 1) msg += `\n\n→ 取图都成功了,但只嵌进 1 张 → 「嵌入/写文件」问题。把这截图发我。`;
+        else if (d.ok <= 1 && d.calls > 1 && d.noUrl === 0) msg += `\n\n→ 只成功取到 1 张图(其余取图失败)→ 多为跨域/限流。把失败地址发我。`;
+        else if (d.noUrl > 0 && d.ok === 0) msg += `\n\n→ 订单查询没返回产品图地址 → 接口/数据问题。`;
+        console.log('[嵌图诊断]', JSON.parse(JSON.stringify(d)));
+        alert(msg);
+      }
+    } catch (e) {}
     setExporting(false);
   };
   const exportTemplate = async (key) => {
@@ -1630,15 +1644,16 @@ function MakeInvoice() {
         URL.revokeObjectURL(url);
       }
     } catch (e) { setErr('导出失败:' + (e.message || e)); }
-    // 🆕 嵌图诊断:有问题才提示,定位"没图片url" vs "取图失败"
+    // 🆕 嵌图诊断:每次导出都显示,区分"没图片url"/"取图失败"/"嵌入失败"
     try {
       const d = _imgDiag;
-      if (d.calls > 0 && (d.noUrl > 0 || d.fail > 0)) {
-        let msg = `📷 嵌图诊断 · 共 ${d.calls} 个产品行\n✅ 成功嵌图 ${d.ok}\n⚠️ 无产品图url ${d.noUrl}\n❌ 取图失败 ${d.fail}`;
+      if (d.calls > 0) {
+        let msg = `📷 嵌图诊断 · 取图 ${d.calls} 次\n✅ 取图成功 ${d.ok}\n🖼 实际嵌入工作表 ${d.embedded}\n⚠️ 无产品图url ${d.noUrl}\n❌ 取图失败 ${d.fail}`;
         if (d.failUrls.length) msg += `\n\n失败地址样例:\n` + d.failUrls.join('\n');
-        if (d.ok === 0 && d.noUrl > 0) msg += `\n\n→ 订单查询根本没返回产品图地址(接口/数据问题,非格式)。把这段发给跟单:让订单实时查询接口在行项目里带上产品图 image_url。`;
-        else if (d.fail > 0) msg += `\n\n→ 取图失败,多为跨域(CORS)或图片地址失效。把上面失败地址发我。`;
-        console.log('[嵌图诊断]', d);
+        if (d.ok > 1 && d.embedded <= 1) msg += `\n\n→ 取图都成功了,但只嵌进 1 张 → 是「嵌入/写文件」问题。把这截图发我。`;
+        else if (d.ok <= 1 && d.calls > 1 && d.noUrl === 0) msg += `\n\n→ 只成功取到 1 张图(其余取图失败)→ 多为跨域/限流。把失败地址发我。`;
+        else if (d.noUrl > 0 && d.ok === 0) msg += `\n\n→ 订单查询根本没返回产品图地址 → 接口/数据问题。`;
+        console.log('[嵌图诊断]', JSON.parse(JSON.stringify(d)));
         alert(msg);
       }
     } catch (e) {}
@@ -1710,6 +1725,35 @@ function MakeInvoice() {
         }
       });
       if (i + CONC < missingBases.length) await new Promise(r => setTimeout(r, 100)); // 批间小停防限流(单店调用量小)
+    }
+    // 🆕 本地库命中但「没产品图」的老单/B2B(回扫跳过了补图)→ 实时查一次补图(实时接口已补图,所以手动单查能看到图)
+    //   按 SKU 优先、否则按顺序把 image_url 回填到该单;跟单把库补好后此步自然不再触发(本地已有图)
+    if (!window.__LIVE_OFF) {
+      const hasImg = o => o && (o.items || []).some(it => it && it.image_url);
+      const seen = new Set(), needImg = [];
+      Object.values(map).forEach(o => {
+        const bk = o && normOrderKey(o.orderNumber || '');
+        if (bk && !seen.has(bk) && !hasImg(o)) { seen.add(bk); needImg.push(bk); }
+      });
+      for (let i = 0; i < needImg.length; i += CONC) {
+        if (window.__LIVE_OFF) break;
+        const batch = needImg.slice(i, i + CONC);
+        const results = await Promise.all(batch.map(bk => lookupShopifyLive(bk, null, false).catch(() => null)));
+        batch.forEach((bk, j) => {
+          const live = results[j];
+          if (!live || !hasImg(live)) return;
+          Object.values(map).forEach(dbo => {
+            if (!dbo || normOrderKey(dbo.orderNumber || '') !== bk || hasImg(dbo)) return;
+            (dbo.items || []).forEach((it, idx) => {
+              if (it && !it.image_url) {
+                const m = (it.sku && (live.items || []).find(li => li.sku === it.sku)) || (live.items || [])[idx];
+                if (m && m.image_url) it.image_url = m.image_url;
+              }
+            });
+          });
+        });
+        if (i + CONC < needImg.length) await new Promise(r => setTimeout(r, 100));
+      }
     }
     if (window.__LIVE_OFF) setErr('⚠️ ' + (window.__LIVE_OFF_MSG || '实时查接口暂不可用') + ' · 没进本地库的单(老单/B2B/补发)本次未实时查到,列在"未找到"里,稍后回库或部署修好后再上传即可补回。');
     return map;
