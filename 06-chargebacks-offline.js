@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix186
+// 版本 2026.06.05-fix187
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix186
+// 版本 2026.06.05-fix187
 // 预编译切片
 //
 
@@ -1987,18 +1987,19 @@ var ChargebackEditor = function ChargebackEditor(_ref0) {
       src: p.image_url,
       alt: "",
       onClick: function onClick() {
-        return wsOpenImg(p.image_url);
+        return window.__setPreviewImg ? window.__setPreviewImg(p.image_url) : wsOpenImg(p.image_url);
       },
-      title: "\u70B9\u51FB\u770B\u5927\u56FE(\u65B0\u6807\u7B7E\u6253\u5F00)",
+      title: "\u70B9\u51FB\u770B\u5927\u56FE",
       style: {
         width: '100%',
-        height: 90,
-        objectFit: 'cover',
-        cursor: 'zoom-in'
+        height: 110,
+        objectFit: 'contain',
+        cursor: 'zoom-in',
+        background: '#f8fafc'
       }
     }) : /*#__PURE__*/React.createElement("div", {
       style: {
-        height: 90,
+        height: 110,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -7429,13 +7430,14 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref39) {
       alt: "",
       style: {
         width: '100%',
-        height: 60,
-        objectFit: 'cover',
-        borderRadius: 5
+        height: 68,
+        objectFit: 'contain',
+        borderRadius: 5,
+        background: '#f8fafc'
       }
     }) : /*#__PURE__*/React.createElement("div", {
       style: {
-        height: 60,
+        height: 68,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -8782,13 +8784,14 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref47) {
       alt: "",
       style: {
         width: '100%',
-        height: 60,
-        objectFit: 'cover',
-        borderRadius: 5
+        height: 68,
+        objectFit: 'contain',
+        borderRadius: 5,
+        background: '#f8fafc'
       }
     }) : /*#__PURE__*/React.createElement("div", {
       style: {
-        height: 60,
+        height: 68,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

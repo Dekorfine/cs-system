@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix186
+// 版本 2026.06.05-fix187
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix186
+// 版本 2026.06.05-fix187
 // 预编译切片
 //
 
@@ -2192,7 +2192,7 @@ var ImgPreviewModal = function ImgPreviewModal(_ref5) {
     style: {
       position: 'fixed',
       inset: 0,
-      zIndex: 99999,
+      zIndex: 2147483600,
       background: 'rgba(0,0,0,0.82)',
       display: 'flex',
       alignItems: 'center',
@@ -2407,6 +2407,11 @@ function wsOrderAdminUrl(no) {
   return "https://".concat(d, "/admin/orders?query=").concat(encodeURIComponent(wsNormKey(no)));
 }
 var _wsOrderCache = {};
+// 🆕 fix187:保险/运费险/物流保障类不是真实商品,拒付/售后都用不到 —— 拉取时统一过滤掉
+var WS_PROTECTION_RE = /(order\s*armor|orderarmor|shipping\s*protection|package\s*protection|order\s*protection|delivery\s*guarantee|green\s*shipping|route\s*(insurance|protection|shipping|shipment)|\bseel\b|\bcorso\b|navidium|worry[\s-]*free|purchase\s*protection|shipping\s*insurance|priority\s*processing|保险|运费险|安心购|碎品险|物流保障|运输保障)/i;
+function wsIsProtection(title) {
+  return WS_PROTECTION_RE.test(String(title || ''));
+}
 function wsFetchOrderProducts(_x10) {
   return _wsFetchOrderProducts.apply(this, arguments);
 } // 🆕 fix49: 上传附件到 WorkTrack-KPI Storage `attachments` bucket;fix106: 只压缩图片,视频/其他文件原样上传
@@ -2510,7 +2515,7 @@ function _wsFetchOrderProducts() {
               link: pid && !isWoo ? "https://".concat(domain, "/admin/products/").concat(pid) : '' // 🆕 fix186 产品链接
             };
           }).filter(function (p) {
-            return p.image_url || p.title;
+            return (p.image_url || p.title) && !wsIsProtection(p.title);
           });
           oid = o.id || o.shopify_order_id;
           orderUrl = oid && !isWoo ? "https://".concat(domain, "/admin/orders/").concat(oid) : wsOrderAdminUrl(orderNo); // 🆕 fix119: 一并带回客户邮箱/名字 + 金额 + 币种(供表单自动填充)
