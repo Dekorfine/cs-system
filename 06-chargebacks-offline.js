@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix177
+// 版本 2026.06.05-fix178
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix177
+// 版本 2026.06.05-fix178
 // 预编译切片
 //
 
@@ -2578,6 +2578,34 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref13) {
       totalAmount: totalAmount.toFixed(2)
     };
   }, [list]);
+
+  // 🆕 fix178: 各状态标签的订单数量(显示在标签上)
+  var tabCounts = useMemo(function () {
+    return {
+      active: list.filter(function (o) {
+        return o.status !== 'completed' && o.status !== 'cancelled';
+      }).length,
+      mine: list.filter(function (o) {
+        return o.created_by === user.id;
+      }).length,
+      draft: list.filter(function (o) {
+        return o.status === 'draft';
+      }).length,
+      pending_payment: list.filter(function (o) {
+        return o.status === 'pending_payment';
+      }).length,
+      paid: list.filter(function (o) {
+        return o.status === 'paid';
+      }).length,
+      dispatched: list.filter(function (o) {
+        return o.status === 'dispatched';
+      }).length,
+      completed: list.filter(function (o) {
+        return o.status === 'completed';
+      }).length,
+      all: list.length
+    };
+  }, [list, user.id]);
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-4 fade-in"
   }, /*#__PURE__*/React.createElement("div", {
@@ -2648,6 +2676,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref13) {
     key: 'all',
     label: '📋 全部'
   }].map(function (t) {
+    var _tabCounts$t$key;
     return /*#__PURE__*/React.createElement("button", {
       key: t.key,
       onClick: function onClick() {
@@ -2664,7 +2693,17 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref13) {
         color: filterStatus === t.key ? 'white' : 'var(--ink-2)',
         fontWeight: filterStatus === t.key ? 600 : 400
       }
-    }, t.label);
+    }, t.label, /*#__PURE__*/React.createElement("span", {
+      style: {
+        marginLeft: 5,
+        padding: '0 5px',
+        borderRadius: 8,
+        fontSize: 10,
+        fontWeight: 700,
+        background: filterStatus === t.key ? 'rgba(255,255,255,0.28)' : 'var(--bg-elevated)',
+        color: filterStatus === t.key ? 'white' : 'var(--ink-3)'
+      }
+    }, (_tabCounts$t$key = tabCounts[t.key]) !== null && _tabCounts$t$key !== void 0 ? _tabCounts$t$key : 0));
   }), /*#__PURE__*/React.createElement("select", {
     value: filterSite,
     onChange: function onChange(e) {

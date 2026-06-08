@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix177
+// 版本 2026.06.05-fix178
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -28,7 +28,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix177
+// 版本 2026.06.05-fix178
 // 预编译切片
 //
 
@@ -881,7 +881,7 @@ var EventsModule = function EventsModule(_ref) {
     title: "\u8865\u4EF6\u5B8C\u6210\u7EDF\u8BA1",
     icon: "\uD83D\uDCE6",
     color: "#0369a1",
-    completedStatuses: ['delivered'],
+    completedStatuses: ['shipped', 'delivered'],
     onClickStats: function onClickStats(_ref8) {
       var records = _ref8.records,
         title = _ref8.title;
@@ -2895,7 +2895,9 @@ var RefillsTable = function RefillsTable(_ref18) {
         fontWeight: 600,
         cursor: 'pointer'
       }
-    }, REFILL_STATUSES.map(function (s) {
+    }, REFILL_STATUSES.filter(function (s) {
+      return !s.legacy || s.key === e.status;
+    }).map(function (s) {
       return /*#__PURE__*/React.createElement("option", {
         key: s.key,
         value: s.key
@@ -2905,19 +2907,19 @@ var RefillsTable = function RefillsTable(_ref18) {
         display: 'flex',
         gap: 2
       }
-    }, e.status !== 'delivered' && e.status !== 'cancelled' && /*#__PURE__*/React.createElement("button", {
+    }, e.status !== 'shipped' && e.status !== 'delivered' && e.status !== 'cancelled' && /*#__PURE__*/React.createElement("button", {
       onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
         return _regenerator().w(function (_context10) {
           while (1) switch (_context10.n) {
             case 0:
               _context10.n = 1;
-              return wsConfirm("\u5C06\u300C".concat(e.order_ref, "\u300D\u6807\u8BB0\u4E3A\u5DF2\u7B7E\u6536?"));
+              return wsConfirm("\u5C06\u300C".concat(e.order_ref, "\u300D\u6807\u8BB0\u4E3A\u5DF2\u53D1\u8D27\xB7\u5B8C\u6210?\n(\u53D1\u8D27\u5373\u5B8C\u6210,\u65E0\u9700\u518D\u8DDF\u8FDB\u7B7E\u6536)"));
             case 1:
               if (!_context10.v) {
                 _context10.n = 2;
                 break;
               }
-              onUpdateStatus(e.id, 'delivered');
+              onUpdateStatus(e.id, 'shipped');
             case 2:
               return _context10.a(2);
           }
@@ -2929,7 +2931,7 @@ var RefillsTable = function RefillsTable(_ref18) {
         fontSize: 11,
         color: '#16a34a'
       },
-      title: "\u6807\u8BB0\u5DF2\u7B7E\u6536(\u5B8C\u6210)"
+      title: "\u6807\u8BB0\u5DF2\u53D1\u8D27\xB7\u5B8C\u6210"
     }, "\u2713"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return onEdit(e);
@@ -3195,9 +3197,9 @@ var RefundsTable = function RefundsTable(_ref20) {
         color: 'var(--ink-2)',
         fontSize: 11,
         maxWidth: '400px',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap'
+        whiteSpace: 'normal',
+        wordBreak: 'break-word',
+        lineHeight: 1.45
       }
     }, r.refund_reason)), /*#__PURE__*/React.createElement("td", null, type && /*#__PURE__*/React.createElement("span", {
       style: {

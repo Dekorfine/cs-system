@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix177
+// 版本 2026.06.05-fix178
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix177
+// 版本 2026.06.05-fix178
 // 预编译切片
 //
 
@@ -3382,6 +3382,10 @@ var CDM_SYSTEMS = [{
   id: 'po',
   label: '📋 跟单部',
   "short": '跟单'
+}, {
+  id: 'product_design',
+  label: '🛠 设计部',
+  "short": '设计'
 }];
 var CDM_RELATED_TYPES = [{
   id: 'order',
@@ -4034,7 +4038,7 @@ var AFTERSALE_STATUSES = [{
   bg: '#f5f5f5'
 }];
 
-// 🆕 补件状态
+// 🆕 补件状态 · fix178: 加「已催货/已打单」,已发货即完成(终态),弃用「已签收」(仍兼容历史数据)
 var REFILL_STATUSES = [{
   key: 'pending_order',
   label: '待下单',
@@ -4044,17 +4048,26 @@ var REFILL_STATUSES = [{
   label: '已下单',
   color: '#0369a1'
 }, {
-  key: 'shipped',
-  label: '已发货',
-  color: '#7c3aed'
+  key: 'reminded',
+  label: '已催货',
+  color: '#ea580c'
 }, {
-  key: 'delivered',
-  label: '已签收',
+  key: 'labeled',
+  label: '已打单',
+  color: '#0891b2'
+}, {
+  key: 'shipped',
+  label: '已发货·完成',
   color: '#16a34a'
 }, {
   key: 'cancelled',
   label: '取消',
   color: '#525252'
+}, {
+  key: 'delivered',
+  label: '已签收(旧)',
+  color: '#16a34a',
+  legacy: true
 }];
 
 // 🆕 退款类型
