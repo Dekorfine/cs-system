@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix178
+// 版本 2026.06.05-fix179
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix178
+// 版本 2026.06.05-fix179
 // 预编译切片
 //
 
@@ -1043,6 +1043,8 @@ var CSModule = function CSModule(_ref2) {
       // 🆕 fix174: 标记为「产品优化」(WorkTrack 绩效产品优化奖)
       productOptNote: '',
       // 🆕 fix174: 产品优化说明
+      productOptShots: [],
+      // 🆕 fix179: 产品优化截图 [{id,data,name}]
       screenshots: [],
       // [{id, data, name}]
       followUps: [],
@@ -8842,7 +8844,7 @@ var BatchTransferModal = function BatchTransferModal(_ref34) {
   })) === null || _employees$find6 === void 0 ? void 0 : _employees$find6.name : '...'))));
 };
 var FollowUpModal = function FollowUpModal(_ref36) {
-  var _record$escalatedAt, _record$screenshots, _record$screenshots2, _record$feedbackShots, _record$feedbackShots2, _record$followUps, _record$followUps2;
+  var _record$escalatedAt, _record$screenshots, _record$screenshots2, _record$feedbackShots, _record$feedbackShots2, _record$productOptSho, _record$followUps, _record$followUps2;
   var record = _ref36.record,
     onClose = _ref36.onClose,
     onUpdate = _ref36.onUpdate,
@@ -9083,6 +9085,58 @@ var FollowUpModal = function FollowUpModal(_ref36) {
     onUpdate({
       feedbackShots: feedbackShots
     });
+  };
+
+  // 🆕 fix179: 产品优化截图(粘贴/上传/预览)
+  var handleProductOptFile = function handleProductOptFile(file) {
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      toast('⚠ 图片过大 (>3MB)，请压缩后再上传');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var productOptShots = [].concat(_toConsumableArray(record.productOptShots || []), [{
+        id: uid(),
+        data: e.target.result,
+        name: file.name || 'productopt.png',
+        time: nowISO()
+      }]);
+      onUpdate({
+        productOptShots: productOptShots,
+        isProductOpt: true
+      });
+      toast('✓ 产品优化截图已添加');
+    };
+    reader.readAsDataURL(file);
+  };
+  var removeProductOptShot = function removeProductOptShot(sid) {
+    var productOptShots = (record.productOptShots || []).filter(function (s) {
+      return s.id !== sid;
+    });
+    onUpdate({
+      productOptShots: productOptShots
+    });
+  };
+  var handleProductOptPaste = function handleProductOptPaste(e) {
+    var _e$clipboardData4;
+    var items = (_e$clipboardData4 = e.clipboardData) === null || _e$clipboardData4 === void 0 ? void 0 : _e$clipboardData4.items;
+    if (!items) return;
+    var _iterator4 = _createForOfIteratorHelper(items),
+      _step4;
+    try {
+      for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
+        var it = _step4.value;
+        if (it.type.indexOf('image') === 0) {
+          handleProductOptFile(it.getAsFile());
+          e.preventDefault();
+        }
+      }
+    } catch (err) {
+      _iterator4.e(err);
+    } finally {
+      _iterator4.f();
+    }
   };
   var addFollowUp = function addFollowUp() {
     if (!newFollowText.trim()) return;
@@ -9969,9 +10023,11 @@ var FollowUpModal = function FollowUpModal(_ref36) {
     disabled: readonly,
     checked: !!record.isFeedback,
     onChange: function onChange(e) {
-      return onUpdate({
+      return onUpdate(_objectSpread({
         isFeedback: e.target.checked
-      });
+      }, e.target.checked && !record.feedbackMarkedAt ? {
+        feedbackMarkedAt: nowISO()
+      } : {}));
     },
     style: {
       width: 16,
@@ -10073,9 +10129,11 @@ var FollowUpModal = function FollowUpModal(_ref36) {
     disabled: readonly,
     checked: !!record.isProductOpt,
     onChange: function onChange(e) {
-      return onUpdate({
+      return onUpdate(_objectSpread({
         isProductOpt: e.target.checked
-      });
+      }, e.target.checked && !record.productOptMarkedAt ? {
+        productOptMarkedAt: nowISO()
+      } : {}));
     },
     style: {
       width: 16,
@@ -10090,7 +10148,8 @@ var FollowUpModal = function FollowUpModal(_ref36) {
       color: 'var(--ink-3)'
     }
   }, "(\u53D1\u73B0\u65E0\u8BC4\u4EF7\u4EA7\u54C1/\u63CF\u8FF0\xB7\u89C4\u683C\xB7\u56FE\u7247\u9519\u8BEF\u5E76\u4E3B\u52A8\u53CD\u9988\u66F4\u6B63 \xB7 \u4E3B\u7BA1\u6C47\u603B \xB7 \u8BA1\u7EE9\u6548)")), record.isProductOpt && /*#__PURE__*/React.createElement("div", {
-    className: "mt-3"
+    className: "mt-3",
+    onPaste: !readonly ? handleProductOptPaste : undefined
   }, !readonly && /*#__PURE__*/React.createElement("textarea", {
     value: record.productOptNote || '',
     onChange: function onChange(e) {
@@ -10098,18 +10157,70 @@ var FollowUpModal = function FollowUpModal(_ref36) {
         productOptNote: e.target.value
       });
     },
-    placeholder: "\u4EA7\u54C1\u4F18\u5316\u8BF4\u660E,\u4F8B: VK0312 \u63CF\u8FF0\u5C3A\u5BF8\u5199\u9519,\u5DF2\u53CD\u9988\u7F8E\u5DE5\u66F4\u6B63 / \u8BE5\u4EA7\u54C1\u65E0\u8BC4\u4EF7,\u5DF2\u53D1\u8BC4\u4EF7\u7FA4\u2026",
+    placeholder: "\u4EA7\u54C1\u4F18\u5316\u8BF4\u660E,\u4F8B: VK0312 \u63CF\u8FF0\u5C3A\u5BF8\u5199\u9519,\u5DF2\u53CD\u9988\u7F8E\u5DE5\u66F4\u6B63 / \u8BE5\u4EA7\u54C1\u65E0\u8BC4\u4EF7,\u5DF2\u53D1\u8BC4\u4EF7\u7FA4\u2026(\u53EF\u5728\u6B64 Ctrl+V \u7C98\u8D34\u622A\u56FE)",
     rows: "2",
     style: {
       background: 'white',
-      fontSize: 13
+      fontSize: 13,
+      marginBottom: 8
     }
   }), readonly && record.productOptNote && /*#__PURE__*/React.createElement("div", {
-    className: "text-xs leading-relaxed",
+    className: "text-xs leading-relaxed mb-2",
     style: {
       color: 'var(--ink-2)'
     }
-  }, record.productOptNote))), /*#__PURE__*/React.createElement("div", {
+  }, record.productOptNote), !readonly && /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '6px 12px',
+      fontSize: 11,
+      fontWeight: 600,
+      border: '1px dashed #16a34a',
+      color: '#15803d',
+      background: '#f0fdf4',
+      borderRadius: 8,
+      cursor: 'pointer'
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "upload",
+    className: "w-3.5 h-3.5"
+  }), " \u4E0A\u4F20\u4EA7\u54C1\u4F18\u5316\u622A\u56FE (\u22643MB \xB7 \u4E5F\u53EF Ctrl+V \u7C98\u8D34)", /*#__PURE__*/React.createElement("input", {
+    type: "file",
+    accept: "image/*",
+    style: {
+      display: 'none'
+    },
+    onChange: function onChange(e) {
+      var _e$target$files3;
+      handleProductOptFile((_e$target$files3 = e.target.files) === null || _e$target$files3 === void 0 ? void 0 : _e$target$files3[0]);
+      e.target.value = '';
+    }
+  })), ((_record$productOptSho = record.productOptShots) === null || _record$productOptSho === void 0 ? void 0 : _record$productOptSho.length) > 0 && /*#__PURE__*/React.createElement("div", {
+    className: "mt-3 flex gap-2 flex-wrap"
+  }, record.productOptShots.map(function (s) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: s.id,
+      className: "relative group"
+    }, /*#__PURE__*/React.createElement("img", {
+      src: imgDisplaySrc(s),
+      alt: s.name,
+      className: "thumb",
+      onClick: function onClick() {
+        return setViewingImg(imgDisplaySrc(s));
+      }
+    }), !readonly && /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return removeProductOptShot(s.id);
+      },
+      className: "absolute -top-1 -right-1 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100",
+      style: {
+        background: 'var(--bad)',
+        border: '1.5px solid white'
+      }
+    }, "\xD7"));
+  })))), /*#__PURE__*/React.createElement("div", {
     className: "mb-5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mb-2"

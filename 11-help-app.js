@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix178
+// 版本 2026.06.05-fix179
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix178
+// 版本 2026.06.05-fix179
 // 预编译切片
 //
 
@@ -1462,7 +1462,7 @@ var App = function App() {
   useEffect(function () {
     if (!cloudOn || !user) return;
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-      var cloud, localRecords, cloudById, localOnly, localNewer;
+      var cloud, localRecords, cloudById, localOnly, localNewer, deduped;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.n) {
           case 0:
@@ -1511,7 +1511,11 @@ var App = function App() {
 
               // 🆕 按需求调整:本地未同步记录(多为测试数据)默认丢弃 → 直接用云端,不再合并/重传,不弹提示
               // (localOnly/localNewer 仅留作调试,不再据此恢复;如需恢复 fix7 防丢失合并逻辑见历史版本)
-              setRecords(cloud);
+              // 🆕 fix179: 按 id 去重(防止任何重复记录导致计数虚高/抖动)
+              deduped = Array.from(new Map((cloud || []).map(function (r) {
+                return [r.id, r];
+              })).values());
+              setRecords(deduped);
             }
           case 2:
             return _context4.a(2);
@@ -1546,6 +1550,7 @@ var App = function App() {
     };
     if (Array.isArray(cleaned.screenshots)) cleaned.screenshots = cleaned.screenshots.map(slimShot);
     if (Array.isArray(cleaned.feedbackShots)) cleaned.feedbackShots = cleaned.feedbackShots.map(slimShot);
+    if (Array.isArray(cleaned.productOptShots)) cleaned.productOptShots = cleaned.productOptShots.map(slimShot); // 🆕 fix179
     if (Array.isArray(cleaned.followUps)) cleaned.followUps = cleaned.followUps.map(function (f) {
       return f && Array.isArray(f.screenshots) ? _objectSpread(_objectSpread({}, f), {}, {
         screenshots: f.screenshots.map(slimShot)
@@ -1561,7 +1566,7 @@ var App = function App() {
   // 🆕 IO优化:把记录里的 base64 截图上传到 Storage,记下 url(本会话保留 data 供显示;入库由 sanitize 剥 base64)
   var ensureRecordShotsUploaded = /*#__PURE__*/function () {
     var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(records) {
-      var uploadShot, _iterator, _step, r, _iterator2, _step2, s, _iterator3, _step3, _s, _iterator4, _step4, f, _iterator5, _step5, _s2, _t4, _t5, _t6, _t7, _t8;
+      var uploadShot, _iterator, _step, r, _iterator2, _step2, s, _iterator3, _step3, _s, _iterator4, _step4, _s2, _iterator5, _step5, f, _iterator6, _step6, _s3, _t4, _t5, _t6, _t7, _t8, _t9;
       return _regenerator().w(function (_context6) {
         while (1) switch (_context6.p = _context6.n) {
           case 0:
@@ -1617,7 +1622,7 @@ var App = function App() {
             _iterator.s();
           case 2:
             if ((_step = _iterator.n()).done) {
-              _context6.n = 30;
+              _context6.n = 37;
               break;
             }
             r = _step.value;
@@ -1681,80 +1686,110 @@ var App = function App() {
             _iterator3.f();
             return _context6.f(15);
           case 16:
-            if (!Array.isArray(r.followUps)) {
-              _context6.n = 29;
+            if (!Array.isArray(r.productOptShots)) {
+              _context6.n = 23;
               break;
             }
-            _iterator4 = _createForOfIteratorHelper(r.followUps);
+            _iterator4 = _createForOfIteratorHelper(r.productOptShots);
             _context6.p = 17;
             _iterator4.s();
           case 18:
             if ((_step4 = _iterator4.n()).done) {
-              _context6.n = 26;
+              _context6.n = 20;
               break;
             }
-            f = _step4.value;
-            if (!(f && Array.isArray(f.screenshots))) {
-              _context6.n = 25;
-              break;
-            }
-            _iterator5 = _createForOfIteratorHelper(f.screenshots);
-            _context6.p = 19;
-            _iterator5.s();
-          case 20:
-            if ((_step5 = _iterator5.n()).done) {
-              _context6.n = 22;
-              break;
-            }
-            _s2 = _step5.value;
-            _context6.n = 21;
+            _s2 = _step4.value;
+            _context6.n = 19;
             return uploadShot(_s2);
-          case 21:
-            _context6.n = 20;
-            break;
-          case 22:
-            _context6.n = 24;
-            break;
-          case 23:
-            _context6.p = 23;
-            _t6 = _context6.v;
-            _iterator5.e(_t6);
-          case 24:
-            _context6.p = 24;
-            _iterator5.f();
-            return _context6.f(24);
-          case 25:
+          case 19:
             _context6.n = 18;
             break;
-          case 26:
-            _context6.n = 28;
+          case 20:
+            _context6.n = 22;
             break;
-          case 27:
-            _context6.p = 27;
-            _t7 = _context6.v;
-            _iterator4.e(_t7);
-          case 28:
-            _context6.p = 28;
+          case 21:
+            _context6.p = 21;
+            _t6 = _context6.v;
+            _iterator4.e(_t6);
+          case 22:
+            _context6.p = 22;
             _iterator4.f();
-            return _context6.f(28);
+            return _context6.f(22);
+          case 23:
+            if (!Array.isArray(r.followUps)) {
+              _context6.n = 36;
+              break;
+            }
+            _iterator5 = _createForOfIteratorHelper(r.followUps);
+            _context6.p = 24;
+            _iterator5.s();
+          case 25:
+            if ((_step5 = _iterator5.n()).done) {
+              _context6.n = 33;
+              break;
+            }
+            f = _step5.value;
+            if (!(f && Array.isArray(f.screenshots))) {
+              _context6.n = 32;
+              break;
+            }
+            _iterator6 = _createForOfIteratorHelper(f.screenshots);
+            _context6.p = 26;
+            _iterator6.s();
+          case 27:
+            if ((_step6 = _iterator6.n()).done) {
+              _context6.n = 29;
+              break;
+            }
+            _s3 = _step6.value;
+            _context6.n = 28;
+            return uploadShot(_s3);
+          case 28:
+            _context6.n = 27;
+            break;
           case 29:
-            _context6.n = 2;
+            _context6.n = 31;
             break;
           case 30:
-            _context6.n = 32;
-            break;
+            _context6.p = 30;
+            _t7 = _context6.v;
+            _iterator6.e(_t7);
           case 31:
             _context6.p = 31;
-            _t8 = _context6.v;
-            _iterator.e(_t8);
+            _iterator6.f();
+            return _context6.f(31);
           case 32:
-            _context6.p = 32;
-            _iterator.f();
-            return _context6.f(32);
+            _context6.n = 25;
+            break;
           case 33:
+            _context6.n = 35;
+            break;
+          case 34:
+            _context6.p = 34;
+            _t8 = _context6.v;
+            _iterator5.e(_t8);
+          case 35:
+            _context6.p = 35;
+            _iterator5.f();
+            return _context6.f(35);
+          case 36:
+            _context6.n = 2;
+            break;
+          case 37:
+            _context6.n = 39;
+            break;
+          case 38:
+            _context6.p = 38;
+            _t9 = _context6.v;
+            _iterator.e(_t9);
+          case 39:
+            _context6.p = 39;
+            _iterator.f();
+            return _context6.f(39);
+          case 40:
             return _context6.a(2);
         }
-      }, _callee6, null, [[19, 23, 24, 25], [17, 27, 28, 29], [10, 14, 15, 16], [3, 7, 8, 9], [1, 31, 32, 33]]);
+      }, _callee6, null, [[26, 30, 31, 32], [24, 34, 35, 36], [17, 21, 22, 23], [10, 14, 15, 16], [3, 7, 8, 9], [1, 38, 39, 40]]);
     }));
     return function ensureRecordShotsUploaded(_x) {
       return _ref12.apply(this, arguments);
@@ -1859,7 +1894,7 @@ var App = function App() {
   useEffect(function () {
     if (!cloudOn || !user) return;
     var t = setTimeout(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
-      var current, _t9;
+      var current, _t0;
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.p = _context8.n) {
           case 0:
@@ -1879,9 +1914,9 @@ var App = function App() {
             break;
           case 3:
             _context8.p = 3;
-            _t9 = _context8.v;
-            console.error('云端写入失败', _t9);
-            setCloudSyncError(_t9.message);
+            _t0 = _context8.v;
+            console.error('云端写入失败', _t0);
+            setCloudSyncError(_t0.message);
           case 4:
             return _context8.a(2);
         }
@@ -1900,7 +1935,7 @@ var App = function App() {
     setMigrating = _useState22[1];
   var migrateRecordImages = /*#__PURE__*/function () {
     var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
-      var all, hasB64, needs, done, imgs, upOne, slim, BATCH, i, batch, _iterator6, _step6, r, _iterator7, _step7, s, _iterator8, _step8, _s3, _iterator9, _step9, f, _iterator0, _step0, _s4, cleaned, _t1, _t10, _t11, _t12, _t13, _t14;
+      var all, hasB64, needs, done, imgs, upOne, slim, BATCH, i, batch, _iterator7, _step7, r, _iterator8, _step8, s, _iterator9, _step9, _s4, _iterator0, _step0, _s5, _iterator1, _step1, f, _iterator10, _step10, _s6, cleaned, _t10, _t11, _t12, _t13, _t14, _t15, _t16;
       return _regenerator().w(function (_context0) {
         while (1) switch (_context0.p = _context0.n) {
           case 0:
@@ -1943,7 +1978,7 @@ var App = function App() {
               });
             };
             needs = all.filter(function (r) {
-              return hasB64(r.screenshots) || hasB64(r.feedbackShots) || Array.isArray(r.followUps) && r.followUps.some(function (f) {
+              return hasB64(r.screenshots) || hasB64(r.feedbackShots) || hasB64(r.productOptShots) || Array.isArray(r.followUps) && r.followUps.some(function (f) {
                 return f && hasB64(f.screenshots);
               });
             });
@@ -1958,7 +1993,7 @@ var App = function App() {
             done = 0, imgs = 0;
             upOne = /*#__PURE__*/function () {
               var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(s) {
-                var dataUrl, blob, file, res, _t0;
+                var dataUrl, blob, file, res, _t1;
                 return _regenerator().w(function (_context9) {
                   while (1) switch (_context9.p = _context9.n) {
                     case 0:
@@ -1993,8 +2028,8 @@ var App = function App() {
                       break;
                     case 5:
                       _context9.p = 5;
-                      _t0 = _context9.v;
-                      console.warn('迁移图片失败,保留base64', _t0);
+                      _t1 = _context9.v;
+                      console.warn('迁移图片失败,保留base64', _t1);
                     case 6:
                       return _context9.a(2);
                   }
@@ -2013,32 +2048,32 @@ var App = function App() {
             i = 0;
           case 7:
             if (!(i < needs.length)) {
-              _context0.n = 44;
+              _context0.n = 51;
               break;
             }
             batch = needs.slice(i, i + BATCH);
-            _iterator6 = _createForOfIteratorHelper(batch);
+            _iterator7 = _createForOfIteratorHelper(batch);
             _context0.p = 8;
-            _iterator6.s();
+            _iterator7.s();
           case 9:
-            if ((_step6 = _iterator6.n()).done) {
-              _context0.n = 38;
+            if ((_step7 = _iterator7.n()).done) {
+              _context0.n = 45;
               break;
             }
-            r = _step6.value;
+            r = _step7.value;
             if (!Array.isArray(r.screenshots)) {
               _context0.n = 16;
               break;
             }
-            _iterator7 = _createForOfIteratorHelper(r.screenshots);
+            _iterator8 = _createForOfIteratorHelper(r.screenshots);
             _context0.p = 10;
-            _iterator7.s();
+            _iterator8.s();
           case 11:
-            if ((_step7 = _iterator7.n()).done) {
+            if ((_step8 = _iterator8.n()).done) {
               _context0.n = 13;
               break;
             }
-            s = _step7.value;
+            s = _step8.value;
             _context0.n = 12;
             return upOne(s);
           case 12:
@@ -2049,28 +2084,28 @@ var App = function App() {
             break;
           case 14:
             _context0.p = 14;
-            _t1 = _context0.v;
-            _iterator7.e(_t1);
+            _t10 = _context0.v;
+            _iterator8.e(_t10);
           case 15:
             _context0.p = 15;
-            _iterator7.f();
+            _iterator8.f();
             return _context0.f(15);
           case 16:
             if (!Array.isArray(r.feedbackShots)) {
               _context0.n = 23;
               break;
             }
-            _iterator8 = _createForOfIteratorHelper(r.feedbackShots);
+            _iterator9 = _createForOfIteratorHelper(r.feedbackShots);
             _context0.p = 17;
-            _iterator8.s();
+            _iterator9.s();
           case 18:
-            if ((_step8 = _iterator8.n()).done) {
+            if ((_step9 = _iterator9.n()).done) {
               _context0.n = 20;
               break;
             }
-            _s3 = _step8.value;
+            _s4 = _step9.value;
             _context0.n = 19;
-            return upOne(_s3);
+            return upOne(_s4);
           case 19:
             _context0.n = 18;
             break;
@@ -2079,86 +2114,116 @@ var App = function App() {
             break;
           case 21:
             _context0.p = 21;
-            _t10 = _context0.v;
-            _iterator8.e(_t10);
+            _t11 = _context0.v;
+            _iterator9.e(_t11);
           case 22:
             _context0.p = 22;
-            _iterator8.f();
+            _iterator9.f();
             return _context0.f(22);
           case 23:
+            if (!Array.isArray(r.productOptShots)) {
+              _context0.n = 30;
+              break;
+            }
+            _iterator0 = _createForOfIteratorHelper(r.productOptShots);
+            _context0.p = 24;
+            _iterator0.s();
+          case 25:
+            if ((_step0 = _iterator0.n()).done) {
+              _context0.n = 27;
+              break;
+            }
+            _s5 = _step0.value;
+            _context0.n = 26;
+            return upOne(_s5);
+          case 26:
+            _context0.n = 25;
+            break;
+          case 27:
+            _context0.n = 29;
+            break;
+          case 28:
+            _context0.p = 28;
+            _t12 = _context0.v;
+            _iterator0.e(_t12);
+          case 29:
+            _context0.p = 29;
+            _iterator0.f();
+            return _context0.f(29);
+          case 30:
             if (!Array.isArray(r.followUps)) {
+              _context0.n = 43;
+              break;
+            }
+            _iterator1 = _createForOfIteratorHelper(r.followUps);
+            _context0.p = 31;
+            _iterator1.s();
+          case 32:
+            if ((_step1 = _iterator1.n()).done) {
+              _context0.n = 40;
+              break;
+            }
+            f = _step1.value;
+            if (!(f && Array.isArray(f.screenshots))) {
+              _context0.n = 39;
+              break;
+            }
+            _iterator10 = _createForOfIteratorHelper(f.screenshots);
+            _context0.p = 33;
+            _iterator10.s();
+          case 34:
+            if ((_step10 = _iterator10.n()).done) {
               _context0.n = 36;
               break;
             }
-            _iterator9 = _createForOfIteratorHelper(r.followUps);
-            _context0.p = 24;
-            _iterator9.s();
-          case 25:
-            if ((_step9 = _iterator9.n()).done) {
-              _context0.n = 33;
-              break;
-            }
-            f = _step9.value;
-            if (!(f && Array.isArray(f.screenshots))) {
-              _context0.n = 32;
-              break;
-            }
-            _iterator0 = _createForOfIteratorHelper(f.screenshots);
-            _context0.p = 26;
-            _iterator0.s();
-          case 27:
-            if ((_step0 = _iterator0.n()).done) {
-              _context0.n = 29;
-              break;
-            }
-            _s4 = _step0.value;
-            _context0.n = 28;
-            return upOne(_s4);
-          case 28:
-            _context0.n = 27;
-            break;
-          case 29:
-            _context0.n = 31;
-            break;
-          case 30:
-            _context0.p = 30;
-            _t11 = _context0.v;
-            _iterator0.e(_t11);
-          case 31:
-            _context0.p = 31;
-            _iterator0.f();
-            return _context0.f(31);
-          case 32:
-            _context0.n = 25;
-            break;
-          case 33:
+            _s6 = _step10.value;
             _context0.n = 35;
-            break;
-          case 34:
-            _context0.p = 34;
-            _t12 = _context0.v;
-            _iterator9.e(_t12);
+            return upOne(_s6);
           case 35:
-            _context0.p = 35;
-            _iterator9.f();
-            return _context0.f(35);
+            _context0.n = 34;
+            break;
           case 36:
-            done++;
+            _context0.n = 38;
+            break;
           case 37:
+            _context0.p = 37;
+            _t13 = _context0.v;
+            _iterator10.e(_t13);
+          case 38:
+            _context0.p = 38;
+            _iterator10.f();
+            return _context0.f(38);
+          case 39:
+            _context0.n = 32;
+            break;
+          case 40:
+            _context0.n = 42;
+            break;
+          case 41:
+            _context0.p = 41;
+            _t14 = _context0.v;
+            _iterator1.e(_t14);
+          case 42:
+            _context0.p = 42;
+            _iterator1.f();
+            return _context0.f(42);
+          case 43:
+            done++;
+          case 44:
             _context0.n = 9;
             break;
-          case 38:
-            _context0.n = 40;
+          case 45:
+            _context0.n = 47;
             break;
-          case 39:
-            _context0.p = 39;
-            _t13 = _context0.v;
-            _iterator6.e(_t13);
-          case 40:
-            _context0.p = 40;
-            _iterator6.f();
-            return _context0.f(40);
-          case 41:
+          case 46:
+            _context0.p = 46;
+            _t15 = _context0.v;
+            _iterator7.e(_t15);
+          case 47:
+            _context0.p = 47;
+            _iterator7.f();
+            return _context0.f(47);
+          case 48:
             cleaned = batch.map(function (r) {
               var c = _objectSpread({}, r);
               if (Array.isArray(c.screenshots)) c.screenshots = c.screenshots.map(slim);
@@ -2170,28 +2235,28 @@ var App = function App() {
               });
               return c;
             });
-            _context0.n = 42;
+            _context0.n = 49;
             return CLOUD.client.from('workspace_records').upsert(cleaned);
-          case 42:
+          case 49:
             toast("\u23F3 \u8FC1\u79FB\u4E2D ".concat(done, "/").concat(needs.length, " \u6761\u2026"));
-          case 43:
+          case 50:
             i += BATCH;
             _context0.n = 7;
             break;
-          case 44:
+          case 51:
             alert("\u2713 \u8FC1\u79FB\u5B8C\u6210!\n\n\u5904\u7406 ".concat(needs.length, " \u6761\u8BB0\u5F55\u3001").concat(imgs, " \u5F20\u56FE\u7247\u5DF2\u8F6C\u4E91\u5B58\u50A8\u3002\n\u5E93\u91CC\u4E0D\u518D\u5E26 base64,\u52A0\u8F7D\u4F1A\u5FEB\u5F88\u591A\u3002\n\n\u8BF7\u5F3A\u5237\u9875\u9762(Ctrl+Shift+R)\u4F53\u9A8C\u3002"));
-            _context0.n = 46;
+            _context0.n = 53;
             break;
-          case 45:
-            _context0.p = 45;
-            _t14 = _context0.v;
-            alert('迁移出错: ' + (_t14.message || _t14));
-          case 46:
+          case 52:
+            _context0.p = 52;
+            _t16 = _context0.v;
+            alert('迁移出错: ' + (_t16.message || _t16));
+          case 53:
             setMigrating(false);
-          case 47:
+          case 54:
             return _context0.a(2);
         }
-      }, _callee0, null, [[26, 30, 31, 32], [24, 34, 35, 36], [17, 21, 22, 23], [10, 14, 15, 16], [8, 39, 40, 41], [3, 45]]);
+      }, _callee0, null, [[33, 37, 38, 39], [31, 41, 42, 43], [24, 28, 29, 30], [17, 21, 22, 23], [10, 14, 15, 16], [8, 46, 47, 48], [3, 52]]);
     }));
     return function migrateRecordImages() {
       return _ref16.apply(this, arguments);
@@ -2308,7 +2373,7 @@ var App = function App() {
         _yield$CLOUD$client$f3,
         error,
         _args1 = arguments,
-        _t15;
+        _t17;
       return _regenerator().w(function (_context1) {
         while (1) switch (_context1.p = _context1.n) {
           case 0:
@@ -2405,8 +2470,8 @@ var App = function App() {
             break;
           case 12:
             _context1.p = 12;
-            _t15 = _context1.v;
-            alert("\u274C \u7533\u8BF7\u5931\u8D25: ".concat(_t15.message, "\n\n\u5EFA\u8BAE:\u5DE5\u5355\u53EF\u80FD\u672A\u5728\u4E91\u7AEF\u521B\u5EFA,\u4F46\u672C\u5730\u5DF2\u8BB0\u5F55"));
+            _t17 = _context1.v;
+            alert("\u274C \u7533\u8BF7\u5931\u8D25: ".concat(_t17.message, "\n\n\u5EFA\u8BAE:\u5DE5\u5355\u53EF\u80FD\u672A\u5728\u4E91\u7AEF\u521B\u5EFA,\u4F46\u672C\u5730\u5DF2\u8BB0\u5F55"));
             STORE.set('tickets_local', [ticket].concat(_toConsumableArray(STORE.get('tickets_local', []))));
           case 13:
             return _context1.a(2);
@@ -2430,7 +2495,7 @@ var App = function App() {
   useEffect(function () {
     if (!cloudOn || !CLOUD.client) return;
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
-      var _data$value2, _yield$CLOUD$client$f4, data, ids, _t16;
+      var _data$value2, _yield$CLOUD$client$f4, data, ids, _t18;
       return _regenerator().w(function (_context10) {
         while (1) switch (_context10.p = _context10.n) {
           case 0:
@@ -2449,7 +2514,7 @@ var App = function App() {
             break;
           case 2:
             _context10.p = 2;
-            _t16 = _context10.v;
+            _t18 = _context10.v;
           case 3:
             return _context10.a(2);
         }
@@ -2468,7 +2533,7 @@ var App = function App() {
     window.__refundProcessors = refundProcessors;
     window.__setRefundProcessors = /*#__PURE__*/function () {
       var _ref21 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(newIds, currentUserName) {
-        var userNames, _yield$CLOUD$client$f5, error, _t17;
+        var userNames, _yield$CLOUD$client$f5, error, _t19;
         return _regenerator().w(function (_context11) {
           while (1) switch (_context11.p = _context11.n) {
             case 0:
@@ -2510,8 +2575,8 @@ var App = function App() {
               return _context11.a(2, true);
             case 4:
               _context11.p = 4;
-              _t17 = _context11.v;
-              alert('保存退款处理人配置失败: ' + (_t17.message || _t17));
+              _t19 = _context11.v;
+              alert('保存退款处理人配置失败: ' + (_t19.message || _t19));
               return _context11.a(2, false);
           }
         }, _callee11, null, [[1, 4]]);
@@ -2571,7 +2636,7 @@ var App = function App() {
   };
   var loadCdmMessages = /*#__PURE__*/function () {
     var _ref22 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
-      var client, cutoffMs, _yield$client$from$se, data, error, fb, _t18;
+      var client, cutoffMs, _yield$client$from$se, data, error, fb, _t20;
       return _regenerator().w(function (_context12) {
         while (1) switch (_context12.p = _context12.n) {
           case 0:
@@ -2636,8 +2701,8 @@ var App = function App() {
             break;
           case 8:
             _context12.p = 8;
-            _t18 = _context12.v;
-            console.warn('[CDM] 加载消息失败', _t18);
+            _t20 = _context12.v;
+            console.warn('[CDM] 加载消息失败', _t20);
           case 9:
             cdmLoadingRef.current = false;
             setCdmLoading(false);
@@ -2654,7 +2719,7 @@ var App = function App() {
   // 🆕 fix140: realtime 兜底 — payload 不完整时,按时间水位只增量补拉新行(正常返回 0 行,极轻)
   var cdmIncrementalFetch = /*#__PURE__*/function () {
     var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
-      var client, since, _yield$client$from$se2, data, error, _t19;
+      var client, since, _yield$client$from$se2, data, error, _t21;
       return _regenerator().w(function (_context13) {
         while (1) switch (_context13.p = _context13.n) {
           case 0:
@@ -2701,7 +2766,7 @@ var App = function App() {
             break;
           case 5:
             _context13.p = 5;
-            _t19 = _context13.v;
+            _t21 = _context13.v;
           case 6:
             return _context13.a(2);
         }
@@ -2721,7 +2786,7 @@ var App = function App() {
   // 🆕 v22-CV/CW: 加载 shop_owners 和 cdm_timeout_config
   var loadShopOwners = /*#__PURE__*/function () {
     var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
-      var client, _yield$client$from$se3, data, error, _t20;
+      var client, _yield$client$from$se3, data, error, _t22;
       return _regenerator().w(function (_context14) {
         while (1) switch (_context14.p = _context14.n) {
           case 0:
@@ -2761,8 +2826,8 @@ var App = function App() {
             break;
           case 4:
             _context14.p = 4;
-            _t20 = _context14.v;
-            console.warn('[CDM] 加载 shop_owners 失败', _t20);
+            _t22 = _context14.v;
+            console.warn('[CDM] 加载 shop_owners 失败', _t22);
           case 5:
             return _context14.a(2);
         }
@@ -2774,7 +2839,7 @@ var App = function App() {
   }();
   var loadCdmTimeoutConfig = /*#__PURE__*/function () {
     var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
-      var client, _yield$client$from$se4, data, error, _t21;
+      var client, _yield$client$from$se4, data, error, _t23;
       return _regenerator().w(function (_context15) {
         while (1) switch (_context15.p = _context15.n) {
           case 0:
@@ -2803,8 +2868,8 @@ var App = function App() {
             break;
           case 4:
             _context15.p = 4;
-            _t21 = _context15.v;
-            console.warn('[CDM] 加载 cdm_timeout_config 失败', _t21);
+            _t23 = _context15.v;
+            console.warn('[CDM] 加载 cdm_timeout_config 失败', _t23);
           case 5:
             return _context15.a(2);
         }
@@ -3486,7 +3551,7 @@ var App = function App() {
     if (!isAdminRole) return;
     var fetchDR = /*#__PURE__*/function () {
       var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
-        var data, _t22;
+        var data, _t24;
         return _regenerator().w(function (_context18) {
           while (1) switch (_context18.p = _context18.n) {
             case 0:
@@ -3506,7 +3571,7 @@ var App = function App() {
               break;
             case 2:
               _context18.p = 2;
-              _t22 = _context18.v;
+              _t24 = _context18.v;
             case 3:
               return _context18.a(2);
           }
@@ -3833,7 +3898,7 @@ var App = function App() {
     }
   }, "\u26A0 ", /*#__PURE__*/React.createElement("strong", null, "\u4E91\u7AEF\u5199\u5165\u5931\u8D25"), "\uFF1A", cloudSyncError.slice(0, 100), " \xB7 \u6570\u636E\u53EF\u80FD\u672A\u540C\u6B65\u5230\u4E91\u7AEF \xB7", /*#__PURE__*/React.createElement("button", {
     onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
-      var skipped, _t23;
+      var skipped, _t25;
       return _regenerator().w(function (_context19) {
         while (1) switch (_context19.p = _context19.n) {
           case 0:
@@ -3852,9 +3917,9 @@ var App = function App() {
             break;
           case 2:
             _context19.p = 2;
-            _t23 = _context19.v;
-            setCloudSyncError(_t23.message);
-            alert('❌ 上传失败：' + _t23.message);
+            _t25 = _context19.v;
+            setCloudSyncError(_t25.message);
+            alert('❌ 上传失败：' + _t25.message);
           case 3:
             return _context19.a(2);
         }
@@ -4090,7 +4155,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix178';
+var APP_VERSION = '2026.06.05-fix179';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

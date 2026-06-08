@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix178
+// 版本 2026.06.05-fix179
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix178
+// 版本 2026.06.05-fix179
 // 预编译切片
 //
 
@@ -1169,7 +1169,7 @@ var DashboardModule = function DashboardModule(_ref4) {
   }, "\u672C\u671F\u8FD8\u6CA1\u6709\u6807\u8BB0\u7684\u95EE\u9898\u53CD\u9988 \xB7 \u5BA2\u670D\u5728\u300C\u8DDF\u8FDB & \u622A\u56FE\u300D\u5F39\u7A97\u91CC\u52FE\u9009\u300C\uD83D\uDCE3 \u6807\u8BB0\u4E3A\u95EE\u9898\u53CD\u9988\u300D\u5373\u53EF"), feedbackRecords.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "space-y-1 max-h-52 overflow-y-auto scrollbar-thin"
   }, feedbackRecords.map(function (r) {
-    var _r$feedbackShots;
+    var _employees$find, _r$feedbackShots;
     return /*#__PURE__*/React.createElement("div", {
       key: r.id,
       onClick: function onClick() {
@@ -1189,8 +1189,18 @@ var DashboardModule = function DashboardModule(_ref4) {
       }
     }, r.site || window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef) || '?'), /*#__PURE__*/React.createElement("span", {
       style: {
+        fontWeight: 700,
+        fontSize: 11,
+        color: '#92400e',
+        minWidth: 60,
+        whiteSpace: 'nowrap'
+      }
+    }, ((_employees$find = employees.find(function (e) {
+      return e.id === r.ownerId;
+    })) === null || _employees$find === void 0 ? void 0 : _employees$find.name) || r.ownerName || '?'), /*#__PURE__*/React.createElement("span", {
+      style: {
         fontWeight: 600,
-        minWidth: 80
+        minWidth: 74
       }
     }, r.customer || '(无客户名)'), /*#__PURE__*/React.createElement("span", {
       style: {
@@ -1214,9 +1224,10 @@ var DashboardModule = function DashboardModule(_ref4) {
     }, "\uD83D\uDCF7", r.feedbackShots.length), /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 10,
-        color: 'var(--ink-4)'
+        color: 'var(--ink-4)',
+        whiteSpace: 'nowrap'
       }
-    }, r.date));
+    }, (r.feedbackMarkedAt || '').slice(5, 16).replace('T', ' ') || r.date));
   }))), /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-4"
   }, /*#__PURE__*/React.createElement("div", {
@@ -1266,6 +1277,7 @@ var DashboardModule = function DashboardModule(_ref4) {
   }, "\u8FD8\u6CA1\u6709\u6807\u8BB0\u7684\u4EA7\u54C1\u4F18\u5316 \xB7 \u5BA2\u670D\u5728\u300C\u8DDF\u8FDB & \u622A\u56FE\u300D\u5F39\u7A97\u91CC\u52FE\u9009\u300C\uD83D\uDEE0 \u6807\u8BB0\u4E3A\u4EA7\u54C1\u4F18\u5316\u300D\u5373\u53EF"), productOptRecords.length > 0 && /*#__PURE__*/React.createElement("div", {
     className: "space-y-1 max-h-52 overflow-y-auto scrollbar-thin"
   }, productOptRecords.map(function (r) {
+    var _employees$find2, _r$productOptShots;
     return /*#__PURE__*/React.createElement("div", {
       key: r.id,
       onClick: function onClick() {
@@ -1285,8 +1297,18 @@ var DashboardModule = function DashboardModule(_ref4) {
       }
     }, r.site || window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef) || '?'), /*#__PURE__*/React.createElement("span", {
       style: {
+        fontWeight: 700,
+        fontSize: 11,
+        color: '#15803d',
+        minWidth: 60,
+        whiteSpace: 'nowrap'
+      }
+    }, ((_employees$find2 = employees.find(function (e) {
+      return e.id === r.ownerId;
+    })) === null || _employees$find2 === void 0 ? void 0 : _employees$find2.name) || r.ownerName || '?'), /*#__PURE__*/React.createElement("span", {
+      style: {
         fontWeight: 600,
-        minWidth: 80
+        minWidth: 74
       }
     }, r.customer || '(无客户名)'), /*#__PURE__*/React.createElement("span", {
       style: {
@@ -1302,12 +1324,18 @@ var DashboardModule = function DashboardModule(_ref4) {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
       }
-    }, r.productOptNote || r.note || ''), /*#__PURE__*/React.createElement("span", {
+    }, r.productOptNote || r.note || ''), ((_r$productOptShots = r.productOptShots) === null || _r$productOptShots === void 0 ? void 0 : _r$productOptShots.length) > 0 && /*#__PURE__*/React.createElement("span", {
       style: {
         fontSize: 10,
-        color: 'var(--ink-4)'
+        color: 'var(--ink-3)'
       }
-    }, r.date));
+    }, "\uD83D\uDCF7", r.productOptShots.length), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 10,
+        color: 'var(--ink-4)',
+        whiteSpace: 'nowrap'
+      }
+    }, (r.productOptMarkedAt || '').slice(5, 16).replace('T', ' ') || r.date));
   }))), /*#__PURE__*/React.createElement(UnresolvedList, {
     records: unresolvedList,
     totalUnresolved: unresolved.length,
@@ -2333,10 +2361,10 @@ var KpiDetailModal = function KpiDetailModal(_ref13) {
     });
   };
   var empName = function empName(id) {
-    var _employees$find;
-    return ((_employees$find = employees.find(function (e) {
+    var _employees$find3;
+    return ((_employees$find3 = employees.find(function (e) {
       return e.id === id;
-    })) === null || _employees$find === void 0 ? void 0 : _employees$find.name) || '?';
+    })) === null || _employees$find3 === void 0 ? void 0 : _employees$find3.name) || '?';
   };
   return /*#__PURE__*/React.createElement("div", {
     onClick: onClose,
