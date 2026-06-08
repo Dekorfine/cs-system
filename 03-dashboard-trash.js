@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix172
+// 版本 2026.06.05-fix173
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix172
+// 版本 2026.06.05-fix173
 // 预编译切片
 //
 
@@ -764,12 +764,12 @@ var DashboardModule = function DashboardModule(_ref4) {
     });
   }, [periodRecords]);
 
-  // ========== 🆕 fix82: 问题反馈统计(每人本期标记数) ==========
+  // ========== 🆕 fix82: 问题反馈统计 — 显示全部"未解决"的标记(不按日期筛,标记的问题没解决就一直显示给主管) ==========
   var feedbackStats = useMemo(function () {
     return employees.map(function (e) {
       return _objectSpread(_objectSpread({}, e), {}, {
-        count: periodRecords.filter(function (r) {
-          return r.ownerId === e.id && r.isFeedback;
+        count: scopedRecords.filter(function (r) {
+          return r.ownerId === e.id && r.isFeedback && r.status !== 'resolved';
         }).length
       });
     }).filter(function (e) {
@@ -777,12 +777,12 @@ var DashboardModule = function DashboardModule(_ref4) {
     }).sort(function (a, b) {
       return b.count - a.count;
     });
-  }, [employees, periodRecords]);
+  }, [employees, scopedRecords]);
   var feedbackRecords = useMemo(function () {
-    return periodRecords.filter(function (r) {
-      return r.isFeedback;
+    return scopedRecords.filter(function (r) {
+      return r.isFeedback && r.status !== 'resolved';
     });
-  }, [periodRecords]);
+  }, [scopedRecords]);
 
   // ========== 按客服分布 ==========
   var empStats = useMemo(function () {
@@ -1113,7 +1113,7 @@ var DashboardModule = function DashboardModule(_ref4) {
     style: {
       color: 'var(--ink-3)'
     }
-  }, rangeLabel, " \xB7 \u5BA2\u670D\u6807\u8BB0\u7684\u95EE\u9898")), /*#__PURE__*/React.createElement("span", {
+  }, "\u672A\u89E3\u51B3 \xB7 \u5BA2\u670D\u6807\u8BB0\u7684\u95EE\u9898(\u5168\u90E8,\u4E0D\u9650\u5F53\u5929)")), /*#__PURE__*/React.createElement("span", {
     style: {
       fontWeight: 800,
       fontSize: 20,
