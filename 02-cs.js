@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix184
+// 版本 2026.06.05-fix185
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix184
+// 版本 2026.06.05-fix185
 // 预编译切片
 //
 
@@ -3585,7 +3585,48 @@ var CSModule = function CSModule(_ref2) {
         border: '1px solid var(--line)',
         borderRadius: 7
       }
-    }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    })), function () {
+      var an = timeAnomaly(r.startTime, r.endTime);
+      if (!an) return null;
+      if (an.kind === 'reversed') {
+        return /*#__PURE__*/React.createElement("div", {
+          style: {
+            marginTop: 5,
+            fontSize: 11,
+            color: 'var(--bad)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap'
+          }
+        }, /*#__PURE__*/React.createElement("span", null, "\u26A0 \u7ED3\u675F\u65E9\u4E8E\u5F00\u59CB,\u53EF\u80FD\u9009\u9519\u65F6\u95F4 \xB7 \u672A\u8BA1\u5165\u603B\u65F6\u957F"), editable && /*#__PURE__*/React.createElement("button", {
+          onClick: function onClick() {
+            return updateRow(r.id, {
+              startTime: r.endTime,
+              endTime: r.startTime
+            });
+          },
+          style: {
+            border: '1px solid var(--bad)',
+            color: 'var(--bad)',
+            background: '#fff',
+            borderRadius: 6,
+            padding: '2px 8px',
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: 'inherit'
+          }
+        }, "\u2194 \u5BF9\u8C03\u65F6\u95F4"));
+      }
+      return /*#__PURE__*/React.createElement("div", {
+        style: {
+          marginTop: 5,
+          fontSize: 11,
+          color: 'var(--gold)'
+        }
+      }, "\u26A0 \u65F6\u957F ", fmtDuration(an.raw), " \u504F\u957F,\u786E\u8BA4\u65E0\u8BEF?");
+    }()), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
       style: {
         fontSize: 10,
         fontWeight: 600,

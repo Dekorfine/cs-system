@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix184
+// 版本 2026.06.05-fix185
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix184
+// 版本 2026.06.05-fix185
 // 预编译切片
 //
 
@@ -234,9 +234,49 @@ var minutesBetween = function minutesBetween(start, end) {
     _end$split$map2 = _slicedToArray(_end$split$map, 2),
     eh = _end$split$map2[0],
     em = _end$split$map2[1];
+  if ([sh, sm, eh, em].some(function (n) {
+    return isNaN(n);
+  })) return 0;
   var diff = eh * 60 + em - (sh * 60 + sm);
-  if (diff < 0) diff += 24 * 60;
+  // 🆕 fix185 防呆:结束早于开始 = 选错时间。本系统是单封邮件处理时长,不存在跨天;
+  //   旧逻辑默认按"跨天 +24h"算,会把 18:59→18:12 这种 typo 算成 23h13m,污染总时长。
+  //   异常一律记 0(不计入总时长),由 UI 红字提醒纠正。
+  if (diff < 0) return 0;
   return diff;
+};
+// 🆕 fix185:时段防呆判定 — 返回 null / {kind:'reversed'} / {kind:'toolong', raw}
+var DUR_SOFT_CAP_MIN = 360; // 单封 > 6h 视为可疑(仍计入,只黄字提醒)
+var timeAnomaly = function timeAnomaly(start, end) {
+  if (!start || !end) return null;
+  var _start$split$map3 = start.split(':').map(Number),
+    _start$split$map4 = _slicedToArray(_start$split$map3, 2),
+    sh = _start$split$map4[0],
+    sm = _start$split$map4[1];
+  var _end$split$map3 = end.split(':').map(Number),
+    _end$split$map4 = _slicedToArray(_end$split$map3, 2),
+    eh = _end$split$map4[0],
+    em = _end$split$map4[1];
+  if ([sh, sm, eh, em].some(function (n) {
+    return isNaN(n);
+  })) return null;
+  var raw = eh * 60 + em - (sh * 60 + sm);
+  if (raw < 0) return {
+    kind: 'reversed',
+    raw: raw
+  }; // 结束早于开始
+  if (raw > DUR_SOFT_CAP_MIN) return {
+    kind: 'toolong',
+    raw: raw
+  }; // 超长可疑
+  return null;
+};
+// 🆕 fix185:进入视图时按防呆规则重算时长,自愈历史"结束早于开始"产生的假时长(如 23h13m)
+var recomputeDuration = function recomputeDuration(r) {
+  if (!r || !r.startTime || !r.endTime) return r;
+  var d = minutesBetween(r.startTime, r.endTime);
+  return d === r.durationMin ? r : _objectSpread(_objectSpread({}, r), {}, {
+    durationMin: d
+  });
 };
 var fmtDuration = function fmtDuration(mins) {
   if (!mins) return '0min';

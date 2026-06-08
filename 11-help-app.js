@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix184
+// 版本 2026.06.05-fix185
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix184
+// 版本 2026.06.05-fix185
 // 预编译切片
 //
 
@@ -1444,7 +1444,7 @@ var App = function App() {
 
   // 所有客服记录 (localStorage + 云同步)
   var _useState17 = useState(function () {
-      return STORE.get('cs_records', []);
+      return STORE.get('cs_records', []).map(recomputeDuration);
     }),
     _useState18 = _slicedToArray(_useState17, 2),
     records = _useState18[0],
@@ -1520,7 +1520,7 @@ var App = function App() {
               localNewer.forEach(function (l) {
                 if (l && l.id) merged.set(l.id, l);
               }); // 本地更新 → 用本地版
-              setRecords(Array.from(merged.values()));
+              setRecords(Array.from(merged.values()).map(recomputeDuration));
               // 🆕 fix181b: 云端来的记录标为"已同步"(增量同步基线),本地独有/更新的不标 → 会被补传
               try {
                 (cloud || []).forEach(function (r) {
@@ -4404,7 +4404,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix184';
+var APP_VERSION = '2026.06.05-fix185';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
