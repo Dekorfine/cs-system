@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix166
+// 版本 2026.06.05-fix169
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix166
+// 版本 2026.06.05-fix169
 // 预编译切片
 //
 
@@ -4809,7 +4809,22 @@ var WorkSnapshotPanel = function WorkSnapshotPanel(_ref22) {
       gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
       gap: 8
     }
-  }, stats.isRefundProcessor && stats.refundPendingForProcessor.length > 0 && /*#__PURE__*/React.createElement(AlertCell, {
+  }, isAdminRole && function () {
+    var fb = (records || []).filter(function (r) {
+      return r && r.isFeedback && !r.deleted && r.status !== 'resolved';
+    });
+    return fb.length > 0 ? /*#__PURE__*/React.createElement(AlertCell, {
+      icon: "\uD83D\uDCE3",
+      label: "\u95EE\u9898\u53CD\u9988\u5F85\u67E5\u770B",
+      count: fb.length,
+      color: "#f59e0b",
+      urgent: true,
+      threshold: "\u5BA2\u670D\u6807\u8BB0 \xB7 \u4E3B\u7BA1\u5904\u7406",
+      onClick: function onClick() {
+        return onJumpTo && onJumpTo('admin_overview');
+      }
+    }) : null;
+  }(), stats.isRefundProcessor && stats.refundPendingForProcessor.length > 0 && /*#__PURE__*/React.createElement(AlertCell, {
     icon: "\uD83D\uDCB0",
     label: "\u4ECA\u5929\u8981\u5BA1\u6838\u7684\u9000\u6B3E",
     count: stats.refundPendingForProcessor.length,
