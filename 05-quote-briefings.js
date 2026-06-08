@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix175
+// 版本 2026.06.05-fix176
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix175
+// 版本 2026.06.05-fix176
 // 预编译切片
 //
 
@@ -3735,82 +3735,90 @@ var ChargebackReminderBanner = function ChargebackReminderBanner(_ref18) {
       key: cb.id,
       className: isBlink ? 'pulse-soft' : '',
       style: {
-        padding: '10px 14px',
-        borderRadius: 10,
+        padding: '7px 12px',
+        borderRadius: 8,
         background: u.bg,
-        border: "2px solid ".concat(u.color),
+        border: "1px solid ".concat(u.color, "33"),
+        borderLeft: "3px solid ".concat(u.color),
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
+        gap: 8,
         flexWrap: 'wrap'
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 18
+        fontSize: 13
       }
     }, u.level === 'overdue' ? '🔥' : '⚠️'), /*#__PURE__*/React.createElement("div", {
       style: {
         flex: 1,
-        minWidth: 200
-      }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 13,
-        fontWeight: 700,
-        color: u.color
-      }
-    }, u.label, " \xB7 \u62D2\u4ED8 ", cb.order_no, " \xB7 ", cb.customer_email || cb.customer_name || '?'), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 11,
+        minWidth: 180,
+        fontSize: 12.5,
         color: u.color,
-        opacity: .85,
-        marginTop: 2
+        lineHeight: 1.35
       }
-    }, "\uD83D\uDCB0 ", cb.currency || 'USD', " ", cb.amount || 0, " \xB7 ", cb.platform || '', " \xB7 \u622A\u6B62 ", cb.deadline, (cb.assigned_to_names || []).length > 0 && " \xB7 \uD83D\uDC65 ".concat(cb.assigned_to_names.join('/')))), /*#__PURE__*/React.createElement("button", {
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontWeight: 700
+      }
+    }, u.label, " \xB7 \u62D2\u4ED8 ", cb.order_no), /*#__PURE__*/React.createElement("span", {
+      style: {
+        opacity: .85
+      }
+    }, " \xB7 ", cb.customer_email || cb.customer_name || '?'), /*#__PURE__*/React.createElement("span", {
+      style: {
+        opacity: .7,
+        fontSize: 11
+      }
+    }, "\u3000", cb.currency || 'USD', " ", cb.amount || 0, " \xB7 \u622A\u6B62 ", cb.deadline, (cb.assigned_to_names || []).length > 0 ? ' · ' + cb.assigned_to_names.join('/') : '')), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return onJumpTo && onJumpTo(cb);
       },
       style: {
-        padding: '6px 14px',
+        padding: '4px 10px',
         background: u.color,
         color: 'white',
         border: 'none',
-        borderRadius: 6,
+        borderRadius: 5,
         cursor: 'pointer',
-        fontSize: 12,
+        fontSize: 11.5,
         fontWeight: 600,
-        fontFamily: 'inherit'
+        fontFamily: 'inherit',
+        whiteSpace: 'nowrap'
       }
-    }, "\u7ACB\u5373\u5904\u7406 \u2192"), /*#__PURE__*/React.createElement("button", {
+    }, "\u5904\u7406 \u2192"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return markResponded(cb);
       },
       title: "\u7533\u8BC9/\u63D0\u4EA4\u8BC1\u636E\u540E\u70B9\u8FD9\u91CC \u2192 \u8FDB\u5165\u7B49\u4E89\u8BAE\u7ED3\u679C,\u79FB\u51FA\u50AC\u529E",
       style: {
-        padding: '6px 12px',
-        background: 'white',
+        padding: '4px 9px',
+        background: 'transparent',
         color: u.color,
-        border: "1.5px solid ".concat(u.color),
-        borderRadius: 6,
+        border: "1px solid ".concat(u.color),
+        borderRadius: 5,
         cursor: 'pointer',
-        fontSize: 12,
-        fontWeight: 700,
-        fontFamily: 'inherit'
+        fontSize: 11.5,
+        fontWeight: 600,
+        fontFamily: 'inherit',
+        whiteSpace: 'nowrap'
       }
-    }, "\u2713 \u5DF2\u63D0\u4EA4\u8BC1\u636E"), /*#__PURE__*/React.createElement("button", {
+    }, "\u2713\u5DF2\u63D0\u4EA4"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return dismissOne(cb.id);
       },
       title: "\u672C\u6B21\u4F1A\u8BDD\u6682\u65F6\u5FFD\u7565",
       style: {
-        padding: '4px 8px',
+        padding: '2px 7px',
         background: 'transparent',
-        border: "1px solid ".concat(u.color),
+        border: 'none',
         color: u.color,
-        borderRadius: 6,
+        opacity: .55,
+        borderRadius: 5,
         cursor: 'pointer',
-        fontSize: 11,
-        fontFamily: 'inherit'
+        fontSize: 15,
+        fontFamily: 'inherit',
+        lineHeight: 1
       }
     }, "\xD7"));
   }), visible.length > 3 && /*#__PURE__*/React.createElement("div", {
