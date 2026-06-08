@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix193
+// 版本 2026.06.05-fix194
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,13 +23,15 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix193
+// 版本 2026.06.05-fix194
 // 预编译切片
 //
 
 var Customer360Modal = function Customer360Modal(_ref) {
   var email = _ref.email,
     records = _ref.records,
+    _ref$employees = _ref.employees,
+    employees = _ref$employees === void 0 ? [] : _ref$employees,
     onClose = _ref.onClose,
     onOpenRecord = _ref.onOpenRecord;
   var _useState = useState(true),
@@ -196,26 +198,219 @@ var Customer360Modal = function Customer360Modal(_ref) {
       cursor: 'pointer',
       color: 'var(--ink-3)'
     }
-  }, "\u2715")), /*#__PURE__*/React.createElement(Section360, {
-    icon: "\uD83D\uDCDE",
-    title: "\u5BA2\u670D\u8DDF\u8FDB",
-    count: myRecords.length,
-    items: myRecords.map(function (r) {
-      var _r$followups;
-      return {
-        id: r.id,
-        primary: "".concat(r.site || '', " \xB7 ").concat((STATUSES.find(function (s) {
-          return s.key === r.status;
-        }) || {}).label || r.status),
-        secondary: r.summary || ((_r$followups = r.followups) === null || _r$followups === void 0 || (_r$followups = _r$followups[0]) === null || _r$followups === void 0 ? void 0 : _r$followups.note) || '',
-        date: r.date || r.created_at,
-        onClick: onOpenRecord ? function () {
-          onOpenRecord(r.id);
-          onClose();
-        } : null
-      };
-    })
-  }), /*#__PURE__*/React.createElement(Section360, {
+  }, "\u2715")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10,
+      border: '1px solid var(--line)',
+      borderRadius: 10,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '10px 14px',
+      background: '#fff7ed'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 700,
+      fontSize: 13,
+      color: '#9a3412'
+    }
+  }, "\uD83D\uDCDE \u5BA2\u670D\u8DDF\u8FDB"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: myRecords.length ? '#ea580c' : 'var(--ink-4)'
+    }
+  }, myRecords.length)), myRecords.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '10px 14px',
+      fontSize: 12,
+      color: 'var(--ink-4)',
+      borderTop: '1px solid var(--line)'
+    }
+  }, "\u6682\u65E0\u5BA2\u670D\u8DDF\u8FDB\u8BB0\u5F55") : myRecords.slice().sort(function (a, b) {
+    return (b.date || '').localeCompare(a.date || '');
+  }).map(function (r) {
+    var st = STATUSES.find(function (s) {
+      return s.key === r.status;
+    }) || {};
+    var owner = employees.find(function (e) {
+      return e.id === r.ownerId;
+    });
+    var shotCount = (r.screenshots || []).length + (r.followUps || []).reduce(function (s, f) {
+      return s + (f.screenshots || []).length;
+    }, 0);
+    return /*#__PURE__*/React.createElement("div", {
+      key: r.id,
+      style: {
+        padding: '12px 14px',
+        borderTop: '1px solid var(--line)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+        marginBottom: 7
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontFamily: 'monospace',
+        color: 'var(--ink-3)'
+      }
+    }, fmtDate(r.date)), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        padding: '1px 8px',
+        borderRadius: 10,
+        background: (st.color || '#888') + '22',
+        color: st.color || 'var(--ink-2)'
+      }
+    }, st.label || r.status), r.site && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-2)'
+      }
+    }, "\uD83C\uDF10 ", r.site), r.difficulty && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-3)'
+      }
+    }, "\u96BE\u5EA6 ", r.difficulty), r.durationMin > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-3)'
+      }
+    }, "\u23F1 ", r.durationMin, "\u5206\u949F"), owner && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-3)'
+      }
+    }, "\uD83D\uDC64 ", owner.name, owner.alias ? ' ' + owner.alias : ''), onOpenRecord && /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        onOpenRecord(r.id);
+        onClose();
+      },
+      style: {
+        marginLeft: 'auto',
+        fontSize: 11,
+        fontWeight: 600,
+        padding: '2px 10px',
+        borderRadius: 6,
+        border: '1px solid var(--accent)',
+        color: 'var(--accent)',
+        background: 'white',
+        cursor: 'pointer'
+      }
+    }, "\u6253\u5F00 \u2197")), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        gap: 14,
+        flexWrap: 'wrap',
+        fontSize: 12,
+        marginBottom: 5
+      }
+    }, r.orderRef && /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", {
+      style: {
+        color: 'var(--ink-3)',
+        fontWeight: 600
+      }
+    }, "\u8BA2\u5355\u53F7 "), r.orderRef), r.category && /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", {
+      style: {
+        color: 'var(--ink-3)',
+        fontWeight: 600
+      }
+    }, "\u54A8\u8BE2\u4E8B\u9879 "), r.category), shotCount > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--ink-3)'
+      }
+    }, "\uD83D\uDCCE ", shotCount, " \u5F20\u56FE")), r.note ? /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12.5,
+        color: 'var(--ink)',
+        background: 'var(--bg-elevated)',
+        borderRadius: 6,
+        padding: '7px 10px',
+        lineHeight: 1.5,
+        whiteSpace: 'pre-wrap'
+      }
+    }, /*#__PURE__*/React.createElement("b", {
+      style: {
+        color: 'var(--ink-3)',
+        fontWeight: 600
+      }
+    }, "\u95EE\u9898/\u6C9F\u901A\u8981\u70B9\uFF1A"), r.note) : /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: 'var(--ink-4)',
+        fontStyle: 'italic'
+      }
+    }, "(\u672A\u586B\u5199\u95EE\u9898/\u6C9F\u901A\u8981\u70B9)"), r.isFeedback && r.feedbackNote && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 6,
+        fontSize: 12,
+        color: '#9a3412',
+        background: '#fff7ed',
+        border: '1px solid #fed7aa',
+        borderRadius: 6,
+        padding: '6px 10px'
+      }
+    }, "\uD83D\uDCE3 \u95EE\u9898\u53CD\u9988\uFF1A", r.feedbackNote), (r.followUps || []).length > 0 && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 8
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        color: 'var(--ink-3)',
+        marginBottom: 4
+      }
+    }, "\uD83D\uDCAC \u8DDF\u8FDB\u65F6\u95F4\u7EBF (", r.followUps.length, ")"), /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 5,
+        borderLeft: '2px solid var(--line)',
+        paddingLeft: 10
+      }
+    }, r.followUps.map(function (f, idx) {
+      return /*#__PURE__*/React.createElement("div", {
+        key: f.id || idx,
+        style: {
+          display: 'flex',
+          gap: 8,
+          fontSize: 12,
+          lineHeight: 1.5
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          fontFamily: 'monospace',
+          color: 'var(--ink-4)',
+          flexShrink: 0,
+          fontSize: 11
+        }
+      }, (f.time || '').slice(5, 16).replace('T', ' ')), /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: 'var(--ink)',
+          whiteSpace: 'pre-wrap'
+        }
+      }, f.text || '', f.status ? ' · ' + f.status : ''));
+    }))), r.nextFollowUp && /*#__PURE__*/React.createElement("div", {
+      style: {
+        marginTop: 6,
+        fontSize: 11,
+        color: 'var(--info)'
+      }
+    }, "\uD83D\uDCC5 \u4E0B\u6B21\u8DDF\u8FDB\uFF1A", fmtDate(r.nextFollowUp)));
+  })), /*#__PURE__*/React.createElement(Section360, {
     icon: "\uD83D\uDEA8",
     title: "\u62D2\u4ED8/Dispute",
     count: chargebacks.length,
