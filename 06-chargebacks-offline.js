@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix171
+// 版本 2026.06.05-fix172
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix171
+// 版本 2026.06.05-fix172
 // 预编译切片
 //
 
@@ -4691,7 +4691,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref26) {
     style: {
       background: 'white',
       borderRadius: 14,
-      maxWidth: 880,
+      maxWidth: 980,
       width: '100%',
       display: 'flex',
       flexDirection: 'column',
@@ -4759,10 +4759,10 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref26) {
     feedbackTip: "\u5982\u679C\u7EBF\u4E0B\u5355\u6D41\u7A0B\u66B4\u9732\u53CD\u590D\u95EE\u9898(\u67D0\u5BA2\u6237\u8001\u62D6\u6B3E\u3001\u67D0\u6E20\u9053\u603B\u51FA\u9519\u2026),\u56DE\u5230\u8BE5\u5BA2\u6237\u7684\u300C\u8DDF\u8FDB & \u622A\u56FE\u300D\u5F39\u7A97\u52FE\u300C\uD83D\uDCE3 \u6807\u8BB0\u4E3A\u95EE\u9898\u53CD\u9988\u300D\u5E76\u5199\u8BF4\u660E,\u4E3B\u7BA1\u4F1A\u5728\u300C\u4ECA\u65E5\u5DE5\u4F5C\u5FEB\u7167\u300D\u6536\u5230\u63D0\u9192\u3002"
   }), /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: 12,
+      padding: 10,
       background: '#f0f9ff',
       borderRadius: 8,
-      marginBottom: 14
+      marginBottom: 9
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4966,10 +4966,10 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref26) {
     }
   }, "(\u8F93\u5165\u7F16\u53F7/\u5BA2\u6237\u540D \xB7 \u81EA\u52A8\u586B\u5BA2\u6237\u4FE1\u606F)"))), /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: 12,
+      padding: 10,
       background: '#fafaf7',
       borderRadius: 8,
-      marginBottom: 14
+      marginBottom: 9
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -5023,10 +5023,10 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref26) {
     }
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: 12,
+      padding: 10,
       background: '#fefce8',
       borderRadius: 8,
-      marginBottom: 14
+      marginBottom: 9
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -5225,10 +5225,10 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref26) {
     }
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
-      padding: 12,
+      padding: 10,
       background: '#f0fdf4',
       borderRadius: 8,
-      marginBottom: 14
+      marginBottom: 9
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
