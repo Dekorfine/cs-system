@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>快递发票制作 · build 0607-IMG3</title>
+<title>快递发票制作 · build 0607-IMG4</title>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <!-- 🚀 预编译:已离线编译 JSX,移除 babel-standalone -->
@@ -954,7 +954,7 @@ async function buildYundingWorkbook(t) {
 // 自测:Node ExcelJS 端到端 4/4 通过(数据正确+结构保留)
 // ════════════════════════════════════════════════════════════════════
 try { console.log('%c[快递发票] 2026-06-04 新增 河池(加拿大/英国/欧盟) + 信源(加拿大) · 模板独立文件 fetch 加载', 'color:#0071e3'); } catch(e){}
-try { console.log('%c[快递发票] build 0607-IMG3 · 批量自动补图(本地无图→实时补)+ webp转PNG + 嵌图诊断 + 昌晖XM列', 'color:#16a34a;font-weight:bold;font-size:14px'); } catch(e){}
+try { console.log('%c[快递发票] build 0607-IMG4 · 批量自动补图(本地无图→实时补)+ webp转PNG + 嵌图诊断 + 昌晖XM列', 'color:#16a34a;font-weight:bold;font-size:14px'); } catch(e){}
 const TPL_HS = '9405100000', TPL_UNIT = 500, TPL_MAT_CN = '金属', TPL_MAT_EN = 'Metal', TPL_USE = '照明';
 // 模板改为同目录独立文件 + 运行时 fetch(去掉内嵌 base64/atob,避免被杀毒误判为 HTML 走私木马)
 const TPL_FILES = { hechi_ca: 'hechi_ca.xlsx', hechi_uk: 'hechi_uk.xlsx', hechi_eu: 'hechi_eu.xlsx', xinyuan_ca: 'xinyuan_ca.xlsx', yunding: 'yunding.xlsx', changhui_au: 'changhui_au.xlsx' };
@@ -1736,25 +1736,33 @@ function MakeInvoice() {
         const bk = o && normOrderKey(o.orderNumber || '');
         if (bk && !seen.has(bk) && !hasImg(o)) { seen.add(bk); needImg.push(bk); }
       });
+      window.__LIVE_TIMEOUTS = 0;  // 🆕 补图前重置超时计数,别被前面的兜底连累
+      let _enriched = 0;
+      console.log('[补图] 本地命中但无图的单:' + needImg.length + ' 个,开始实时补图…');
       for (let i = 0; i < needImg.length; i += CONC) {
-        if (window.__LIVE_OFF) break;
+        if (window.__LIVE_OFF) { console.warn('[补图] 实时接口已停用,剩余未补'); break; }
         const batch = needImg.slice(i, i + CONC);
         const results = await Promise.all(batch.map(bk => lookupShopifyLive(bk, null, false).catch(() => null)));
         batch.forEach((bk, j) => {
           const live = results[j];
-          if (!live || !hasImg(live)) return;
+          if (!live) { console.warn('[补图] 实时查不到:' + bk); return; }
+          if (!hasImg(live)) { console.warn('[补图] 实时返回但无图:' + bk + '(跟单实时接口可能也没补图)'); return; }
           Object.values(map).forEach(dbo => {
             if (!dbo || normOrderKey(dbo.orderNumber || '') !== bk || hasImg(dbo)) return;
             (dbo.items || []).forEach((it, idx) => {
               if (it && !it.image_url) {
                 const m = (it.sku && (live.items || []).find(li => li.sku === it.sku)) || (live.items || [])[idx];
-                if (m && m.image_url) it.image_url = m.image_url;
+                if (m && m.image_url) { it.image_url = m.image_url; }
               }
             });
+            if (hasImg(dbo)) _enriched++;
           });
         });
         if (i + CONC < needImg.length) await new Promise(r => setTimeout(r, 100));
       }
+      console.log('[补图] 完成:补到图 ' + _enriched + ' / ' + needImg.length + ' 单' + (_enriched < needImg.length ? ' · 没补到的多半是实时接口也还没图(等跟单部署回扫)' : ''));
+    } else {
+      console.warn('[补图] 实时接口不可用(__LIVE_OFF),无法补图;本地库没图的单将无图。');
     }
     if (window.__LIVE_OFF) setErr('⚠️ ' + (window.__LIVE_OFF_MSG || '实时查接口暂不可用') + ' · 没进本地库的单(老单/B2B/补发)本次未实时查到,列在"未找到"里,稍后回库或部署修好后再上传即可补回。');
     return map;
