@@ -3,6 +3,10 @@
 <head>
   <link rel="icon" type="image/x-icon" href="https://cdn.jsdelivr.net/gh/Dekorfine/brand@main/favicon/favicon.ico">
 <meta charset="UTF-8">
+<!-- 🚫 fix162: 强制 index.html 不缓存,避免浏览器一直加载旧 ?v= 的 JS(删除/各种更新失效的根因) -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <!-- 🚫 fix85: 全局禁止浏览器自动填充账号密码(登录页 [data-login-screen] 除外) -->
 <script>
 (function(){var A="[data-login-screen],[data-autofill-ok]",T={"autocomplete":"off","data-lpignore":"true","data-1p-ignore":"true","data-bwignore":"true","data-form-type":"other"},S=/email|e\-mail|user|login|account|password|passwd|pwd|signin|sign\-in/i;function p(e){if(!e||e.dataset.afOff==="1")return;if(e.closest&&e.closest(A))return;if(e.tagName!=="INPUT"&&e.tagName!=="TEXTAREA")return;var t=(e.type||"").toLowerCase();if(["hidden","checkbox","radio","file","submit","button","reset","range","color"].indexOf(t)!==-1)return;for(var k in T)e.setAttribute(k,T[k]);var h=(e.name||"")+" "+(e.id||"")+" "+(e.placeholder||"")+" "+(e.getAttribute("aria-label")||"");if(t==="email"||t==="password"||S.test(h)){e.setAttribute("autocomplete","new-password");if(document.activeElement!==e&&!e.readOnly&&!e.disabled){e.setAttribute("readonly","readonly");var u=function(){e.removeAttribute("readonly")};e.addEventListener("focus",u,{once:true});e.addEventListener("mousedown",u,{once:true});e.addEventListener("touchstart",u,{once:true,passive:true})}}e.dataset.afOff="1"}function s(r){if(!r)return;if(r.nodeType===1){if(r.tagName==="INPUT"||r.tagName==="TEXTAREA")p(r);if(r.querySelectorAll){var l=r.querySelectorAll("input,textarea");for(var i=0;i<l.length;i++)p(l[i])}}}function i(){s(document.body)}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",i);else i();var pn=false,o=new MutationObserver(function(m){if(pn)return;pn=true;(window.requestAnimationFrame||setTimeout)(function(){pn=false;for(var i=0;i<m.length;i++){var a=m[i].addedNodes;for(var j=0;j<a.length;j++)s(a[j])}},16)});function so(){o.observe(document.body,{childList:true,subtree:true})}if(document.body)so();else document.addEventListener("DOMContentLoaded",so)})();
@@ -461,16 +465,16 @@ tr:hover td{background:var(--bg-soft)}
 <!-- ════════════════════════════════════════════════════════════════════ -->
 <!-- fix95 预编译版:11 个纯 JS 模块按顺序加载(已离线编译,浏览器直接执行,无需 babel) -->
 <!-- ════════════════════════════════════════════════════════════════════ -->
-<script src="01-core.js?v=2026.06.05-fix161"></script>
-<script src="02-cs.js?v=2026.06.05-fix161"></script>
-<script src="03-dashboard-trash.js?v=2026.06.05-fix161"></script>
-<script src="04-admin-finance.js?v=2026.06.05-fix161"></script>
-<script src="05-quote-briefings.js?v=2026.06.05-fix161"></script>
-<script src="06-chargebacks-offline.js?v=2026.06.05-fix161"></script>
-<script src="07-photos-reviews.js?v=2026.06.05-fix161"></script>
-<script src="08-events-report.js?v=2026.06.05-fix161"></script>
-<script src="09-kb-cross-dept.js?v=2026.06.05-fix161"></script>
-<script src="10-tasks-feedback.js?v=2026.06.05-fix161"></script>
-<script src="11-help-app.js?v=2026.06.05-fix161"></script>
+<script src="01-core.js?v=2026.06.05-fix162"></script>
+<script src="02-cs.js?v=2026.06.05-fix162"></script>
+<script src="03-dashboard-trash.js?v=2026.06.05-fix162"></script>
+<script src="04-admin-finance.js?v=2026.06.05-fix162"></script>
+<script src="05-quote-briefings.js?v=2026.06.05-fix162"></script>
+<script src="06-chargebacks-offline.js?v=2026.06.05-fix162"></script>
+<script src="07-photos-reviews.js?v=2026.06.05-fix162"></script>
+<script src="08-events-report.js?v=2026.06.05-fix162"></script>
+<script src="09-kb-cross-dept.js?v=2026.06.05-fix162"></script>
+<script src="10-tasks-feedback.js?v=2026.06.05-fix162"></script>
+<script src="11-help-app.js?v=2026.06.05-fix162"></script>
 </body>
 </html>
