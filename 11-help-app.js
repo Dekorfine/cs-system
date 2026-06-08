@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix181
+// 版本 2026.06.05-fix182
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix181
+// 版本 2026.06.05-fix182
 // 预编译切片
 //
 
@@ -1521,6 +1521,12 @@ var App = function App() {
                 if (l && l.id) merged.set(l.id, l);
               }); // 本地更新 → 用本地版
               setRecords(Array.from(merged.values()));
+              // 🆕 fix181b: 云端来的记录标为"已同步"(增量同步基线),本地独有/更新的不标 → 会被补传
+              try {
+                (cloud || []).forEach(function (r) {
+                  if (r && r.id) lastSyncedRef.current.set(r.id, (r.updated_at || r.updatedAt || '') + (r.deleted ? '·del' : ''));
+                });
+              } catch (e) {}
               // 把保留的本地记录补传到云端(防止永久丢失)
               toResync = [].concat(localOnly, localNewer).filter(function (r) {
                 return isRecordMeaningful(r) || r.deleted;
@@ -1902,55 +1908,103 @@ var App = function App() {
     };
   }();
 
-  // 写入云端（每次 records 变化，debounced）
+  // 写入云端 · fix181b: 增量同步 —— 只上传"改动过的记录"(不再每次整包传 ~980 条),又快又稳,确保每条录入都进服务器
   var recordsRef = useRef(records);
   recordsRef.current = records;
   var _useState19 = useState(null),
     _useState20 = _slicedToArray(_useState19, 2),
     cloudSyncError = _useState20[0],
     setCloudSyncError = _useState20[1];
-  useEffect(function () {
-    if (!cloudOn || !user) return;
-    var t = setTimeout(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
-      var current, _t0;
+  var _useState21 = useState(0),
+    _useState22 = _slicedToArray(_useState21, 2),
+    unsyncedCount = _useState22[0],
+    setUnsyncedCount = _useState22[1];
+  var lastSyncedRef = useRef(new Map()); // id → 已同步签名(updatedAt + 删除态)
+
+  var recordSig = function recordSig(r) {
+    return (r.updatedAt || r.updated_at || '') + (r.deleted ? '·del' : '');
+  };
+  var computeChangedRecords = function computeChangedRecords() {
+    return (recordsRef.current || []).filter(function (r) {
+      if (!r || !r.id) return false;
+      if (!isRecordMeaningful(r) && !r.deleted) return false; // 完全空白行不传
+      return lastSyncedRef.current.get(r.id) !== recordSig(r); // 新增或内容变了
+    });
+  };
+  var syncChangedRecords = /*#__PURE__*/function () {
+    var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
+      var changed, _t0;
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.p = _context8.n) {
           case 0:
-            current = recordsRef.current;
-            if (!(current.length === 0)) {
+            if (!(!cloudOn || !user || !CLOUD.client)) {
               _context8.n = 1;
               break;
             }
             return _context8.a(2);
           case 1:
-            _context8.p = 1;
-            _context8.n = 2;
-            return uploadRecordsWithRetry(current);
-          case 2:
+            changed = computeChangedRecords();
+            if (!(changed.length === 0)) {
+              _context8.n = 2;
+              break;
+            }
+            setUnsyncedCount(0);
             setCloudSyncError(null);
-            _context8.n = 4;
-            break;
-          case 3:
+            return _context8.a(2);
+          case 2:
+            setUnsyncedCount(changed.length);
             _context8.p = 3;
-            _t0 = _context8.v;
-            console.error('云端写入失败', _t0);
-            setCloudSyncError(_t0.message);
+            _context8.n = 4;
+            return uploadRecordsWithRetry(changed);
           case 4:
+            // ← 只传改动的几条
+            changed.forEach(function (r) {
+              return lastSyncedRef.current.set(r.id, recordSig(r));
+            });
+            setCloudSyncError(null);
+            setUnsyncedCount(computeChangedRecords().length);
+            _context8.n = 6;
+            break;
+          case 5:
+            _context8.p = 5;
+            _t0 = _context8.v;
+            console.error('云端写入失败(将自动重试)', _t0);
+            setCloudSyncError(_t0.message);
+            // 不更新 lastSyncedRef → 下次(改动/定时兜底)自动重试,直到进服务器
+          case 6:
             return _context8.a(2);
         }
-      }, _callee8, null, [[1, 3]]);
-    })), 1500);
+      }, _callee8, null, [[3, 5]]);
+    }));
+    return function syncChangedRecords() {
+      return _ref15.apply(this, arguments);
+    };
+  }();
+
+  // 改动后 debounce 同步(只传变化的)
+  useEffect(function () {
+    if (!cloudOn || !user) return;
+    var t = setTimeout(syncChangedRecords, 1200);
     return function () {
       return clearTimeout(t);
     };
   }, [records, cloudOn, user]);
 
+  // 定时兜底:每 15 秒把仍未同步的改动补传一次(防止某次失败后永远卡在本地)
+  useEffect(function () {
+    if (!cloudOn || !user) return;
+    var iv = setInterval(syncChangedRecords, 15000);
+    return function () {
+      return clearInterval(iv);
+    };
+  }, [cloudOn, user]);
+
   // 🆕 一次性瘦身:把历史记录里残留的 base64 截图迁移到云存储(库里只留 URL),列表加载提速
   //    纯增量:只上传"有 data 无 url"的图;确认 url 后才剥 base64;不删任何记录、不丢数据
-  var _useState21 = useState(false),
-    _useState22 = _slicedToArray(_useState21, 2),
-    migrating = _useState22[0],
-    setMigrating = _useState22[1];
+  var _useState23 = useState(false),
+    _useState24 = _slicedToArray(_useState23, 2),
+    migrating = _useState24[0],
+    setMigrating = _useState24[1];
   var migrateRecordImages = /*#__PURE__*/function () {
     var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
       var all, hasB64, needs, done, imgs, upOne, slim, BATCH, i, batch, _iterator7, _step7, r, _iterator8, _step8, s, _iterator9, _step9, _s4, _iterator0, _step0, _s5, _iterator1, _step1, f, _iterator10, _step10, _s6, cleaned, _t10, _t11, _t12, _t13, _t14, _t15, _t16;
@@ -2282,7 +2336,7 @@ var App = function App() {
   }();
 
   // tab - 持久化到 localStorage，刷新后保留
-  var _useState23 = useState(function () {
+  var _useState25 = useState(function () {
       // URL hash 优先 (#tab=kb)，其次 localStorage，最后按角色默认
       // 🆕 fix11: 正则允许下划线,匹配 cross_dept / delete_approvals / ai_reviews / admin_overview / offline_orders / custom_photo 等
       var hashMatch = window.location.hash.match(/tab=([a-z_]+)/);
@@ -2301,9 +2355,9 @@ var App = function App() {
       if (user && user.role === 'hr') return 'admin_overview'; // 🆕 fix113: 人事默认进绩效总览
       return 'cs';
     }),
-    _useState24 = _slicedToArray(_useState23, 2),
-    activeTab = _useState24[0],
-    setActiveTab = _useState24[1];
+    _useState26 = _slicedToArray(_useState25, 2),
+    activeTab = _useState26[0],
+    setActiveTab = _useState26[1];
   // tab 切换时写入 localStorage + URL hash
   useEffect(function () {
     localStorage.setItem('ws_active_tab', activeTab);
@@ -2317,10 +2371,10 @@ var App = function App() {
 
   // 🆕 fix145: 跳转并聚焦某条记录 —— setActiveTab + 把目标 id 存进 navFocus,目标页用 useEffect+useRef 自动打开。
   //            id 为空 = 只切 tab(「查看全部」类按钮),不聚焦。
-  var _useState25 = useState(null),
-    _useState26 = _slicedToArray(_useState25, 2),
-    navFocus = _useState26[0],
-    setNavFocus = _useState26[1]; // { tab, id, sub, t } | null
+  var _useState27 = useState(null),
+    _useState28 = _slicedToArray(_useState27, 2),
+    navFocus = _useState28[0],
+    setNavFocus = _useState28[1]; // { tab, id, sub, t } | null
   var goFocus = useCallback(function (tab, id, sub) {
     if (!tab) return;
     setActiveTab(tab);
@@ -2348,15 +2402,15 @@ var App = function App() {
   }, [activeTab]);
 
   // 跟踪访问过的 iframe tab —— 让 iframe 保持挂载，避免切 tab 时丢数据
-  var _useState27 = useState(function () {
+  var _useState29 = useState(function () {
       var s = new Set();
       // 如果初始 tab 是 iframe 类，也算访问过
       if (['quote', 'kb', 'ai_reviews'].includes(activeTab)) s.add(activeTab);
       return s;
     }),
-    _useState28 = _slicedToArray(_useState27, 2),
-    visitedTabs = _useState28[0],
-    setVisitedTabs = _useState28[1];
+    _useState30 = _slicedToArray(_useState29, 2),
+    visitedTabs = _useState30[0],
+    setVisitedTabs = _useState30[1];
   useEffect(function () {
     if (['quote', 'kb', 'ai_reviews'].includes(activeTab) && !visitedTabs.has(activeTab)) {
       setVisitedTabs(function (prev) {
@@ -2504,12 +2558,12 @@ var App = function App() {
   // 🆕 fix9: 退款处理人员配置 (Miya / Nicole / Yulia 三人默认 — 主管可在设置改)
   // 业务场景: 所有客服可记录退款,但"批准/完成/上传截图"由名单中的人执行
   // 默认值:从 INITIAL_EMPLOYEES 推断 (u_miya/u_nicole/u_yulia),云端有配置时优先用云端
-  var _useState29 = useState(function () {
+  var _useState31 = useState(function () {
       return STORE.get('refund_processors_cache', ['u_miya', 'u_nicole', 'u_yulia']);
     }),
-    _useState30 = _slicedToArray(_useState29, 2),
-    refundProcessors = _useState30[0],
-    setRefundProcessors = _useState30[1];
+    _useState32 = _slicedToArray(_useState31, 2),
+    refundProcessors = _useState32[0],
+    setRefundProcessors = _useState32[1];
   useEffect(function () {
     if (!cloudOn || !CLOUD.client) return;
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
@@ -2613,27 +2667,27 @@ var App = function App() {
   // ══════════════════════════════════════════════════════════════
   // 📨 fix9c: 跨部门协作消息 — 美工/客服/跟单 三系统共用消息总线
   // ══════════════════════════════════════════════════════════════
-  var _useState31 = useState([]),
-    _useState32 = _slicedToArray(_useState31, 2),
-    cdmMessages = _useState32[0],
-    setCdmMessages = _useState32[1];
-  var _useState33 = useState(false),
+  var _useState33 = useState([]),
     _useState34 = _slicedToArray(_useState33, 2),
-    cdmLoading = _useState34[0],
-    setCdmLoading = _useState34[1];
+    cdmMessages = _useState34[0],
+    setCdmMessages = _useState34[1];
+  var _useState35 = useState(false),
+    _useState36 = _slicedToArray(_useState35, 2),
+    cdmLoading = _useState36[0],
+    setCdmLoading = _useState36[1];
   var cdmLoadingRef = useRef(false);
   // 🆕 fix140: 最大 created_at_ms 水位,realtime 兜底增量补拉用(只取新于水位的行)
   var cdmMaxCreatedRef = useRef(0);
   var cdmCatchupTimer = useRef(null);
   // 🆕 v22-CV/CW: 店铺-负责人映射 + 超时阈值配置 (三方共享)
-  var _useState35 = useState([]),
-    _useState36 = _slicedToArray(_useState35, 2),
-    shopOwners = _useState36[0],
-    setShopOwners = _useState36[1];
-  var _useState37 = useState({}),
+  var _useState37 = useState([]),
     _useState38 = _slicedToArray(_useState37, 2),
-    cdmTimeoutConfig = _useState38[0],
-    setCdmTimeoutConfig = _useState38[1];
+    shopOwners = _useState38[0],
+    setShopOwners = _useState38[1];
+  var _useState39 = useState({}),
+    _useState40 = _slicedToArray(_useState39, 2),
+    cdmTimeoutConfig = _useState40[0],
+    setCdmTimeoutConfig = _useState40[1];
 
   // 🆕 fix140: 列表轻量列(不含 attachments/thread 巨型 base64)— 初拉与增量补拉共用
   var CDM_LIST_COLS = 'id,from_system,from_user_id,from_user_name,to_system,to_user_id,to_user_name,category,priority,title,body,related_ref,related_type,related_shop,assigned_to_id,assigned_to_name,assigned_by_id,assigned_by_name,assigned_at_ms,watchers,status,read_by,created_at_ms,updated_at';
@@ -3027,14 +3081,14 @@ var App = function App() {
   // 普通客服默认不显示 dashboard 在顶部(只在侧栏可点)
   var isAdmin = (user === null || user === void 0 ? void 0 : user.role) === 'admin' || (user === null || user === void 0 ? void 0 : user.role) === 'super_admin';
   var DEFAULT_TOP_KEYS = isAdmin ? ['dashboard', 'cs', 'chargebacks', 'offline_orders', 'custom_photo', 'events'] : ['cs', 'chargebacks', 'offline_orders', 'custom_photo', 'events', 'reviews'];
-  var _useState39 = useState({
+  var _useState41 = useState({
       topKeys: DEFAULT_TOP_KEYS,
       sidebarOrder: [],
       sidebarCollapsed: false
     }),
-    _useState40 = _slicedToArray(_useState39, 2),
-    layoutPrefs = _useState40[0],
-    setLayoutPrefs = _useState40[1];
+    _useState42 = _slicedToArray(_useState41, 2),
+    layoutPrefs = _useState42[0],
+    setLayoutPrefs = _useState42[1];
   // 登录或切换账号时重新加载该用户的布局
   useEffect(function () {
     if (!user) return;
@@ -3059,10 +3113,10 @@ var App = function App() {
     if (!user) return;
     STORE.set("nav_layout_".concat(user.id), layoutPrefs);
   }, [layoutPrefs, user === null || user === void 0 ? void 0 : user.id]);
-  var _useState41 = useState(false),
-    _useState42 = _slicedToArray(_useState41, 2),
-    customizeOpen = _useState42[0],
-    setCustomizeOpen = _useState42[1];
+  var _useState43 = useState(false),
+    _useState44 = _slicedToArray(_useState43, 2),
+    customizeOpen = _useState44[0],
+    setCustomizeOpen = _useState44[1];
 
   // 计算完整 tabs 列表 — 单一数据源,TopNav 和 Sidebar 都从这里拿
   // 🆕 fix11-hotfix1: stats 在函数体后面才定义 → 用 ?. 防御性访问,首渲染时 stats 是 undefined 不崩
@@ -3293,13 +3347,13 @@ var App = function App() {
   }, [allTabs, layoutPrefs.topKeys, layoutPrefs.sidebarOrder]);
 
   // 通知权限
-  var _useState43 = useState(function () {
+  var _useState45 = useState(function () {
       if (typeof Notification === 'undefined') return 'unsupported';
       return Notification.permission;
     }),
-    _useState44 = _slicedToArray(_useState43, 2),
-    notifPerm = _useState44[0],
-    setNotifPerm = _useState44[1];
+    _useState46 = _slicedToArray(_useState45, 2),
+    notifPerm = _useState46[0],
+    setNotifPerm = _useState46[1];
   var requestNotifPerm = function requestNotifPerm() {
     if (typeof Notification === 'undefined') {
       toast('⚠️ 当前浏览器不支持桌面通知');
@@ -3738,10 +3792,10 @@ var App = function App() {
   }, [user, records, notifPerm]);
 
   // 🔍 全局智能搜索（必须在条件 return 之前定义,符合 React Rules of Hooks）
-  var _useState45 = useState(false),
-    _useState46 = _slicedToArray(_useState45, 2),
-    searchOpen = _useState46[0],
-    setSearchOpen = _useState46[1];
+  var _useState47 = useState(false),
+    _useState48 = _slicedToArray(_useState47, 2),
+    searchOpen = _useState48[0],
+    setSearchOpen = _useState48[1];
   useEffect(function () {
     var handler = function handler(e) {
       var _document$activeEleme, _document$activeEleme2;
@@ -3954,7 +4008,16 @@ var App = function App() {
       fontFamily: 'inherit',
       fontSize: 12
     }
-  }, "\uD83D\uDD04 \u5F3A\u5236\u4E0A\u4F20 (", records.length, " \u6761)")), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDD04 \u5F3A\u5236\u4E0A\u4F20 (", records.length, " \u6761)")), cloudOn && !cloudSyncError && unsyncedCount > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#eff6ff',
+      borderBottom: '1px solid #bfdbfe',
+      padding: '5px 20px',
+      textAlign: 'center',
+      fontSize: 12,
+      color: '#1d4ed8'
+    }
+  }, "\u23F3 \u6B63\u5728\u540C\u6B65\u5230\u670D\u52A1\u5668 \xB7 \u5F85\u540C\u6B65 ", unsyncedCount, " \u6761\u2026(\u53EF\u653E\u5FC3\u7EE7\u7EED\u5F55\u5165,\u4F1A\u81EA\u52A8\u4E0A\u4F20)"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       alignItems: 'flex-start',
@@ -4173,7 +4236,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix181';
+var APP_VERSION = '2026.06.05-fix182';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
