@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix163
+// 版本 2026.06.05-fix164
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix163
+// 版本 2026.06.05-fix164
 // 预编译切片
 //
 
@@ -3096,7 +3096,7 @@ var isSameDay = function isSameDay(record) {
 // 普通客服:必须走审批
 var requestDelete = /*#__PURE__*/function () {
   var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(_ref22) {
-    var user, tableName, moduleLabel, record, recordSummary, toast, onSuccess, isAdmin, isSuperAdmin, sameDay, isOwner, res, savedRow, actuallyDeleted, _res, _reason, reason, _t3, _t4, _t5, _t6, _t7, _t8;
+    var user, tableName, moduleLabel, record, recordSummary, toast, onSuccess, isAdmin, isSuperAdmin, sameDay, isOwner, res, savedRow, actuallyDeleted, _yield$CLOUD$client$f, delErr, _res, _savedRow, _yield$CLOUD$client$f2, _delErr, _reason, reason, _t3, _t4, _t5, _t6, _t7, _t8;
     return _regenerator().w(function (_context5) {
       while (1) switch (_context5.p = _context5.n) {
         case 0:
@@ -3106,7 +3106,7 @@ var requestDelete = /*#__PURE__*/function () {
           sameDay = isSameDay(record);
           isOwner = record.created_by === user.id || record.ownerId === user.id; // 老板:直接删除(权限最大)
           if (!isSuperAdmin) {
-            _context5.n = 12;
+            _context5.n = 13;
             break;
           }
           _context5.n = 1;
@@ -3127,7 +3127,7 @@ var requestDelete = /*#__PURE__*/function () {
         case 3:
           res = _context5.v;
           if (!res) {
-            _context5.n = 8;
+            _context5.n = 9;
             break;
           }
           // 🆕 fix9b: 验证 deleted=true 真的写入了 — 如果 CLOUD.upsert 的 schema-retry 把 deleted 字段剥离了(因为表没这一列),
@@ -3135,14 +3135,23 @@ var requestDelete = /*#__PURE__*/function () {
           savedRow = Array.isArray(res) ? res[0] : res;
           actuallyDeleted = savedRow && savedRow.deleted === true;
           if (actuallyDeleted) {
-            _context5.n = 4;
+            _context5.n = 5;
             break;
           }
-          alert("\u26A0 \u5220\u9664\u53EF\u80FD\u672A\u751F\u6548\n\n\u6570\u636E\u5E93\u7684 ".concat(tableName, " \u8868\u53EF\u80FD\u8FD8\u6CA1\u6709 deleted \u5217(\u54CD\u5E94\u91CC deleted=").concat(savedRow === null || savedRow === void 0 ? void 0 : savedRow.deleted, ").\n\n\u8BF7\u4E3B\u7BA1\u5728 Supabase SQL Editor \u6267\u884C\u6700\u65B0\u7684 16_fix7_photo_replies.sql \u7136\u540E\u5F3A\u5237\u9875\u9762\u3002\n\n\u5237\u65B0\u540E\u8FD9\u6761\u8BB0\u5F55\u8FD8\u4F1A\u51FA\u73B0,\u76F4\u5230\u5217\u5EFA\u597D."));
-          return _context5.a(2, false);
+          _context5.n = 4;
+          return CLOUD.client.from(tableName)["delete"]().eq('id', record.id);
         case 4:
-          _context5.p = 4;
-          _context5.n = 5;
+          _yield$CLOUD$client$f = _context5.v;
+          delErr = _yield$CLOUD$client$f.error;
+          if (!delErr) {
+            _context5.n = 5;
+            break;
+          }
+          alert("\u5220\u9664\u5931\u8D25: ".concat(delErr.message || delErr, "\n\n(\u8F6F\u5220\u9664\u672A\u751F\u6548\u3001\u786C\u5220\u9664\u4E5F\u5931\u8D25 \u2014 \u53EF\u80FD\u662F RLS \u6743\u9650\u6216\u8868\u540D\u95EE\u9898)"));
+          return _context5.a(2, false);
+        case 5:
+          _context5.p = 5;
+          _context5.n = 6;
           return CLOUD.client.from('delete_requests').insert({
             table_name: tableName,
             record_id: String(record.id),
@@ -3160,62 +3169,80 @@ var requestDelete = /*#__PURE__*/function () {
             approved_at: new Date().toISOString(),
             approval_note: '总管直接删除(无需审批)'
           });
-        case 5:
-          _context5.n = 7;
-          break;
         case 6:
-          _context5.p = 6;
-          _t3 = _context5.v;
+          _context5.n = 8;
+          break;
         case 7:
+          _context5.p = 7;
+          _t3 = _context5.v;
+        case 8:
           toast('✓ 已删除');
           if (onSuccess) onSuccess();
           return _context5.a(2, true);
-        case 8:
+        case 9:
           // 🆕 fix8: 之前这里默默 return false,用户看不到错误
           // 实际可能是:1) 数据库无 deleted 列(aftersales/refills/refunds 旧 schema) 2) RLS 拒绝 3) 列名拼写错
           alertSaveError('删除');
           return _context5.a(2, false);
-        case 9:
-          _context5.n = 11;
-          break;
         case 10:
-          _context5.p = 10;
+          _context5.n = 12;
+          break;
+        case 11:
+          _context5.p = 11;
           _t4 = _context5.v;
           alert('删除失败: ' + _t4.message);
-        case 11:
-          return _context5.a(2, false);
         case 12:
+          return _context5.a(2, false);
+        case 13:
           if (!isAdmin) {
-            _context5.n = 28;
+            _context5.n = 30;
             break;
           }
           if (!sameDay) {
-            _context5.n = 23;
+            _context5.n = 25;
             break;
           }
-          _context5.n = 13;
+          _context5.n = 14;
           return wsConfirm("\u2B50 \u4E3B\u7BA1\u5220\u9664\u5F53\u5929\u6570\u636E\n\n".concat(recordSummary, "\n\n\u786E\u8BA4\u5220\u9664?"));
-        case 13:
+        case 14:
           if (_context5.v) {
-            _context5.n = 14;
+            _context5.n = 15;
             break;
           }
           return _context5.a(2, false);
-        case 14:
-          _context5.p = 14;
-          _context5.n = 15;
+        case 15:
+          _context5.p = 15;
+          _context5.n = 16;
           return CLOUD.upsert(tableName, _objectSpread(_objectSpread({}, record), {}, {
             deleted: true,
             updated_at: new Date().toISOString()
           }));
-        case 15:
+        case 16:
           _res = _context5.v;
           if (!_res) {
-            _context5.n = 20;
+            _context5.n = 22;
             break;
           }
-          _context5.p = 16;
+          // 🆕 软删除没真正写入(表无 deleted 列,如 chargebacks)→ 自动硬删除
+          _savedRow = Array.isArray(_res) ? _res[0] : _res;
+          if (_savedRow && _savedRow.deleted === true) {
+            _context5.n = 18;
+            break;
+          }
           _context5.n = 17;
+          return CLOUD.client.from(tableName)["delete"]().eq('id', record.id);
+        case 17:
+          _yield$CLOUD$client$f2 = _context5.v;
+          _delErr = _yield$CLOUD$client$f2.error;
+          if (!_delErr) {
+            _context5.n = 18;
+            break;
+          }
+          alert("\u5220\u9664\u5931\u8D25: ".concat(_delErr.message || _delErr));
+          return _context5.a(2, false);
+        case 18:
+          _context5.p = 18;
+          _context5.n = 19;
           return CLOUD.client.from('delete_requests').insert({
             table_name: tableName,
             record_id: String(record.id),
@@ -3233,38 +3260,38 @@ var requestDelete = /*#__PURE__*/function () {
             approved_at: new Date().toISOString(),
             approval_note: '主管直接删除当天数据'
           });
-        case 17:
-          _context5.n = 19;
-          break;
-        case 18:
-          _context5.p = 18;
-          _t5 = _context5.v;
         case 19:
+          _context5.n = 21;
+          break;
+        case 20:
+          _context5.p = 20;
+          _t5 = _context5.v;
+        case 21:
           toast('✓ 已删除');
           if (onSuccess) onSuccess();
           return _context5.a(2, true);
-        case 20:
-          _context5.n = 22;
+        case 22:
+          _context5.n = 24;
           break;
-        case 21:
-          _context5.p = 21;
+        case 23:
+          _context5.p = 23;
           _t6 = _context5.v;
           alert('删除失败: ' + _t6.message);
-        case 22:
-          return _context5.a(2, false);
-        case 23:
-          _context5.n = 24;
-          return wsPrompt("\uD83D\uDCDC \u5220\u9664\u5386\u53F2\u6570\u636E\u9700\u8981\u8001\u677F\u5BA1\u6279\n\n".concat(recordSummary, "\n\n\u8BF7\u586B\u5199\u5220\u9664\u7406\u7531:"));
         case 24:
+          return _context5.a(2, false);
+        case 25:
+          _context5.n = 26;
+          return wsPrompt("\uD83D\uDCDC \u5220\u9664\u5386\u53F2\u6570\u636E\u9700\u8981\u8001\u677F\u5BA1\u6279\n\n".concat(recordSummary, "\n\n\u8BF7\u586B\u5199\u5220\u9664\u7406\u7531:"));
+        case 26:
           _reason = _context5.v;
           if (!(!_reason || !_reason.trim())) {
-            _context5.n = 25;
+            _context5.n = 27;
             break;
           }
           return _context5.a(2, false);
-        case 25:
-          _context5.p = 25;
-          _context5.n = 26;
+        case 27:
+          _context5.p = 27;
+          _context5.n = 28;
           return CLOUD.client.from('delete_requests').insert({
             table_name: tableName,
             record_id: String(record.id),
@@ -3278,41 +3305,41 @@ var requestDelete = /*#__PURE__*/function () {
             approver_role: 'super_admin',
             status: 'pending'
           });
-        case 26:
+        case 28:
           toast('✓ 已提交老板审批,等待批准');
           return _context5.a(2, true);
-        case 27:
-          _context5.p = 27;
+        case 29:
+          _context5.p = 29;
           _t7 = _context5.v;
           alert('提交失败: ' + _t7.message);
           return _context5.a(2, false);
-        case 28:
+        case 30:
           if (isOwner) {
-            _context5.n = 29;
+            _context5.n = 31;
             break;
           }
           alert('❌ 你不能删除别人的数据');
           return _context5.a(2, false);
-        case 29:
+        case 31:
           if (sameDay) {
-            _context5.n = 30;
+            _context5.n = 32;
             break;
           }
           alert('❌ 历史数据(非当天)只有主管/老板能删除\n\n请联系主管');
           return _context5.a(2, false);
-        case 30:
-          _context5.n = 31;
+        case 32:
+          _context5.n = 33;
           return wsPrompt("\uD83D\uDCCB \u7533\u8BF7\u5220\u9664\u5F53\u5929\u6570\u636E(\u9700\u4E3B\u7BA1\u6279\u51C6)\n\n".concat(recordSummary, "\n\n\u8BF7\u586B\u5199\u5220\u9664\u7406\u7531:"));
-        case 31:
+        case 33:
           reason = _context5.v;
           if (!(!reason || !reason.trim())) {
-            _context5.n = 32;
+            _context5.n = 34;
             break;
           }
           return _context5.a(2, false);
-        case 32:
-          _context5.p = 32;
-          _context5.n = 33;
+        case 34:
+          _context5.p = 34;
+          _context5.n = 35;
           return CLOUD.client.from('delete_requests').insert({
             table_name: tableName,
             record_id: String(record.id),
@@ -3326,16 +3353,16 @@ var requestDelete = /*#__PURE__*/function () {
             approver_role: 'admin',
             status: 'pending'
           });
-        case 33:
+        case 35:
           toast('✓ 删除申请已提交,等待主管批准');
           return _context5.a(2, true);
-        case 34:
-          _context5.p = 34;
+        case 36:
+          _context5.p = 36;
           _t8 = _context5.v;
           alert('提交失败: ' + _t8.message);
           return _context5.a(2, false);
       }
-    }, _callee5, null, [[32, 34], [25, 27], [16, 18], [14, 21], [4, 6], [2, 10]]);
+    }, _callee5, null, [[34, 36], [27, 29], [18, 20], [15, 23], [5, 7], [2, 11]]);
   }));
   return function requestDelete(_x2) {
     return _ref23.apply(this, arguments);
@@ -3418,7 +3445,7 @@ var DeleteApprovalCenter = function DeleteApprovalCenter(_ref24) {
   }, [list, filterStatus, isSuperAdmin]);
   var approve = /*#__PURE__*/function () {
     var _ref26 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(req) {
-      var note, _yield$CLOUD$client$f, orig, _t0;
+      var note, _yield$CLOUD$client$f3, orig, _yield$CLOUD$client$f4, upErr, _yield$CLOUD$client$f5, delErr, _t0;
       return _regenerator().w(function (_context7) {
         while (1) switch (_context7.p = _context7.n) {
           case 0:
@@ -3445,10 +3472,10 @@ var DeleteApprovalCenter = function DeleteApprovalCenter(_ref24) {
             _context7.n = 4;
             return CLOUD.client.from(req.table_name).select('*').eq('id', req.record_id).single();
           case 4:
-            _yield$CLOUD$client$f = _context7.v;
-            orig = _yield$CLOUD$client$f.data;
+            _yield$CLOUD$client$f3 = _context7.v;
+            orig = _yield$CLOUD$client$f3.data;
             if (!orig) {
-              _context7.n = 5;
+              _context7.n = 7;
               break;
             }
             _context7.n = 5;
@@ -3457,18 +3484,36 @@ var DeleteApprovalCenter = function DeleteApprovalCenter(_ref24) {
               updated_at: new Date().toISOString()
             }).eq('id', req.record_id);
           case 5:
+            _yield$CLOUD$client$f4 = _context7.v;
+            upErr = _yield$CLOUD$client$f4.error;
+            if (!upErr) {
+              _context7.n = 7;
+              break;
+            }
+            _context7.n = 6;
+            return CLOUD.client.from(req.table_name)["delete"]().eq('id', req.record_id);
+          case 6:
+            _yield$CLOUD$client$f5 = _context7.v;
+            delErr = _yield$CLOUD$client$f5.error;
+            if (!delErr) {
+              _context7.n = 7;
+              break;
+            }
+            alert('删除失败: ' + (delErr.message || delErr));
+            return _context7.a(2);
+          case 7:
             toast('✓ 已批准并删除');
             load();
-            _context7.n = 7;
+            _context7.n = 9;
             break;
-          case 6:
-            _context7.p = 6;
+          case 8:
+            _context7.p = 8;
             _t0 = _context7.v;
             alert('操作失败: ' + _t0.message);
-          case 7:
+          case 9:
             return _context7.a(2);
         }
-      }, _callee7, null, [[2, 6]]);
+      }, _callee7, null, [[2, 8]]);
     }));
     return function approve(_x3) {
       return _ref26.apply(this, arguments);
@@ -3858,7 +3903,7 @@ var KPIScoreboard = function KPIScoreboard(_ref28) {
   var storeKey = 'kpi_scores_' + month;
   useEffect(function () {
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-      var _yield$CLOUD$client$f2, data, _t10;
+      var _yield$CLOUD$client$f6, data, _t10;
       return _regenerator().w(function (_context9) {
         while (1) switch (_context9.p = _context9.n) {
           case 0:
@@ -3873,8 +3918,8 @@ var KPIScoreboard = function KPIScoreboard(_ref28) {
             _context9.n = 2;
             return CLOUD.client.from('system_settings').select('value').eq('key', storeKey).maybeSingle();
           case 2:
-            _yield$CLOUD$client$f2 = _context9.v;
-            data = _yield$CLOUD$client$f2.data;
+            _yield$CLOUD$client$f6 = _context9.v;
+            data = _yield$CLOUD$client$f6.data;
             setScores(data && data.value || {});
             _context9.n = 4;
             break;
@@ -6326,7 +6371,7 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref44) {
     setSaving = _useState76[1];
   var load = /*#__PURE__*/function () {
     var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
-      var _yield$CLOUD$client$f3, data, _t14;
+      var _yield$CLOUD$client$f7, data, _t14;
       return _regenerator().w(function (_context10) {
         while (1) switch (_context10.p = _context10.n) {
           case 0:
@@ -6341,8 +6386,8 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref44) {
             _context10.n = 2;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'alert_thresholds').maybeSingle();
           case 2:
-            _yield$CLOUD$client$f3 = _context10.v;
-            data = _yield$CLOUD$client$f3.data;
+            _yield$CLOUD$client$f7 = _context10.v;
+            data = _yield$CLOUD$client$f7.data;
             if (data !== null && data !== void 0 && data.value) setThresholds(function (prev) {
               return _objectSpread(_objectSpread({}, prev), data.value);
             });
@@ -6367,7 +6412,7 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref44) {
   }, []);
   var handleSave = /*#__PURE__*/function () {
     var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
-      var _yield$CLOUD$client$f4, error, _t15;
+      var _yield$CLOUD$client$f8, error, _t15;
       return _regenerator().w(function (_context11) {
         while (1) switch (_context11.p = _context11.n) {
           case 0:
@@ -6381,8 +6426,8 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref44) {
               updated_by_name: user.name + (user.alias ? ' ' + user.alias : '')
             });
           case 2:
-            _yield$CLOUD$client$f4 = _context11.v;
-            error = _yield$CLOUD$client$f4.error;
+            _yield$CLOUD$client$f8 = _context11.v;
+            error = _yield$CLOUD$client$f8.error;
             if (!error) {
               _context11.n = 3;
               break;
@@ -6755,7 +6800,7 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref49) {
   });
   var load = /*#__PURE__*/function () {
     var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
-      var _yield$CLOUD$client$f5, data, cfg, _t16;
+      var _yield$CLOUD$client$f9, data, cfg, _t16;
       return _regenerator().w(function (_context13) {
         while (1) switch (_context13.p = _context13.n) {
           case 0:
@@ -6770,8 +6815,8 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref49) {
             _context13.n = 2;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'chargeback_owners').single();
           case 2:
-            _yield$CLOUD$client$f5 = _context13.v;
-            data = _yield$CLOUD$client$f5.data;
+            _yield$CLOUD$client$f9 = _context13.v;
+            data = _yield$CLOUD$client$f9.data;
             cfg = (data === null || data === void 0 ? void 0 : data.value) || {}; // 新格式: { site_owners, default_owner, saturday_owner, sunday_owner }
             // 旧格式: { weekend_owner } (周六/日都用同一个)
             // 更旧格式: { user_ids:[] }
@@ -6805,7 +6850,7 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref49) {
   }, []);
   var handleSave = /*#__PURE__*/function () {
     var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
-      var userName, allUids, allNames, _yield$CLOUD$client$f6, error, _t17;
+      var userName, allUids, allNames, _yield$CLOUD$client$f0, error, _t17;
       return _regenerator().w(function (_context14) {
         while (1) switch (_context14.p = _context14.n) {
           case 0:
@@ -6835,8 +6880,8 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref49) {
               updated_by_name: userName
             });
           case 2:
-            _yield$CLOUD$client$f6 = _context14.v;
-            error = _yield$CLOUD$client$f6.error;
+            _yield$CLOUD$client$f0 = _context14.v;
+            error = _yield$CLOUD$client$f0.error;
             if (!error) {
               _context14.n = 3;
               break;
@@ -7111,7 +7156,7 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref52) {
   });
   useEffect(function () {
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
-      var _data$value, _yield$CLOUD$client$f7, data, ids, _t18;
+      var _data$value, _yield$CLOUD$client$f1, data, ids, _t18;
       return _regenerator().w(function (_context15) {
         while (1) switch (_context15.p = _context15.n) {
           case 0:
@@ -7126,8 +7171,8 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref52) {
             _context15.n = 2;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'refund_processors').single();
           case 2:
-            _yield$CLOUD$client$f7 = _context15.v;
-            data = _yield$CLOUD$client$f7.data;
+            _yield$CLOUD$client$f1 = _context15.v;
+            data = _yield$CLOUD$client$f1.data;
             ids = data === null || data === void 0 || (_data$value = data.value) === null || _data$value === void 0 ? void 0 : _data$value.user_ids;
             if (Array.isArray(ids) && ids.length > 0) setSelectedIds(ids);
             _context15.n = 4;
@@ -7391,7 +7436,7 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref55) {
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
     var _ref56 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
-      var _data$value2, _yield$CLOUD$client$f8, data, _t19;
+      var _data$value2, _yield$CLOUD$client$f10, data, _t19;
       return _regenerator().w(function (_context17) {
         while (1) switch (_context17.p = _context17.n) {
           case 0:
@@ -7404,8 +7449,8 @@ var SitesMaintenanceSection = function SitesMaintenanceSection(_ref55) {
             _context17.n = 2;
             return CLOUD.client.from('system_settings').select('value').eq('key', 'custom_sites').maybeSingle();
           case 2:
-            _yield$CLOUD$client$f8 = _context17.v;
-            data = _yield$CLOUD$client$f8.data;
+            _yield$CLOUD$client$f10 = _context17.v;
+            data = _yield$CLOUD$client$f10.data;
             setCustomSites((data === null || data === void 0 || (_data$value2 = data.value) === null || _data$value2 === void 0 ? void 0 : _data$value2.sites) || []);
           case 3:
             _context17.n = 5;
