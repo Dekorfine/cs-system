@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix169
+// 版本 2026.06.05-fix170
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix169
+// 版本 2026.06.05-fix170
 // 预编译切片
 //
 
@@ -4753,7 +4753,11 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref26) {
       overflow: 'auto',
       flex: 1
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(FormGuide, {
+    title: "\u7EBF\u4E0B\u5355\u767B\u8BB0",
+    steps: ['基本信息:选网站、填客户信息(线下/批发等非常规下单走这里)。', '产品 / 金额:填订单产品与金额、币种。', '付款方式 / 付款状态:怎么收款、是否已收。', '发货:发货方式、物流单号、发货状态。', '备注:特殊要求 / 沟通记录,方便交接。'],
+    feedbackTip: "\u5982\u679C\u7EBF\u4E0B\u5355\u6D41\u7A0B\u66B4\u9732\u53CD\u590D\u95EE\u9898(\u67D0\u5BA2\u6237\u8001\u62D6\u6B3E\u3001\u67D0\u6E20\u9053\u603B\u51FA\u9519\u2026),\u56DE\u5230\u8BE5\u5BA2\u6237\u7684\u300C\u8DDF\u8FDB & \u622A\u56FE\u300D\u5F39\u7A97\u52FE\u300C\uD83D\uDCE3 \u6807\u8BB0\u4E3A\u95EE\u9898\u53CD\u9988\u300D\u5E76\u5199\u8BF4\u660E,\u4E3B\u7BA1\u4F1A\u5728\u300C\u4ECA\u65E5\u5DE5\u4F5C\u5FEB\u7167\u300D\u6536\u5230\u63D0\u9192\u3002"
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 12,
       background: '#f0f9ff',
@@ -7127,7 +7131,11 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref39) {
       overflow: 'auto',
       flex: 1
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(FormGuide, {
+    title: "\u5B9A\u5236\u54A8\u8BE2\u767B\u8BB0",
+    steps: ['客户姓名 / 邮箱:填客户联系方式。', '订单号 / 产品:关联订单或产品(可「拉取订单」带出产品图)。', '定制需求:客户要怎么改(尺寸 / 颜色 / 材质 / 图案…),写具体,方便工厂评估。', '报价 / 工期:能否做、加价多少、大概多久(与工厂确认后填)。', '状态 / 进展:咨询中 → 报价 → 确认 → 生产 → 完成,随进展更新。', '图片:客户参考图 / 效果图 / 打样照。'],
+    feedbackTip: "\u5982\u679C\u67D0\u7C7B\u5B9A\u5236\u9700\u6C42\u53CD\u590D\u505A\u4E0D\u51FA\u3001\u6216\u5DE5\u5382\u8001\u662F\u8BC4\u4F30\u4E0D\u51C6,\u56DE\u5230\u8BE5\u5BA2\u6237\u7684\u300C\u8DDF\u8FDB & \u622A\u56FE\u300D\u5F39\u7A97\u52FE\u300C\uD83D\uDCE3 \u6807\u8BB0\u4E3A\u95EE\u9898\u53CD\u9988\u300D\u5E76\u5199\u8BF4\u660E,\u4E3B\u7BA1\u4F1A\u5728\u300C\u4ECA\u65E5\u5DE5\u4F5C\u5FEB\u7167\u300D\u6536\u5230\u63D0\u9192\u3002"
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: '1fr 1fr 0.7fr',
@@ -8565,7 +8573,11 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref47) {
       overflow: 'auto',
       flex: 1
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(FormGuide, {
+    title: "\u5B9E\u62CD\u6838\u5B9E",
+    steps: ['订单编号 / 产品名:填客户订单号,点「🔄 拉取订单」选对应产品(自动带产品图)。', '上传实拍图:工厂/仓库拍的真实产品照片(给客户确认用)。', '说明:要客户确认什么(颜色 / 尺寸 / 款式 / 配件…)。', '状态:发出后是「待客户确认」→ 客户接受 / 拒绝 / 要求更换 后更新。', '备注:记录客户反馈。'],
+    feedbackTip: "\u5982\u679C\u67D0\u4EA7\u54C1\u5B9E\u62CD\u53CD\u590D\u88AB\u5BA2\u6237\u62D2\u7EDD\u3001\u6216\u5DE5\u5382\u5B9E\u7269\u8001\u662F\u548C\u56FE\u4E0D\u7B26,\u56DE\u5230\u8BE5\u5BA2\u6237\u7684\u300C\u8DDF\u8FDB & \u622A\u56FE\u300D\u5F39\u7A97\u52FE\u300C\uD83D\uDCE3 \u6807\u8BB0\u4E3A\u95EE\u9898\u53CD\u9988\u300D\u5E76\u5199\u8BF4\u660E,\u4E3B\u7BA1\u4F1A\u5728\u300C\u4ECA\u65E5\u5DE5\u4F5C\u5FEB\u7167\u300D\u6536\u5230\u63D0\u9192\u3002"
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '8px 12px',
       background: '#f0f9ff',

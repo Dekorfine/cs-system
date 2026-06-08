@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix169
+// 版本 2026.06.05-fix170
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix169
+// 版本 2026.06.05-fix170
 // 预编译切片
 //
 
@@ -7102,7 +7102,11 @@ var EventEditorModal = function EventEditorModal(_ref31) {
       overflowX: 'hidden',
       flex: 1
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(FormGuide, {
+    title: kind === 'aftersale' ? '售后登记' : kind === 'refill' ? '补件登记' : '退款登记',
+    steps: kind === 'refund' ? ['订单号:填客户订单号,点「🔄 拉取订单」自动带出产品名 + 产品图。', '退款金额 / 币种:填本次退款的金额(部分退就填部分)。', '退款原因:为什么退(产品问题 / 协商一致 / 无法补救…)。', '状态:新建一般是「待审核」→ 主管/退款处理人审核 → 打款后上传打款截图。', '备注:写清协商经过与依据(如「客户同意退一半,5/24 已沟通」)。'] : kind === 'refill' ? ['订单号:填客户订单号,点「🔄 拉取订单」选要补寄的产品。', '补件原因:漏发 / 破损 / 缺配件…', '补寄内容:补什么、数量;寄出后填物流单号。', '进展 / 备注:当前到哪一步,写清楚方便交接。', '图片:客户反馈照、配件照、物流凭证等。'] : ['订单号:填客户订单号,点「🔄 拉取订单」自动带出产品名 + 产品图。', '问题描述:客户反馈的问题(破损 / 缺件 / 功能异常 / 不符…)。', '处理方案 + 进展:打算怎么处理、当前到哪一步。', '图片:客户反馈照、物流凭证、问题特写等。'],
+    feedbackTip: "\u5982\u679C\u8FD9\u5355\u66B4\u9732\u4E86\u53CD\u590D\u51FA\u73B0\u7684\u95EE\u9898(\u67D0\u4EA7\u54C1\u8001\u7834\u635F\u3001\u67D0\u7269\u6D41\u5546\u603B\u4E22\u4EF6\u2026),\u56DE\u5230\u8BE5\u5BA2\u6237\u7684\u300C\u8DDF\u8FDB & \u622A\u56FE\u300D\u5F39\u7A97\u52FE\u300C\uD83D\uDCE3 \u6807\u8BB0\u4E3A\u95EE\u9898\u53CD\u9988\u300D\u5E76\u5199\u8BF4\u660E,\u4E3B\u7BA1\u4F1A\u5728\u300C\u4ECA\u65E5\u5DE5\u4F5C\u5FEB\u7167\u300D\u6536\u5230\u63D0\u9192\u3002"
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
