@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix180
+// 版本 2026.06.05-fix181
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix180
+// 版本 2026.06.05-fix181
 // 预编译切片
 //
 
@@ -1462,7 +1462,7 @@ var App = function App() {
   useEffect(function () {
     if (!cloudOn || !user) return;
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-      var cloud, localRecords, cloudById, localOnly, localNewer, deduped;
+      var cloud, localRecords, cloudById, localOnly, localNewer, merged, toResync;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.n) {
           case 0:
@@ -1509,13 +1509,31 @@ var App = function App() {
                 }
               });
 
-              // 🆕 按需求调整:本地未同步记录(多为测试数据)默认丢弃 → 直接用云端,不再合并/重传,不弹提示
-              // (localOnly/localNewer 仅留作调试,不再据此恢复;如需恢复 fix7 防丢失合并逻辑见历史版本)
-              // 🆕 fix179: 按 id 去重(防止任何重复记录导致计数虚高/抖动)
-              deduped = Array.from(new Map((cloud || []).map(function (r) {
+              // 🆕 fix181: 恢复防丢失合并 —— 高频录入时,本地还没上传成功的行不能在刷新时被云端覆盖丢掉!
+              //   cloud 为底 + 本地独有(未同步)保留 + 本地更新版优先;然后把保留的本地记录补传云端。
+              merged = new Map((cloud || []).map(function (r) {
                 return [r.id, r];
-              })).values());
-              setRecords(deduped);
+              }));
+              localOnly.forEach(function (l) {
+                if (l && l.id) merged.set(l.id, l);
+              }); // 本地独有 → 保留(待补传)
+              localNewer.forEach(function (l) {
+                if (l && l.id) merged.set(l.id, l);
+              }); // 本地更新 → 用本地版
+              setRecords(Array.from(merged.values()));
+              // 把保留的本地记录补传到云端(防止永久丢失)
+              toResync = [].concat(localOnly, localNewer).filter(function (r) {
+                return isRecordMeaningful(r) || r.deleted;
+              });
+              if (toResync.length > 0) {
+                setTimeout(function () {
+                  try {
+                    uploadRecordsWithRetry(toResync);
+                  } catch (e) {
+                    console.warn('补传失败', e);
+                  }
+                }, 800);
+              }
             }
           case 2:
             return _context4.a(2);
@@ -4155,7 +4173,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix180';
+var APP_VERSION = '2026.06.05-fix181';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
