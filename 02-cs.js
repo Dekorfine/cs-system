@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix188
+// 版本 2026.06.05-fix190
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix188
+// 版本 2026.06.05-fix190
 // 预编译切片
 //
 
@@ -1399,19 +1399,40 @@ var CSModule = function CSModule(_ref7) {
   }, [dayRecords, visibleRecords, showAll, filterOwner]);
 
   // 添加新行
+  // 🆕 fix190:滚动到某行 + 展开 + 高亮 + 聚焦第一个输入框(客户邮箱),让用户直接落到表单里
+  var focusRow = function focusRow(id) {
+    setRowOverride(function (prev) {
+      return _objectSpread(_objectSpread({}, prev), {}, _defineProperty({}, id, true));
+    });
+    setTimeout(function () {
+      var el = document.getElementById('cs-row-' + id);
+      if (!el) return;
+      el.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+      el.style.transition = 'box-shadow .3s';
+      el.style.boxShadow = '0 0 0 3px rgba(0,113,227,.4)';
+      setTimeout(function () {
+        el.style.boxShadow = '';
+      }, 1300);
+      var inp = el.querySelector('input, select, textarea');
+      if (inp) {
+        try {
+          inp.focus();
+        } catch (e) {}
+      }
+    }, 130);
+  };
   var addRow = function addRow() {
-    // 🆕 如果当前日期已经有一行完全空白的（用户点过 + 但没填任何东西）
+    // 🆕 如果当前日期已经有一行完全空白的（用户点过 + 但没填任何东西）→ 直接定位过去,别只弹提示
     var emptyRow = dayRecords.find(function (r) {
       return !isRecordMeaningful(r);
     });
     if (emptyRow) {
-      // 在"全部"模式下空白行被隐藏,自动切到"当日"让用户看到
-      if (viewMode === 'all') {
-        setViewMode('day');
-        toast('💡 已切到「按当日」模式,有一行空白行待填写');
-      } else {
-        toast('💡 已经有一个空白行了,请先填写');
-      }
+      if (viewMode === 'all') setViewMode('day');
+      toast('💡 已有一行空白行 · 已帮你定位,直接填即可');
+      focusRow(emptyRow.id);
       return;
     }
     // 在"全部记录"模式下加新行 → 自动切回当日模式
@@ -1457,6 +1478,7 @@ var CSModule = function CSModule(_ref7) {
     setRecords(function (prev) {
       return [].concat(_toConsumableArray(prev), [newRec]);
     });
+    focusRow(newRec.id); // 🆕 fix190:新行直接定位+聚焦,不用找
   };
 
   // 🆕 自动清理：切换日期/重启时,清除所有未填内容的空白行
@@ -4957,6 +4979,24 @@ var CSModule = function CSModule(_ref7) {
       return setReportModal(null);
     },
     toast: toast
+  }), customer360Email && /*#__PURE__*/React.createElement(Customer360Modal, {
+    email: customer360Email,
+    records: records,
+    onClose: function onClose() {
+      return setCustomer360Email(null);
+    },
+    onOpenRecord: function onOpenRecord(id) {
+      setRowOverride(function (prev) {
+        return _objectSpread(_objectSpread({}, prev), {}, _defineProperty({}, id, true));
+      });
+      setTimeout(function () {
+        var el = document.getElementById('cs-row-' + id);
+        if (el) el.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }, 60);
+    }
   }), transferModal && function () {
     var r = records.find(function (rec) {
       return rec.id === transferModal;
