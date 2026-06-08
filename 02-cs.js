@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix173
+// 版本 2026.06.05-fix174
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix173
+// 版本 2026.06.05-fix174
 // 预编译切片
 //
 
@@ -1008,6 +1008,10 @@ var CSModule = function CSModule(_ref2) {
       // 🆕 fix82: 问题反馈说明
       feedbackShots: [],
       // 🆕 fix82: 问题反馈截图 [{id,data,name}]
+      isProductOpt: false,
+      // 🆕 fix174: 标记为「产品优化」(WorkTrack 绩效产品优化奖)
+      productOptNote: '',
+      // 🆕 fix174: 产品优化说明
       screenshots: [],
       // [{id, data, name}]
       followUps: [],
@@ -10023,6 +10027,58 @@ var FollowUpModal = function FollowUpModal(_ref36) {
       }
     }, "\xD7"));
   })))), /*#__PURE__*/React.createElement("div", {
+    className: "mb-5 rounded-xl p-3 border",
+    style: {
+      borderColor: record.isProductOpt ? '#16a34a' : 'var(--line)',
+      background: record.isProductOpt ? '#f0fdf4' : 'var(--bg)'
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    className: "flex items-center gap-2 cursor-pointer",
+    style: {
+      userSelect: 'none'
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    disabled: readonly,
+    checked: !!record.isProductOpt,
+    onChange: function onChange(e) {
+      return onUpdate({
+        isProductOpt: e.target.checked
+      });
+    },
+    style: {
+      width: 16,
+      height: 16,
+      cursor: 'pointer'
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "font-display text-sm font-bold"
+  }, "\uD83D\uDEE0 \u6807\u8BB0\u4E3A\u4EA7\u54C1\u4F18\u5316"), /*#__PURE__*/React.createElement("span", {
+    className: "text-[10px]",
+    style: {
+      color: 'var(--ink-3)'
+    }
+  }, "(\u53D1\u73B0\u65E0\u8BC4\u4EF7\u4EA7\u54C1/\u63CF\u8FF0\xB7\u89C4\u683C\xB7\u56FE\u7247\u9519\u8BEF\u5E76\u4E3B\u52A8\u53CD\u9988\u66F4\u6B63 \xB7 \u4E3B\u7BA1\u6C47\u603B \xB7 \u8BA1\u7EE9\u6548)")), record.isProductOpt && /*#__PURE__*/React.createElement("div", {
+    className: "mt-3"
+  }, !readonly && /*#__PURE__*/React.createElement("textarea", {
+    value: record.productOptNote || '',
+    onChange: function onChange(e) {
+      return onUpdate({
+        productOptNote: e.target.value
+      });
+    },
+    placeholder: "\u4EA7\u54C1\u4F18\u5316\u8BF4\u660E,\u4F8B: VK0312 \u63CF\u8FF0\u5C3A\u5BF8\u5199\u9519,\u5DF2\u53CD\u9988\u7F8E\u5DE5\u66F4\u6B63 / \u8BE5\u4EA7\u54C1\u65E0\u8BC4\u4EF7,\u5DF2\u53D1\u8BC4\u4EF7\u7FA4\u2026",
+    rows: "2",
+    style: {
+      background: 'white',
+      fontSize: 13
+    }
+  }), readonly && record.productOptNote && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs leading-relaxed",
+    style: {
+      color: 'var(--ink-2)'
+    }
+  }, record.productOptNote))), /*#__PURE__*/React.createElement("div", {
     className: "mb-5"
   }, /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 mb-2"
