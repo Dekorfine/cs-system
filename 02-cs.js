@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix162
+// 版本 2026.06.05-fix163
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix162
+// 版本 2026.06.05-fix163
 // 预编译切片
 //
 
@@ -9053,12 +9053,19 @@ var FollowUpModal = function FollowUpModal(_ref36) {
       text: newFollowText.trim(),
       status: newFollowStatus
     }]);
-    onUpdate({
+    var patch = {
       followUps: followUps,
       status: newFollowStatus
-    });
+    };
+    // 🆕 跟进了就不该再显示"逾期":若仍在跟进中、且下次跟进日期为空或已过期 → 自动推到 2 天后(可在上方日期框手改)
+    if (newFollowStatus !== 'resolved' && newFollowStatus !== 'transferred') {
+      if (!record.nextFollowUp || record.nextFollowUp < todayISO()) {
+        patch.nextFollowUp = addDays(todayISO(), 2);
+      }
+    }
+    onUpdate(patch);
     setNewFollowText('');
-    toast('✓ 跟进记录已保存');
+    toast(patch.nextFollowUp ? '✓ 跟进已保存 · 下次跟进自动设为 ' + patch.nextFollowUp + '(可手改)' : '✓ 跟进记录已保存');
   };
   var _useState185 = useState(null),
     _useState186 = _slicedToArray(_useState185, 2),

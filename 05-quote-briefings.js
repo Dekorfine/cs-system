@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix162
+// 版本 2026.06.05-fix163
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix162
+// 版本 2026.06.05-fix163
 // 预编译切片
 //
 
@@ -3618,6 +3618,64 @@ var ChargebackReminderBanner = function ChargebackReminderBanner(_ref18) {
       return _ref19.apply(this, arguments);
     };
   }();
+
+  // 🆕 一键「已提交证据」:申诉后点这里,pending→responded,立刻移出催办(不再逾急)
+  var markResponded = /*#__PURE__*/function () {
+    var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(cb) {
+      var _yield$CLOUD$client$f7, error, _t1;
+      return _regenerator().w(function (_context10) {
+        while (1) switch (_context10.p = _context10.n) {
+          case 0:
+            if (CLOUD.client) {
+              _context10.n = 1;
+              break;
+            }
+            return _context10.a(2);
+          case 1:
+            if (window.confirm('确认这单已提交证据 / 已申诉?\n标记后进入「等争议结果(等银行裁决)」,不再催办逾期。')) {
+              _context10.n = 2;
+              break;
+            }
+            return _context10.a(2);
+          case 2:
+            _context10.p = 2;
+            _context10.n = 3;
+            return CLOUD.client.from('chargebacks').update({
+              status: 'responded',
+              updated_at: new Date().toISOString()
+            }).eq('id', cb.id);
+          case 3:
+            _yield$CLOUD$client$f7 = _context10.v;
+            error = _yield$CLOUD$client$f7.error;
+            if (!error) {
+              _context10.n = 4;
+              break;
+            }
+            throw error;
+          case 4:
+            setUrgent(function (prev) {
+              return prev.filter(function (x) {
+                return x.id !== cb.id;
+              });
+            });
+            try {
+              toast('✓ 已标记「已提交证据」,移出催办');
+            } catch (e) {}
+            _context10.n = 6;
+            break;
+          case 5:
+            _context10.p = 5;
+            _t1 = _context10.v;
+            alert('标记失败:' + (_t1.message || _t1));
+          case 6:
+            return _context10.a(2);
+        }
+      }, _callee10, null, [[2, 5]]);
+    }));
+    return function markResponded(_x6) {
+      return _ref20.apply(this, arguments);
+    };
+  }();
   useEffect(function () {
     load();
     var t = setInterval(load, 5 * 60 * 1000); // 5 分钟自动刷新
@@ -3725,6 +3783,22 @@ var ChargebackReminderBanner = function ChargebackReminderBanner(_ref18) {
       }
     }, "\u7ACB\u5373\u5904\u7406 \u2192"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
+        return markResponded(cb);
+      },
+      title: "\u7533\u8BC9/\u63D0\u4EA4\u8BC1\u636E\u540E\u70B9\u8FD9\u91CC \u2192 \u8FDB\u5165\u7B49\u4E89\u8BAE\u7ED3\u679C,\u79FB\u51FA\u50AC\u529E",
+      style: {
+        padding: '6px 12px',
+        background: 'white',
+        color: u.color,
+        border: "1.5px solid ".concat(u.color),
+        borderRadius: 6,
+        cursor: 'pointer',
+        fontSize: 12,
+        fontWeight: 700,
+        fontFamily: 'inherit'
+      }
+    }, "\u2713 \u5DF2\u63D0\u4EA4\u8BC1\u636E"), /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
         return dismissOne(cb.id);
       },
       title: "\u672C\u6B21\u4F1A\u8BDD\u6682\u65F6\u5FFD\u7565",
@@ -3756,15 +3830,15 @@ var ChargebackReminderBanner = function ChargebackReminderBanner(_ref18) {
 // 🆕 TimeRangeFilter - 通用时间范围筛选组件
 // 升级:支持传入 records 自动统计每个范围的条数 + 显示筛选反馈
 // ============================================================
-var TimeRangeFilter = function TimeRangeFilter(_ref20) {
-  var value = _ref20.value,
-    onChange = _ref20.onChange,
-    customStart = _ref20.customStart,
-    customEnd = _ref20.customEnd,
-    onCustomChange = _ref20.onCustomChange,
-    label = _ref20.label,
-    records = _ref20.records,
-    dateField = _ref20.dateField;
+var TimeRangeFilter = function TimeRangeFilter(_ref21) {
+  var value = _ref21.value,
+    onChange = _ref21.onChange,
+    customStart = _ref21.customStart,
+    customEnd = _ref21.customEnd,
+    onCustomChange = _ref21.onCustomChange,
+    label = _ref21.label,
+    records = _ref21.records,
+    dateField = _ref21.dateField;
   // 🆕 计算每个时间范围匹配的条数
   var counts = useMemo(function () {
     if (!records || !Array.isArray(records)) return null;
@@ -4378,11 +4452,11 @@ if (typeof window !== 'undefined') {
 // 🆕 WorkSnapshotPanel - 今日工作快照(上班第一眼看到的醒目卡片)
 // 涉及: 客服跟进逾期 / 拒付紧急 / 线下单待发货 / 定制无进展 / 实拍无回复 / 退款待审
 // ============================================================
-var WorkSnapshotPanel = function WorkSnapshotPanel(_ref21) {
-  var user = _ref21.user,
-    employees = _ref21.employees,
-    records = _ref21.records,
-    onJumpTo = _ref21.onJumpTo;
+var WorkSnapshotPanel = function WorkSnapshotPanel(_ref22) {
+  var user = _ref22.user,
+    employees = _ref22.employees,
+    records = _ref22.records,
+    onJumpTo = _ref22.onJumpTo;
   var _useState55 = useState({
       chargebacks: [],
       offline: [],
@@ -4414,29 +4488,29 @@ var WorkSnapshotPanel = function WorkSnapshotPanel(_ref21) {
     setLoading = _useState60[1];
   var isAdminRole = user && (user.role === 'admin' || user.role === 'super_admin');
   var load = /*#__PURE__*/function () {
-    var _ref22 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
-      var _yield$CLOUD$client$f7, th, _yield$Promise$all3, _yield$Promise$all4, cb, oo, ci, pv, rfd, af, rf, _t1, _t10;
-      return _regenerator().w(function (_context10) {
-        while (1) switch (_context10.p = _context10.n) {
+    var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+      var _yield$CLOUD$client$f8, th, _yield$Promise$all3, _yield$Promise$all4, cb, oo, ci, pv, rfd, af, rf, _t10, _t11;
+      return _regenerator().w(function (_context11) {
+        while (1) switch (_context11.p = _context11.n) {
           case 0:
             setLoading(true);
-            _context10.p = 1;
-            _context10.p = 2;
-            _context10.n = 3;
+            _context11.p = 1;
+            _context11.p = 2;
+            _context11.n = 3;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'alert_thresholds').maybeSingle();
           case 3:
-            _yield$CLOUD$client$f7 = _context10.v;
-            th = _yield$CLOUD$client$f7.data;
+            _yield$CLOUD$client$f8 = _context11.v;
+            th = _yield$CLOUD$client$f8.data;
             if (th !== null && th !== void 0 && th.value) setThresholds(function (prev) {
               return _objectSpread(_objectSpread({}, prev), th.value);
             });
-            _context10.n = 5;
+            _context11.n = 5;
             break;
           case 4:
-            _context10.p = 4;
-            _t1 = _context10.v;
+            _context11.p = 4;
+            _t10 = _context11.v;
           case 5:
-            _context10.n = 6;
+            _context11.n = 6;
             return Promise.all([CLOUD.list('chargebacks', {
               limit: 300
             }), CLOUD.list('offline_orders', {
@@ -4453,7 +4527,7 @@ var WorkSnapshotPanel = function WorkSnapshotPanel(_ref21) {
               limit: 300
             })]);
           case 6:
-            _yield$Promise$all3 = _context10.v;
+            _yield$Promise$all3 = _context11.v;
             _yield$Promise$all4 = _slicedToArray(_yield$Promise$all3, 7);
             cb = _yield$Promise$all4[0];
             oo = _yield$Promise$all4[1];
@@ -4485,21 +4559,21 @@ var WorkSnapshotPanel = function WorkSnapshotPanel(_ref21) {
                 return !x.deleted;
               })
             });
-            _context10.n = 8;
+            _context11.n = 8;
             break;
           case 7:
-            _context10.p = 7;
-            _t10 = _context10.v;
-            console.warn('快照加载失败', _t10);
+            _context11.p = 7;
+            _t11 = _context11.v;
+            console.warn('快照加载失败', _t11);
           case 8:
             setLoading(false);
           case 9:
-            return _context10.a(2);
+            return _context11.a(2);
         }
-      }, _callee10, null, [[2, 4], [1, 7]]);
+      }, _callee11, null, [[2, 4], [1, 7]]);
     }));
     return function load() {
-      return _ref22.apply(this, arguments);
+      return _ref23.apply(this, arguments);
     };
   }();
   useEffect(function () {
@@ -4595,14 +4669,14 @@ var WorkSnapshotPanel = function WorkSnapshotPanel(_ref21) {
   if (loading) return null;
   if (totalAlerts === 0) return null; // 没有未完成 → 不显示
 
-  var AlertCell = function AlertCell(_ref23) {
-    var icon = _ref23.icon,
-      label = _ref23.label,
-      count = _ref23.count,
-      threshold = _ref23.threshold,
-      color = _ref23.color,
-      onClick = _ref23.onClick,
-      urgent = _ref23.urgent;
+  var AlertCell = function AlertCell(_ref24) {
+    var icon = _ref24.icon,
+      label = _ref24.label,
+      count = _ref24.count,
+      threshold = _ref24.threshold,
+      color = _ref24.color,
+      onClick = _ref24.onClick,
+      urgent = _ref24.urgent;
     return count === 0 ? null : /*#__PURE__*/React.createElement("div", {
       onClick: onClick,
       style: {
