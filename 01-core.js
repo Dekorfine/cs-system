@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix185
+// 版本 2026.06.05-fix186
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix185
+// 版本 2026.06.05-fix186
 // 预编译切片
 //
 
@@ -2496,10 +2496,18 @@ function _wsFetchOrderProducts() {
           o = arr[0];
           li = o.line_items || o.raw_payload && o.raw_payload.line_items || [];
           products = li.map(function (it) {
+            var pid = it.product_id != null && it.product_id !== '' ? String(it.product_id) : '';
             return {
               title: it.title || it.name || '',
               image_url: wsPickImg(it),
-              quantity: it.quantity || 1
+              quantity: it.quantity || 1,
+              sku: it.sku || it.variant && it.variant.sku || '',
+              // 🆕 fix186
+              product_id: pid,
+              // 🆕 fix186 链接标识(同产品多变体=同一链接)
+              variant_title: it.variant_title || it.variant_name || '',
+              // 🆕 fix186
+              link: pid && !isWoo ? "https://".concat(domain, "/admin/products/").concat(pid) : '' // 🆕 fix186 产品链接
             };
           }).filter(function (p) {
             return p.image_url || p.title;

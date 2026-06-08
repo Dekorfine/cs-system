@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix185
+// 版本 2026.06.05-fix186
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -7,6 +7,7 @@ var _excluded = ["payload"];
 function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var n = Object.getOwnPropertySymbols(e); for (r = 0; r < n.length; r++) o = n[r], -1 === t.indexOf(o) && {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
 function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
+function _regeneratorValues(e) { if (null != e) { var t = e["function" == typeof Symbol && Symbol.iterator || "@@iterator"], r = 0; if (t) return t.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) return { next: function next() { return e && r >= e.length && (e = void 0), { value: e && e[r++], done: !e }; } }; } throw new TypeError(_typeof(e) + " is not iterable"); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
@@ -28,7 +29,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix185
+// 版本 2026.06.05-fix186
 // 预编译切片
 //
 
@@ -1030,7 +1031,10 @@ var EventsModule = function EventsModule(_ref) {
     refunds: refunds,
     refills: refills,
     suppliers: suppliers,
-    employees: employees
+    employees: employees,
+    setAftersales: setAftersales,
+    isAdmin: isAdmin,
+    toast: toast
   }), editEvent && /*#__PURE__*/React.createElement(EventEditorModal, {
     kind: editEvent.kind,
     record: null,
@@ -1569,7 +1573,7 @@ function pushAseToOrders(_x1, _x10) {
   return _pushAseToOrders.apply(this, arguments);
 }
 function _pushAseToOrders() {
-  _pushAseToOrders = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(event, user) {
+  _pushAseToOrders = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(event, user) {
     var opts,
       client,
       aseId,
@@ -1585,22 +1589,22 @@ function _pushAseToOrders() {
       msg,
       payload,
       msg2,
-      _args19 = arguments,
-      _t5,
+      _args21 = arguments,
       _t6,
       _t7,
-      _t8;
-    return _regenerator().w(function (_context19) {
-      while (1) switch (_context19.p = _context19.n) {
+      _t8,
+      _t9;
+    return _regenerator().w(function (_context21) {
+      while (1) switch (_context21.p = _context21.n) {
         case 0:
-          opts = _args19.length > 2 && _args19[2] !== undefined ? _args19[2] : {};
+          opts = _args21.length > 2 && _args21[2] !== undefined ? _args21[2] : {};
           client = getCdmClient();
           if (client) {
-            _context19.n = 1;
+            _context21.n = 1;
             break;
           }
           alert('跨部门库未连接 — 请进 ⚙ 设置中心配置');
-          return _context19.a(2, false);
+          return _context21.a(2, false);
         case 1:
           aseId = event.id;
           atts = event.attachments || [];
@@ -1634,31 +1638,31 @@ function _pushAseToOrders() {
             deleted: false,
             updated_at: new Date().toISOString()
           };
-          _context19.p = 2;
-          _context19.n = 3;
+          _context21.p = 2;
+          _context21.n = 3;
           return client.from('aftersales_events').upsert(aseRow, {
             onConflict: 'id'
           });
         case 3:
-          _context19.n = 5;
+          _context21.n = 5;
           break;
         case 4:
-          _context19.p = 4;
-          _t5 = _context19.v;
-          alert('写入售后共享表失败:' + (_t5.message || _t5) + '\n\n(请先在跨部门库跑 aftersales_events 建表 SQL)');
-          return _context19.a(2, false);
+          _context21.p = 4;
+          _t6 = _context21.v;
+          alert('写入售后共享表失败:' + (_t6.message || _t6) + '\n\n(请先在跨部门库跑 aftersales_events 建表 SQL)');
+          return _context21.a(2, false);
         case 5:
           // 路由:① 指定跟单 ② 否则该网站绑定的负责人 ③ 否则留空 → 跟单主管分配
           toUserId = opts.assigneeId || null, toUserName = opts.assigneeName || null;
           if (!(!toUserId && event.site)) {
-            _context19.n = 9;
+            _context21.n = 9;
             break;
           }
-          _context19.p = 6;
-          _context19.n = 7;
+          _context21.p = 6;
+          _context21.n = 7;
           return client.from('shop_owners').select('*').eq('shop_name', event.site);
         case 7:
-          _yield$client$from$se = _context19.v;
+          _yield$client$from$se = _context21.v;
           data = _yield$client$from$se.data;
           owner = (data || []).find(function (o) {
             return /po|跟单|order/i.test(o.system || o.dept || o.source_system || '');
@@ -1667,11 +1671,11 @@ function _pushAseToOrders() {
             toUserId = owner.assigned_to_id || owner.user_id || owner.owner_id || null;
             toUserName = owner.assigned_to_name || owner.owner_name || owner.user_name || null;
           }
-          _context19.n = 9;
+          _context21.n = 9;
           break;
         case 8:
-          _context19.p = 8;
-          _t6 = _context19.v;
+          _context21.p = 8;
+          _t7 = _context21.v;
         case 9:
           userName = user ? user.name + (user.alias ? ' ' + user.alias : '') : '客服';
           msg = {
@@ -1699,42 +1703,42 @@ function _pushAseToOrders() {
             created_at_ms: Date.now(),
             updated_at: new Date().toISOString()
           };
-          _context19.p = 10;
-          _context19.n = 11;
+          _context21.p = 10;
+          _context21.n = 11;
           return client.from('cross_dept_messages').insert(msg);
         case 11:
-          _context19.n = 18;
+          _context21.n = 18;
           break;
         case 12:
-          _context19.p = 12;
-          _t7 = _context19.v;
-          if (!/payload/i.test(_t7.message || '')) {
-            _context19.n = 17;
+          _context21.p = 12;
+          _t8 = _context21.v;
+          if (!/payload/i.test(_t8.message || '')) {
+            _context21.n = 17;
             break;
           }
           // payload 列不存在 → 去掉重试(related_type/ref 仍可识别)
           payload = msg.payload, msg2 = _objectWithoutProperties(msg, _excluded);
-          _context19.p = 13;
-          _context19.n = 14;
+          _context21.p = 13;
+          _context21.n = 14;
           return client.from('cross_dept_messages').insert(msg2);
         case 14:
-          _context19.n = 16;
+          _context21.n = 16;
           break;
         case 15:
-          _context19.p = 15;
-          _t8 = _context19.v;
-          alert('发工单失败:' + (_t8.message || _t8));
-          return _context19.a(2, false);
+          _context21.p = 15;
+          _t9 = _context21.v;
+          alert('发工单失败:' + (_t9.message || _t9));
+          return _context21.a(2, false);
         case 16:
-          _context19.n = 18;
+          _context21.n = 18;
           break;
         case 17:
-          alert('发工单失败:' + (_t7.message || _t7));
-          return _context19.a(2, false);
+          alert('发工单失败:' + (_t8.message || _t8));
+          return _context21.a(2, false);
         case 18:
-          return _context19.a(2, true);
+          return _context21.a(2, true);
       }
-    }, _callee19, null, [[13, 15], [10, 12], [6, 8], [2, 4]]);
+    }, _callee20, null, [[13, 15], [10, 12], [6, 8], [2, 4]]);
   }));
   return _pushAseToOrders.apply(this, arguments);
 }
@@ -4885,7 +4889,10 @@ var SummaryPanel = function SummaryPanel(_ref35) {
     refills = _ref35.refills,
     suppliers = _ref35.suppliers,
     _ref35$employees = _ref35.employees,
-    employees = _ref35$employees === void 0 ? [] : _ref35$employees;
+    employees = _ref35$employees === void 0 ? [] : _ref35$employees,
+    setAftersales = _ref35.setAftersales,
+    isAdmin = _ref35.isAdmin,
+    toast = _ref35.toast;
   // 🆕 fix122: 时间范围(本周/本月/本季度/全部 或 指定月)+ 钻取明细
   var _useState81 = useState('month'),
     _useState82 = _slicedToArray(_useState81, 2),
@@ -4899,6 +4906,14 @@ var SummaryPanel = function SummaryPanel(_ref35) {
     _useState86 = _slicedToArray(_useState85, 2),
     dPrev = _useState86[0],
     setDPrev = _useState86[1]; // 明细里图片预览
+  var _useState87 = useState(null),
+    _useState88 = _slicedToArray(_useState87, 2),
+    expandedLink = _useState88[0],
+    setExpandedLink = _useState88[1]; // 🆕 fix186 展开的链接
+  var _useState89 = useState(null),
+    _useState90 = _slicedToArray(_useState89, 2),
+    backfill = _useState90[0],
+    setBackfill = _useState90[1]; // 🆕 fix186 回填进度 {done,total,current}
   var inRange = function inRange(e) {
     if (range === 'all') return true;
     if (range === 'month') return !filterMonth || (e.created_at || '').slice(0, 7) === filterMonth;
@@ -5003,6 +5018,255 @@ var SummaryPanel = function SummaryPanel(_ref35) {
     }).slice(0, 20);
   }, [fAse, fRefills, fRefunds]);
 
+  // 🆕 fix186:产品售后汇总 —— 按"链接(product_id)"归并,内部按 SKU 细分(只统计售后)
+  var linkAggregation = useMemo(function () {
+    var map = {};
+    (fAse || []).forEach(function (e) {
+      var pid = (e.product_id || '').trim();
+      var key = pid || 'name:' + ((e.product_name || '').trim().toLowerCase() || '(未填产品)');
+      if (!map[key]) map[key] = {
+        key: key,
+        product_id: pid,
+        name: (e.product_name || '').trim() || '(未填产品)',
+        link: e.product_handle || '',
+        total: 0,
+        skus: {},
+        _list: [],
+        _img: ''
+      };
+      var g = map[key];
+      g.total++;
+      g._list.push(e);
+      if ((!g.name || g.name === '(未填产品)') && (e.product_name || '').trim()) g.name = (e.product_name || '').trim();
+      if (!g.link && e.product_handle) g.link = e.product_handle;
+      if (!g._img) {
+        var im = (e.attachments || []).find(function (a) {
+          return a && a.url && (a.kind === 'image' || (a.mime || '').startsWith('image'));
+        });
+        if (im) g._img = im.url;
+      }
+      var sku = (e.sku || '').trim() || (e.variant_title || '').trim() || '(未标SKU)';
+      if (!g.skus[sku]) g.skus[sku] = {
+        sku: sku,
+        variant: (e.variant_title || '').trim(),
+        count: 0,
+        _list: []
+      };
+      g.skus[sku].count++;
+      g.skus[sku]._list.push(e);
+    });
+    return Object.values(map).map(function (g) {
+      return _objectSpread(_objectSpread({}, g), {}, {
+        skuList: Object.values(g.skus).sort(function (a, b) {
+          return b.count - a.count;
+        }),
+        skuCount: Object.keys(g.skus).length
+      });
+    }).sort(function (a, b) {
+      return b.total - a.total;
+    });
+  }, [fAse]);
+
+  // 🆕 fix186:批量回填历史售后的 链接/SKU/变体(按订单号重拉)
+  var runBackfill = /*#__PURE__*/function () {
+    var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+      var targets, ok, fail, updated, _loop, i;
+      return _regenerator().w(function (_context13) {
+        while (1) switch (_context13.n) {
+          case 0:
+            if (!backfill) {
+              _context13.n = 1;
+              break;
+            }
+            return _context13.a(2);
+          case 1:
+            targets = (aftersales || []).filter(function (e) {
+              return e.order_ref && !(e.product_id || '').trim();
+            });
+            if (targets.length) {
+              _context13.n = 2;
+              break;
+            }
+            toast && toast('没有需要回填的记录(都已有链接/SKU)');
+            return _context13.a(2);
+          case 2:
+            if (window.confirm("\u5C06\u6309\u8BA2\u5355\u53F7\u91CD\u65B0\u62C9\u53D6 ".concat(targets.length, " \u6761\u5386\u53F2\u552E\u540E,\u8865\u5168 \u94FE\u63A5/SKU/\u53D8\u4F53\u3002\n\u9010\u6761\u8054\u7F51\u62C9\u53D6,\u53EF\u80FD\u8981\u4E00\u4F1A\u513F\u3002\u7EE7\u7EED?"))) {
+              _context13.n = 3;
+              break;
+            }
+            return _context13.a(2);
+          case 3:
+            setBackfill({
+              done: 0,
+              total: targets.length,
+              current: ''
+            });
+            ok = 0, fail = 0;
+            updated = {};
+            _loop = /*#__PURE__*/_regenerator().m(function _loop() {
+              var e, v, prods, nm, p, patch, res, _t4;
+              return _regenerator().w(function (_context12) {
+                while (1) switch (_context12.p = _context12.n) {
+                  case 0:
+                    e = targets[i];
+                    setBackfill({
+                      done: i,
+                      total: targets.length,
+                      current: e.order_ref
+                    });
+                    _context12.p = 1;
+                    _context12.n = 2;
+                    return wsFetchOrderProducts(e.order_ref);
+                  case 2:
+                    v = _context12.v;
+                    prods = v && v.products || [];
+                    nm = (e.product_name || '').trim().toLowerCase();
+                    p = prods.find(function (x) {
+                      return (x.title || '').trim().toLowerCase() === nm;
+                    });
+                    if (!p && prods.length === 1) p = prods[0];
+                    if (!(p && (p.product_id || p.sku))) {
+                      _context12.n = 4;
+                      break;
+                    }
+                    patch = _objectSpread(_objectSpread({}, e), {}, {
+                      product_id: p.product_id || e.product_id || null,
+                      sku: p.sku || e.sku || null,
+                      variant_title: p.variant_title || e.variant_title || null,
+                      product_handle: p.link || e.product_handle || null,
+                      updated_at: new Date().toISOString()
+                    });
+                    _context12.n = 3;
+                    return CLOUD.upsert('aftersales', patch);
+                  case 3:
+                    res = _context12.v;
+                    if (res) {
+                      updated[e.id] = res[0] || patch;
+                      ok++;
+                    } else fail++;
+                    _context12.n = 5;
+                    break;
+                  case 4:
+                    fail++;
+                  case 5:
+                    _context12.n = 7;
+                    break;
+                  case 6:
+                    _context12.p = 6;
+                    _t4 = _context12.v;
+                    fail++;
+                  case 7:
+                    return _context12.a(2);
+                }
+              }, _loop, null, [[1, 6]]);
+            });
+            i = 0;
+          case 4:
+            if (!(i < targets.length)) {
+              _context13.n = 6;
+              break;
+            }
+            return _context13.d(_regeneratorValues(_loop()), 5);
+          case 5:
+            i++;
+            _context13.n = 4;
+            break;
+          case 6:
+            if (Object.keys(updated).length && setAftersales) setAftersales(function (prev) {
+              return prev.map(function (a) {
+                return updated[a.id] ? updated[a.id] : a;
+              });
+            });
+            setBackfill(null);
+            toast && toast("\u56DE\u586B\u5B8C\u6210:\u6210\u529F ".concat(ok, "\u3001\u8DF3\u8FC7/\u5931\u8D25 ").concat(fail, "(\u5931\u8D25\u591A\u4E3A\u8BA2\u5355\u67E5\u4E0D\u5230\u6216\u4EA7\u54C1\u540D\u5BF9\u4E0D\u4E0A)"));
+          case 7:
+            return _context13.a(2);
+        }
+      }, _callee12);
+    }));
+    return function runBackfill() {
+      return _ref36.apply(this, arguments);
+    };
+  }();
+
+  // 🆕 fix186:产品售后汇总导出(PDF 打印 / Word .doc),均含图片
+  var escH = function escH(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  };
+  var issueLabel = function issueLabel(k) {
+    var _ISSUE_TYPES$find2;
+    return typeof ISSUE_TYPES !== 'undefined' ? ((_ISSUE_TYPES$find2 = ISSUE_TYPES.find(function (i) {
+      return i.key === k;
+    })) === null || _ISSUE_TYPES$find2 === void 0 ? void 0 : _ISSUE_TYPES$find2.label) || k || '' : k || '';
+  };
+  var buildSummaryHTML = function buildSummaryHTML() {
+    var today = new Date().toISOString().slice(0, 10);
+    var body = '';
+    linkAggregation.forEach(function (g, idx) {
+      body += "<div class=\"lk\"><h2>".concat(idx + 1, ". ").concat(escH(g.name), " <span class=\"cnt\">\u5171 ").concat(g.total, " \u4E2A\u552E\u540E \xB7 ").concat(g.skuCount, " \u4E2A SKU</span></h2>");
+      if (g.link) body += "<div class=\"meta\">\u94FE\u63A5: <a href=\"".concat(escH(g.link), "\">").concat(escH(g.link), "</a></div>");
+      if (g._img) body += "<div class=\"pimg\"><img src=\"".concat(escH(g._img), "\"/></div>");
+      body += "<table class=\"sku\"><thead><tr><th>SKU</th><th>\u53D8\u4F53</th><th>\u552E\u540E\u5355\u6570</th><th>\u8BA2\u5355\u53F7</th></tr></thead><tbody>";
+      g.skuList.forEach(function (s) {
+        body += "<tr><td>".concat(escH(s.sku), "</td><td>").concat(escH(s.variant || '-'), "</td><td>").concat(s.count, "</td><td>").concat(s._list.map(function (x) {
+          return escH(x.order_ref || '');
+        }).filter(Boolean).join('、'), "</td></tr>");
+      });
+      body += "</tbody></table>";
+      body += "<table class=\"dt\"><thead><tr><th>\u65E5\u671F</th><th>\u8BA2\u5355\u53F7</th><th>SKU</th><th>\u95EE\u9898\u7C7B\u578B</th><th>\u635F\u574F\u90E8\u4F4D</th><th>\u63CF\u8FF0</th><th>\u56FE\u7247</th></tr></thead><tbody>";
+      g._list.forEach(function (e) {
+        var imgs = [].concat(_toConsumableArray(e.attachments || []), _toConsumableArray(e.communication_images || [])).filter(function (a) {
+          return a && a.url;
+        }).map(function (a) {
+          return "<img src=\"".concat(escH(a.url), "\"/>");
+        }).join('');
+        body += "<tr><td>".concat(escH((e.created_at || '').slice(0, 10)), "</td><td>").concat(escH(e.order_ref || ''), "</td><td>").concat(escH(e.sku || ''), "</td><td>").concat(escH(issueLabel(e.issue_type)), "</td><td>").concat(escH(e.damaged_part || ''), "</td><td>").concat(escH(e.issue_detail || e.notes || ''), "</td><td class=\"imgs\">").concat(imgs, "</td></tr>");
+      });
+      body += "</tbody></table></div>";
+    });
+    if (!linkAggregation.length) body = '<p>当前范围暂无售后数据。</p>';
+    return "<!DOCTYPE html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><title>\u4EA7\u54C1\u552E\u540E\u6C47\u603B ".concat(escH(rangeLabel), "</title>\n<style>\n body{font-family:\"Microsoft YaHei\",\"PingFang SC\",\"Noto Sans SC\",sans-serif;color:#222;font-size:12px;padding:20px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}\n h1{color:#ea580c;border-bottom:2px solid #ea580c;padding-bottom:8px;}\n h2{color:#333;margin:22px 0 6px;font-size:15px;}\n .cnt{font-size:12px;color:#ea580c;font-weight:600;margin-left:8px;}\n .meta{font-size:11px;color:#666;margin-bottom:6px;}\n .pimg img{max-width:120px;max-height:120px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;}\n table{width:100%;border-collapse:collapse;margin:6px 0 14px;font-size:11px;}\n th,td{border:1px solid #ccc;padding:5px 7px;text-align:left;vertical-align:top;}\n th{background:#f5f5f5;} table.sku th{background:#fff7ed;}\n .imgs img{max-width:64px;max-height:64px;border:1px solid #ddd;border-radius:4px;margin:2px;}\n .lk{page-break-inside:avoid;}\n</style></head><body>\n<h1>\uD83D\uDCE6 \u4EA7\u54C1\u552E\u540E\u6C47\u603B \xB7 ").concat(escH(rangeLabel), "</h1>\n<div class=\"meta\">\u751F\u6210\u65E5\u671F: ").concat(today, " \xB7 \u5171 ").concat(linkAggregation.length, " \u4E2A\u4EA7\u54C1\u94FE\u63A5 \xB7 ").concat(fAse.length, " \u6761\u552E\u540E</div>\n").concat(body, "\n</body></html>");
+  };
+  var exportSummaryPDF = function exportSummaryPDF() {
+    if (!linkAggregation.length) {
+      toast && toast('当前范围暂无数据');
+      return;
+    }
+    var win = window.open('', '_blank', 'width=960,height=720');
+    if (!win) {
+      toast && toast('❌ 浏览器拦截了弹窗,请允许弹窗后重试');
+      return;
+    }
+    win.document.write(buildSummaryHTML());
+    win.document.close();
+    setTimeout(function () {
+      try {
+        win.focus();
+        win.print();
+      } catch (e) {}
+    }, 600);
+  };
+  var exportSummaryWord = function exportSummaryWord() {
+    if (!linkAggregation.length) {
+      toast && toast('当前范围暂无数据');
+      return;
+    }
+    var blob = new Blob(["\uFEFF", buildSummaryHTML()], {
+      type: 'application/msword'
+    });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = "\u4EA7\u54C1\u552E\u540E\u6C47\u603B_".concat(filterMonth || rangeLabel, "_").concat(new Date().toISOString().slice(0, 10), ".doc");
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () {
+      return URL.revokeObjectURL(url);
+    }, 1000);
+    toast && toast('✓ Word(.doc)已下载 · 用 Word 打开即可编辑、发供应商');
+  };
+
   // 🆕 fix122: 按客服处理量排行(谁售后最多)+ 每人问题类型占比
   var csRanking = useMemo(function () {
     var map = {};
@@ -5063,9 +5327,9 @@ var SummaryPanel = function SummaryPanel(_ref35) {
 
   // 简易 SVG 饼图
   var PIE_COLORS = ['#ea580c', '#0369a1', '#16a34a', '#7c3aed', '#dc2626', '#d97706', '#0891b2', '#be185d', '#65a30d', '#9333ea'];
-  var Pie = function Pie(_ref36) {
-    var data = _ref36.data,
-      onSlice = _ref36.onSlice;
+  var Pie = function Pie(_ref37) {
+    var data = _ref37.data,
+      onSlice = _ref37.onSlice;
     var tot = data.reduce(function (s, d) {
       return s + d.count;
     }, 0);
@@ -5202,10 +5466,10 @@ var SummaryPanel = function SummaryPanel(_ref35) {
       gap: 8,
       flexWrap: 'wrap'
     }
-  }, /*#__PURE__*/React.createElement("span", null, "\u65F6\u95F4\u8303\u56F4:"), [['week', '本周'], ['month', '本月'], ['quarter', '本季度'], ['all', '全部']].map(function (_ref37) {
-    var _ref38 = _slicedToArray(_ref37, 2),
-      k = _ref38[0],
-      lb = _ref38[1];
+  }, /*#__PURE__*/React.createElement("span", null, "\u65F6\u95F4\u8303\u56F4:"), [['week', '本周'], ['month', '本月'], ['quarter', '本季度'], ['all', '全部']].map(function (_ref38) {
+    var _ref39 = _slicedToArray(_ref38, 2),
+      k = _ref39[0],
+      lb = _ref39[1];
     return /*#__PURE__*/React.createElement("button", {
       key: k,
       onClick: function onClick() {
@@ -5340,10 +5604,10 @@ var SummaryPanel = function SummaryPanel(_ref35) {
     }
   }, "\u672C\u6708\u6682\u65E0\u6570\u636E") : Object.entries(stats.aftersales.byIssue).sort(function (a, b) {
     return b[1] - a[1];
-  }).map(function (_ref39) {
-    var _ref40 = _slicedToArray(_ref39, 2),
-      k = _ref40[0],
-      n = _ref40[1];
+  }).map(function (_ref40) {
+    var _ref41 = _slicedToArray(_ref40, 2),
+      k = _ref41[0],
+      n = _ref41[1];
     var max = Math.max.apply(Math, _toConsumableArray(Object.values(stats.aftersales.byIssue)));
     var pct = n / max * 100;
     return /*#__PURE__*/React.createElement("div", {
@@ -5396,10 +5660,10 @@ var SummaryPanel = function SummaryPanel(_ref35) {
     }
   }, "\u672C\u6708\u6682\u65E0\u6570\u636E") : Object.entries(stats.refunds.byTypeAmount).sort(function (a, b) {
     return b[1] - a[1];
-  }).map(function (_ref41) {
-    var _ref42 = _slicedToArray(_ref41, 2),
-      k = _ref42[0],
-      amt = _ref42[1];
+  }).map(function (_ref42) {
+    var _ref43 = _slicedToArray(_ref42, 2),
+      k = _ref43[0],
+      amt = _ref43[1];
     var max = Math.max.apply(Math, _toConsumableArray(Object.values(stats.refunds.byTypeAmount)));
     var pct = amt / max * 100;
     var count = stats.refunds.byType[k] || 0;
@@ -5661,6 +5925,257 @@ var SummaryPanel = function SummaryPanel(_ref35) {
       }
     }, "\u95EE\u9898\u603B\u6570")));
   }))), /*#__PURE__*/React.createElement("div", {
+    className: "paper rounded-2xl p-4 fade-in"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-display",
+    style: {
+      fontSize: 14,
+      fontWeight: 600,
+      marginBottom: 6,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      flexWrap: 'wrap'
+    }
+  }, "\uD83D\uDCE6 \u4EA7\u54C1\u552E\u540E\u6C47\u603B ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      fontWeight: 400,
+      color: 'var(--ink-3)'
+    }
+  }, "\xB7 \u6309\u94FE\u63A5\u5F52\u5E76 \xB7 SKU \u7EC6\u5206 \xB7 ", rangeLabel), /*#__PURE__*/React.createElement("span", {
+    style: {
+      marginLeft: 'auto',
+      display: 'flex',
+      gap: 6,
+      flexWrap: 'wrap'
+    }
+  }, isAdmin && /*#__PURE__*/React.createElement("button", {
+    onClick: runBackfill,
+    disabled: !!backfill,
+    className: "btn-ghost",
+    style: {
+      padding: '4px 10px',
+      fontSize: 11,
+      fontWeight: 600
+    }
+  }, backfill ? "\u56DE\u586B\u4E2D ".concat(backfill.done, "/").concat(backfill.total, "\u2026") : '🔄 回填历史链接/SKU'), /*#__PURE__*/React.createElement("button", {
+    onClick: exportSummaryPDF,
+    className: "btn-ghost",
+    style: {
+      padding: '4px 10px',
+      fontSize: 11,
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCC4 \u5BFC\u51FAPDF(\u542B\u56FE)"), /*#__PURE__*/React.createElement("button", {
+    onClick: exportSummaryWord,
+    className: "btn-ghost",
+    style: {
+      padding: '4px 10px',
+      fontSize: 11,
+      fontWeight: 600
+    }
+  }, "\uD83D\uDCDD \u5BFC\u51FAWord(\u53D1\u4F9B\u5E94\u5546)"))), backfill && /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#0369a1',
+      marginBottom: 8
+    }
+  }, "\u6B63\u5728\u62C9\u53D6\u8BA2\u5355 ", backfill.current, " \u2026 \u8BF7\u52FF\u5173\u95ED\u9875\u9762"), linkAggregation.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-3)',
+      textAlign: 'center',
+      padding: '20px 0'
+    }
+  }, "\u5F53\u524D\u8303\u56F4\u6682\u65E0\u552E\u540E\u6570\u636E \xB7 \u5F55\u5165\u552E\u540E\u65F6\u70B9\u300C\uD83D\uDD04 \u62C9\u53D6\u8BA2\u5355\u300D\u9009\u4EA7\u54C1\u5373\u53EF\u81EA\u52A8\u5E26\u51FA\u94FE\u63A5/SKU") : /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8
+    }
+  }, linkAggregation.map(function (g, idx) {
+    var open = expandedLink === g.key,
+      isTop = idx < 3;
+    return /*#__PURE__*/React.createElement("div", {
+      key: g.key,
+      style: {
+        background: isTop ? '#fff7ed' : 'var(--bg)',
+        borderRadius: 8,
+        borderLeft: isTop ? '3px solid #ea580c' : '3px solid transparent',
+        overflow: 'hidden'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      onClick: function onClick() {
+        return setExpandedLink(open ? null : g.key);
+      },
+      style: {
+        padding: '10px 12px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        cursor: 'pointer'
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: 26,
+        height: 26,
+        background: isTop ? '#ea580c' : 'var(--ink-3)',
+        color: 'white',
+        borderRadius: '50%',
+        fontSize: 12,
+        fontWeight: 700,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0
+      }
+    }, idx + 1), g._img && /*#__PURE__*/React.createElement("img", {
+      src: g._img,
+      alt: "",
+      style: {
+        width: 36,
+        height: 36,
+        objectFit: 'cover',
+        borderRadius: 6,
+        flexShrink: 0
+      }
+    }), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1,
+        minWidth: 0
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 13,
+        fontWeight: 600,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      },
+      title: g.name
+    }, g.name), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 11,
+        color: 'var(--ink-3)',
+        marginTop: 2,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap'
+      }
+    }, g.skuCount, " \u4E2A SKU \xB7 ", g.skuList.slice(0, 3).map(function (s) {
+      return "".concat(s.sku, "\xD7").concat(s.count);
+    }).join(' · '), g.skuList.length > 3 ? ' …' : '', g.link && /*#__PURE__*/React.createElement("a", {
+      href: g.link,
+      target: "_blank",
+      rel: "noreferrer",
+      onClick: function onClick(e) {
+        return e.stopPropagation();
+      },
+      style: {
+        marginLeft: 8,
+        color: '#0071e3'
+      }
+    }, "\uD83D\uDD17 \u94FE\u63A5"))), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flexShrink: 0,
+        textAlign: 'right'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 18,
+        fontWeight: 700,
+        color: isTop ? '#ea580c' : 'var(--ink)'
+      }
+    }, g.total), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 9,
+        color: 'var(--ink-3)'
+      }
+    }, "\u552E\u540E\u603B\u6570")), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--ink-4)',
+        fontSize: 12,
+        flexShrink: 0
+      }
+    }, open ? '▲' : '▼')), open && /*#__PURE__*/React.createElement("div", {
+      style: {
+        padding: '0 12px 12px 12px'
+      }
+    }, g.skuList.map(function (s) {
+      return /*#__PURE__*/React.createElement("div", {
+        key: s.sku,
+        style: {
+          marginTop: 8,
+          background: 'white',
+          border: '1px solid var(--line)',
+          borderRadius: 8,
+          padding: '8px 10px'
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 12,
+          fontWeight: 600,
+          color: '#334155',
+          marginBottom: 6,
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          flexWrap: 'wrap'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          background: '#fff7ed',
+          color: '#ea580c',
+          padding: '2px 8px',
+          borderRadius: 6
+        }
+      }, "SKU ", s.sku), s.variant && /*#__PURE__*/React.createElement("span", {
+        style: {
+          color: 'var(--ink-3)',
+          fontWeight: 400
+        }
+      }, "\u53D8\u4F53: ", s.variant), /*#__PURE__*/React.createElement("span", {
+        style: {
+          marginLeft: 'auto',
+          color: '#ea580c',
+          fontWeight: 700
+        }
+      }, s.count, " \u5355")), s._list.map(function (e, i) {
+        var _ISSUE_TYPES$find3;
+        return /*#__PURE__*/React.createElement("div", {
+          key: e.id || i,
+          onClick: function onClick() {
+            return openDrill("".concat(g.name, " \xB7 ").concat(s.sku, " \u660E\u7EC6"), s._list);
+          },
+          style: {
+            fontSize: 11,
+            color: 'var(--ink-2)',
+            padding: '4px 0',
+            borderTop: i ? '1px dashed var(--line)' : 'none',
+            display: 'flex',
+            gap: 8,
+            flexWrap: 'wrap',
+            cursor: 'pointer'
+          }
+        }, /*#__PURE__*/React.createElement("span", {
+          style: {
+            fontWeight: 600
+          }
+        }, e.order_ref || '-'), /*#__PURE__*/React.createElement("span", {
+          style: {
+            color: '#ea580c'
+          }
+        }, typeof ISSUE_TYPES !== 'undefined' ? ((_ISSUE_TYPES$find3 = ISSUE_TYPES.find(function (t) {
+          return t.key === e.issue_type;
+        })) === null || _ISSUE_TYPES$find3 === void 0 ? void 0 : _ISSUE_TYPES$find3.label) || e.issue_type : e.issue_type), e.damaged_part && /*#__PURE__*/React.createElement("span", null, "\xB7 ", e.damaged_part), e.issue_detail && /*#__PURE__*/React.createElement("span", {
+          style: {
+            color: 'var(--ink-3)'
+          }
+        }, "\xB7 ", e.issue_detail));
+      }));
+    })));
+  }))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
@@ -5750,10 +6265,10 @@ var SummaryPanel = function SummaryPanel(_ref35) {
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap'
       }
-    }, topIssues.map(function (_ref43) {
-      var _ref44 = _slicedToArray(_ref43, 2),
-        k = _ref44[0],
-        n = _ref44[1];
+    }, topIssues.map(function (_ref44) {
+      var _ref45 = _slicedToArray(_ref44, 2),
+        k = _ref45[0],
+        n = _ref45[1];
       return "".concat(k, " ").concat(n, "(").concat(Math.round(n / c.count * 100), "%)");
     }).join(' · ') || '—')), /*#__PURE__*/React.createElement("div", {
       style: {
@@ -5978,47 +6493,47 @@ var SummaryPanel = function SummaryPanel(_ref35) {
     }
   }))));
 };
-var ExportPanel = function ExportPanel(_ref45) {
-  var onClose = _ref45.onClose,
-    aftersales = _ref45.aftersales,
-    refills = _ref45.refills,
-    refunds = _ref45.refunds,
-    suppliers = _ref45.suppliers,
-    employees = _ref45.employees,
-    subTab = _ref45.subTab,
-    filterMonth = _ref45.filterMonth,
-    toast = _ref45.toast;
-  var _useState87 = useState(false),
-    _useState88 = _slicedToArray(_useState87, 2),
-    exporting = _useState88[0],
-    setExporting = _useState88[1];
-  var _useState89 = useState(true),
-    _useState90 = _slicedToArray(_useState89, 2),
-    includeImages = _useState90[0],
-    setIncludeImages = _useState90[1];
-  var _useState91 = useState(subTab === 'summary' ? 'all' : subTab),
+var ExportPanel = function ExportPanel(_ref46) {
+  var onClose = _ref46.onClose,
+    aftersales = _ref46.aftersales,
+    refills = _ref46.refills,
+    refunds = _ref46.refunds,
+    suppliers = _ref46.suppliers,
+    employees = _ref46.employees,
+    subTab = _ref46.subTab,
+    filterMonth = _ref46.filterMonth,
+    toast = _ref46.toast;
+  var _useState91 = useState(false),
     _useState92 = _slicedToArray(_useState91, 2),
-    exportType = _useState92[0],
-    setExportType = _useState92[1];
-  var _useState93 = useState('excel'),
+    exporting = _useState92[0],
+    setExporting = _useState92[1];
+  var _useState93 = useState(true),
     _useState94 = _slicedToArray(_useState93, 2),
-    format = _useState94[0],
-    setFormat = _useState94[1];
+    includeImages = _useState94[0],
+    setIncludeImages = _useState94[1];
+  var _useState95 = useState(subTab === 'summary' ? 'all' : subTab),
+    _useState96 = _slicedToArray(_useState95, 2),
+    exportType = _useState96[0],
+    setExportType = _useState96[1];
+  var _useState97 = useState('excel'),
+    _useState98 = _slicedToArray(_useState97, 2),
+    format = _useState98[0],
+    setFormat = _useState98[1];
 
   // Excel 导出
   var exportExcel = /*#__PURE__*/function () {
-    var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
-      var XLSX, wb, addSheet, fname, _t4;
-      return _regenerator().w(function (_context12) {
-        while (1) switch (_context12.p = _context12.n) {
+    var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+      var XLSX, wb, addSheet, fname, _t5;
+      return _regenerator().w(function (_context14) {
+        while (1) switch (_context14.p = _context14.n) {
           case 0:
             setExporting(true);
-            _context12.p = 1;
+            _context14.p = 1;
             if (window.XLSX) {
-              _context12.n = 2;
+              _context14.n = 2;
               break;
             }
-            _context12.n = 2;
+            _context14.n = 2;
             return new Promise(function (resolve, reject) {
               var script = document.createElement('script');
               script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
@@ -6038,15 +6553,18 @@ var ExportPanel = function ExportPanel(_ref45) {
             };
             if (exportType === 'aftersales' || exportType === 'all') {
               addSheet(aftersales.map(function (e) {
-                var _ISSUE_TYPES$find2, _AFTERSALE_STATUSES$f;
+                var _ISSUE_TYPES$find4, _AFTERSALE_STATUSES$f;
                 return {
                   '日期': (e.created_at || '').slice(0, 10),
                   '订单号': e.order_ref || '',
                   '客户': e.customer || '',
                   '产品': e.product_name || '',
-                  '问题类型': ((_ISSUE_TYPES$find2 = ISSUE_TYPES.find(function (i) {
+                  'SKU': e.sku || '',
+                  '变体': e.variant_title || '',
+                  '产品链接': e.product_handle || '',
+                  '问题类型': ((_ISSUE_TYPES$find4 = ISSUE_TYPES.find(function (i) {
                     return i.key === e.issue_type;
-                  })) === null || _ISSUE_TYPES$find2 === void 0 ? void 0 : _ISSUE_TYPES$find2.label) || e.issue_type,
+                  })) === null || _ISSUE_TYPES$find4 === void 0 ? void 0 : _ISSUE_TYPES$find4.label) || e.issue_type,
                   '损坏部位': e.damaged_part || '',
                   '详细描述': e.issue_detail || '',
                   '供应商': e.supplier_name || '',
@@ -6132,20 +6650,20 @@ var ExportPanel = function ExportPanel(_ref45) {
             toast('✓ Excel 已下载');
             setExporting(false);
             setTimeout(onClose, 500);
-            _context12.n = 4;
+            _context14.n = 4;
             break;
           case 3:
-            _context12.p = 3;
-            _t4 = _context12.v;
-            toast('❌ 导出失败：' + _t4.message);
+            _context14.p = 3;
+            _t5 = _context14.v;
+            toast('❌ 导出失败：' + _t5.message);
             setExporting(false);
           case 4:
-            return _context12.a(2);
+            return _context14.a(2);
         }
-      }, _callee12, null, [[1, 3]]);
+      }, _callee13, null, [[1, 3]]);
     }));
     return function exportExcel() {
-      return _ref46.apply(this, arguments);
+      return _ref47.apply(this, arguments);
     };
   }();
 
@@ -6455,41 +6973,41 @@ var ExportPanel = function ExportPanel(_ref45) {
 // ============================================================
 // 汇报工单 Module - 员工汇报问题 / 主管处理
 // ============================================================
-var ReportModule = function ReportModule(_ref47) {
-  var user = _ref47.user,
-    employees = _ref47.employees,
-    toast = _ref47.toast,
-    cloudOn = _ref47.cloudOn;
-  var _useState95 = useState('inbox'),
-    _useState96 = _slicedToArray(_useState95, 2),
-    tab = _useState96[0],
-    setTab = _useState96[1]; // inbox | mine | new | all (admin)
-  var _useState97 = useState([]),
-    _useState98 = _slicedToArray(_useState97, 2),
-    tickets = _useState98[0],
-    setTickets = _useState98[1];
-  var _useState99 = useState(null),
+var ReportModule = function ReportModule(_ref48) {
+  var user = _ref48.user,
+    employees = _ref48.employees,
+    toast = _ref48.toast,
+    cloudOn = _ref48.cloudOn;
+  var _useState99 = useState('inbox'),
     _useState100 = _slicedToArray(_useState99, 2),
-    openTicket = _useState100[0],
-    setOpenTicket = _useState100[1];
-  var _useState101 = useState(null),
+    tab = _useState100[0],
+    setTab = _useState100[1]; // inbox | mine | new | all (admin)
+  var _useState101 = useState([]),
     _useState102 = _slicedToArray(_useState101, 2),
-    draft = _useState102[0],
-    setDraft = _useState102[1];
+    tickets = _useState102[0],
+    setTickets = _useState102[1];
+  var _useState103 = useState(null),
+    _useState104 = _slicedToArray(_useState103, 2),
+    openTicket = _useState104[0],
+    setOpenTicket = _useState104[1];
+  var _useState105 = useState(null),
+    _useState106 = _slicedToArray(_useState105, 2),
+    draft = _useState106[0],
+    setDraft = _useState106[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
 
   // 加载工单（云端优先）
   var loadTickets = /*#__PURE__*/function () {
-    var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+    var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
       var cloud;
-      return _regenerator().w(function (_context13) {
-        while (1) switch (_context13.n) {
+      return _regenerator().w(function (_context15) {
+        while (1) switch (_context15.n) {
           case 0:
             if (!(cloudOn && CLOUD.client)) {
-              _context13.n = 2;
+              _context15.n = 2;
               break;
             }
-            _context13.n = 1;
+            _context15.n = 1;
             return CLOUD.list('workspace_tickets', {
               order: {
                 col: 'updated_at',
@@ -6498,22 +7016,22 @@ var ReportModule = function ReportModule(_ref47) {
               limit: 500
             });
           case 1:
-            cloud = _context13.v;
+            cloud = _context15.v;
             if (!(cloud !== null)) {
-              _context13.n = 2;
+              _context15.n = 2;
               break;
             }
             setTickets(cloud);
-            return _context13.a(2);
+            return _context15.a(2);
           case 2:
             setTickets(STORE.get('tickets_local', []));
           case 3:
-            return _context13.a(2);
+            return _context15.a(2);
         }
-      }, _callee13);
+      }, _callee14);
     }));
     return function loadTickets() {
-      return _ref48.apply(this, arguments);
+      return _ref49.apply(this, arguments);
     };
   }();
   useEffect(function () {
@@ -6522,10 +7040,10 @@ var ReportModule = function ReportModule(_ref47) {
 
   // 保存工单
   var saveTicket = /*#__PURE__*/function () {
-    var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(ticket) {
+    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(ticket) {
       var now, record, saved, local, idx;
-      return _regenerator().w(function (_context14) {
-        while (1) switch (_context14.n) {
+      return _regenerator().w(function (_context16) {
+        while (1) switch (_context16.n) {
           case 0:
             now = nowISO();
             record = _objectSpread(_objectSpread({}, ticket), {}, {
@@ -6534,21 +7052,21 @@ var ReportModule = function ReportModule(_ref47) {
               created_at: ticket.created_at || now
             });
             if (!(cloudOn && CLOUD.client)) {
-              _context14.n = 4;
+              _context16.n = 4;
               break;
             }
-            _context14.n = 1;
+            _context16.n = 1;
             return CLOUD.upsert('workspace_tickets', record);
           case 1:
-            saved = _context14.v;
+            saved = _context16.v;
             if (!saved) {
-              _context14.n = 3;
+              _context16.n = 3;
               break;
             }
-            _context14.n = 2;
+            _context16.n = 2;
             return loadTickets();
           case 2:
-            return _context14.a(2, record);
+            return _context16.a(2, record);
           case 3:
             toast('⚠ 云端保存失败，已存至本地');
           case 4:
@@ -6559,21 +7077,21 @@ var ReportModule = function ReportModule(_ref47) {
             if (idx >= 0) local[idx] = record;else local.unshift(record);
             STORE.set('tickets_local', local);
             setTickets(local);
-            return _context14.a(2, record);
+            return _context16.a(2, record);
         }
-      }, _callee14);
+      }, _callee15);
     }));
     return function saveTicket(_x11) {
-      return _ref49.apply(this, arguments);
+      return _ref50.apply(this, arguments);
     };
   }();
 
   // 新建工单
   var createTicket = /*#__PURE__*/function () {
-    var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(t) {
+    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(t) {
       var record;
-      return _regenerator().w(function (_context15) {
-        while (1) switch (_context15.n) {
+      return _regenerator().w(function (_context17) {
+        while (1) switch (_context17.n) {
           case 0:
             record = _objectSpread(_objectSpread({}, t), {}, {
               created_by_id: user.id,
@@ -6582,29 +7100,29 @@ var ReportModule = function ReportModule(_ref47) {
               comments: [],
               attachments: t.attachments || []
             });
-            _context15.n = 1;
+            _context17.n = 1;
             return saveTicket(record);
           case 1:
             setDraft(null);
             toast('✓ 工单已提交');
             setTab('mine');
           case 2:
-            return _context15.a(2);
+            return _context17.a(2);
         }
-      }, _callee15);
+      }, _callee16);
     }));
     return function createTicket(_x12) {
-      return _ref50.apply(this, arguments);
+      return _ref51.apply(this, arguments);
     };
   }();
 
   // 状态变更
   var updateStatus = /*#__PURE__*/function () {
-    var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(ticket, newStatus) {
+    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(ticket, newStatus) {
       var _TICKET_STATUS$find;
       var comment, updated, saved;
-      return _regenerator().w(function (_context16) {
-        while (1) switch (_context16.n) {
+      return _regenerator().w(function (_context18) {
+        while (1) switch (_context18.n) {
           case 0:
             comment = {
               id: uid(),
@@ -6623,34 +7141,34 @@ var ReportModule = function ReportModule(_ref47) {
               comments: [].concat(_toConsumableArray(ticket.comments || []), [comment])
             });
             if (newStatus === 'resolved' || newStatus === 'rejected') updated.resolved_at = nowISO();
-            _context16.n = 1;
+            _context18.n = 1;
             return saveTicket(updated);
           case 1:
-            saved = _context16.v;
+            saved = _context18.v;
             setOpenTicket(saved);
             toast("\u2713 ".concat(comment.content));
           case 2:
-            return _context16.a(2);
+            return _context18.a(2);
         }
-      }, _callee16);
+      }, _callee17);
     }));
     return function updateStatus(_x13, _x14) {
-      return _ref51.apply(this, arguments);
+      return _ref52.apply(this, arguments);
     };
   }();
 
   // 添加评论
   var addComment = /*#__PURE__*/function () {
-    var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(ticket, text) {
+    var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(ticket, text) {
       var comment, updated, saved;
-      return _regenerator().w(function (_context17) {
-        while (1) switch (_context17.n) {
+      return _regenerator().w(function (_context19) {
+        while (1) switch (_context19.n) {
           case 0:
             if (text.trim()) {
-              _context17.n = 1;
+              _context19.n = 1;
               break;
             }
-            return _context17.a(2);
+            return _context19.a(2);
           case 1:
             comment = {
               id: uid(),
@@ -6663,53 +7181,53 @@ var ReportModule = function ReportModule(_ref47) {
             updated = _objectSpread(_objectSpread({}, ticket), {}, {
               comments: [].concat(_toConsumableArray(ticket.comments || []), [comment])
             });
-            _context17.n = 2;
+            _context19.n = 2;
             return saveTicket(updated);
           case 2:
-            saved = _context17.v;
+            saved = _context19.v;
             setOpenTicket(saved);
           case 3:
-            return _context17.a(2);
+            return _context19.a(2);
         }
-      }, _callee17);
+      }, _callee18);
     }));
     return function addComment(_x15, _x16) {
-      return _ref52.apply(this, arguments);
+      return _ref53.apply(this, arguments);
     };
   }();
 
   // 删除（仅创建人或主管）
   var deleteTicket = /*#__PURE__*/function () {
-    var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(id) {
+    var _ref54 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(id) {
       var ok, local;
-      return _regenerator().w(function (_context18) {
-        while (1) switch (_context18.n) {
+      return _regenerator().w(function (_context20) {
+        while (1) switch (_context20.n) {
           case 0:
-            _context18.n = 1;
+            _context20.n = 1;
             return wsConfirm('永久删除此工单？');
           case 1:
-            if (_context18.v) {
-              _context18.n = 2;
+            if (_context20.v) {
+              _context20.n = 2;
               break;
             }
-            return _context18.a(2);
+            return _context20.a(2);
           case 2:
             if (!(cloudOn && CLOUD.client)) {
-              _context18.n = 5;
+              _context20.n = 5;
               break;
             }
-            _context18.n = 3;
+            _context20.n = 3;
             return CLOUD.del('workspace_tickets', id);
           case 3:
-            ok = _context18.v;
+            ok = _context20.v;
             if (!ok) {
-              _context18.n = 4;
+              _context20.n = 4;
               break;
             }
-            _context18.n = 4;
+            _context20.n = 4;
             return loadTickets();
           case 4:
-            _context18.n = 6;
+            _context20.n = 6;
             break;
           case 5:
             local = STORE.get('tickets_local', []).filter(function (t) {
@@ -6721,12 +7239,12 @@ var ReportModule = function ReportModule(_ref47) {
             setOpenTicket(null);
             toast('已删除');
           case 7:
-            return _context18.a(2);
+            return _context20.a(2);
         }
-      }, _callee18);
+      }, _callee19);
     }));
     return function deleteTicket(_x17) {
-      return _ref53.apply(this, arguments);
+      return _ref54.apply(this, arguments);
     };
   }();
 
@@ -6936,14 +7454,14 @@ var ReportModule = function ReportModule(_ref47) {
     }
   }));
 };
-var TicketDraftModal = function TicketDraftModal(_ref54) {
+var TicketDraftModal = function TicketDraftModal(_ref55) {
   var _draft$attachments;
-  var draft = _ref54.draft,
-    setDraft = _ref54.setDraft,
-    employees = _ref54.employees,
-    user = _ref54.user,
-    onCancel = _ref54.onCancel,
-    onSubmit = _ref54.onSubmit;
+  var draft = _ref55.draft,
+    setDraft = _ref55.setDraft,
+    employees = _ref55.employees,
+    user = _ref55.user,
+    onCancel = _ref55.onCancel,
+    onSubmit = _ref55.onSubmit;
   var fileInputRef = useRef(null);
   var handleFile = function handleFile(file) {
     if (!file) return;
@@ -7202,23 +7720,23 @@ var TicketDraftModal = function TicketDraftModal(_ref54) {
     }
   }, "\uD83D\uDCE8 \u63D0\u4EA4\u5DE5\u5355"))));
 };
-var TicketDetailModal = function TicketDetailModal(_ref55) {
+var TicketDetailModal = function TicketDetailModal(_ref56) {
   var _ticket$attachments, _ticket$comments, _ticket$comments2;
-  var ticket = _ref55.ticket,
-    user = _ref55.user,
-    employees = _ref55.employees,
-    onClose = _ref55.onClose,
-    onUpdateStatus = _ref55.onUpdateStatus,
-    onAddComment = _ref55.onAddComment,
-    onDelete = _ref55.onDelete;
-  var _useState103 = useState(''),
-    _useState104 = _slicedToArray(_useState103, 2),
-    newComment = _useState104[0],
-    setNewComment = _useState104[1];
-  var _useState105 = useState(null),
-    _useState106 = _slicedToArray(_useState105, 2),
-    viewImg = _useState106[0],
-    setViewImg = _useState106[1];
+  var ticket = _ref56.ticket,
+    user = _ref56.user,
+    employees = _ref56.employees,
+    onClose = _ref56.onClose,
+    onUpdateStatus = _ref56.onUpdateStatus,
+    onAddComment = _ref56.onAddComment,
+    onDelete = _ref56.onDelete;
+  var _useState107 = useState(''),
+    _useState108 = _slicedToArray(_useState107, 2),
+    newComment = _useState108[0],
+    setNewComment = _useState108[1];
+  var _useState109 = useState(null),
+    _useState110 = _slicedToArray(_useState109, 2),
+    viewImg = _useState110[0],
+    setViewImg = _useState110[1];
   var dept = DEPARTMENTS.find(function (d) {
     return d.key === ticket.department;
   });
