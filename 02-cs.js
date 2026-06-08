@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix176
+// 版本 2026.06.05-fix177
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix176
+// 版本 2026.06.05-fix177
 // 预编译切片
 //
 
@@ -947,14 +947,23 @@ var CSModule = function CSModule(_ref2) {
   // 统计卡片数据 - 仅统计"有内容"的记录（空白行不算）· fix175: 主管选了员工就只算该员工
   var stats = useMemo(function () {
     var base = dayRecords;
-    if (showAll && filterOwner !== 'all') base = base.filter(function (r) {
-      return r.ownerId === filterOwner;
-    });
+    var allOwner = visibleRecords;
+    if (showAll && filterOwner !== 'all') {
+      base = base.filter(function (r) {
+        return r.ownerId === filterOwner;
+      });
+      allOwner = allOwner.filter(function (r) {
+        return r.ownerId === filterOwner;
+      });
+    }
     var meaningful = base.filter(isRecordMeaningful);
     var totalEmails = meaningful.length;
     var totalMins = meaningful.reduce(function (s, r) {
       return s + (r.durationMin || 0);
     }, 0);
+    var timedN = meaningful.filter(function (r) {
+      return (r.durationMin || 0) > 0;
+    }).length; // 🆕 fix177: 已填起止时间的单数
     var easyN = meaningful.filter(function (r) {
       return r.difficulty === 'easy';
     }).length;
@@ -967,15 +976,24 @@ var CSModule = function CSModule(_ref2) {
     var followingN = meaningful.filter(function (r) {
       return r.status !== 'resolved';
     }).length;
+    // 🆕 fix177: 今日跟进(回复)次数 — 所有记录里今天新增的跟进(含在老工单上回复的,之前没算进"今日邮件数")
+    var td = todayISO();
+    var followUpsToday = allOwner.reduce(function (s, r) {
+      return s + (r.followUps || []).filter(function (f) {
+        return (f.time || '').slice(0, 10) === td;
+      }).length;
+    }, 0);
     return {
       totalEmails: totalEmails,
       totalMins: totalMins,
+      timedN: timedN,
       easyN: easyN,
       midN: midN,
       hardN: hardN,
-      followingN: followingN
+      followingN: followingN,
+      followUpsToday: followUpsToday
     };
-  }, [dayRecords, showAll, filterOwner]);
+  }, [dayRecords, visibleRecords, showAll, filterOwner]);
 
   // 添加新行
   var addRow = function addRow() {
@@ -2582,7 +2600,7 @@ var CSModule = function CSModule(_ref2) {
     value: stats.totalEmails,
     unit: "\u5C01",
     color: "var(--info)",
-    hint: filterStatus !== 'all' || filterDifficulty !== 'all' || filterSite !== 'all' || filterCategory !== 'all' || search ? '点击清除所有筛选' : '当日总数',
+    hint: filterStatus !== 'all' || filterDifficulty !== 'all' || filterSite !== 'all' || filterCategory !== 'all' || search ? '点击清除所有筛选' : "\u5F53\u65E5\u65B0\u5EFA \xB7 \u4ECA\u65E5\u53E6\u8DDF\u8FDB ".concat(stats.followUpsToday, " \u6B21"),
     onClick: filterStatus !== 'all' || filterDifficulty !== 'all' || filterSite !== 'all' || filterCategory !== 'all' || search ? function () {
       setFilterStatus('all');
       setFilterDifficulty('all');
@@ -2597,7 +2615,7 @@ var CSModule = function CSModule(_ref2) {
     value: fmtDuration(stats.totalMins),
     unit: "",
     color: "var(--good)",
-    hint: stats.totalEmails > 0 ? "".concat(Math.round(stats.totalMins / Math.max(stats.totalEmails, 1)), "min / \u5355") : '尚未填写'
+    hint: stats.timedN > 0 ? "".concat(Math.round(stats.totalMins / stats.timedN), "min/\u5355 \xB7 \u5DF2\u8BA1\u65F6 ").concat(stats.timedN, "/").concat(stats.totalEmails, " \u5C01") : '需填起止时间才计时'
   }), /*#__PURE__*/React.createElement(StatCard, {
     label: "\u96BE\u5EA6\u5206\u5E03",
     value: "".concat(stats.easyN, " / ").concat(stats.midN, " / ").concat(stats.hardN),
