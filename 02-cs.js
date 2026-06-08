@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix174
+// 版本 2026.06.05-fix175
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix174
+// 版本 2026.06.05-fix175
 // 预编译切片
 //
 
@@ -920,8 +920,17 @@ var CSModule = function CSModule(_ref2) {
     var q = isAdmin ? quoteReminders : quoteReminders.filter(function (r) {
       return r.ownerId === user.id;
     });
+    // 🆕 fix175: 主管在筛选里选了某个员工 → 提醒/逾期卡 跟着只看该员工(选"全部"时维持全员不变)
+    if (isAdmin && showAll && filterOwner !== 'all') {
+      base = base.filter(function (r) {
+        return r.ownerId === filterOwner;
+      });
+      q = q.filter(function (r) {
+        return r.ownerId === filterOwner;
+      });
+    }
     return [].concat(_toConsumableArray(base), _toConsumableArray(q));
-  }, [records, isAdmin, user.id, quoteReminders]);
+  }, [records, isAdmin, user.id, quoteReminders, showAll, filterOwner]);
   var overdueCount = reminders.filter(function (r) {
     return r.nextFollowUp < today;
   }).length;
@@ -935,9 +944,13 @@ var CSModule = function CSModule(_ref2) {
     return r.status === 'waiting';
   }).length;
 
-  // 统计卡片数据 - 仅统计"有内容"的记录（空白行不算）
+  // 统计卡片数据 - 仅统计"有内容"的记录（空白行不算）· fix175: 主管选了员工就只算该员工
   var stats = useMemo(function () {
-    var meaningful = dayRecords.filter(isRecordMeaningful);
+    var base = dayRecords;
+    if (showAll && filterOwner !== 'all') base = base.filter(function (r) {
+      return r.ownerId === filterOwner;
+    });
+    var meaningful = base.filter(isRecordMeaningful);
     var totalEmails = meaningful.length;
     var totalMins = meaningful.reduce(function (s, r) {
       return s + (r.durationMin || 0);
@@ -962,7 +975,7 @@ var CSModule = function CSModule(_ref2) {
       hardN: hardN,
       followingN: followingN
     };
-  }, [dayRecords]);
+  }, [dayRecords, showAll, filterOwner]);
 
   // 添加新行
   var addRow = function addRow() {
