@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix192
+// 版本 2026.06.05-fix193
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix192
+// 版本 2026.06.05-fix193
 // 预编译切片
 //
 
@@ -8024,32 +8024,7 @@ var EventEditorModal = function EventEditorModal(_ref34) {
         fontWeight: 700,
         zIndex: 1
       }
-    }, "\u2713"), p.image_url && /*#__PURE__*/React.createElement("button", {
-      type: "button",
-      onClick: function onClick(e) {
-        e.stopPropagation();
-        (window.__setPreviewImg || wsOpenImg)(p.image_url);
-      },
-      title: "\u770B\u5927\u56FE",
-      style: {
-        position: 'absolute',
-        top: -7,
-        left: -7,
-        width: 20,
-        height: 20,
-        borderRadius: '50%',
-        background: '#0071e3',
-        color: 'white',
-        border: 'none',
-        fontSize: 10,
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1,
-        fontFamily: 'inherit'
-      }
-    }, "\uD83D\uDD0D"), p.image_url ? /*#__PURE__*/React.createElement("img", {
+    }, "\u2713"), p.image_url ? /*#__PURE__*/React.createElement("img", {
       src: p.image_url,
       alt: "",
       style: {
@@ -8079,12 +8054,15 @@ var EventEditorModal = function EventEditorModal(_ref34) {
       }
     }, p.title || ''), /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 9,
-        color: saved ? '#16a34a' : 'var(--ink-4)',
-        fontWeight: 600,
-        marginTop: 2
+        fontSize: 10,
+        fontWeight: 700,
+        marginTop: 4,
+        padding: '3px 0',
+        borderRadius: 5,
+        background: saved ? '#16a34a' : '#0071e3',
+        color: 'white'
       }
-    }, saved ? '已存入附件' : '点击存入'));
+    }, saved ? '✓ 已选用 · 再点取消' : '👆 点此选用'));
   }))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: {
       fontSize: 11,
