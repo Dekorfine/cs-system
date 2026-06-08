@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix165
+// 版本 2026.06.05-fix166
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix165
+// 版本 2026.06.05-fix166
 // 预编译切片
 //
 
@@ -475,7 +475,7 @@ var CLOUD = {
           case 1:
             // 🆕 fix139: 重表默认排除大体积列(图片 base64),列表秒开;详情/展开再按需取
             HEAVY = {
-              chargebacks: 'id,amount,currency,status,site,order_no,customer_name,customer_email,platform,reason,reason_detail,resolution,notes,deadline,opened_at,created_at,updated_at,created_by,created_by_name,assigned_to,assigned_to_names,assigned_at,resolved_at,cs_fault,cs_fault_emp'
+              chargebacks: 'id,amount,currency,status,site,order_no,customer_name,customer_email,platform,reason,reason_detail,resolution,notes,deadline,opened_at,created_at,updated_at,created_by,created_by_name,assigned_to,assigned_to_names,assigned_at,resolved_at,cs_fault,cs_fault_emp,deleted'
             };
             sel = opts.select || !opts.full && HEAVY[table] || '*'; // 🆕 IO优化:预先剥掉本会话已知缺失的列,避免每次先报错再回退
             if (sel !== '*' && _this2._missingColumns[table] && _this2._missingColumns[table].size) {
