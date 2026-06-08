@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix190
+// 版本 2026.06.05-fix192
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix190
+// 版本 2026.06.05-fix192
 // 预编译切片
 //
 
@@ -2300,7 +2300,7 @@ var CSModule = function CSModule(_ref7) {
       });
       toast("\u2713 \u5DF2\u786E\u8BA4 ".concat(incomingTransfers.length, " \u5355\u8F6C\u4EA4"));
     }
-  }, "\u2713 \u786E\u8BA4\u63A5\u624B\u5168\u90E8"))), highFreqCustomers.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, "\u2713 \u786E\u8BA4\u63A5\u624B\u5168\u90E8"))), highFreqCustomers.length > 0 && highFreqExpanded && /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl fade-in",
     style: {
       overflow: 'hidden',
@@ -2308,46 +2308,25 @@ var CSModule = function CSModule(_ref7) {
       border: '1.5px solid #f87171'
     }
   }, /*#__PURE__*/React.createElement("div", {
-    className: "p-4 flex items-center justify-between gap-3 flex-wrap",
-    style: {
-      cursor: 'pointer'
-    },
-    onClick: function onClick() {
-      return setHighFreqExpanded(function (v) {
-        return !v;
-      });
-    }
+    className: "p-3 flex items-center justify-between gap-3 flex-wrap"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10
-    }
-  }, /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 24
-    }
-  }, "\uD83C\uDD98"), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: 600,
       color: '#991b1b'
     }
-  }, "\u53D1\u73B0 ", highFreqCustomers.length, " \u4E2A\u9AD8\u9891\u6295\u8BC9/\u91CD\u8981\u5BA2\u6237"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      color: '#b91c1c',
-      marginTop: 2
-    }
-  }, "\u8FD9\u4E9B\u90AE\u7BB1\u6709 \u22655 \u5C01\u5386\u53F2\u90AE\u4EF6 \xB7 \u5171 ", highFreqCustomers.reduce(function (s, c) {
+  }, "\uD83C\uDD98 ", highFreqCustomers.length, " \u4E2A\u9AD8\u9891\u6295\u8BC9/\u91CD\u8981\u5BA2\u6237 \xB7 \u5171 ", highFreqCustomers.reduce(function (s, c) {
     return s + c.unresolved;
-  }, 0), " \u5355\u672A\u89E3\u51B3"))), /*#__PURE__*/React.createElement("button", {
+  }, 0), " \u5355\u672A\u89E3\u51B3"), /*#__PURE__*/React.createElement("button", {
     className: "btn-ghost",
     style: {
       padding: '4px 10px',
       fontSize: 11
+    },
+    onClick: function onClick() {
+      return setHighFreqExpanded(false);
     }
-  }, highFreqExpanded ? '▲ 收起' : '▼ 查看详情')), highFreqExpanded && /*#__PURE__*/React.createElement("div", {
+  }, "\u25B2 \u6536\u8D77")), true && /*#__PURE__*/React.createElement("div", {
     style: {
       borderTop: '1px solid #fca5a5',
       maxHeight: 380,
@@ -2443,9 +2422,33 @@ var CSModule = function CSModule(_ref7) {
     }
   }), /*#__PURE__*/React.createElement("span", {
     className: "font-display text-base font-bold"
-  }, "\u8DDF\u8FDB\u63D0\u9192"), /*#__PURE__*/React.createElement("span", {
+  }, "\u4ECA\u65E5\u5FEB\u7167"), overdueCount + todayCount > 0 && /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 14,
+      fontWeight: 700,
+      color: '#dc2626'
+    }
+  }, "\uD83D\uDD25 \u4ECA\u65E5\u5F85\u529E ", overdueCount + todayCount), /*#__PURE__*/React.createElement("span", {
     className: "tag tag-neutral"
-  }, "\u5171 ", reminders.length), isAdmin && /*#__PURE__*/React.createElement("span", {
+  }, "\u5171 ", reminders.length), highFreqCustomers.length > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setHighFreqExpanded(function (v) {
+        return !v;
+      });
+    },
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      padding: '2px 9px',
+      borderRadius: 10,
+      background: '#fef2f2',
+      color: '#dc2626',
+      border: '1px solid #fca5a5',
+      cursor: 'pointer',
+      fontFamily: 'inherit'
+    }
+  }, "\uD83C\uDD98 \u9AD8\u9891\u5BA2\u6237 ", highFreqCustomers.length), isAdmin && /*#__PURE__*/React.createElement("span", {
     className: "flex items-center gap-1.5 flex-wrap",
     onClick: function onClick(e) {
       return e.stopPropagation();
@@ -5830,7 +5833,7 @@ var FilePreviewModal = function FilePreviewModal(_ref23) {
       }
     }, "\uD83D\uDCE5 \u4E0B\u8F7D\u6587\u4EF6"));
   };
-  return /*#__PURE__*/React.createElement("div", {
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     onClick: onClose,
     style: {
       position: 'fixed',
@@ -5924,7 +5927,7 @@ var FilePreviewModal = function FilePreviewModal(_ref23) {
       justifyContent: 'center',
       overflow: 'hidden'
     }
-  }, renderPreview()));
+  }, renderPreview())), document.body);
 };
 
 // ============================================================
@@ -8021,7 +8024,32 @@ var EventEditorModal = function EventEditorModal(_ref34) {
         fontWeight: 700,
         zIndex: 1
       }
-    }, "\u2713"), p.image_url ? /*#__PURE__*/React.createElement("img", {
+    }, "\u2713"), p.image_url && /*#__PURE__*/React.createElement("button", {
+      type: "button",
+      onClick: function onClick(e) {
+        e.stopPropagation();
+        (window.__setPreviewImg || wsOpenImg)(p.image_url);
+      },
+      title: "\u770B\u5927\u56FE",
+      style: {
+        position: 'absolute',
+        top: -7,
+        left: -7,
+        width: 20,
+        height: 20,
+        borderRadius: '50%',
+        background: '#0071e3',
+        color: 'white',
+        border: 'none',
+        fontSize: 10,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1,
+        fontFamily: 'inherit'
+      }
+    }, "\uD83D\uDD0D"), p.image_url ? /*#__PURE__*/React.createElement("img", {
       src: p.image_url,
       alt: "",
       style: {

@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix190
+// 版本 2026.06.05-fix192
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix190
+// 版本 2026.06.05-fix192
 // 预编译切片
 //
 
@@ -2187,7 +2187,10 @@ var ImgPreviewModal = function ImgPreviewModal(_ref5) {
     onClose = _ref5.onClose;
   if (!img) return null;
   var src = imgDisplaySrc(img);
-  return /*#__PURE__*/React.createElement("div", {
+  // 🆕 fix192:portal 到 document.body —— 之前渲染在 app 树内,被有 transform 的祖先困在低层叠上下文,
+  //   再高的 z-index 也压不过 createPortal 到 body 的弹窗(售后/拒付等),导致"大图在表单后面"。
+  //   portal 到 body 后与那些弹窗同级,z-index 才真正生效,永远在最上层。
+  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     onClick: onClose,
     style: {
       position: 'fixed',
@@ -2244,7 +2247,7 @@ var ImgPreviewModal = function ImgPreviewModal(_ref5) {
       fontSize: 12,
       cursor: 'pointer'
     }
-  }, "\u2197 \u539F\u56FE\u65B0\u6807\u7B7E"));
+  }, "\u2197 \u539F\u56FE\u65B0\u6807\u7B7E")), document.body);
 };
 try {
   window.ImgPreviewModal = ImgPreviewModal;
