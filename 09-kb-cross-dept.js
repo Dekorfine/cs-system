@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix197
+// 版本 2026.06.05-fix198
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix197
+// 版本 2026.06.05-fix198
 // 预编译切片
 //
 
@@ -7365,13 +7365,14 @@ var CdmNewMessageModal = function CdmNewMessageModal(_ref43) {
       key: p.id,
       value: p.staffId
     }, p.name, p.role ? ' · ' + p.role : '');
-  })) : /*#__PURE__*/React.createElement("input", {
+  })) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("input", {
     value: toUserName,
     onChange: function onChange(e) {
       setToUserName(e.target.value);
       setToUserId('');
     },
-    placeholder: "\u5BF9\u65B9\u90E8\u95E8\u672A\u53D1\u5E03\u540D\u5355 \xB7 \u53EF\u624B\u586B",
+    list: CDM_FALLBACK_ROSTER[toSystem] ? 'recip-roster-' + toSystem : undefined,
+    placeholder: CDM_FALLBACK_ROSTER[toSystem] ? '选或填:' + CDM_FALLBACK_ROSTER[toSystem].join(' / ') + ' · 留空=整部门' : '对方部门未发布名单 · 可手填',
     style: {
       width: '100%',
       padding: '7px 10px',
@@ -7380,7 +7381,14 @@ var CdmNewMessageModal = function CdmNewMessageModal(_ref43) {
       fontSize: 13,
       fontFamily: 'inherit'
     }
-  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }), CDM_FALLBACK_ROSTER[toSystem] && /*#__PURE__*/React.createElement("datalist", {
+    id: 'recip-roster-' + toSystem
+  }, CDM_FALLBACK_ROSTER[toSystem].map(function (n) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: n,
+      value: n
+    });
+  }))))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: {
       fontSize: 11,
       fontWeight: 600,

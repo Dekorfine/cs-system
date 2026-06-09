@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix197
+// 版本 2026.06.05-fix198
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix197
+// 版本 2026.06.05-fix198
 // 预编译切片
 //
 
@@ -3445,6 +3445,11 @@ var CDM_SYSTEMS = [{
   label: '🛠 设计部',
   "short": '设计'
 }];
+// 🆕 fix198:部门兜底花名册 —— org_directory 还没收录该部门成员时(如设计部成员只在美工系统登录过),
+//   指定接收人栏仍可直接选/填这些名字。消息按"部门"投递,这里的名字只是指派提示,不影响送达。
+var CDM_FALLBACK_ROSTER = {
+  product_design: ['王鑫海', '李明祥', '汤毓']
+};
 var CDM_RELATED_TYPES = [{
   id: 'order',
   label: '订单'

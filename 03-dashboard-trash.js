@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix197
+// 版本 2026.06.05-fix198
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix197
+// 版本 2026.06.05-fix198
 // 预编译切片
 //
 
@@ -45,19 +45,27 @@ var Customer360Modal = function Customer360Modal(_ref) {
   var _useState5 = useState([]),
     _useState6 = _slicedToArray(_useState5, 2),
     events = _useState6[0],
-    setEvents = _useState6[1]; // 售后 / 补发 / 退款
+    setEvents = _useState6[1]; // 售后 aftersales
   var _useState7 = useState([]),
     _useState8 = _slicedToArray(_useState7, 2),
-    reviews = _useState8[0],
-    setReviews = _useState8[1];
+    refills = _useState8[0],
+    setRefills = _useState8[1]; // 补件
   var _useState9 = useState([]),
     _useState0 = _slicedToArray(_useState9, 2),
-    offlineOrders = _useState0[0],
-    setOfflineOrders = _useState0[1];
+    refunds = _useState0[0],
+    setRefunds = _useState0[1]; // 退款
   var _useState1 = useState([]),
     _useState10 = _slicedToArray(_useState1, 2),
-    customInq = _useState10[0],
-    setCustomInq = _useState10[1];
+    reviews = _useState10[0],
+    setReviews = _useState10[1];
+  var _useState11 = useState([]),
+    _useState12 = _slicedToArray(_useState11, 2),
+    offlineOrders = _useState12[0],
+    setOfflineOrders = _useState12[1];
+  var _useState13 = useState([]),
+    _useState14 = _slicedToArray(_useState13, 2),
+    customInq = _useState14[0],
+    setCustomInq = _useState14[1];
   var emailNorm = (email || '').trim().toLowerCase();
 
   // 同邮箱的跟进记录(从 props 取,已经在内存里)
@@ -70,23 +78,27 @@ var Customer360Modal = function Customer360Modal(_ref) {
     if (!emailNorm) return;
     var canceled = false;
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-      var queries, _queries$map, _queries$map2, cb, ev, rv, oo, ci, matchEmail, _t;
+      var queries, _queries$map, _queries$map2, cb, ev, rf, rfd, rv, oo, ci, matchEmail, live, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
           case 0:
             setLoading(true);
             _context.p = 1;
             _context.n = 2;
-            return Promise.allSettled([CLOUD.list('workspace_chargebacks', {
-              limit: 200
-            }), CLOUD.list('workspace_events', {
-              limit: 200
-            }), CLOUD.list('workspace_reviews', {
-              limit: 200
-            }), CLOUD.list('workspace_offline_orders', {
-              limit: 200
+            return Promise.allSettled([CLOUD.list('chargebacks', {
+              limit: 500
+            }), CLOUD.list('aftersales', {
+              limit: 500
+            }), CLOUD.list('refills', {
+              limit: 500
+            }), CLOUD.list('refunds', {
+              limit: 500
+            }), CLOUD.list('reviews', {
+              limit: 500
+            }), CLOUD.list('offline_orders', {
+              limit: 500
             }), CLOUD.list('custom_inquiries', {
-              limit: 100
+              limit: 200
             })]);
           case 2:
             queries = _context.v;
@@ -98,15 +110,23 @@ var Customer360Modal = function Customer360Modal(_ref) {
           case 3:
             _queries$map = queries.map(function (q) {
               return q.status === 'fulfilled' && q.value ? q.value : [];
-            }), _queries$map2 = _slicedToArray(_queries$map, 5), cb = _queries$map2[0], ev = _queries$map2[1], rv = _queries$map2[2], oo = _queries$map2[3], ci = _queries$map2[4];
+            }), _queries$map2 = _slicedToArray(_queries$map, 7), cb = _queries$map2[0], ev = _queries$map2[1], rf = _queries$map2[2], rfd = _queries$map2[3], rv = _queries$map2[4], oo = _queries$map2[5], ci = _queries$map2[6]; // 各表客户邮箱字段名不一(customer_email / customer / email),全兼容
             matchEmail = function matchEmail(x) {
-              return (x.customer_email || x.customerEmail || '').trim().toLowerCase() === emailNorm;
+              var e = (x.customer_email || x.customerEmail || x.customer || x.email || '').trim().toLowerCase();
+              return e && e === emailNorm;
             };
-            setChargebacks(cb.filter(matchEmail));
-            setEvents(ev.filter(matchEmail));
-            setReviews(rv.filter(matchEmail));
-            setOfflineOrders(oo.filter(matchEmail));
-            setCustomInq(ci.filter(matchEmail));
+            live = function live(arr) {
+              return (arr || []).filter(function (x) {
+                return !x.deleted;
+              }).filter(matchEmail);
+            };
+            setChargebacks(live(cb));
+            setEvents(live(ev));
+            setRefills(live(rf));
+            setRefunds(live(rfd));
+            setReviews(live(rv));
+            setOfflineOrders(live(oo));
+            setCustomInq(live(ci));
             _context.n = 5;
             break;
           case 4:
@@ -130,7 +150,7 @@ var Customer360Modal = function Customer360Modal(_ref) {
     if (!t) return '';
     return new Date(t).toLocaleDateString('zh-CN');
   };
-  var totalCount = myRecords.length + chargebacks.length + events.length + reviews.length + offlineOrders.length + customInq.length;
+  var totalCount = myRecords.length + chargebacks.length + events.length + refills.length + refunds.length + reviews.length + offlineOrders.length + customInq.length;
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     onClick: function onClick(e) {
       if (e.target === e.currentTarget) onClose();
@@ -433,31 +453,368 @@ var Customer360Modal = function Customer360Modal(_ref) {
         color: 'var(--info)'
       }
     }, "\uD83D\uDCC5 \u4E0B\u6B21\u8DDF\u8FDB\uFF1A", fmtDate(r.nextFollowUp)));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10,
+      border: '1px solid var(--line)',
+      borderRadius: 10,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '10px 14px',
+      background: chargebacks.length ? '#fef2f2' : 'var(--bg-elevated)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 700,
+      fontSize: 13,
+      color: chargebacks.length ? '#dc2626' : 'var(--ink-3)'
+    }
+  }, "\uD83D\uDEA8 \u62D2\u4ED8/Dispute"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: chargebacks.length ? '#dc2626' : 'var(--ink-4)'
+    }
+  }, chargebacks.length)), chargebacks.map(function (c) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: c.id,
+      style: {
+        padding: '10px 14px',
+        borderTop: '1px solid var(--line)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+        marginBottom: 5
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontFamily: 'monospace',
+        color: 'var(--ink-3)'
+      }
+    }, fmtDate(c.created_at)), c.status && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        padding: '1px 8px',
+        borderRadius: 10,
+        background: '#fee2e2',
+        color: '#b91c1c'
+      }
+    }, c.status), /*#__PURE__*/React.createElement("b", {
+      style: {
+        fontSize: 13
+      }
+    }, "\uD83D\uDCE6 ", c.order_no || c.order_ref || '—'), /*#__PURE__*/React.createElement("span", {
+      style: {
+        marginLeft: 'auto',
+        fontSize: 13,
+        fontWeight: 700,
+        color: '#dc2626'
+      }
+    }, c.currency || 'USD', " ", c.amount || 0)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: 'var(--ink-2)',
+        display: 'flex',
+        gap: 14,
+        flexWrap: 'wrap'
+      }
+    }, c.platform && /*#__PURE__*/React.createElement("span", null, "\u5E73\u53F0 ", c.platform), c.deadline && /*#__PURE__*/React.createElement("span", null, "\u622A\u6B62 ", fmtDate(c.deadline)), c.cs_fault && /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: '#dc2626',
+        fontWeight: 600
+      }
+    }, "\u26A0 \u5BA2\u670D\u5931\u8BEF")), (c.reason_detail || c.reason) && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12.5,
+        marginTop: 5,
+        background: 'var(--bg-elevated)',
+        borderRadius: 6,
+        padding: '6px 10px',
+        lineHeight: 1.5,
+        whiteSpace: 'pre-wrap'
+      }
+    }, c.reason_detail || c.reason), c.resolution && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        marginTop: 5,
+        color: '#065f46'
+      }
+    }, "\u2713 \u5904\u7406:", c.resolution));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10,
+      border: '1px solid var(--line)',
+      borderRadius: 10,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '10px 14px',
+      background: events.length ? '#fff7ed' : 'var(--bg-elevated)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 700,
+      fontSize: 13,
+      color: events.length ? '#ea580c' : 'var(--ink-3)'
+    }
+  }, "\uD83D\uDCCB \u552E\u540E"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: events.length ? '#ea580c' : 'var(--ink-4)'
+    }
+  }, events.length)), events.map(function (e) {
+    var ast = AFTERSALE_STATUSES.find(function (s) {
+      return s.key === e.status;
+    });
+    var rst = e.refill_needed && REFILL_STATUSES.find(function (s) {
+      return s.key === (e.refill_status || 'pending_order');
+    });
+    return /*#__PURE__*/React.createElement("div", {
+      key: e.id,
+      style: {
+        padding: '10px 14px',
+        borderTop: '1px solid var(--line)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+        marginBottom: 5
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontFamily: 'monospace',
+        color: 'var(--ink-3)'
+      }
+    }, fmtDate(e.created_at)), ast && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        padding: '1px 8px',
+        borderRadius: 10,
+        background: ast.bg || '#fef9c3',
+        color: ast.color || '#854d0e'
+      }
+    }, ast.label), (e.order_ref || e.order_no) && /*#__PURE__*/React.createElement("b", {
+      style: {
+        fontSize: 13
+      }
+    }, "\uD83D\uDCE6 ", e.order_ref || e.order_no), rst && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        padding: '1px 8px',
+        borderRadius: 10,
+        background: '#eff6ff',
+        color: '#0369a1',
+        border: '1px solid #bfdbfe'
+      }
+    }, "\uD83D\uDCE6\u8865\u4EF6 ", rst.label)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: 'var(--ink-2)',
+        display: 'flex',
+        gap: 14,
+        flexWrap: 'wrap'
+      }
+    }, e.product_name && /*#__PURE__*/React.createElement("span", null, "\u4EA7\u54C1 ", e.product_name), e.damaged_part && /*#__PURE__*/React.createElement("span", null, "\u635F\u574F ", e.damaged_part), e.supplier_name && /*#__PURE__*/React.createElement("span", null, "\u4F9B\u5E94\u5546 ", e.supplier_name)), e.issue_detail && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12.5,
+        marginTop: 5,
+        background: 'var(--bg-elevated)',
+        borderRadius: 6,
+        padding: '6px 10px',
+        lineHeight: 1.5,
+        whiteSpace: 'pre-wrap'
+      }
+    }, e.issue_detail), e.refill_note && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        marginTop: 5,
+        color: '#0369a1'
+      }
+    }, "\uD83D\uDCE6 \u8865\u4EF6:", e.refill_note));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10,
+      border: '1px solid var(--line)',
+      borderRadius: 10,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '10px 14px',
+      background: refills.length ? '#eff6ff' : 'var(--bg-elevated)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 700,
+      fontSize: 13,
+      color: refills.length ? '#0369a1' : 'var(--ink-3)'
+    }
+  }, "\uD83D\uDCE6 \u8865\u4EF6\u8FFD\u8E2A"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: refills.length ? '#0369a1' : 'var(--ink-4)'
+    }
+  }, refills.length)), refills.map(function (rf) {
+    var rst = REFILL_STATUSES.find(function (s) {
+      return s.key === rf.status;
+    });
+    var itemsList = (rf.items || []).map(function (it) {
+      return "".concat(it.item || '?', "\xD7").concat(it.qty || 1).concat(it.unit || '');
+    }).join('，');
+    return /*#__PURE__*/React.createElement("div", {
+      key: rf.id,
+      style: {
+        padding: '10px 14px',
+        borderTop: '1px solid var(--line)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+        marginBottom: 5
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontFamily: 'monospace',
+        color: 'var(--ink-3)'
+      }
+    }, fmtDate(rf.created_at)), rst && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        padding: '1px 8px',
+        borderRadius: 10,
+        background: '#eff6ff',
+        color: '#0369a1',
+        border: '1px solid #bfdbfe'
+      }
+    }, rst.label), (rf.order_ref || rf.order_no) && /*#__PURE__*/React.createElement("b", {
+      style: {
+        fontSize: 13
+      }
+    }, "\uD83D\uDCE6 ", rf.order_ref || rf.order_no)), itemsList && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12.5,
+        color: 'var(--ink-2)'
+      }
+    }, "\u8865\u4EF6\u6E05\u5355:", itemsList));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 10,
+      border: '1px solid var(--line)',
+      borderRadius: 10,
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: '10px 14px',
+      background: refunds.length ? '#fdf2f8' : 'var(--bg-elevated)'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 700,
+      fontSize: 13,
+      color: refunds.length ? '#be185d' : 'var(--ink-3)'
+    }
+  }, "\uD83D\uDCB0 \u9000\u6B3E"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 700,
+      color: refunds.length ? '#be185d' : 'var(--ink-4)'
+    }
+  }, refunds.length)), refunds.map(function (r) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: r.id,
+      style: {
+        padding: '10px 14px',
+        borderTop: '1px solid var(--line)'
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+        marginBottom: 5
+      }
+    }, /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontFamily: 'monospace',
+        color: 'var(--ink-3)'
+      }
+    }, fmtDate(r.created_at)), r.status && /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 11,
+        fontWeight: 700,
+        padding: '1px 8px',
+        borderRadius: 10,
+        background: '#fce7f3',
+        color: '#be185d'
+      }
+    }, r.status), (r.order_ref || r.order_no) && /*#__PURE__*/React.createElement("b", {
+      style: {
+        fontSize: 13
+      }
+    }, "\uD83D\uDCE6 ", r.order_ref || r.order_no), /*#__PURE__*/React.createElement("span", {
+      style: {
+        marginLeft: 'auto',
+        fontSize: 13,
+        fontWeight: 700,
+        color: '#be185d'
+      }
+    }, r.currency || 'USD', " ", r.amount || 0)), /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12,
+        color: 'var(--ink-2)',
+        display: 'flex',
+        gap: 14,
+        flexWrap: 'wrap'
+      }
+    }, (r.refund_type_custom || r.refund_type) && /*#__PURE__*/React.createElement("span", null, "\u7C7B\u578B ", r.refund_type_custom || r.refund_type), (r.payment_method_custom || r.payment_method) && /*#__PURE__*/React.createElement("span", null, "\u9000\u6B3E\u65B9\u5F0F ", r.payment_method_custom || r.payment_method)), r.refund_reason && /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontSize: 12.5,
+        marginTop: 5,
+        background: 'var(--bg-elevated)',
+        borderRadius: 6,
+        padding: '6px 10px',
+        lineHeight: 1.5,
+        whiteSpace: 'pre-wrap'
+      }
+    }, r.refund_reason));
   })), /*#__PURE__*/React.createElement(Section360, {
-    icon: "\uD83D\uDEA8",
-    title: "\u62D2\u4ED8/Dispute",
-    count: chargebacks.length,
-    items: chargebacks.map(function (c) {
-      return {
-        id: c.id,
-        primary: "\u8BA2\u5355 ".concat(c.order_no, " \xB7 ").concat(c.currency || 'USD', " ").concat(c.amount || 0),
-        secondary: "".concat(c.platform || '', " \xB7 ").concat(c.status || '').concat(c.reason_detail ? ' · ' + c.reason_detail.slice(0, 40) : ''),
-        date: c.created_at
-      };
-    })
-  }), /*#__PURE__*/React.createElement(Section360, {
-    icon: "\uD83D\uDCCB",
-    title: "\u552E\u540E/\u8865\u53D1/\u9000\u6B3E",
-    count: events.length,
-    items: events.map(function (e) {
-      return {
-        id: e.id,
-        primary: "".concat(e.type || '事件', " \xB7 \u8BA2\u5355 ").concat(e.order_no || '?'),
-        secondary: "".concat(e.status || '').concat(e.notes ? ' · ' + e.notes.slice(0, 40) : ''),
-        date: e.created_at
-      };
-    })
-  }), /*#__PURE__*/React.createElement(Section360, {
     icon: "\uD83D\uDCB3",
     title: "\u7EBF\u4E0B\u5355",
     count: offlineOrders.length,
@@ -519,10 +876,10 @@ var Section360 = function Section360(_ref3) {
     title = _ref3.title,
     count = _ref3.count,
     items = _ref3.items;
-  var _useState11 = useState(count > 0),
-    _useState12 = _slicedToArray(_useState11, 2),
-    open = _useState12[0],
-    setOpen = _useState12[1]; // 有内容默认展开
+  var _useState15 = useState(count > 0),
+    _useState16 = _slicedToArray(_useState15, 2),
+    open = _useState16[0],
+    setOpen = _useState16[1]; // 有内容默认展开
   if (count === 0) {
     return /*#__PURE__*/React.createElement("div", {
       style: {
@@ -661,39 +1018,39 @@ var DashboardModule = function DashboardModule(_ref4) {
     employees = _ref4.employees,
     records = _ref4.records;
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
-  var _useState13 = useState('today'),
-    _useState14 = _slicedToArray(_useState13, 2),
-    timeRange = _useState14[0],
-    setTimeRange = _useState14[1];
-  var _useState15 = useState(''),
-    _useState16 = _slicedToArray(_useState15, 2),
-    customStart = _useState16[0],
-    setCustomStart = _useState16[1];
-  var _useState17 = useState(''),
+  var _useState17 = useState('today'),
     _useState18 = _slicedToArray(_useState17, 2),
-    customEnd = _useState18[0],
-    setCustomEnd = _useState18[1];
-  var _useState19 = useState(isAdmin ? 'team' : 'me'),
+    timeRange = _useState18[0],
+    setTimeRange = _useState18[1];
+  var _useState19 = useState(''),
     _useState20 = _slicedToArray(_useState19, 2),
-    scope = _useState20[0],
-    setScope = _useState20[1];
-  var _useState21 = useState(user.id),
+    customStart = _useState20[0],
+    setCustomStart = _useState20[1];
+  var _useState21 = useState(''),
     _useState22 = _slicedToArray(_useState21, 2),
-    selectedEmpId = _useState22[0],
-    setSelectedEmpId = _useState22[1];
-  var _useState23 = useState(null),
+    customEnd = _useState22[0],
+    setCustomEnd = _useState22[1];
+  var _useState23 = useState(isAdmin ? 'team' : 'me'),
     _useState24 = _slicedToArray(_useState23, 2),
-    expandedCategory = _useState24[0],
-    setExpandedCategory = _useState24[1];
-  var _useState25 = useState(null),
+    scope = _useState24[0],
+    setScope = _useState24[1];
+  var _useState25 = useState(user.id),
     _useState26 = _slicedToArray(_useState25, 2),
-    expandedSite = _useState26[0],
-    setExpandedSite = _useState26[1];
+    selectedEmpId = _useState26[0],
+    setSelectedEmpId = _useState26[1];
   var _useState27 = useState(null),
     _useState28 = _slicedToArray(_useState27, 2),
-    expandedEmp = _useState28[0],
-    setExpandedEmp = _useState28[1];
-  var _useState29 = useState({
+    expandedCategory = _useState28[0],
+    setExpandedCategory = _useState28[1];
+  var _useState29 = useState(null),
+    _useState30 = _slicedToArray(_useState29, 2),
+    expandedSite = _useState30[0],
+    setExpandedSite = _useState30[1];
+  var _useState31 = useState(null),
+    _useState32 = _slicedToArray(_useState31, 2),
+    expandedEmp = _useState32[0],
+    setExpandedEmp = _useState32[1];
+  var _useState33 = useState({
       owner: 'all',
       cat: 'all',
       site: 'all',
@@ -701,32 +1058,32 @@ var DashboardModule = function DashboardModule(_ref4) {
       overdueOnly: false,
       noFollowOnly: false
     }),
-    _useState30 = _slicedToArray(_useState29, 2),
-    unresolvedFilter = _useState30[0],
-    setUnresolvedFilter = _useState30[1];
-  var _useState31 = useState(null),
-    _useState32 = _slicedToArray(_useState31, 2),
-    detailRecord = _useState32[0],
-    setDetailRecord = _useState32[1];
-  var _useState33 = useState(null),
     _useState34 = _slicedToArray(_useState33, 2),
-    kpiDetail = _useState34[0],
-    setKpiDetail = _useState34[1]; // 🆕 fix80: KPI 卡详情弹窗
+    unresolvedFilter = _useState34[0],
+    setUnresolvedFilter = _useState34[1];
+  var _useState35 = useState(null),
+    _useState36 = _slicedToArray(_useState35, 2),
+    detailRecord = _useState36[0],
+    setDetailRecord = _useState36[1];
+  var _useState37 = useState(null),
+    _useState38 = _slicedToArray(_useState37, 2),
+    kpiDetail = _useState38[0],
+    setKpiDetail = _useState38[1]; // 🆕 fix80: KPI 卡详情弹窗
 
   // ========== 独立模块数据加载 ==========
-  var _useState35 = useState({
+  var _useState39 = useState({
       chargebacks: [],
       offlineOrders: [],
       customInquiries: [],
       photoVerif: []
     }),
-    _useState36 = _slicedToArray(_useState35, 2),
-    extra = _useState36[0],
-    setExtra = _useState36[1];
-  var _useState37 = useState(true),
-    _useState38 = _slicedToArray(_useState37, 2),
-    extraLoading = _useState38[0],
-    setExtraLoading = _useState38[1];
+    _useState40 = _slicedToArray(_useState39, 2),
+    extra = _useState40[0],
+    setExtra = _useState40[1];
+  var _useState41 = useState(true),
+    _useState42 = _slicedToArray(_useState41, 2),
+    extraLoading = _useState42[0],
+    setExtraLoading = _useState42[1];
   useEffect(function () {
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
       var _yield$Promise$all, _yield$Promise$all2, cb, oo, ci, pv, _t2;
@@ -2564,10 +2921,10 @@ var KpiDetailModal = function KpiDetailModal(_ref13) {
     employees = _ref13.employees,
     onClose = _ref13.onClose,
     onClickRecord = _ref13.onClickRecord;
-  var _useState39 = useState(''),
-    _useState40 = _slicedToArray(_useState39, 2),
-    search = _useState40[0],
-    setSearch = _useState40[1];
+  var _useState43 = useState(''),
+    _useState44 = _slicedToArray(_useState43, 2),
+    search = _useState44[0],
+    setSearch = _useState44[1];
   var today = todayISO();
 
   // 通用筛选
@@ -2770,10 +3127,10 @@ var KpiRecordsTable = function KpiRecordsTable(_ref14) {
 var KpiEmployeesTable = function KpiEmployeesTable(_ref15) {
   var items = _ref15.items,
     onClickRecord = _ref15.onClickRecord;
-  var _useState41 = useState(null),
-    _useState42 = _slicedToArray(_useState41, 2),
-    expanded = _useState42[0],
-    setExpanded = _useState42[1];
+  var _useState45 = useState(null),
+    _useState46 = _slicedToArray(_useState45, 2),
+    expanded = _useState46[0],
+    setExpanded = _useState46[1];
   if (items.length === 0) return /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: 'center',
@@ -3768,18 +4125,18 @@ var requestDelete = /*#__PURE__*/function () {
 var DeleteApprovalCenter = function DeleteApprovalCenter(_ref24) {
   var user = _ref24.user,
     toast = _ref24.toast;
-  var _useState43 = useState([]),
-    _useState44 = _slicedToArray(_useState43, 2),
-    list = _useState44[0],
-    setList = _useState44[1];
-  var _useState45 = useState(true),
-    _useState46 = _slicedToArray(_useState45, 2),
-    loading = _useState46[0],
-    setLoading = _useState46[1];
-  var _useState47 = useState('pending'),
+  var _useState47 = useState([]),
     _useState48 = _slicedToArray(_useState47, 2),
-    filterStatus = _useState48[0],
-    setFilterStatus = _useState48[1];
+    list = _useState48[0],
+    setList = _useState48[1];
+  var _useState49 = useState(true),
+    _useState50 = _slicedToArray(_useState49, 2),
+    loading = _useState50[0],
+    setLoading = _useState50[1];
+  var _useState51 = useState('pending'),
+    _useState52 = _slicedToArray(_useState51, 2),
+    filterStatus = _useState52[0],
+    setFilterStatus = _useState52[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var isSuperAdmin = user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
@@ -4282,18 +4639,18 @@ var KPIScoreboard = function KPIScoreboard(_ref28) {
     refills = _ref28$refills === void 0 ? [] : _ref28$refills,
     _ref28$photos = _ref28.photos,
     photos = _ref28$photos === void 0 ? [] : _ref28$photos;
-  var _useState49 = useState(new Date().toISOString().slice(0, 7)),
-    _useState50 = _slicedToArray(_useState49, 2),
-    month = _useState50[0],
-    setMonth = _useState50[1];
-  var _useState51 = useState({}),
-    _useState52 = _slicedToArray(_useState51, 2),
-    scores = _useState52[0],
-    setScores = _useState52[1];
-  var _useState53 = useState(false),
+  var _useState53 = useState(new Date().toISOString().slice(0, 7)),
     _useState54 = _slicedToArray(_useState53, 2),
-    saving = _useState54[0],
-    setSaving = _useState54[1];
+    month = _useState54[0],
+    setMonth = _useState54[1];
+  var _useState55 = useState({}),
+    _useState56 = _slicedToArray(_useState55, 2),
+    scores = _useState56[0],
+    setScores = _useState56[1];
+  var _useState57 = useState(false),
+    _useState58 = _slicedToArray(_useState57, 2),
+    saving = _useState58[0],
+    setSaving = _useState58[1];
   var today = new Date().toISOString().slice(0, 10);
   var storeKey = 'kpi_scores_' + month;
   useEffect(function () {
@@ -4415,10 +4772,10 @@ var KPIScoreboard = function KPIScoreboard(_ref28) {
   var rows = Object.values(metrics).sort(function (a, b) {
     return b.total - a.total;
   });
-  var _useState55 = useState(null),
-    _useState56 = _slicedToArray(_useState55, 2),
-    drill = _useState56[0],
-    setDrill = _useState56[1]; // 🆕 fix117: 客观项点击 → 明细弹窗 {title, records}
+  var _useState59 = useState(null),
+    _useState60 = _slicedToArray(_useState59, 2),
+    drill = _useState60[0],
+    setDrill = _useState60[1]; // 🆕 fix117: 客观项点击 → 明细弹窗 {title, records}
   var getScore = function getScore(id, key, dflt) {
     var s = scores[id] || {};
     return s[key] !== undefined && s[key] !== '' ? s[key] : dflt;
@@ -4964,7 +5321,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
   var user = _ref31.user,
     employees = _ref31.employees,
     toast = _ref31.toast;
-  var _useState57 = useState({
+  var _useState61 = useState({
       chargebacks: [],
       offlineOrders: [],
       customInquiries: [],
@@ -4977,33 +5334,33 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
       deleteReqs: [],
       crossDept: []
     }),
-    _useState58 = _slicedToArray(_useState57, 2),
-    data = _useState58[0],
-    setData = _useState58[1];
-  var _useState59 = useState(true),
-    _useState60 = _slicedToArray(_useState59, 2),
-    loading = _useState60[0],
-    setLoading = _useState60[1];
-  var _useState61 = useState('all'),
     _useState62 = _slicedToArray(_useState61, 2),
-    filterEmployee = _useState62[0],
-    setFilterEmployee = _useState62[1];
-  var _useState63 = useState('month'),
+    data = _useState62[0],
+    setData = _useState62[1];
+  var _useState63 = useState(true),
     _useState64 = _slicedToArray(_useState63, 2),
-    range = _useState64[0],
-    setRange = _useState64[1]; // 🆕 fix132 today/week/month/quarter/year/all/custom
-  var _useState65 = useState(''),
+    loading = _useState64[0],
+    setLoading = _useState64[1];
+  var _useState65 = useState('all'),
     _useState66 = _slicedToArray(_useState65, 2),
-    cFrom = _useState66[0],
-    setCFrom = _useState66[1];
-  var _useState67 = useState(''),
+    filterEmployee = _useState66[0],
+    setFilterEmployee = _useState66[1];
+  var _useState67 = useState('month'),
     _useState68 = _slicedToArray(_useState67, 2),
-    cTo = _useState68[0],
-    setCTo = _useState68[1];
-  var _useState69 = useState(null),
+    range = _useState68[0],
+    setRange = _useState68[1]; // 🆕 fix132 today/week/month/quarter/year/all/custom
+  var _useState69 = useState(''),
     _useState70 = _slicedToArray(_useState69, 2),
-    drill = _useState70[0],
-    setDrill = _useState70[1]; // 🆕 fix94: 点统计卡看明细 { title, rows }
+    cFrom = _useState70[0],
+    setCFrom = _useState70[1];
+  var _useState71 = useState(''),
+    _useState72 = _slicedToArray(_useState71, 2),
+    cTo = _useState72[0],
+    setCTo = _useState72[1];
+  var _useState73 = useState(null),
+    _useState74 = _slicedToArray(_useState73, 2),
+    drill = _useState74[0],
+    setDrill = _useState74[1]; // 🆕 fix94: 点统计卡看明细 { title, rows }
   var openDrill = function openDrill(title, rows) {
     return setDrill({
       title: title,
@@ -6736,7 +7093,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
 var AlertThresholdsSettings = function AlertThresholdsSettings(_ref44) {
   var user = _ref44.user,
     toast = _ref44.toast;
-  var _useState71 = useState({
+  var _useState75 = useState({
       cs_followup: 7,
       // 客服跟进超期天数
       chargeback: 3,
@@ -6753,17 +7110,17 @@ var AlertThresholdsSettings = function AlertThresholdsSettings(_ref44) {
       // 补件挂起天数
       refund: 7 // 退款待审天数
     }),
-    _useState72 = _slicedToArray(_useState71, 2),
-    thresholds = _useState72[0],
-    setThresholds = _useState72[1];
-  var _useState73 = useState(true),
-    _useState74 = _slicedToArray(_useState73, 2),
-    loading = _useState74[0],
-    setLoading = _useState74[1];
-  var _useState75 = useState(false),
     _useState76 = _slicedToArray(_useState75, 2),
-    saving = _useState76[0],
-    setSaving = _useState76[1];
+    thresholds = _useState76[0],
+    setThresholds = _useState76[1];
+  var _useState77 = useState(true),
+    _useState78 = _slicedToArray(_useState77, 2),
+    loading = _useState78[0],
+    setLoading = _useState78[1];
+  var _useState79 = useState(false),
+    _useState80 = _slicedToArray(_useState79, 2),
+    saving = _useState80[0],
+    setSaving = _useState80[1];
   var load = /*#__PURE__*/function () {
     var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
       var _yield$CLOUD$client$f9, data, _t15;
@@ -7166,30 +7523,30 @@ var ChargebackOwnersSettings = function ChargebackOwnersSettings(_ref49) {
     toast = _ref49.toast;
   var allSites = useSiteCodes(); // 🆕 fix22 联动 3: 合并 内置 SITES + 自定义网站
   // 按网站映射 + 周六值班 + 周日值班
-  var _useState77 = useState({}),
-    _useState78 = _slicedToArray(_useState77, 2),
-    siteOwners = _useState78[0],
-    setSiteOwners = _useState78[1]; // site -> uid
-  var _useState79 = useState(''),
-    _useState80 = _slicedToArray(_useState79, 2),
-    defaultOwner = _useState80[0],
-    setDefaultOwner = _useState80[1]; // 其他网站默认负责人
-  var _useState81 = useState(''),
+  var _useState81 = useState({}),
     _useState82 = _slicedToArray(_useState81, 2),
-    saturdayOwner = _useState82[0],
-    setSaturdayOwner = _useState82[1]; // 🆕 周六值班
+    siteOwners = _useState82[0],
+    setSiteOwners = _useState82[1]; // site -> uid
   var _useState83 = useState(''),
     _useState84 = _slicedToArray(_useState83, 2),
-    sundayOwner = _useState84[0],
-    setSundayOwner = _useState84[1]; // 🆕 周日值班
-  var _useState85 = useState(true),
+    defaultOwner = _useState84[0],
+    setDefaultOwner = _useState84[1]; // 其他网站默认负责人
+  var _useState85 = useState(''),
     _useState86 = _slicedToArray(_useState85, 2),
-    loading = _useState86[0],
-    setLoading = _useState86[1];
-  var _useState87 = useState(false),
+    saturdayOwner = _useState86[0],
+    setSaturdayOwner = _useState86[1]; // 🆕 周六值班
+  var _useState87 = useState(''),
     _useState88 = _slicedToArray(_useState87, 2),
-    saving = _useState88[0],
-    setSaving = _useState88[1];
+    sundayOwner = _useState88[0],
+    setSundayOwner = _useState88[1]; // 🆕 周日值班
+  var _useState89 = useState(true),
+    _useState90 = _slicedToArray(_useState89, 2),
+    loading = _useState90[0],
+    setLoading = _useState90[1];
+  var _useState91 = useState(false),
+    _useState92 = _slicedToArray(_useState91, 2),
+    saving = _useState92[0],
+    setSaving = _useState92[1];
   var visibleEmployees = employees.filter(function (em) {
     return !em.hideFromList;
   });
@@ -7534,18 +7891,18 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref52) {
   var employees = _ref52.employees,
     user = _ref52.user,
     toast = _ref52.toast;
-  var _useState89 = useState(['u_miya', 'u_nicole', 'u_yulia']),
-    _useState90 = _slicedToArray(_useState89, 2),
-    selectedIds = _useState90[0],
-    setSelectedIds = _useState90[1];
-  var _useState91 = useState(true),
-    _useState92 = _slicedToArray(_useState91, 2),
-    loading = _useState92[0],
-    setLoading = _useState92[1];
-  var _useState93 = useState(false),
+  var _useState93 = useState(['u_miya', 'u_nicole', 'u_yulia']),
     _useState94 = _slicedToArray(_useState93, 2),
-    saving = _useState94[0],
-    setSaving = _useState94[1];
+    selectedIds = _useState94[0],
+    setSelectedIds = _useState94[1];
+  var _useState95 = useState(true),
+    _useState96 = _slicedToArray(_useState95, 2),
+    loading = _useState96[0],
+    setLoading = _useState96[1];
+  var _useState97 = useState(false),
+    _useState98 = _slicedToArray(_useState97, 2),
+    saving = _useState98[0],
+    setSaving = _useState98[1];
   var visibleEmployees = (employees || []).filter(function (em) {
     return !em.hideFromList;
   });
@@ -7812,22 +8169,22 @@ var RefundProcessorsSettings = function RefundProcessorsSettings(_ref52) {
 var SitesMaintenanceSection = function SitesMaintenanceSection(_ref55) {
   var user = _ref55.user,
     toast = _ref55.toast;
-  var _useState95 = useState([]),
-    _useState96 = _slicedToArray(_useState95, 2),
-    customSites = _useState96[0],
-    setCustomSites = _useState96[1];
-  var _useState97 = useState(true),
-    _useState98 = _slicedToArray(_useState97, 2),
-    loading = _useState98[0],
-    setLoading = _useState98[1];
-  var _useState99 = useState(false),
+  var _useState99 = useState([]),
     _useState100 = _slicedToArray(_useState99, 2),
-    showNew = _useState100[0],
-    setShowNew = _useState100[1];
-  var _useState101 = useState(null),
+    customSites = _useState100[0],
+    setCustomSites = _useState100[1];
+  var _useState101 = useState(true),
     _useState102 = _slicedToArray(_useState101, 2),
-    editing = _useState102[0],
-    setEditing = _useState102[1];
+    loading = _useState102[0],
+    setLoading = _useState102[1];
+  var _useState103 = useState(false),
+    _useState104 = _slicedToArray(_useState103, 2),
+    showNew = _useState104[0],
+    setShowNew = _useState104[1];
+  var _useState105 = useState(null),
+    _useState106 = _slicedToArray(_useState105, 2),
+    editing = _useState106[0],
+    setEditing = _useState106[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
     var _ref56 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
@@ -8288,30 +8645,30 @@ var SiteEditorModal = function SiteEditorModal(_ref61) {
   var site = _ref61.site,
     onSave = _ref61.onSave,
     onClose = _ref61.onClose;
-  var _useState103 = useState((site === null || site === void 0 ? void 0 : site.code) || ''),
-    _useState104 = _slicedToArray(_useState103, 2),
-    code = _useState104[0],
-    setCode = _useState104[1];
-  var _useState105 = useState((site === null || site === void 0 ? void 0 : site.name) || ''),
-    _useState106 = _slicedToArray(_useState105, 2),
-    name = _useState106[0],
-    setName = _useState106[1];
-  var _useState107 = useState((site === null || site === void 0 ? void 0 : site.brand) || ''),
+  var _useState107 = useState((site === null || site === void 0 ? void 0 : site.code) || ''),
     _useState108 = _slicedToArray(_useState107, 2),
-    brand = _useState108[0],
-    setBrand = _useState108[1];
-  var _useState109 = useState((site === null || site === void 0 ? void 0 : site.domain) || ''),
+    code = _useState108[0],
+    setCode = _useState108[1];
+  var _useState109 = useState((site === null || site === void 0 ? void 0 : site.name) || ''),
     _useState110 = _slicedToArray(_useState109, 2),
-    domain = _useState110[0],
-    setDomain = _useState110[1];
-  var _useState111 = useState((site === null || site === void 0 ? void 0 : site.color) || '#0369a1'),
+    name = _useState110[0],
+    setName = _useState110[1];
+  var _useState111 = useState((site === null || site === void 0 ? void 0 : site.brand) || ''),
     _useState112 = _slicedToArray(_useState111, 2),
-    color = _useState112[0],
-    setColor = _useState112[1];
-  var _useState113 = useState((site === null || site === void 0 ? void 0 : site.prefix) || ''),
+    brand = _useState112[0],
+    setBrand = _useState112[1];
+  var _useState113 = useState((site === null || site === void 0 ? void 0 : site.domain) || ''),
     _useState114 = _slicedToArray(_useState113, 2),
-    prefix = _useState114[0],
-    setPrefix = _useState114[1];
+    domain = _useState114[0],
+    setDomain = _useState114[1];
+  var _useState115 = useState((site === null || site === void 0 ? void 0 : site.color) || '#0369a1'),
+    _useState116 = _slicedToArray(_useState115, 2),
+    color = _useState116[0],
+    setColor = _useState116[1];
+  var _useState117 = useState((site === null || site === void 0 ? void 0 : site.prefix) || ''),
+    _useState118 = _slicedToArray(_useState117, 2),
+    prefix = _useState118[0],
+    setPrefix = _useState118[1];
   var isEdit = !!site;
   var handleSave = function handleSave() {
     if (!code.trim() || !name.trim()) {
@@ -8602,34 +8959,34 @@ var getShopFromSiteCode = function getShopFromSiteCode(code) {
 var ProductsMaintenanceSection = function ProductsMaintenanceSection(_ref62) {
   var user = _ref62.user,
     toast = _ref62.toast;
-  var _useState115 = useState([]),
-    _useState116 = _slicedToArray(_useState115, 2),
-    products = _useState116[0],
-    setProducts = _useState116[1];
-  var _useState117 = useState(true),
-    _useState118 = _slicedToArray(_useState117, 2),
-    loading = _useState118[0],
-    setLoading = _useState118[1];
-  var _useState119 = useState(''),
+  var _useState119 = useState([]),
     _useState120 = _slicedToArray(_useState119, 2),
-    search = _useState120[0],
-    setSearch = _useState120[1];
-  var _useState121 = useState('all'),
+    products = _useState120[0],
+    setProducts = _useState120[1];
+  var _useState121 = useState(true),
     _useState122 = _slicedToArray(_useState121, 2),
-    filterCategory = _useState122[0],
-    setFilterCategory = _useState122[1];
-  var _useState123 = useState('all'),
+    loading = _useState122[0],
+    setLoading = _useState122[1];
+  var _useState123 = useState(''),
     _useState124 = _slicedToArray(_useState123, 2),
-    filterSupplier = _useState124[0],
-    setFilterSupplier = _useState124[1];
-  var _useState125 = useState(null),
+    search = _useState124[0],
+    setSearch = _useState124[1];
+  var _useState125 = useState('all'),
     _useState126 = _slicedToArray(_useState125, 2),
-    editing = _useState126[0],
-    setEditing = _useState126[1]; // null | 'new' | productObj
-  var _useState127 = useState([]),
+    filterCategory = _useState126[0],
+    setFilterCategory = _useState126[1];
+  var _useState127 = useState('all'),
     _useState128 = _slicedToArray(_useState127, 2),
-    suppliers = _useState128[0],
-    setSuppliers = _useState128[1];
+    filterSupplier = _useState128[0],
+    setFilterSupplier = _useState128[1];
+  var _useState129 = useState(null),
+    _useState130 = _slicedToArray(_useState129, 2),
+    editing = _useState130[0],
+    setEditing = _useState130[1]; // null | 'new' | productObj
+  var _useState131 = useState([]),
+    _useState132 = _slicedToArray(_useState131, 2),
+    suppliers = _useState132[0],
+    setSuppliers = _useState132[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
   var load = /*#__PURE__*/function () {
     var _ref63 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
@@ -9125,54 +9482,54 @@ var ProductEditorModal = function ProductEditorModal(_ref65) {
     categories = _ref65.categories,
     onClose = _ref65.onClose,
     onSaved = _ref65.onSaved;
-  var _useState129 = useState((product === null || product === void 0 ? void 0 : product.sku) || ''),
-    _useState130 = _slicedToArray(_useState129, 2),
-    sku = _useState130[0],
-    setSku = _useState130[1];
-  var _useState131 = useState((product === null || product === void 0 ? void 0 : product.name) || ''),
-    _useState132 = _slicedToArray(_useState131, 2),
-    name = _useState132[0],
-    setName = _useState132[1];
-  var _useState133 = useState((product === null || product === void 0 ? void 0 : product.category) || 'lighting'),
+  var _useState133 = useState((product === null || product === void 0 ? void 0 : product.sku) || ''),
     _useState134 = _slicedToArray(_useState133, 2),
-    category = _useState134[0],
-    setCategory = _useState134[1];
-  var _useState135 = useState((product === null || product === void 0 ? void 0 : product.supplier_id) || ''),
+    sku = _useState134[0],
+    setSku = _useState134[1];
+  var _useState135 = useState((product === null || product === void 0 ? void 0 : product.name) || ''),
     _useState136 = _slicedToArray(_useState135, 2),
-    supplierId = _useState136[0],
-    setSupplierId = _useState136[1];
-  var _useState137 = useState((product === null || product === void 0 ? void 0 : product.default_unit_price) || ''),
+    name = _useState136[0],
+    setName = _useState136[1];
+  var _useState137 = useState((product === null || product === void 0 ? void 0 : product.category) || 'lighting'),
     _useState138 = _slicedToArray(_useState137, 2),
-    defaultPrice = _useState138[0],
-    setDefaultPrice = _useState138[1];
-  var _useState139 = useState((product === null || product === void 0 ? void 0 : product.default_currency) || 'USD'),
+    category = _useState138[0],
+    setCategory = _useState138[1];
+  var _useState139 = useState((product === null || product === void 0 ? void 0 : product.supplier_id) || ''),
     _useState140 = _slicedToArray(_useState139, 2),
-    defaultCurrency = _useState140[0],
-    setDefaultCurrency = _useState140[1];
-  var _useState141 = useState((product === null || product === void 0 ? void 0 : product.image) || ''),
+    supplierId = _useState140[0],
+    setSupplierId = _useState140[1];
+  var _useState141 = useState((product === null || product === void 0 ? void 0 : product.default_unit_price) || ''),
     _useState142 = _slicedToArray(_useState141, 2),
-    image = _useState142[0],
-    setImage = _useState142[1];
-  var _useState143 = useState((product === null || product === void 0 ? void 0 : product.url) || ''),
+    defaultPrice = _useState142[0],
+    setDefaultPrice = _useState142[1];
+  var _useState143 = useState((product === null || product === void 0 ? void 0 : product.default_currency) || 'USD'),
     _useState144 = _slicedToArray(_useState143, 2),
-    url = _useState144[0],
-    setUrl = _useState144[1];
-  var _useState145 = useState((product === null || product === void 0 ? void 0 : product.description) || ''),
+    defaultCurrency = _useState144[0],
+    setDefaultCurrency = _useState144[1];
+  var _useState145 = useState((product === null || product === void 0 ? void 0 : product.image) || ''),
     _useState146 = _slicedToArray(_useState145, 2),
-    description = _useState146[0],
-    setDescription = _useState146[1];
-  var _useState147 = useState((product === null || product === void 0 ? void 0 : product.tags) || ''),
+    image = _useState146[0],
+    setImage = _useState146[1];
+  var _useState147 = useState((product === null || product === void 0 ? void 0 : product.url) || ''),
     _useState148 = _slicedToArray(_useState147, 2),
-    tags = _useState148[0],
-    setTags = _useState148[1];
-  var _useState149 = useState((product === null || product === void 0 ? void 0 : product.notes) || ''),
+    url = _useState148[0],
+    setUrl = _useState148[1];
+  var _useState149 = useState((product === null || product === void 0 ? void 0 : product.description) || ''),
     _useState150 = _slicedToArray(_useState149, 2),
-    notes = _useState150[0],
-    setNotes = _useState150[1];
-  var _useState151 = useState(false),
+    description = _useState150[0],
+    setDescription = _useState150[1];
+  var _useState151 = useState((product === null || product === void 0 ? void 0 : product.tags) || ''),
     _useState152 = _slicedToArray(_useState151, 2),
-    saving = _useState152[0],
-    setSaving = _useState152[1];
+    tags = _useState152[0],
+    setTags = _useState152[1];
+  var _useState153 = useState((product === null || product === void 0 ? void 0 : product.notes) || ''),
+    _useState154 = _slicedToArray(_useState153, 2),
+    notes = _useState154[0],
+    setNotes = _useState154[1];
+  var _useState155 = useState(false),
+    _useState156 = _slicedToArray(_useState155, 2),
+    saving = _useState156[0],
+    setSaving = _useState156[1];
   var isEdit = !!product;
   var handleSave = /*#__PURE__*/function () {
     var _ref66 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24() {
