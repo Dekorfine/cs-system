@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix201
+// 版本 2026.06.05-fix202
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix201
+// 版本 2026.06.05-fix202
 // 预编译切片
 //
 
@@ -1504,7 +1504,7 @@ var App = function App() {
   useEffect(function () {
     if (!cloudOn || !user) return;
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-      var cloud, localRecords, cloudById, localOnly, localNewer, merged, toResync;
+      var cloud, localMeaningful, localRecords, cloudById, localOnly, localNewer, merged, toResync;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.n) {
           case 0:
@@ -1518,6 +1518,26 @@ var App = function App() {
             });
           case 1:
             cloud = _context4.v;
+            if (!(Array.isArray(cloud) && cloud.length === 0)) {
+              _context4.n = 2;
+              break;
+            }
+            localMeaningful = (recordsRef.current || []).filter(function (r) {
+              return r && isRecordMeaningful(r) && !r.deleted;
+            });
+            if (!(localMeaningful.length > 0)) {
+              _context4.n = 2;
+              break;
+            }
+            console.warn('[sync] 云端返回 0 条但本地有', localMeaningful.length, '条 → 跳过覆盖,改为补传本地,防止误清空');
+            lastSyncedRef.current = new Map(); // 把本地全部当未同步,强制重传
+            setTimeout(function () {
+              try {
+                syncChangedRecords();
+              } catch (e) {}
+            }, 500);
+            return _context4.a(2);
+          case 2:
             if (cloud !== null) {
               // 🆕 fix7: 不能简单云端覆盖! 用户可能有未同步的本地记录(网络断 / 跨日 / 上次同步失败)
               // 旧版策略导致数据丢失: 用户工作一天,本地有 N 条,刷新后被云端覆盖 → 全没了
@@ -1583,7 +1603,7 @@ var App = function App() {
                 }, 800);
               }
             }
-          case 2:
+          case 3:
             return _context4.a(2);
         }
       }, _callee4);
@@ -4522,7 +4542,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix201';
+var APP_VERSION = '2026.06.05-fix202';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
