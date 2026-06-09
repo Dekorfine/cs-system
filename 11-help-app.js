@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix199
+// 版本 2026.06.05-fix200
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix199
+// 版本 2026.06.05-fix200
 // 预编译切片
 //
 
@@ -2065,6 +2065,10 @@ var App = function App() {
     _useState22 = _slicedToArray(_useState21, 2),
     unsyncedCount = _useState22[0],
     setUnsyncedCount = _useState22[1];
+  var _useState23 = useState(false),
+    _useState24 = _slicedToArray(_useState23, 2),
+    syncStuck = _useState24[0],
+    setSyncStuck = _useState24[1]; // 🆕 fix200:未同步持续超 8 秒 → 弹醒目角标(正常录入 1-2 秒就同步上,不会一闪一闪)
   var lastSyncedRef = useRef(new Map()); // id → 已同步签名(updatedAt + 删除态)
 
   var recordSig = function recordSig(r) {
@@ -2165,11 +2169,25 @@ var App = function App() {
     };
   }, [cloudOn, user]);
 
+  // 🆕 fix200:未同步持续超过 8 秒才点亮醒目角标(避免正常录入时一闪一闪)
+  useEffect(function () {
+    if (!cloudOn || !user || unsyncedCount <= 0) {
+      setSyncStuck(false);
+      return;
+    }
+    var t = setTimeout(function () {
+      return setSyncStuck(true);
+    }, 8000);
+    return function () {
+      return clearTimeout(t);
+    };
+  }, [unsyncedCount, cloudOn, user]);
+
   // 🆕 fix182: 手动「全部上传到服务器」—— 把本地所有有内容的记录强制推到云端(用于把之前没传上的旧数据一次性补上)
-  var _useState23 = useState(false),
-    _useState24 = _slicedToArray(_useState23, 2),
-    forcingSync = _useState24[0],
-    setForcingSync = _useState24[1];
+  var _useState25 = useState(false),
+    _useState26 = _slicedToArray(_useState25, 2),
+    forcingSync = _useState26[0],
+    setForcingSync = _useState26[1];
   var forceSyncAll = /*#__PURE__*/function () {
     var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
       var all, res, failed, _t11;
@@ -2227,10 +2245,10 @@ var App = function App() {
 
   // 🆕 一次性瘦身:把历史记录里残留的 base64 截图迁移到云存储(库里只留 URL),列表加载提速
   //    纯增量:只上传"有 data 无 url"的图;确认 url 后才剥 base64;不删任何记录、不丢数据
-  var _useState25 = useState(false),
-    _useState26 = _slicedToArray(_useState25, 2),
-    migrating = _useState26[0],
-    setMigrating = _useState26[1];
+  var _useState27 = useState(false),
+    _useState28 = _slicedToArray(_useState27, 2),
+    migrating = _useState28[0],
+    setMigrating = _useState28[1];
   var migrateRecordImages = /*#__PURE__*/function () {
     var _ref18 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
       var all, hasB64, needs, done, imgs, upOne, slim, BATCH, i, batch, _iterator8, _step8, r, _iterator9, _step9, s, _iterator0, _step0, _s4, _iterator1, _step1, _s5, _iterator10, _step10, f, _iterator11, _step11, _s6, cleaned, _t13, _t14, _t15, _t16, _t17, _t18, _t19;
@@ -2562,7 +2580,7 @@ var App = function App() {
   }();
 
   // tab - 持久化到 localStorage，刷新后保留
-  var _useState27 = useState(function () {
+  var _useState29 = useState(function () {
       // URL hash 优先 (#tab=kb)，其次 localStorage，最后按角色默认
       // 🆕 fix11: 正则允许下划线,匹配 cross_dept / delete_approvals / ai_reviews / admin_overview / offline_orders / custom_photo 等
       var hashMatch = window.location.hash.match(/tab=([a-z_]+)/);
@@ -2581,9 +2599,9 @@ var App = function App() {
       if (user && user.role === 'hr') return 'admin_overview'; // 🆕 fix113: 人事默认进绩效总览
       return 'cs';
     }),
-    _useState28 = _slicedToArray(_useState27, 2),
-    activeTab = _useState28[0],
-    setActiveTab = _useState28[1];
+    _useState30 = _slicedToArray(_useState29, 2),
+    activeTab = _useState30[0],
+    setActiveTab = _useState30[1];
   // tab 切换时写入 localStorage + URL hash
   useEffect(function () {
     localStorage.setItem('ws_active_tab', activeTab);
@@ -2597,10 +2615,10 @@ var App = function App() {
 
   // 🆕 fix145: 跳转并聚焦某条记录 —— setActiveTab + 把目标 id 存进 navFocus,目标页用 useEffect+useRef 自动打开。
   //            id 为空 = 只切 tab(「查看全部」类按钮),不聚焦。
-  var _useState29 = useState(null),
-    _useState30 = _slicedToArray(_useState29, 2),
-    navFocus = _useState30[0],
-    setNavFocus = _useState30[1]; // { tab, id, sub, t } | null
+  var _useState31 = useState(null),
+    _useState32 = _slicedToArray(_useState31, 2),
+    navFocus = _useState32[0],
+    setNavFocus = _useState32[1]; // { tab, id, sub, t } | null
   var goFocus = useCallback(function (tab, id, sub) {
     if (!tab) return;
     setActiveTab(tab);
@@ -2628,15 +2646,15 @@ var App = function App() {
   }, [activeTab]);
 
   // 跟踪访问过的 iframe tab —— 让 iframe 保持挂载，避免切 tab 时丢数据
-  var _useState31 = useState(function () {
+  var _useState33 = useState(function () {
       var s = new Set();
       // 如果初始 tab 是 iframe 类，也算访问过
       if (['quote', 'kb', 'ai_reviews'].includes(activeTab)) s.add(activeTab);
       return s;
     }),
-    _useState32 = _slicedToArray(_useState31, 2),
-    visitedTabs = _useState32[0],
-    setVisitedTabs = _useState32[1];
+    _useState34 = _slicedToArray(_useState33, 2),
+    visitedTabs = _useState34[0],
+    setVisitedTabs = _useState34[1];
   useEffect(function () {
     if (['quote', 'kb', 'ai_reviews'].includes(activeTab) && !visitedTabs.has(activeTab)) {
       setVisitedTabs(function (prev) {
@@ -2784,12 +2802,12 @@ var App = function App() {
   // 🆕 fix9: 退款处理人员配置 (Miya / Nicole / Yulia 三人默认 — 主管可在设置改)
   // 业务场景: 所有客服可记录退款,但"批准/完成/上传截图"由名单中的人执行
   // 默认值:从 INITIAL_EMPLOYEES 推断 (u_miya/u_nicole/u_yulia),云端有配置时优先用云端
-  var _useState33 = useState(function () {
+  var _useState35 = useState(function () {
       return STORE.get('refund_processors_cache', ['u_miya', 'u_nicole', 'u_yulia']);
     }),
-    _useState34 = _slicedToArray(_useState33, 2),
-    refundProcessors = _useState34[0],
-    setRefundProcessors = _useState34[1];
+    _useState36 = _slicedToArray(_useState35, 2),
+    refundProcessors = _useState36[0],
+    setRefundProcessors = _useState36[1];
   useEffect(function () {
     if (!cloudOn || !CLOUD.client) return;
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
@@ -2893,27 +2911,27 @@ var App = function App() {
   // ══════════════════════════════════════════════════════════════
   // 📨 fix9c: 跨部门协作消息 — 美工/客服/跟单 三系统共用消息总线
   // ══════════════════════════════════════════════════════════════
-  var _useState35 = useState([]),
-    _useState36 = _slicedToArray(_useState35, 2),
-    cdmMessages = _useState36[0],
-    setCdmMessages = _useState36[1];
-  var _useState37 = useState(false),
+  var _useState37 = useState([]),
     _useState38 = _slicedToArray(_useState37, 2),
-    cdmLoading = _useState38[0],
-    setCdmLoading = _useState38[1];
+    cdmMessages = _useState38[0],
+    setCdmMessages = _useState38[1];
+  var _useState39 = useState(false),
+    _useState40 = _slicedToArray(_useState39, 2),
+    cdmLoading = _useState40[0],
+    setCdmLoading = _useState40[1];
   var cdmLoadingRef = useRef(false);
   // 🆕 fix140: 最大 created_at_ms 水位,realtime 兜底增量补拉用(只取新于水位的行)
   var cdmMaxCreatedRef = useRef(0);
   var cdmCatchupTimer = useRef(null);
   // 🆕 v22-CV/CW: 店铺-负责人映射 + 超时阈值配置 (三方共享)
-  var _useState39 = useState([]),
-    _useState40 = _slicedToArray(_useState39, 2),
-    shopOwners = _useState40[0],
-    setShopOwners = _useState40[1];
-  var _useState41 = useState({}),
+  var _useState41 = useState([]),
     _useState42 = _slicedToArray(_useState41, 2),
-    cdmTimeoutConfig = _useState42[0],
-    setCdmTimeoutConfig = _useState42[1];
+    shopOwners = _useState42[0],
+    setShopOwners = _useState42[1];
+  var _useState43 = useState({}),
+    _useState44 = _slicedToArray(_useState43, 2),
+    cdmTimeoutConfig = _useState44[0],
+    setCdmTimeoutConfig = _useState44[1];
 
   // 🆕 fix140: 列表轻量列(不含 attachments/thread 巨型 base64)— 初拉与增量补拉共用
   var CDM_LIST_COLS = 'id,from_system,from_user_id,from_user_name,to_system,to_user_id,to_user_name,category,priority,title,body,related_ref,related_type,related_shop,assigned_to_id,assigned_to_name,assigned_by_id,assigned_by_name,assigned_at_ms,watchers,status,read_by,created_at_ms,updated_at';
@@ -3307,14 +3325,14 @@ var App = function App() {
   // 普通客服默认不显示 dashboard 在顶部(只在侧栏可点)
   var isAdmin = (user === null || user === void 0 ? void 0 : user.role) === 'admin' || (user === null || user === void 0 ? void 0 : user.role) === 'super_admin';
   var DEFAULT_TOP_KEYS = isAdmin ? ['dashboard', 'cs', 'chargebacks', 'offline_orders', 'custom_photo', 'events'] : ['cs', 'chargebacks', 'offline_orders', 'custom_photo', 'events', 'reviews'];
-  var _useState43 = useState({
+  var _useState45 = useState({
       topKeys: DEFAULT_TOP_KEYS,
       sidebarOrder: [],
       sidebarCollapsed: false
     }),
-    _useState44 = _slicedToArray(_useState43, 2),
-    layoutPrefs = _useState44[0],
-    setLayoutPrefs = _useState44[1];
+    _useState46 = _slicedToArray(_useState45, 2),
+    layoutPrefs = _useState46[0],
+    setLayoutPrefs = _useState46[1];
   // 登录或切换账号时重新加载该用户的布局
   useEffect(function () {
     if (!user) return;
@@ -3339,10 +3357,10 @@ var App = function App() {
     if (!user) return;
     STORE.set("nav_layout_".concat(user.id), layoutPrefs);
   }, [layoutPrefs, user === null || user === void 0 ? void 0 : user.id]);
-  var _useState45 = useState(false),
-    _useState46 = _slicedToArray(_useState45, 2),
-    customizeOpen = _useState46[0],
-    setCustomizeOpen = _useState46[1];
+  var _useState47 = useState(false),
+    _useState48 = _slicedToArray(_useState47, 2),
+    customizeOpen = _useState48[0],
+    setCustomizeOpen = _useState48[1];
 
   // 计算完整 tabs 列表 — 单一数据源,TopNav 和 Sidebar 都从这里拿
   // 🆕 fix11-hotfix1: stats 在函数体后面才定义 → 用 ?. 防御性访问,首渲染时 stats 是 undefined 不崩
@@ -3573,13 +3591,13 @@ var App = function App() {
   }, [allTabs, layoutPrefs.topKeys, layoutPrefs.sidebarOrder]);
 
   // 通知权限
-  var _useState47 = useState(function () {
+  var _useState49 = useState(function () {
       if (typeof Notification === 'undefined') return 'unsupported';
       return Notification.permission;
     }),
-    _useState48 = _slicedToArray(_useState47, 2),
-    notifPerm = _useState48[0],
-    setNotifPerm = _useState48[1];
+    _useState50 = _slicedToArray(_useState49, 2),
+    notifPerm = _useState50[0],
+    setNotifPerm = _useState50[1];
   var requestNotifPerm = function requestNotifPerm() {
     if (typeof Notification === 'undefined') {
       toast('⚠️ 当前浏览器不支持桌面通知');
@@ -4018,10 +4036,10 @@ var App = function App() {
   }, [user, records, notifPerm]);
 
   // 🔍 全局智能搜索（必须在条件 return 之前定义,符合 React Rules of Hooks）
-  var _useState49 = useState(false),
-    _useState50 = _slicedToArray(_useState49, 2),
-    searchOpen = _useState50[0],
-    setSearchOpen = _useState50[1];
+  var _useState51 = useState(false),
+    _useState52 = _slicedToArray(_useState51, 2),
+    searchOpen = _useState52[0],
+    setSearchOpen = _useState52[1];
   useEffect(function () {
     var handler = function handler(e) {
       var _document$activeEleme, _document$activeEleme2;
@@ -4125,7 +4143,57 @@ var App = function App() {
         fontSize: 12
       }
     }, "\u2190 \u5207\u56DE ", origin.name));
-  }(), user && cloudOn && /*#__PURE__*/React.createElement("div", {
+  }(), user && cloudOn && (syncStuck || cloudSyncError) && /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: 'fixed',
+      right: 18,
+      bottom: 18,
+      zIndex: 2147483000,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 11,
+      background: '#fff7ed',
+      border: '2px solid #f59e0b',
+      borderRadius: 12,
+      padding: '11px 15px',
+      boxShadow: '0 8px 28px rgba(245,158,11,.4)',
+      maxWidth: '92vw'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 22
+    }
+  }, "\u26A0"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      lineHeight: 1.3
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13.5,
+      fontWeight: 800,
+      color: '#b45309'
+    }
+  }, unsyncedCount > 0 ? "".concat(unsyncedCount, " \u6761\u8FD8\u6CA1\u4FDD\u5B58\u5230\u4E91\u7AEF") : '有数据未同步到云端'), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10.5,
+      color: '#92400e'
+    }
+  }, "\u79BB\u5F00\u6216\u5173\u9875\u524D\u8BF7\u5148\u4E0A\u4F20,\u4EE5\u514D\u4E22\u5931")), /*#__PURE__*/React.createElement("button", {
+    onClick: forceSyncAll,
+    disabled: forcingSync,
+    style: {
+      padding: '8px 15px',
+      fontSize: 13,
+      fontWeight: 800,
+      background: forcingSync ? '#e5e7eb' : '#f59e0b',
+      color: forcingSync ? '#6b7280' : 'white',
+      border: 'none',
+      borderRadius: 9,
+      cursor: forcingSync ? 'default' : 'pointer',
+      fontFamily: 'inherit',
+      whiteSpace: 'nowrap'
+    }
+  }, forcingSync ? '⏳ 上传中…' : '☁ 立即上传')), user && cloudOn && /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       justifyContent: 'flex-end',
@@ -4454,7 +4522,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix199';
+var APP_VERSION = '2026.06.05-fix200';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
