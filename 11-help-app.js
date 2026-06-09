@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix202
+// 版本 2026.06.05-fix203
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix202
+// 版本 2026.06.05-fix203
 // 预编译切片
 //
 
@@ -1444,7 +1444,24 @@ var App = function App() {
 
   // 所有客服记录 (localStorage + 云同步)
   var _useState17 = useState(function () {
-      return STORE.get('cs_records', []).map(recomputeDuration);
+      // 🆕 fix203:启动自检 —— 主键空/损坏时,从文本备份键恢复,避免"刷新后全没了"
+      var main = [];
+      try {
+        main = STORE.get('cs_records', []) || [];
+      } catch (e) {
+        main = [];
+      }
+      if (!Array.isArray(main)) main = [];
+      if (main.length === 0) {
+        try {
+          var bak = STORE.get('cs_records_bak', []);
+          if (Array.isArray(bak) && bak.length) {
+            console.warn('[recover] cs_records 为空,从备份恢复', bak.length, '条');
+            main = bak;
+          }
+        } catch (e) {}
+      }
+      return main.map(recomputeDuration);
     }),
     _useState18 = _slicedToArray(_useState17, 2),
     records = _useState18[0],
@@ -1453,6 +1470,10 @@ var App = function App() {
   useEffect(function () {
     // 🆕 fix199:逐级降级保存 —— 配额满时绝不让记录"文本"丢失(图在云端,大不了本地不存图)。
     var key = STORE.k('cs_records');
+    // 🆕 fix203:每次都写一份极小的"文本备份键"(无图,永远存得下),主键万一损坏/被清可自动恢复
+    try {
+      localStorage.setItem(STORE.k('cs_records_bak'), JSON.stringify(minimalRecords(records)));
+    } catch (e) {}
     try {
       localStorage.setItem(key, JSON.stringify(records));
       return;
@@ -1463,38 +1484,7 @@ var App = function App() {
     } catch (e) {} // 剥图版
     try {
       // 最后兜底:只留核心字段(无图无附件),保证刷新后记录还在,不再"凭空消失"
-      var minimal = (records || []).map(function (r) {
-        return {
-          id: r.id,
-          date: r.date,
-          customer: r.customer,
-          site: r.site,
-          status: r.status,
-          orderRef: r.orderRef,
-          note: r.note,
-          category: r.category,
-          difficulty: r.difficulty,
-          startTime: r.startTime,
-          endTime: r.endTime,
-          durationMin: r.durationMin,
-          nextFollowUp: r.nextFollowUp,
-          ownerId: r.ownerId,
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
-          isFeedback: r.isFeedback,
-          feedbackNote: r.feedbackNote,
-          followUps: (r.followUps || []).map(function (f) {
-            return {
-              id: f.id,
-              time: f.time,
-              text: f.text,
-              status: f.status
-            };
-          }),
-          deleted: r.deleted
-        };
-      });
-      localStorage.setItem(key, JSON.stringify(minimal));
+      localStorage.setItem(key, JSON.stringify(minimalRecords(records)));
     } catch (e) {
       console.error('[cs_records] 本地保存失败(配额已满,连无图版都存不下)', e);
     }
@@ -2135,6 +2125,13 @@ var App = function App() {
             });
             setCloudSyncError(failed.size > 0 ? "".concat(failed.size, " \u6761\u8BB0\u5F55\u4E0A\u4F20\u5931\u8D25(\u5176\u4F59\u5DF2\u8FDB\u670D\u52A1\u5668),\u5C06\u81EA\u52A8\u91CD\u8BD5") : null);
             setUnsyncedCount(computeChangedRecords().length);
+            // 🆕 fix203:截图已传云存储(有 url),本地丢掉 base64 只留 url,释放本机空间。无变化则不触发更新(不会循环)。
+            setRecords(function (prev) {
+              var next = prev.map(stripRecordUploadedShots);
+              return next.some(function (r, i) {
+                return r !== prev[i];
+              }) ? next : prev;
+            });
             _context9.n = 6;
             break;
           case 5:
@@ -4542,7 +4539,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix202';
+var APP_VERSION = '2026.06.05-fix203';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

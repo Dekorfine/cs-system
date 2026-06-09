@@ -1,7 +1,8 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix202
+// 版本 2026.06.05-fix203
 // 预编译切片
 //
+var _excluded = ["data"];
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
@@ -11,6 +12,8 @@ function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present,
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var n = Object.getOwnPropertySymbols(e); for (r = 0; r < n.length; r++) o = n[r], -1 === t.indexOf(o) && {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -24,7 +27,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix202
+// 版本 2026.06.05-fix203
 // 预编译切片
 //
 
@@ -401,6 +404,84 @@ function slimRecordsForCache(records) {
       }) : f;
     });
     return o;
+  });
+}
+
+// 🆕 fix203:核心文本版(无图无附件)—— 用于本机配额兜底 + 双备份键,体积极小,永远存得下。
+function minimalRecords(records) {
+  return (records || []).map(function (r) {
+    return {
+      id: r.id,
+      date: r.date,
+      customer: r.customer,
+      site: r.site,
+      status: r.status,
+      orderRef: r.orderRef,
+      note: r.note,
+      category: r.category,
+      difficulty: r.difficulty,
+      startTime: r.startTime,
+      endTime: r.endTime,
+      durationMin: r.durationMin,
+      nextFollowUp: r.nextFollowUp,
+      ownerId: r.ownerId,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+      isFeedback: r.isFeedback,
+      feedbackNote: r.feedbackNote,
+      followUps: (r.followUps || []).map(function (f) {
+        return {
+          id: f.id,
+          time: f.time,
+          text: f.text,
+          status: f.status
+        };
+      }),
+      deleted: r.deleted
+    };
+  });
+}
+
+// 🆕 fix203:已传到云存储的截图(有 url),把本地的 base64 data 丢掉只留 url —— 从源头不再撑爆 localStorage。
+//   只对"有 url"的截图生效;没传上的(只有 data 无 url)保留,等下次重传。无变化时返回原引用,避免无谓重渲染。
+function stripUploadedShotArr(arr) {
+  if (!Array.isArray(arr)) return arr;
+  var changed = false;
+  var out = arr.map(function (s) {
+    if (s && s.url && s.data) {
+      changed = true;
+      var data = s.data,
+        rest = _objectWithoutProperties(s, _excluded);
+      return rest;
+    }
+    return s;
+  });
+  return changed ? out : arr;
+}
+function stripRecordUploadedShots(r) {
+  if (!r || _typeof(r) !== 'object') return r;
+  var ns = stripUploadedShotArr(r.screenshots);
+  var nf = stripUploadedShotArr(r.feedbackShots);
+  var np = stripUploadedShotArr(r.productOptShots);
+  var fuChanged = false;
+  var nfu = Array.isArray(r.followUps) ? r.followUps.map(function (f) {
+    if (f && Array.isArray(f.screenshots)) {
+      var s2 = stripUploadedShotArr(f.screenshots);
+      if (s2 !== f.screenshots) {
+        fuChanged = true;
+        return _objectSpread(_objectSpread({}, f), {}, {
+          screenshots: s2
+        });
+      }
+    }
+    return f;
+  }) : r.followUps;
+  if (ns === r.screenshots && nf === r.feedbackShots && np === r.productOptShots && !fuChanged) return r;
+  return _objectSpread(_objectSpread({}, r), {}, {
+    screenshots: ns,
+    feedbackShots: nf,
+    productOptShots: np,
+    followUps: nfu
   });
 }
 
