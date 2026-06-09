@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix198
+// 版本 2026.06.05-fix199
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix198
+// 版本 2026.06.05-fix199
 // 预编译切片
 //
 
@@ -1451,10 +1451,52 @@ var App = function App() {
     setRecords = _useState18[1];
   // 写入 localStorage（永久兜底）：先存完整(含图);超配额再退化为剥图版(图仍在云端 Supabase)
   useEffect(function () {
+    // 🆕 fix199:逐级降级保存 —— 配额满时绝不让记录"文本"丢失(图在云端,大不了本地不存图)。
+    var key = STORE.k('cs_records');
     try {
-      localStorage.setItem(STORE.k('cs_records'), JSON.stringify(records));
+      localStorage.setItem(key, JSON.stringify(records));
+      return;
+    } catch (e) {}
+    try {
+      localStorage.setItem(key, JSON.stringify(slimRecordsForCache(records)));
+      return;
+    } catch (e) {} // 剥图版
+    try {
+      // 最后兜底:只留核心字段(无图无附件),保证刷新后记录还在,不再"凭空消失"
+      var minimal = (records || []).map(function (r) {
+        return {
+          id: r.id,
+          date: r.date,
+          customer: r.customer,
+          site: r.site,
+          status: r.status,
+          orderRef: r.orderRef,
+          note: r.note,
+          category: r.category,
+          difficulty: r.difficulty,
+          startTime: r.startTime,
+          endTime: r.endTime,
+          durationMin: r.durationMin,
+          nextFollowUp: r.nextFollowUp,
+          ownerId: r.ownerId,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+          isFeedback: r.isFeedback,
+          feedbackNote: r.feedbackNote,
+          followUps: (r.followUps || []).map(function (f) {
+            return {
+              id: f.id,
+              time: f.time,
+              text: f.text,
+              status: f.status
+            };
+          }),
+          deleted: r.deleted
+        };
+      });
+      localStorage.setItem(key, JSON.stringify(minimal));
     } catch (e) {
-      STORE.set('cs_records', slimRecordsForCache(records));
+      console.error('[cs_records] 本地保存失败(配额已满,连无图版都存不下)', e);
     }
   }, [records]);
 
@@ -2101,6 +2143,25 @@ var App = function App() {
     var iv = setInterval(syncChangedRecords, 15000);
     return function () {
       return clearInterval(iv);
+    };
+  }, [cloudOn, user]);
+
+  // 🆕 fix199:离开页面前立即补传 —— 切到别的标签/最小化/锁屏/关闭时马上把未同步改动推上去,
+  //   避免"录完就走人、还没到 15 秒就被丢"的窗口(Aletta 中午离开后记录消失的根因之一)。
+  useEffect(function () {
+    if (!cloudOn || !user) return;
+    var flush = function flush() {
+      if (document.visibilityState === 'hidden') {
+        try {
+          syncChangedRecords();
+        } catch (e) {}
+      }
+    };
+    document.addEventListener('visibilitychange', flush);
+    window.addEventListener('pagehide', flush);
+    return function () {
+      document.removeEventListener('visibilitychange', flush);
+      window.removeEventListener('pagehide', flush);
     };
   }, [cloudOn, user]);
 
@@ -4393,7 +4454,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix198';
+var APP_VERSION = '2026.06.05-fix199';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
