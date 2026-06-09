@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix194
+// 版本 2026.06.05-fix195
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix194
+// 版本 2026.06.05-fix195
 // 预编译切片
 //
 
@@ -178,10 +178,16 @@ var Customer360Modal = function Customer360Modal(_ref) {
   }, "\u5BA2\u6237\u6863\u6848 360\xB0"), /*#__PURE__*/React.createElement("div", {
     className: "font-display",
     style: {
-      fontSize: 19,
-      fontWeight: 600,
+      fontSize: 22,
+      fontWeight: 700,
       letterSpacing: '-.022em',
-      wordBreak: 'break-all'
+      wordBreak: 'break-all',
+      background: '#eff6ff',
+      border: '1px solid #bfdbfe',
+      borderRadius: 8,
+      padding: '4px 12px',
+      display: 'inline-block',
+      color: '#0c4a6e'
     }
   }, "\uD83D\uDCE7 ", email || '(未填邮箱)'), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -244,13 +250,35 @@ var Customer360Modal = function Customer360Modal(_ref) {
     var shotCount = (r.screenshots || []).length + (r.followUps || []).reduce(function (s, f) {
       return s + (f.screenshots || []).length;
     }, 0);
+    // 🆕 fix195:订单号识别 — 旧记录(fix188 拆字段之前)把备注塞在 orderRef 里。
+    //   短且无空格 = 像订单号 → 放大醒目;长文本 = 旧备注 → 挪去"问题/沟通要点"。
+    var ordRaw = (r.orderRef || '').trim();
+    var looksLikeOrder = ordRaw && ordRaw.length <= 24 && !/\s/.test(ordRaw);
+    var orderNo = looksLikeOrder ? ordRaw : '';
+    var noteText = r.note || (looksLikeOrder ? '' : ordRaw);
     return /*#__PURE__*/React.createElement("div", {
       key: r.id,
       style: {
         padding: '12px 14px',
         borderTop: '1px solid var(--line)'
       }
-    }, /*#__PURE__*/React.createElement("div", {
+    }, orderNo && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        fontSize: 16,
+        fontWeight: 800,
+        fontFamily: 'monospace',
+        color: '#0071e3',
+        background: '#eff6ff',
+        border: '1px solid #bfdbfe',
+        borderRadius: 8,
+        padding: '4px 12px',
+        marginBottom: 8,
+        letterSpacing: '.3px'
+      }
+    }, "\uD83D\uDCE6 ", orderNo), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         alignItems: 'center',
@@ -317,12 +345,7 @@ var Customer360Modal = function Customer360Modal(_ref) {
         fontSize: 12,
         marginBottom: 5
       }
-    }, r.orderRef && /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", {
-      style: {
-        color: 'var(--ink-3)',
-        fontWeight: 600
-      }
-    }, "\u8BA2\u5355\u53F7 "), r.orderRef), r.category && /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", {
+    }, r.category && /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", {
       style: {
         color: 'var(--ink-3)',
         fontWeight: 600
@@ -331,7 +354,7 @@ var Customer360Modal = function Customer360Modal(_ref) {
       style: {
         color: 'var(--ink-3)'
       }
-    }, "\uD83D\uDCCE ", shotCount, " \u5F20\u56FE")), r.note ? /*#__PURE__*/React.createElement("div", {
+    }, "\uD83D\uDCCE ", shotCount, " \u5F20\u56FE")), noteText ? /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 12.5,
         color: 'var(--ink)',
@@ -346,7 +369,7 @@ var Customer360Modal = function Customer360Modal(_ref) {
         color: 'var(--ink-3)',
         fontWeight: 600
       }
-    }, "\u95EE\u9898/\u6C9F\u901A\u8981\u70B9\uFF1A"), r.note) : /*#__PURE__*/React.createElement("div", {
+    }, "\u95EE\u9898/\u6C9F\u901A\u8981\u70B9\uFF1A"), noteText) : /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 12,
         color: 'var(--ink-4)',

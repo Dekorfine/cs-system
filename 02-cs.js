@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix194
+// 版本 2026.06.05-fix195
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix194
+// 版本 2026.06.05-fix195
 // 预编译切片
 //
 
@@ -4990,16 +4990,46 @@ var CSModule = function CSModule(_ref7) {
       return setCustomer360Email(null);
     },
     onOpenRecord: function onOpenRecord(id) {
+      // 🆕 fix195:可靠跳转 —— 之前跳不准是因为目标记录被当前筛选/日期/分页/网格视图挡掉,DOM 里根本没这一行。
+      //   这里先把可能挡住它的条件全部归位,确保它一定渲染出来,再重试滚动定位。
+      var rec = records.find(function (x) {
+        return x.id === id;
+      });
+      setSearch('');
+      setFilterStatus('all');
+      setFilterSite('all');
+      setFilterCategory('all');
+      setFilterDifficulty('all');
+      setFilterOwner('all');
+      setShowUnresolvedOnly(false);
+      setFollowUpFilter('all');
+      setCardView('list');
+      setPage(1);
+      if (rec && rec.date) {
+        setViewMode('day');
+        setViewDate(rec.date);
+      } // 切到该记录所在日期(当日模式无分页)
       setRowOverride(function (prev) {
         return _objectSpread(_objectSpread({}, prev), {}, _defineProperty({}, id, true));
-      });
-      setTimeout(function () {
+      }); // 展开该行
+      var tries = 0;
+      var _tryScroll = function tryScroll() {
         var el = document.getElementById('cs-row-' + id);
-        if (el) el.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        });
-      }, 60);
+        if (el) {
+          el.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+          el.style.transition = 'box-shadow .3s';
+          el.style.boxShadow = '0 0 0 3px rgba(0,113,227,.5)';
+          setTimeout(function () {
+            el.style.boxShadow = '';
+          }, 1500);
+        } else if (tries++ < 25) {
+          setTimeout(_tryScroll, 80);
+        } // 等列表重渲染,最多重试 ~2 秒
+      };
+      setTimeout(_tryScroll, 120);
     }
   }), transferModal && function () {
     var r = records.find(function (rec) {
