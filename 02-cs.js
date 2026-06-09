@@ -1,14 +1,14 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix195
+// 版本 2026.06.05-fix197
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i["return"]) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix195
+// 版本 2026.06.05-fix197
 // 预编译切片
 //
 
@@ -1314,8 +1314,28 @@ var CSModule = function CSModule(_ref7) {
     };
   }, [cloudOn, employees]);
   var reminders = useMemo(function () {
+    // 🆕 fix196:逾期但「已在到期日当天或之后跟进过」的记录 = 已处理,不再纳入提醒/逾期。
+    //   (Aletta 反馈:已处理过的旧记录又弹出来说逾期,今天真正要跟的反而被挤掉。)
+    var handledSinceDue = function handledSinceDue(r) {
+      if (!r.nextFollowUp || !Array.isArray(r.followUps) || !r.followUps.length) return false;
+      var last = '';
+      var _iterator = _createForOfIteratorHelper(r.followUps),
+        _step;
+      try {
+        for (_iterator.s(); !(_step = _iterator.n()).done;) {
+          var f = _step.value;
+          var d = (f.time || '').slice(0, 10);
+          if (d > last) last = d;
+        }
+      } catch (err) {
+        _iterator.e(err);
+      } finally {
+        _iterator.f();
+      }
+      return last && last >= r.nextFollowUp; // 到期后有跟进 = 已响应
+    };
     var allLive = records.filter(function (r) {
-      return !r.deleted && r.status !== 'resolved' && r.nextFollowUp;
+      return !r.deleted && r.status !== 'resolved' && r.nextFollowUp && !(r.nextFollowUp < today && handledSinceDue(r));
     });
     var base = isAdmin ? allLive : allLive.filter(function (r) {
       return r.ownerId === user.id;
@@ -3721,7 +3741,7 @@ var CSModule = function CSModule(_ref7) {
     var editable = canEditRecord(r, user, adminUnlock);
     var emailNorm = (r.customer || '').trim().toLowerCase();
     var dupRecords = emailNorm ? visibleRecords.filter(function (rr) {
-      return rr.id !== r.id && (rr.customer || '').trim().toLowerCase() === emailNorm;
+      return rr.id !== r.id && (rr.customer || '').trim().toLowerCase() === emailNorm && rr.date === r.date;
     }) : [];
     var isDup = dupRecords.length > 0;
     var cur = STATUSES.find(function (s) {
@@ -6076,11 +6096,11 @@ var MultiFileUploader = function MultiFileUploader(_ref24) {
       var _e$clipboardData;
       var items = (_e$clipboardData = e.clipboardData) === null || _e$clipboardData === void 0 ? void 0 : _e$clipboardData.items;
       if (!items) return;
-      var _iterator = _createForOfIteratorHelper(items),
-        _step;
+      var _iterator2 = _createForOfIteratorHelper(items),
+        _step2;
       try {
-        for (_iterator.s(); !(_step = _iterator.n()).done;) {
-          var it = _step.value;
+        for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
+          var it = _step2.value;
           var f = it.getAsFile();
           if (f) {
             uploadOne(f);
@@ -6089,9 +6109,9 @@ var MultiFileUploader = function MultiFileUploader(_ref24) {
           }
         }
       } catch (err) {
-        _iterator.e(err);
+        _iterator2.e(err);
       } finally {
-        _iterator.f();
+        _iterator2.f();
       }
     };
     var el = dropRef.current;
@@ -6804,11 +6824,11 @@ var MultiImageUploader = function MultiImageUploader(_ref30) {
       var _e$clipboardData2;
       var items = (_e$clipboardData2 = e.clipboardData) === null || _e$clipboardData2 === void 0 ? void 0 : _e$clipboardData2.items;
       if (!items) return;
-      var _iterator2 = _createForOfIteratorHelper(items),
-        _step2;
+      var _iterator3 = _createForOfIteratorHelper(items),
+        _step3;
       try {
-        for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
-          var it = _step2.value;
+        for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
+          var it = _step3.value;
           if (it.type.startsWith('image/') || acceptVideo && it.type.startsWith('video/')) {
             var f = it.getAsFile();
             if (f) {
@@ -6819,9 +6839,9 @@ var MultiImageUploader = function MultiImageUploader(_ref30) {
           }
         }
       } catch (err) {
-        _iterator2.e(err);
+        _iterator3.e(err);
       } finally {
-        _iterator2.f();
+        _iterator3.f();
       }
     };
     var el = dropRef.current;
@@ -7517,55 +7537,76 @@ var EventEditorModal = function EventEditorModal(_ref34) {
     _useState154 = _slicedToArray(_useState153, 2),
     aftersaleStatus = _useState154[0],
     setAftersaleStatus = _useState154[1];
+  // 🆕 fix197(方案A):售后内嵌「补件追踪」—— 同一条记录直接带补件状态,不用再新建补件单重填一遍
+  var _useState155 = useState(!!(existingEvent !== null && existingEvent !== void 0 && existingEvent.refill_needed)),
+    _useState156 = _slicedToArray(_useState155, 2),
+    refillNeeded = _useState156[0],
+    setRefillNeeded = _useState156[1];
+  var _useState157 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_status) || 'pending_order'),
+    _useState158 = _slicedToArray(_useState157, 2),
+    asRefillStatus = _useState158[0],
+    setAsRefillStatus = _useState158[1];
+  var _useState159 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_qty) || ''),
+    _useState160 = _slicedToArray(_useState159, 2),
+    asRefillQty = _useState160[0],
+    setAsRefillQty = _useState160[1];
+  var _useState161 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_note) || ''),
+    _useState162 = _slicedToArray(_useState161, 2),
+    asRefillNote = _useState162[0],
+    setAsRefillNote = _useState162[1];
+  var _useState163 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_tracking) || ''),
+    _useState164 = _slicedToArray(_useState163, 2),
+    asRefillTracking = _useState164[0],
+    setAsRefillTracking = _useState164[1];
 
   // 补件专属
-  var _useState155 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.items) || [{
+  var _useState165 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.items) || [{
       item: '',
       qty: 1,
       unit: '套',
       attachments: []
     }]),
-    _useState156 = _slicedToArray(_useState155, 2),
-    refillItems = _useState156[0],
-    setRefillItems = _useState156[1];
-  var _useState157 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.expected_ship_date) || ''),
-    _useState158 = _slicedToArray(_useState157, 2),
-    expectedShipDate = _useState158[0],
-    setExpectedShipDate = _useState158[1];
-  var _useState159 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.status) || 'pending_order'),
-    _useState160 = _slicedToArray(_useState159, 2),
-    refillStatus = _useState160[0],
-    setRefillStatus = _useState160[1];
+    _useState166 = _slicedToArray(_useState165, 2),
+    refillItems = _useState166[0],
+    setRefillItems = _useState166[1];
+  var _useState167 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.expected_ship_date) || ''),
+    _useState168 = _slicedToArray(_useState167, 2),
+    expectedShipDate = _useState168[0],
+    setExpectedShipDate = _useState168[1];
+  var _useState169 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.status) || 'pending_order'),
+    _useState170 = _slicedToArray(_useState169, 2),
+    refillStatus = _useState170[0],
+    setRefillStatus = _useState170[1];
 
   // 退款专属
-  var _useState161 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_type) || 'quality_issue'),
-    _useState162 = _slicedToArray(_useState161, 2),
-    refundType = _useState162[0],
-    setRefundType = _useState162[1];
-  var _useState163 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_type_custom) || ''),
-    _useState164 = _slicedToArray(_useState163, 2),
-    refundTypeCustom = _useState164[0],
-    setRefundTypeCustom = _useState164[1];
-  var _useState165 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.amount) || ''),
-    _useState166 = _slicedToArray(_useState165, 2),
-    amount = _useState166[0],
-    setAmount = _useState166[1];
-  var _useState167 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.currency) || 'USD'),
-    _useState168 = _slicedToArray(_useState167, 2),
-    currency = _useState168[0],
-    setCurrency = _useState168[1];
-  var _useState169 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.payment_method) || 'shopify_payments'),
-    _useState170 = _slicedToArray(_useState169, 2),
-    paymentMethod = _useState170[0],
-    setPaymentMethod = _useState170[1];
-  var _useState171 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.payment_method_custom) || ''),
+  var _useState171 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_type) || 'quality_issue'),
     _useState172 = _slicedToArray(_useState171, 2),
-    paymentMethodCustom = _useState172[0],
-    setPaymentMethodCustom = _useState172[1];
-  var _useState173 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_reason) || ''),
+    refundType = _useState172[0],
+    setRefundType = _useState172[1];
+  var _useState173 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_type_custom) || ''),
     _useState174 = _slicedToArray(_useState173, 2),
-    refundReason = _useState174[0],
-    setRefundReason = _useState174[1];
+    refundTypeCustom = _useState174[0],
+    setRefundTypeCustom = _useState174[1];
+  var _useState175 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.amount) || ''),
+    _useState176 = _slicedToArray(_useState175, 2),
+    amount = _useState176[0],
+    setAmount = _useState176[1];
+  var _useState177 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.currency) || 'USD'),
+    _useState178 = _slicedToArray(_useState177, 2),
+    currency = _useState178[0],
+    setCurrency = _useState178[1];
+  var _useState179 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.payment_method) || 'shopify_payments'),
+    _useState180 = _slicedToArray(_useState179, 2),
+    paymentMethod = _useState180[0],
+    setPaymentMethod = _useState180[1];
+  var _useState181 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.payment_method_custom) || ''),
+    _useState182 = _slicedToArray(_useState181, 2),
+    paymentMethodCustom = _useState182[0],
+    setPaymentMethodCustom = _useState182[1];
+  var _useState183 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_reason) || ''),
+    _useState184 = _slicedToArray(_useState183, 2),
+    refundReason = _useState184[0],
+    setRefundReason = _useState184[1];
   var supplier = suppliers.find(function (s) {
     return s.id === supplierId;
   });
@@ -7632,7 +7673,13 @@ var EventEditorModal = function EventEditorModal(_ref34) {
               improvement_suggestion: improvementSuggestion.trim() || null,
               improvement_status: improvementStatus.trim() || null,
               communication_images: commImages,
-              status: aftersaleStatus
+              status: aftersaleStatus,
+              // 🆕 fix197(方案A):补件追踪内嵌在售后记录里
+              refill_needed: refillNeeded,
+              refill_status: refillNeeded ? asRefillStatus : null,
+              refill_qty: refillNeeded && asRefillQty ? parseInt(asRefillQty) || null : null,
+              refill_note: refillNeeded ? asRefillNote.trim() || null : null,
+              refill_tracking: refillNeeded ? asRefillTracking.trim() || null : null
             });
             _context10.n = 10;
             break;
@@ -8492,7 +8539,160 @@ var EventEditorModal = function EventEditorModal(_ref34) {
     setAttachments: setCommImages,
     defaultLabel: "\u6C9F\u901A",
     maxSize: 10
-  }))), kind === 'refill' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 4,
+      marginBottom: 14,
+      padding: '12px',
+      background: refillNeeded ? '#eff6ff' : '#f8fafc',
+      border: '1px solid ' + (refillNeeded ? '#bfdbfe' : 'var(--line)'),
+      borderRadius: 8
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      cursor: 'pointer',
+      fontSize: 13,
+      fontWeight: 700,
+      color: refillNeeded ? '#0369a1' : 'var(--ink-2)'
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: refillNeeded,
+    onChange: function onChange(e) {
+      return setRefillNeeded(e.target.checked);
+    },
+    style: {
+      width: 16,
+      height: 16,
+      cursor: 'pointer'
+    }
+  }), "\uD83D\uDCE6 \u9700\u8981\u8865\u4EF6 ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontWeight: 400,
+      fontSize: 11,
+      color: 'var(--ink-4)'
+    }
+  }, "\xB7 \u52FE\u9009\u540E\u8FD9\u6761\u4F1A\u540C\u65F6\u51FA\u73B0\u5728\u300C\u8865\u4EF6\u8FFD\u8E2A\u300D,\u65E0\u9700\u53E6\u5EFA\u5355")), refillNeeded && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 10,
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-2)',
+      display: 'block',
+      marginBottom: 4
+    }
+  }, "\u8865\u4EF6\u72B6\u6001"), /*#__PURE__*/React.createElement("select", {
+    value: asRefillStatus,
+    onChange: function onChange(e) {
+      return setAsRefillStatus(e.target.value);
+    },
+    style: {
+      width: '100%',
+      padding: '6px 10px',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontSize: 13,
+      background: 'white'
+    }
+  }, REFILL_STATUSES.filter(function (s) {
+    return !s.legacy;
+  }).map(function (s) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: s.key,
+      value: s.key
+    }, s.label);
+  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-2)',
+      display: 'block',
+      marginBottom: 4
+    }
+  }, "\u8865\u4EF6\u6570\u91CF"), /*#__PURE__*/React.createElement("input", {
+    type: "number",
+    min: 1,
+    value: asRefillQty,
+    onChange: function onChange(e) {
+      return setAsRefillQty(e.target.value);
+    },
+    placeholder: "\u5982 1",
+    style: {
+      width: '100%',
+      padding: '6px 10px',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontSize: 13
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      gridColumn: '1 / -1'
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-2)',
+      display: 'block',
+      marginBottom: 4
+    }
+  }, "\u8865\u4EF6\u7269\u6D41\u5355\u53F7"), /*#__PURE__*/React.createElement("input", {
+    value: asRefillTracking,
+    onChange: function onChange(e) {
+      return setAsRefillTracking(e.target.value);
+    },
+    placeholder: "\u53D1\u8D27\u540E\u586B,\u4FBF\u4E8E\u8FFD\u8E2A",
+    style: {
+      width: '100%',
+      padding: '6px 10px',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontSize: 13
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      gridColumn: '1 / -1'
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-2)',
+      display: 'block',
+      marginBottom: 4
+    }
+  }, "\u8865\u4EF6\u5907\u6CE8 ", /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--ink-4)',
+      fontWeight: 400,
+      fontSize: 10
+    }
+  }, "\xB7 \u8865\u4EC0\u4E48\u914D\u4EF6/\u6570\u91CF/\u7279\u6B8A\u8BF4\u660E")), /*#__PURE__*/React.createElement("textarea", {
+    value: asRefillNote,
+    onChange: function onChange(e) {
+      return setAsRefillNote(e.target.value);
+    },
+    placeholder: "\u5982:\u8865 1 \u5957\u706F\u5934\u7535\u7EBF + 1 \u4E2A\u5E95\u5EA7\u87BA\u4E1D",
+    style: {
+      width: '100%',
+      minHeight: 48,
+      padding: '8px 10px',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontSize: 13,
+      fontFamily: 'inherit',
+      resize: 'vertical'
+    }
+  }))))), kind === 'refill' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 14
     }
@@ -9060,27 +9260,27 @@ var BatchTransferModal = function BatchTransferModal(_ref37) {
     setFromUserId = _ref37.setFromUserId,
     onClose = _ref37.onClose,
     onTransfer = _ref37.onTransfer;
-  var _useState175 = useState(new Set()),
-    _useState176 = _slicedToArray(_useState175, 2),
-    selectedIds = _useState176[0],
-    setSelectedIds = _useState176[1];
-  var _useState177 = useState(''),
-    _useState178 = _slicedToArray(_useState177, 2),
-    filterSite = _useState178[0],
-    setFilterSite = _useState178[1];
-  var _useState179 = useState(''),
-    _useState180 = _slicedToArray(_useState179, 2),
-    targetUserId = _useState180[0],
-    setTargetUserId = _useState180[1];
+  var _useState185 = useState(new Set()),
+    _useState186 = _slicedToArray(_useState185, 2),
+    selectedIds = _useState186[0],
+    setSelectedIds = _useState186[1];
+  var _useState187 = useState(''),
+    _useState188 = _slicedToArray(_useState187, 2),
+    filterSite = _useState188[0],
+    setFilterSite = _useState188[1];
+  var _useState189 = useState(''),
+    _useState190 = _slicedToArray(_useState189, 2),
+    targetUserId = _useState190[0],
+    setTargetUserId = _useState190[1];
   // 🆕 fix79: 智能搜索 — 员工很多时按名字/拼音/部门搜
-  var _useState181 = useState(''),
-    _useState182 = _slicedToArray(_useState181, 2),
-    fromSearch = _useState182[0],
-    setFromSearch = _useState182[1];
-  var _useState183 = useState(''),
-    _useState184 = _slicedToArray(_useState183, 2),
-    targetSearch = _useState184[0],
-    setTargetSearch = _useState184[1];
+  var _useState191 = useState(''),
+    _useState192 = _slicedToArray(_useState191, 2),
+    fromSearch = _useState192[0],
+    setFromSearch = _useState192[1];
+  var _useState193 = useState(''),
+    _useState194 = _slicedToArray(_useState193, 2),
+    targetSearch = _useState194[0],
+    setTargetSearch = _useState194[1];
 
   // 候选源员工列表
   var candidateEmployees = employees.filter(function (e) {
@@ -9664,23 +9864,23 @@ var FollowUpModal = function FollowUpModal(_ref39) {
     onAddEvent = _ref39.onAddEvent,
     onEditEvent = _ref39.onEditEvent,
     onDeleteEvent = _ref39.onDeleteEvent;
-  var _useState185 = useState(false),
-    _useState186 = _slicedToArray(_useState185, 2),
-    escalateModal = _useState186[0],
-    setEscalateModal = _useState186[1];
-  var _useState187 = useState(''),
-    _useState188 = _slicedToArray(_useState187, 2),
-    escalateReason = _useState188[0],
-    setEscalateReason = _useState188[1];
-  var _useState189 = useState('high'),
-    _useState190 = _slicedToArray(_useState189, 2),
-    escalateUrgency = _useState190[0],
-    setEscalateUrgency = _useState190[1];
+  var _useState195 = useState(false),
+    _useState196 = _slicedToArray(_useState195, 2),
+    escalateModal = _useState196[0],
+    setEscalateModal = _useState196[1];
+  var _useState197 = useState(''),
+    _useState198 = _slicedToArray(_useState197, 2),
+    escalateReason = _useState198[0],
+    setEscalateReason = _useState198[1];
+  var _useState199 = useState('high'),
+    _useState200 = _slicedToArray(_useState199, 2),
+    escalateUrgency = _useState200[0],
+    setEscalateUrgency = _useState200[1];
   // 🆕 fix7: 升级层级 — 'admin'(给主管) / 'boss'(给老板)
-  var _useState191 = useState('admin'),
-    _useState192 = _slicedToArray(_useState191, 2),
-    escalateLevel = _useState192[0],
-    setEscalateLevel = _useState192[1];
+  var _useState201 = useState('admin'),
+    _useState202 = _slicedToArray(_useState201, 2),
+    escalateLevel = _useState202[0],
+    setEscalateLevel = _useState202[1];
   var isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
   var isSuperAdmin = user && user.role === 'super_admin';
   // 🆕 fix7: 当前用户能升级到的层级 — staff/finance → 主管;admin → 老板;super_admin → 不能升级(已在顶)
@@ -9783,14 +9983,14 @@ var FollowUpModal = function FollowUpModal(_ref39) {
       return _ref40.apply(this, arguments);
     };
   }();
-  var _useState193 = useState(''),
-    _useState194 = _slicedToArray(_useState193, 2),
-    newFollowText = _useState194[0],
-    setNewFollowText = _useState194[1];
-  var _useState195 = useState(record.status),
-    _useState196 = _slicedToArray(_useState195, 2),
-    newFollowStatus = _useState196[0],
-    setNewFollowStatus = _useState196[1];
+  var _useState203 = useState(''),
+    _useState204 = _slicedToArray(_useState203, 2),
+    newFollowText = _useState204[0],
+    setNewFollowText = _useState204[1];
+  var _useState205 = useState(record.status),
+    _useState206 = _slicedToArray(_useState205, 2),
+    newFollowStatus = _useState206[0],
+    setNewFollowStatus = _useState206[1];
   var fileInputRef = useRef(null);
   var dropZoneRef = useRef(null);
 
@@ -9801,11 +10001,11 @@ var FollowUpModal = function FollowUpModal(_ref39) {
       var _e$clipboardData3;
       var items = (_e$clipboardData3 = e.clipboardData) === null || _e$clipboardData3 === void 0 ? void 0 : _e$clipboardData3.items;
       if (!items) return;
-      var _iterator3 = _createForOfIteratorHelper(items),
-        _step3;
+      var _iterator4 = _createForOfIteratorHelper(items),
+        _step4;
       try {
-        for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
-          var it = _step3.value;
+        for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
+          var it = _step4.value;
           if (it.type.indexOf('image') === 0) {
             var file = it.getAsFile();
             handleFile(file);
@@ -9813,9 +10013,9 @@ var FollowUpModal = function FollowUpModal(_ref39) {
           }
         }
       } catch (err) {
-        _iterator3.e(err);
+        _iterator4.e(err);
       } finally {
-        _iterator3.f();
+        _iterator4.f();
       }
     };
     window.addEventListener('paste', handlePaste);
@@ -9927,20 +10127,20 @@ var FollowUpModal = function FollowUpModal(_ref39) {
     var _e$clipboardData4;
     var items = (_e$clipboardData4 = e.clipboardData) === null || _e$clipboardData4 === void 0 ? void 0 : _e$clipboardData4.items;
     if (!items) return;
-    var _iterator4 = _createForOfIteratorHelper(items),
-      _step4;
+    var _iterator5 = _createForOfIteratorHelper(items),
+      _step5;
     try {
-      for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
-        var it = _step4.value;
+      for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
+        var it = _step5.value;
         if (it.type.indexOf('image') === 0) {
           handleProductOptFile(it.getAsFile());
           e.preventDefault();
         }
       }
     } catch (err) {
-      _iterator4.e(err);
+      _iterator5.e(err);
     } finally {
-      _iterator4.f();
+      _iterator5.f();
     }
   };
   var addFollowUp = function addFollowUp() {
@@ -9965,10 +10165,10 @@ var FollowUpModal = function FollowUpModal(_ref39) {
     setNewFollowText('');
     toast(patch.nextFollowUp ? '✓ 跟进已保存 · 下次跟进自动设为 ' + patch.nextFollowUp + '(可手改)' : '✓ 跟进记录已保存');
   };
-  var _useState197 = useState(null),
-    _useState198 = _slicedToArray(_useState197, 2),
-    viewingImg = _useState198[0],
-    setViewingImg = _useState198[1];
+  var _useState207 = useState(null),
+    _useState208 = _slicedToArray(_useState207, 2),
+    viewingImg = _useState208[0],
+    setViewingImg = _useState208[1];
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "modal-backdrop",
     onClick: onClose
@@ -11226,14 +11426,14 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref41) {
     today = _ref41.today,
     last7Start = _ref41.last7Start,
     monthStart = _ref41.monthStart;
-  var _useState199 = useState('7d'),
-    _useState200 = _slicedToArray(_useState199, 2),
-    view = _useState200[0],
-    setView = _useState200[1]; // '7d' | 'month'
-  var _useState201 = useState(false),
-    _useState202 = _slicedToArray(_useState201, 2),
-    showAll = _useState202[0],
-    setShowAll = _useState202[1];
+  var _useState209 = useState('7d'),
+    _useState210 = _slicedToArray(_useState209, 2),
+    view = _useState210[0],
+    setView = _useState210[1]; // '7d' | 'month'
+  var _useState211 = useState(false),
+    _useState212 = _slicedToArray(_useState211, 2),
+    showAll = _useState212[0],
+    setShowAll = _useState212[1];
   var startDate = view === '7d' ? last7Start : monthStart;
 
   // 选定的员工列表
