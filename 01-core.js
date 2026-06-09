@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix200
+// 版本 2026.06.05-fix201
 // 预编译切片
 //
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix200
+// 版本 2026.06.05-fix201
 // 预编译切片
 //
 
@@ -1415,26 +1415,26 @@ var isRecordMeaningful = function isRecordMeaningful(r) {
   return !!((r.customer || '').trim() || (r.orderRef || '').trim() || (r.note || '').trim() || (r.startTime || '').trim() || (r.endTime || '').trim() || (r.category || '').trim() || (r.nextFollowUp || '').trim() || (r.site || '').trim() || r.screenshots && r.screenshots.length > 0 || r.followUps && r.followUps.length > 0 || r.escalated || r.transferHistory && r.transferHistory.length > 0);
 };
 
-// 🆕 售后问题类型
+// 🆕 售后问题类型(主类 · 保留旧 key 不丢历史数据,措辞对齐跟单,补「安装问题/不符预期」)
 var ISSUE_TYPES = [{
   key: 'transport_damage',
-  label: '运输损坏',
+  label: '物流损坏',
   color: '#dc2626'
 }, {
   key: 'functional_defect',
-  label: '功能性缺陷',
+  label: '功能故障',
   color: '#ea580c'
 }, {
   key: 'appearance_flaw',
-  label: '外观瑕疵',
+  label: '产品瑕疵',
   color: '#ca8a04'
 }, {
   key: 'missing_parts',
-  label: '缺件',
+  label: '缺配件',
   color: '#7c3aed'
 }, {
   key: 'wrong_shipment',
-  label: '错发',
+  label: '给错货物',
   color: '#0369a1'
 }, {
   key: 'color_diff',
@@ -1445,10 +1445,31 @@ var ISSUE_TYPES = [{
   label: '尺寸问题',
   color: '#0891b2'
 }, {
+  key: 'install_issue',
+  label: '安装问题',
+  color: '#0d9488'
+}, {
+  key: 'not_as_expected',
+  label: '不符预期',
+  color: '#9333ea'
+}, {
   key: 'other',
   label: '其他',
   color: '#525252'
 }];
+// 🆕 fix201:第二级子类(灯具专属),按主类联动
+var ISSUE_SUBS = {
+  transport_damage: ['玻璃罩破损', '灯臂/支架变形', '外壳刮花凹陷', '配件散落', '整体碎裂'],
+  functional_defect: ['完全不亮', '频闪/闪烁', '部分灯珠不亮', '110V-220V不符', '调光不兼容', '遥控/驱动失灵'],
+  appearance_flaw: ['表面瑕疵', '焊点外露', '电镀/喷漆脱落', '划痕', '气泡/杂质'],
+  missing_parts: ['缺灯泡', '缺螺丝/配件', '缺安装说明', '缺吊杆/链条', '缺遥控/驱动'],
+  wrong_shipment: ['发错型号', '发错颜色', '发错尺寸', '发错数量'],
+  color_diff: ['与图片色差', '色温不符', '批次色差'],
+  size_issue: ['尺寸偏大', '尺寸偏小', '与描述不符'],
+  install_issue: ['接线说明不清', '孔位/尺寸对不上', '吊装困难', '看不懂说明书'],
+  not_as_expected: ['亮度不够', '风格/造型不符', '质感不符', '客户主观不喜欢'],
+  other: []
+};
 
 // ============================================================
 // 📨 跨部门协作 (Cross-Dept Messages) — 共享消息总线
@@ -4068,38 +4089,84 @@ var AdvancedDateFilter = function AdvancedDateFilter(_ref8) {
   })))));
 };
 
-// 🆕 售后状态
+// 🆕 售后状态 · fix201:改为「客户问题解决流」(供应商/补件物流已归入补件追踪);旧状态保留兼容显示+自动映射
 var AFTERSALE_STATUSES = [{
-  key: 'pending_remind',
-  label: '待催货',
+  key: 'pending',
+  label: '待处理',
   color: '#ca8a04',
   bg: '#fef9c3'
 }, {
-  key: 'reminded',
-  label: '已催货',
-  color: '#ea580c',
-  bg: '#fff7ed'
-}, {
-  key: 'pending_return',
-  label: '待回货',
+  key: 'communicating',
+  label: '沟通中',
   color: '#0369a1',
   bg: '#e0f2fe'
 }, {
-  key: 'returned',
-  label: '已回货',
+  key: 'repairing',
+  label: '返修中',
+  color: '#ea580c',
+  bg: '#fff7ed'
+}, {
+  key: 'resolved',
+  label: '已解决',
   color: '#16a34a',
   bg: '#dcfce7'
 }, {
-  key: 'customer_refund',
-  label: '客户退款',
-  color: '#dc2626',
-  bg: '#fef2f2'
-}, {
-  key: 'closed',
-  label: '关闭',
+  key: 'cancelled',
+  label: '已取消',
   color: '#525252',
   bg: '#f5f5f5'
+},
+// 旧状态:仅用于历史记录显示,不在下拉里出现(legacy)
+{
+  key: 'pending_remind',
+  label: '待催货(旧)',
+  color: '#ca8a04',
+  bg: '#fef9c3',
+  legacy: true
+}, {
+  key: 'reminded',
+  label: '已催货(旧)',
+  color: '#ea580c',
+  bg: '#fff7ed',
+  legacy: true
+}, {
+  key: 'pending_return',
+  label: '待回货(旧)',
+  color: '#0369a1',
+  bg: '#e0f2fe',
+  legacy: true
+}, {
+  key: 'returned',
+  label: '已回货(旧)',
+  color: '#16a34a',
+  bg: '#dcfce7',
+  legacy: true
+}, {
+  key: 'customer_refund',
+  label: '客户退款(旧)',
+  color: '#dc2626',
+  bg: '#fef2f2',
+  legacy: true
+}, {
+  key: 'closed',
+  label: '关闭(旧)',
+  color: '#525252',
+  bg: '#f5f5f5',
+  legacy: true
 }];
+// 旧→新映射:打开/改动旧记录时归位到新状态;统计"完成"两套都算
+var AS_STATUS_MAP = {
+  pending_remind: 'pending',
+  reminded: 'communicating',
+  pending_return: 'repairing',
+  returned: 'resolved',
+  customer_refund: 'resolved',
+  closed: 'resolved'
+};
+var normAsStatus = function normAsStatus(s) {
+  return AS_STATUS_MAP[s] || s || 'pending';
+};
+var AS_DONE_STATUSES = ['resolved', 'returned', 'customer_refund', 'closed']; // 完成集合(含旧)
 
 // 🆕 补件状态 · fix178: 加「已催货/已打单」,已发货即完成(终态),弃用「已签收」(仍兼容历史数据)
 var REFILL_STATUSES = [{

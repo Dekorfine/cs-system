@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix200
+// 版本 2026.06.05-fix201
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -29,7 +29,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix200
+// 版本 2026.06.05-fix201
 // 预编译切片
 //
 
@@ -942,7 +942,7 @@ var EventsModule = function EventsModule(_ref) {
     title: "\u552E\u540E\u5B8C\u6210\u7EDF\u8BA1",
     icon: "\uD83D\uDD27",
     color: "#ea580c",
-    completedStatuses: ['returned', 'customer_refund', 'closed'],
+    completedStatuses: AS_DONE_STATUSES,
     onClickStats: function onClickStats(_ref8) {
       var records = _ref8.records,
         title = _ref8.title;
@@ -2609,7 +2609,7 @@ var AftersalesTable = function AftersalesTable(_ref18) {
       return i.key === e.issue_type;
     });
     var status = AFTERSALE_STATUSES.find(function (s) {
-      return s.key === e.status;
+      return s.key === normAsStatus(e.status);
     });
     var creator = employees.find(function (emp) {
       return emp.id === e.created_by;
@@ -2667,7 +2667,7 @@ var AftersalesTable = function AftersalesTable(_ref18) {
         fontWeight: 600,
         marginRight: 4
       }
-    }, issue.label, e.issue_type === 'other' && e.issue_type_custom ? ": ".concat(e.issue_type_custom) : ''), e.damaged_part && /*#__PURE__*/React.createElement("span", {
+    }, issue.label, e.issue_sub ? " \xB7 ".concat(e.issue_sub) : '', e.issue_type === 'other' && e.issue_type_custom ? ": ".concat(e.issue_type_custom) : ''), e.damaged_part && /*#__PURE__*/React.createElement("span", {
       style: {
         color: 'var(--ink-3)',
         marginRight: 4
@@ -2737,13 +2737,9 @@ var AftersalesTable = function AftersalesTable(_ref18) {
         color: 'var(--ink-3)'
       }
     }, (creator === null || creator === void 0 ? void 0 : creator.name) || e.created_by_name || '?'), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("select", {
-      value: e.status,
+      value: normAsStatus(e.status),
       onChange: function onChange(ev) {
-        return onUpdateStatus(e.id, ev.target.value, ev.target.value === 'reminded' ? {
-          last_remind_date: new Date().toISOString().slice(0, 10)
-        } : ev.target.value === 'returned' ? {
-          return_date: new Date().toISOString().slice(0, 10)
-        } : {});
+        return onUpdateStatus(e.id, ev.target.value);
       },
       style: {
         padding: '3px 6px',
@@ -2755,7 +2751,9 @@ var AftersalesTable = function AftersalesTable(_ref18) {
         fontWeight: 600,
         cursor: 'pointer'
       }
-    }, AFTERSALE_STATUSES.map(function (s) {
+    }, AFTERSALE_STATUSES.filter(function (s) {
+      return !s.legacy;
+    }).map(function (s) {
       return /*#__PURE__*/React.createElement("option", {
         key: s.key,
         value: s.key
@@ -2765,19 +2763,19 @@ var AftersalesTable = function AftersalesTable(_ref18) {
         display: 'flex',
         gap: 2
       }
-    }, e.status !== 'closed' && e.status !== 'customer_refund' && /*#__PURE__*/React.createElement("button", {
+    }, normAsStatus(e.status) !== 'resolved' && normAsStatus(e.status) !== 'cancelled' && /*#__PURE__*/React.createElement("button", {
       onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
         return _regenerator().w(function (_context11) {
           while (1) switch (_context11.n) {
             case 0:
               _context11.n = 1;
-              return wsConfirm("\u5C06\u300C".concat(e.order_ref, "\u300D\u6807\u8BB0\u4E3A\u5DF2\u5B8C\u6210?"));
+              return wsConfirm("\u5C06\u300C".concat(e.order_ref, "\u300D\u6807\u8BB0\u4E3A\u5DF2\u89E3\u51B3?"));
             case 1:
               if (!_context11.v) {
                 _context11.n = 2;
                 break;
               }
-              onUpdateStatus(e.id, 'closed');
+              onUpdateStatus(e.id, 'resolved');
             case 2:
               return _context11.a(2);
           }
@@ -2789,7 +2787,7 @@ var AftersalesTable = function AftersalesTable(_ref18) {
         fontSize: 11,
         color: '#16a34a'
       },
-      title: "\u6807\u8BB0\u5DF2\u5B8C\u6210"
+      title: "\u6807\u8BB0\u5DF2\u89E3\u51B3"
     }, "\u2713"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return setAseToOrders(e);
