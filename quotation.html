@@ -906,7 +906,8 @@ fieldset legend {
     display: none !important;
   }
   .qt-split { display: block !important; }
-  .qt-right { position: static !important; max-height: none !important; overflow: visible !important; width: 100% !important; flex: none !important; }
+  .qt-right, .qt-split.qt-mode-fill .qt-right { display: block !important; position: static !important; max-height: none !important; overflow: visible !important; width: 100% !important; flex: none !important; }
+  .qt-left { display: none !important; }   /* 🆕 打印只要文档,左侧表单不打 */
   .preview-card, .preview-stage, .preview-doc-wrap {
     background: #fff !important; padding: 0 !important; margin: 0 !important;
     box-shadow: none !important; border: none !important;
@@ -932,9 +933,13 @@ fieldset legend {
 
   .document-container {
     padding: 0 !important; min-height: 0 !important;
-    page-break-after: always; page-break-inside: avoid;
+    page-break-after: always;
+    /* 🆕 fix:绝不能给整个文档设 page-break-inside: avoid —— 多产品时文档高于一页 A4,
+       浏览器无法满足"整体不分页"会输出空白页。允许文档跨页;行级别(tr)另有不拆行保护。 */
   }
   .document-container:last-of-type { page-break-after: auto; }
+  .doc-table thead { display: table-header-group; }   /* 🆕 跨页时表头每页重复 */
+  .doc-table tbody tr { page-break-inside: avoid; }
 
   .document-title { font-size: 18px !important; margin-bottom: 10px !important; }
   .info-grid { gap: 6px !important; margin-bottom: 8px !important; }
