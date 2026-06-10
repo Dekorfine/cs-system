@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix204
+// 版本 2026.06.05-fix205
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix204
+// 版本 2026.06.05-fix205
 // 预编译切片
 //
 
@@ -1354,13 +1354,19 @@ var CSModule = function CSModule(_ref7) {
     }
     return [].concat(_toConsumableArray(base), _toConsumableArray(q));
   }, [records, isAdmin, user.id, quoteReminders, showAll, filterOwner]);
-  var overdueCount = reminders.filter(function (r) {
+
+  // 🆕 fix205(建议4·大厂口径):等客户(waiting)= SLA 时钟暂停,不计入 逾期/今日/未来(只进"等客户"桶)。
+  //   客服在等客户回复期间不背逾期锅,逾期判定更公平(也缓解 Aletta 那种"在等客户却被算逾期")。
+  var activeReminders = reminders.filter(function (r) {
+    return r.status !== 'waiting';
+  });
+  var overdueCount = activeReminders.filter(function (r) {
     return r.nextFollowUp < today;
   }).length;
-  var todayCount = reminders.filter(function (r) {
+  var todayCount = activeReminders.filter(function (r) {
     return r.nextFollowUp === today;
   }).length;
-  var futureCount = reminders.filter(function (r) {
+  var futureCount = activeReminders.filter(function (r) {
     return r.nextFollowUp > today;
   }).length;
   var waitingCount = reminders.filter(function (r) {
@@ -1381,12 +1387,51 @@ var CSModule = function CSModule(_ref7) {
     }
     var meaningful = base.filter(isRecordMeaningful);
     var totalEmails = meaningful.length;
-    var totalMins = meaningful.reduce(function (s, r) {
-      return s + (r.durationMin || 0);
-    }, 0);
     var timedN = meaningful.filter(function (r) {
       return (r.durationMin || 0) > 0;
     }).length; // 🆕 fix177: 已填起止时间的单数
+    // 🆕 fix205(建议2·大厂口径):总时长按"时间窗并集"算 —— 重叠时段只算一次,避免简单相加虚高。
+    var toMin = function toMin(t) {
+      if (!t) return null;
+      var p = String(t).split(':');
+      var h = +p[0],
+        m = +p[1];
+      return isNaN(h) || isNaN(m) ? null : h * 60 + m;
+    };
+    var ivs = meaningful.map(function (r) {
+      return [toMin(r.startTime), toMin(r.endTime)];
+    }).filter(function (iv) {
+      return iv[0] != null && iv[1] != null && iv[1] > iv[0];
+    }).sort(function (a, b) {
+      return a[0] - b[0];
+    });
+    var totalMins = 0,
+      curS = null,
+      curE = null;
+    var _iterator2 = _createForOfIteratorHelper(ivs),
+      _step2;
+    try {
+      for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
+        var _step2$value = _slicedToArray(_step2.value, 2),
+          a = _step2$value[0],
+          b = _step2$value[1];
+        if (curE === null) {
+          curS = a;
+          curE = b;
+        } else if (a <= curE) {
+          curE = Math.max(curE, b);
+        } else {
+          totalMins += curE - curS;
+          curS = a;
+          curE = b;
+        }
+      }
+    } catch (err) {
+      _iterator2.e(err);
+    } finally {
+      _iterator2.f();
+    }
+    if (curE !== null) totalMins += curE - curS;
     var easyN = meaningful.filter(function (r) {
       return r.difficulty === 'easy';
     }).length;
@@ -2593,9 +2638,10 @@ var CSModule = function CSModule(_ref7) {
       return e.id === r.ownerId;
     });
     var daysLate = r.nextFollowUp ? Math.floor((new Date(today) - new Date(r.nextFollowUp)) / (1000 * 60 * 60 * 24)) : 0;
-    var isOverdue = daysLate > 0;
-    var isToday = r.nextFollowUp === today;
-    var dot = isOverdue ? 'var(--bad)' : isToday ? 'var(--gold)' : 'var(--info)';
+    var isWaiting = r.status === 'waiting'; // 🆕 fix205(建议4):等客户暂停,不算逾期
+    var isOverdue = !isWaiting && daysLate > 0;
+    var isToday = !isWaiting && r.nextFollowUp === today;
+    var dot = isWaiting ? 'var(--ink-4)' : isOverdue ? 'var(--bad)' : isToday ? 'var(--gold)' : 'var(--info)';
     var customer = (r.customer || '').trim();
     var orderRef = (r.orderRef || '').trim();
     var note = (r.note || '').trim();
@@ -2698,7 +2744,13 @@ var CSModule = function CSModule(_ref7) {
         textAlign: 'right',
         flexShrink: 0
       }
-    }, isOverdue ? /*#__PURE__*/React.createElement("span", {
+    }, isWaiting ? /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: 'var(--ink-3)',
+        fontSize: 12,
+        fontWeight: 600
+      }
+    }, "\u231B \u7B49\u5BA2\u6237(\u6682\u505C)") : isOverdue ? /*#__PURE__*/React.createElement("span", {
       style: {
         color: 'var(--bad)',
         fontSize: 12,
@@ -6096,11 +6148,11 @@ var MultiFileUploader = function MultiFileUploader(_ref24) {
       var _e$clipboardData;
       var items = (_e$clipboardData = e.clipboardData) === null || _e$clipboardData === void 0 ? void 0 : _e$clipboardData.items;
       if (!items) return;
-      var _iterator2 = _createForOfIteratorHelper(items),
-        _step2;
+      var _iterator3 = _createForOfIteratorHelper(items),
+        _step3;
       try {
-        for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
-          var it = _step2.value;
+        for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
+          var it = _step3.value;
           var f = it.getAsFile();
           if (f) {
             uploadOne(f);
@@ -6109,9 +6161,9 @@ var MultiFileUploader = function MultiFileUploader(_ref24) {
           }
         }
       } catch (err) {
-        _iterator2.e(err);
+        _iterator3.e(err);
       } finally {
-        _iterator2.f();
+        _iterator3.f();
       }
     };
     var el = dropRef.current;
@@ -6824,11 +6876,11 @@ var MultiImageUploader = function MultiImageUploader(_ref30) {
       var _e$clipboardData2;
       var items = (_e$clipboardData2 = e.clipboardData) === null || _e$clipboardData2 === void 0 ? void 0 : _e$clipboardData2.items;
       if (!items) return;
-      var _iterator3 = _createForOfIteratorHelper(items),
-        _step3;
+      var _iterator4 = _createForOfIteratorHelper(items),
+        _step4;
       try {
-        for (_iterator3.s(); !(_step3 = _iterator3.n()).done;) {
-          var it = _step3.value;
+        for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
+          var it = _step4.value;
           if (it.type.startsWith('image/') || acceptVideo && it.type.startsWith('video/')) {
             var f = it.getAsFile();
             if (f) {
@@ -6839,9 +6891,9 @@ var MultiImageUploader = function MultiImageUploader(_ref30) {
           }
         }
       } catch (err) {
-        _iterator3.e(err);
+        _iterator4.e(err);
       } finally {
-        _iterator3.f();
+        _iterator4.f();
       }
     };
     var el = dropRef.current;
@@ -10032,11 +10084,11 @@ var FollowUpModal = function FollowUpModal(_ref39) {
       var _e$clipboardData3;
       var items = (_e$clipboardData3 = e.clipboardData) === null || _e$clipboardData3 === void 0 ? void 0 : _e$clipboardData3.items;
       if (!items) return;
-      var _iterator4 = _createForOfIteratorHelper(items),
-        _step4;
+      var _iterator5 = _createForOfIteratorHelper(items),
+        _step5;
       try {
-        for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
-          var it = _step4.value;
+        for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
+          var it = _step5.value;
           if (it.type.indexOf('image') === 0) {
             var file = it.getAsFile();
             handleFile(file);
@@ -10044,9 +10096,9 @@ var FollowUpModal = function FollowUpModal(_ref39) {
           }
         }
       } catch (err) {
-        _iterator4.e(err);
+        _iterator5.e(err);
       } finally {
-        _iterator4.f();
+        _iterator5.f();
       }
     };
     window.addEventListener('paste', handlePaste);
@@ -10158,20 +10210,20 @@ var FollowUpModal = function FollowUpModal(_ref39) {
     var _e$clipboardData4;
     var items = (_e$clipboardData4 = e.clipboardData) === null || _e$clipboardData4 === void 0 ? void 0 : _e$clipboardData4.items;
     if (!items) return;
-    var _iterator5 = _createForOfIteratorHelper(items),
-      _step5;
+    var _iterator6 = _createForOfIteratorHelper(items),
+      _step6;
     try {
-      for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
-        var it = _step5.value;
+      for (_iterator6.s(); !(_step6 = _iterator6.n()).done;) {
+        var it = _step6.value;
         if (it.type.indexOf('image') === 0) {
           handleProductOptFile(it.getAsFile());
           e.preventDefault();
         }
       }
     } catch (err) {
-      _iterator5.e(err);
+      _iterator6.e(err);
     } finally {
-      _iterator5.f();
+      _iterator6.f();
     }
   };
   var addFollowUp = function addFollowUp() {
