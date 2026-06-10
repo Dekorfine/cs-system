@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix213
+// 版本 2026.06.05-fix214
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix213
+// 版本 2026.06.05-fix214
 // 预编译切片
 //
 
@@ -4434,7 +4434,7 @@ var App = function App() {
         fontSize: 12
       }
     }, "\u2190 \u5207\u56DE ", origin.name));
-  }(), user && cloudOn && (syncStuck || cloudSyncError) && /*#__PURE__*/React.createElement("div", {
+  }(), user && cloudOn && cloudSyncError && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
       right: 18,
@@ -4464,12 +4464,12 @@ var App = function App() {
       fontWeight: 800,
       color: '#b45309'
     }
-  }, unsyncedCount > 0 ? "\u6B63\u5728\u81EA\u52A8\u540C\u6B65 ".concat(unsyncedCount, " \u6761\u5230\u4E91\u7AEF\u2026") : '正在自动同步到云端…'), /*#__PURE__*/React.createElement("div", {
+  }, "\u90E8\u5206\u8BB0\u5F55\u4E0A\u4F20\u5931\u8D25"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 10.5,
       color: '#92400e'
     }
-  }, "\u7CFB\u7EDF\u4F1A\u81EA\u52A8\u4E0A\u4F20,\u65E0\u9700\u624B\u52A8;\u82E5\u957F\u65F6\u95F4\u672A\u5B8C\u6210\u53EF\u70B9\u53F3\u4FA7\u6309\u94AE")), /*#__PURE__*/React.createElement("button", {
+  }, cloudSyncError)), /*#__PURE__*/React.createElement("button", {
     onClick: forceSyncAll,
     disabled: forcingSync,
     style: {
@@ -4996,7 +4996,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix213';
+var APP_VERSION = '2026.06.05-fix214';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
