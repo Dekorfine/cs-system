@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix203
+// 版本 2026.06.05-fix204
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix203
+// 版本 2026.06.05-fix204
 // 预编译切片
 //
 
@@ -1620,10 +1620,10 @@ var App = function App() {
     if (!cleaned.status) cleaned.status = 'pending';
     // 🆕 IO优化:截图已传 Storage(有 url)的,云端只存 url,不再存 base64(行体积大幅缩小,Disk IO 降)
     var slimShot = function slimShot(s) {
-      return s && s.url && s.data ? _objectSpread(_objectSpread({}, s), {}, {
+      return s && s.data ? _objectSpread(_objectSpread({}, s), {}, {
         data: ''
       }) : s;
-    };
+    }; // 🆕 fix204:入库一律剥 base64(无论有无url),行不超大→记录必能同步;图由 Storage 单独传,传上了才有 url
     if (Array.isArray(cleaned.screenshots)) cleaned.screenshots = cleaned.screenshots.map(slimShot);
     if (Array.isArray(cleaned.feedbackShots)) cleaned.feedbackShots = cleaned.feedbackShots.map(slimShot);
     if (Array.isArray(cleaned.productOptShots)) cleaned.productOptShots = cleaned.productOptShots.map(slimShot); // 🆕 fix179
@@ -2373,10 +2373,10 @@ var App = function App() {
               };
             }();
             slim = function slim(s) {
-              return s && s.url && s.data ? _objectSpread(_objectSpread({}, s), {}, {
+              return s && s.data ? _objectSpread(_objectSpread({}, s), {}, {
                 data: ''
               }) : s;
-            };
+            }; // 🆕 fix204:入库一律剥 base64
             BATCH = 15;
             i = 0;
           case 7:
@@ -4539,7 +4539,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix203';
+var APP_VERSION = '2026.06.05-fix204';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
