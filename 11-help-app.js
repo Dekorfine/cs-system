@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix210
+// 版本 2026.06.05-fix211
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix210
+// 版本 2026.06.05-fix211
 // 预编译切片
 //
 
@@ -1551,9 +1551,10 @@ var App = function App() {
                   // 本地独有 — 从未同步过
                   localOnly.push(local);
                 } else {
-                  // 两边都有 — 比较时间戳
+                  // 两边都有 — 比较时间戳(🆕 fix211:两边都 updatedAt 优先,与 recordSig/变更检测一致;
+                  //   否则本地用驼峰、云端用下划线,值不一样会让"较新的本地跟进"被旧云端覆盖 → Aletta 早上的跟进消失、记录回退逾期)
                   var localTs = new Date(local.updatedAt || local.updated_at || local.createdAt || 0).getTime();
-                  var remoteTs = new Date(remote.updated_at || remote.updatedAt || remote.created_at || 0).getTime();
+                  var remoteTs = new Date(remote.updatedAt || remote.updated_at || remote.created_at || 0).getTime();
                   if (localTs > remoteTs + 1000) {
                     // 1秒容差避免时钟漂移
                     localNewer.push(local);
@@ -4708,7 +4709,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix210';
+var APP_VERSION = '2026.06.05-fix211';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

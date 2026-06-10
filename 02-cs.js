@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix210
+// 版本 2026.06.05-fix211
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix210
+// 版本 2026.06.05-fix211
 // 预编译切片
 //
 
@@ -1866,7 +1866,6 @@ var CSModule = function CSModule(_ref7) {
     return !!editable && r.status !== 'resolved' && r.status !== 'transferred';
   };
   var toggleRowOpen = function toggleRowOpen(r, editable) {
-    if (runningTimer && runningTimer.id === r.id && isRowOpen(r, editable)) stopTimer(); // 🆕 fix206:收起正在计时的行→自动停表落库
     setRowOverride(function (prev) {
       return _objectSpread(_objectSpread({}, prev), {}, _defineProperty({}, r.id, !isRowOpen(r, editable)));
     });
@@ -1918,18 +1917,7 @@ var CSModule = function CSModule(_ref7) {
   var toggleTimer = function toggleTimer(id) {
     if (runningTimer && runningTimer.id === id) stopTimer();else startTimer(id);
   };
-  // 切走/隐藏/关页 → 自动停表,避免计时一直跑
-  useEffect(function () {
-    var onHide = function onHide() {
-      if (document.visibilityState === 'hidden' && runningTimer) stopTimer();
-    };
-    document.addEventListener('visibilitychange', onHide);
-    window.addEventListener('pagehide', onHide);
-    return function () {
-      document.removeEventListener('visibilitychange', onHide);
-      window.removeEventListener('pagehide', onHide);
-    };
-  }, [runningTimer]);
+  // 🆕 fix211:按客服要求,计时器只手动停(点 ⏹)。去掉"切走/隐藏/关页自动停"——回邮件常切到另一网页看内容,不能自动停。
 
   // 启动时加载这些数据
   useEffect(function () {
@@ -4095,7 +4083,40 @@ var CSModule = function CSModule(_ref7) {
         fontSize: 14,
         opacity: 0.4
       }
-    }, "\uD83D\uDD12"), /*#__PURE__*/React.createElement("button", {
+    }, "\uD83D\uDD12"), runningTimer && runningTimer.id === r.id && function () {
+      var el = Math.max(0, Math.floor((Date.now() - runningTimer.startMs) / 1000));
+      var mm = String(Math.floor(el / 60)).padStart(2, '0'),
+        ss = String(el % 60).padStart(2, '0');
+      return /*#__PURE__*/React.createElement("button", {
+        onClick: function onClick(e) {
+          e.stopPropagation();
+          stopTimer();
+        },
+        title: "\u70B9\u6B64\u505C\u6B62\u8BA1\u65F6",
+        style: {
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 5,
+          padding: '4px 10px',
+          background: '#dc2626',
+          color: '#fff',
+          border: 'none',
+          borderRadius: 999,
+          cursor: 'pointer',
+          fontSize: 11.5,
+          fontWeight: 700,
+          fontFamily: 'inherit'
+        }
+      }, /*#__PURE__*/React.createElement("span", {
+        style: {
+          width: 7,
+          height: 7,
+          borderRadius: 999,
+          background: '#fff',
+          display: 'inline-block'
+        }
+      }), "\u23F9 ", mm, ":", ss);
+    }(), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return toggleRowOpen(r, editable);
       },
