@@ -1112,15 +1112,19 @@ fieldset legend {
 <div class="qt-split qt-mode-fill" id="qtSplit">
 <div class="qt-left">
 
-<!-- 🆕 顶部使用引导(客服/主管一眼看懂两种用法) -->
-<div class="qt-guide-banner no-print" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 16px;margin-bottom:16px;">
-  <div style="font-weight:700;font-size:14px;color:#1e40af;margin-bottom:8px;">📋 怎么用?两种方式</div>
-  <div style="font-size:13px;color:#1e3a8a;line-height:1.9;">
+<!-- 🆕 顶部使用引导(可折叠:新人首次自动展开,看过后默认收起一行,点标题可再展开) -->
+<div class="qt-guide-banner no-print" id="qt-howto" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 16px;margin-bottom:14px;">
+  <div onclick="(function(){var b=document.getElementById('howto-body');var open=b.style.display!=='none';b.style.display=open?'none':'block';document.getElementById('howto-arrow').textContent=open?'▸ 点开看怎么用':'▾';try{localStorage.setItem('qt_howto_seen','1')}catch(e){}})()" style="font-weight:700;font-size:14px;color:#1e40af;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+    <span>📋 怎么用?两种方式</span>
+    <span id="howto-arrow" style="font-weight:500;font-size:12px;color:#3b82f6;">▾</span>
+  </div>
+  <div id="howto-body" style="font-size:13px;color:#1e3a8a;line-height:1.9;margin-top:8px;">
     <strong>① 做全新报价</strong> — 直接在下面「主表单」从上往下填:选卖方公司、填客户信息、加产品行,右上选输出语言;填好点最上方「👁 预览 &amp; 导出」看效果并导 PDF。<br>
     <strong>② 拿别人 / 自己做过的报价来改</strong>(更快,推荐)—
     <button type="button" onclick="jumpToSearch()" style="display:inline-block;padding:5px 12px;margin:2px 4px;border:none;border-radius:8px;background:#0071e3;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">🔍 搜已有报价</button>
     → 选「👥 团队」就能看到<strong>全部同事做过的报价</strong> → 搜客户名 / PI 号 → 点那一条会<strong>载入到下面表单</strong> → 改内容 → 点「📋 复制为新报价」保存(<strong>不会覆盖原来那张</strong>)。
   </div>
+  <script>try{if(localStorage.getItem('qt_howto_seen')){document.getElementById('howto-body').style.display='none';document.getElementById('howto-arrow').textContent='▸ 点开看怎么用';}else{localStorage.setItem('qt_howto_seen','1');}}catch(e){}</script>
 </div>
 
 <!-- ============================================================
@@ -1382,8 +1386,11 @@ fieldset legend {
 
     <!-- Cloud tab -->
     <div id="tab-cloud" class="tab-pane">
-      <!-- View mode segmented control: My / Team / Trash -->
-      <div style="font-size:12px;color:#64748b;margin-bottom:8px;">👉 点「👥 团队」看全部同事的报价;<strong>点任意一条即可载入到表单修改</strong>,改完用「📋 复制为新报价」另存(不覆盖原报价)。</div>
+      <!-- 🆕 新建报价挪到顶部,显眼好找 -->
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">
+        <div style="font-size:12px;color:#64748b;">👉 点「👥 团队」看全部同事的报价;<strong>点任意一条即可载入到表单修改</strong>,改完用「📋 复制为新报价」另存(不覆盖原报价)。</div>
+        <button class="btn-icon" style="flex:none; background:var(--accent,#0071e3); color:#fff; border:none; font-weight:600; padding:7px 14px; border-radius:8px;" onclick="newQuote()">＋ 新建报价 · New Quote</button>
+      </div>
       <div class="cloud-view-toggle">
         <button class="view-mode-btn active" data-view="mine" onclick="setCloudViewMode('mine')">
           👤 我的报价 · My <span class="count-badge" id="count-mine">0</span>
@@ -1458,6 +1465,8 @@ fieldset legend {
         </select>
         <button class="btn-refresh" onclick="loadCloudList()" title="刷新 · Refresh">↺</button>
       </div>
+      <!-- 🆕 智能筛选:按客服一键筛(带数量),团队视图自动出现 -->
+      <div id="cloud-member-chips" class="no-print" style="display:none;flex-wrap:wrap;gap:6px;margin:8px 0 4px;"></div>
 
       <!-- Action toolbar: Duplicate, Export, Empty Trash -->
       <div class="cloud-toolbar">
@@ -2874,20 +2883,22 @@ function updateTerms() {
    ============================================================ */
 function collectFormData() {
   const items = [];
+  // 🆕 fix:空安全读取 —— 老写法 row.querySelector('.sku').value 在某行缺任一输入框时会抛错,
+  //   导致保存下来的 items 缺字段/被截断(别人载入后就"没图片没价格")。现在每格都安全读。
   document.querySelectorAll('#master-items tr').forEach(row => {
     items.push({
-      sku:        row.querySelector('.sku').value,
-      description:row.querySelector('.description').value,
-      qty:        row.querySelector('.qty').value,
-      price:      row.querySelector('.price').value,
+      sku:        row.querySelector('.sku')?.value || '',
+      description:row.querySelector('.description')?.value || '',
+      qty:        row.querySelector('.qty')?.value || '',
+      price:      row.querySelector('.price')?.value || '',
       imageSrc:   row.dataset.imageSrc || '',
-      cartonNo:   row.querySelector('.carton-no').value,
+      cartonNo:   row.querySelector('.carton-no')?.value || '',
       length:     row.querySelector('.length')?.value || '',
       width:      row.querySelector('.width')?.value || '',
       height:     row.querySelector('.height')?.value || '',
-      nw:         row.querySelector('.nw').value,
-      gw:         row.querySelector('.gw').value,
-      cbm:        row.querySelector('.cbm').value,
+      nw:         row.querySelector('.nw')?.value || '',
+      gw:         row.querySelector('.gw')?.value || '',
+      cbm:        row.querySelector('.cbm')?.value || '',
     });
   });
   const bankFields = [];
@@ -3529,12 +3540,18 @@ window.sbHealthCheck = async function() {
 
 async function sbList(opts = {}) {
   if (!sb) { setCloudStatus('Supabase SDK not loaded', 'err'); return []; }
-  try {
-    let q = sb.from(SB_TABLE).select('*').order('updated_at', { ascending: false });
-    // 🆕 fix25: 新列名 created_by_name (旧的 username 已废弃)
+  // 🆕 提速:列表绝不拉 data 整包(里面有产品图 base64,团队几百张=几十MB,导致"拉取很久")。
+  //   只取列表展示需要的轻量列 + data 里两个小标记;点开某条时已有按 id 拉全文的路径。
+  const LIGHT = 'id, created_by_name, buyer_name, buyer_email, pi_no, status, amount, trashed, updated_at, nf:data->need_followup, fd:data->>followup_date';
+  const run = async (sel) => {
+    let q = sb.from(SB_TABLE).select(sel).order('updated_at', { ascending: false });
     if (opts.username && opts.username !== 'guest') q = q.eq('created_by_name', opts.username);
     if (typeof opts.trashed === 'boolean') q = q.eq('trashed', opts.trashed);
-    const { data, error } = await q;
+    return await q;
+  };
+  try {
+    let { data, error } = await run(LIGHT);
+    if (error) { console.warn('[sbList] 轻量查询失败,回退完整查询:', error.message); ({ data, error } = await run('*')); }
     if (error) throw error;
     return data || [];
   } catch(e) {
@@ -3845,8 +3862,8 @@ function rowToCloudRecord(row) {
     date: (row.updated_at || '').slice(0,16).replace('T','-').replace(':','-'),
     status: row.status || 'draft',
     amount: Number(row.amount) || 0,
-    needFollowup: !!rawData.need_followup,        // 🆕 fix82
-    followupDate: rawData.followup_date || '',    // 🆕 fix82
+    needFollowup: !!(rawData.need_followup !== undefined ? rawData.need_followup : row.nf),        // 🆕 fix82 + 轻量行
+    followupDate: rawData.followup_date || row.fd || '',    // 🆕 fix82 + 轻量行
     quoteName: displayName,
     trashed: !!row.trashed,
   };
@@ -4024,7 +4041,43 @@ function renderCloudList() {
   }
 
   list.innerHTML = '';
+  // 🆕 智能筛选:成员 chip(带数量,一键筛;团队视图显示)
+  const chipBox = $('cloud-member-chips');
+  if (chipBox) {
+    if (cloudViewMode === 'all' && cloudRecords.length) {
+      chipBox.style.display = 'flex'; chipBox.innerHTML = '';
+      const mkChip = (label, value, count) => {
+        const b = document.createElement('button');
+        const active = (uf === value);
+        b.style.cssText = 'padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid ' + (active ? '#0071e3;background:#0071e3;color:#fff' : '#cbd5e1;background:#fff;color:#475569');
+        b.textContent = count != null ? `${label} (${count})` : label;
+        b.onclick = () => { const s = $('cloud-user-filter'); if (s) { if (![...s.options].some(o => o.value === value)) { const o = document.createElement('option'); o.value = value; o.textContent = value; s.appendChild(o); } s.value = value; } renderCloudList(); };
+        chipBox.appendChild(b);
+      };
+      mkChip('👥 全部', '', cloudRecords.length);
+      Object.entries(teamUserCounts || {}).sort((a, b) => b[1] - a[1]).forEach(([u, c]) => mkChip(u, u, c));
+    } else { chipBox.style.display = 'none'; }
+  }
+  // 🆕 智能分组:按日期段插分组头(今天/昨天/本周/本月/更早)
+  const bucketOf = (r) => {
+    const iso = (r.date || '').replace(/T(\d{2})-(\d{2})/, 'T$1:$2');
+    const d = new Date(iso); if (isNaN(d)) return '🗂 更早';
+    const now = new Date();
+    const td = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diff = Math.round((td - dd) / 86400000);
+    if (diff <= 0) return '📅 今天'; if (diff === 1) return '昨天'; if (diff < 7) return '本周'; if (diff < 31) return '本月'; return '🗂 更早';
+  };
+  let _curBucket = null;
   filtered.forEach(r => {
+    const bk = bucketOf(r);
+    if (bk !== _curBucket) {
+      _curBucket = bk;
+      const h = document.createElement('div');
+      h.style.cssText = 'padding:7px 4px 4px;font-size:11.5px;font-weight:700;color:#64748b;border-bottom:1px solid #e2e8f0;margin-bottom:2px;';
+      h.textContent = bk;
+      list.appendChild(h);
+    }
     const isCurrent = currentLoadedPath && currentLoadedPath === r.path;
     const div = document.createElement('div');
     div.className = 'cloud-list-item'
@@ -4065,10 +4118,39 @@ function renderCloudList() {
 function escapeHTML(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// 🆕 IMAGE STORAGE:items 里的 base64 图 → Supabase Storage('quotation-images' 桶),只存 URL。
+//   失败保留 base64(不丢图,下次保存再试);成功后同步回表单行,避免重复上传。
+async function uploadQuoteImages(data) {
+  if (!sb || !data || !Array.isArray(data.items)) return data;
+  const rows = document.querySelectorAll('#master-items tr');
+  for (let i = 0; i < data.items.length; i++) {
+    const it = data.items[i];
+    const src = it && it.imageSrc;
+    if (!src || !src.startsWith('data:image')) continue;
+    try {
+      const blob = await (await fetch(src)).blob();
+      const ext = ((blob.type.split('/')[1] || 'png').replace('jpeg', 'jpg')).replace(/[^a-z0-9]/gi, '') || 'png';
+      const path = 'q/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      const { error } = await sb.storage.from('quotation-images').upload(path, blob, { contentType: blob.type, upsert: false });
+      if (error) { console.warn('[img→Storage] 上传失败,本张保留base64:', error.message); continue; }
+      const { data: pub } = sb.storage.from('quotation-images').getPublicUrl(path);
+      if (pub && pub.publicUrl) {
+        it.imageSrc = pub.publicUrl;
+        const tr = rows[i];
+        if (tr) { tr.dataset.imageSrc = pub.publicUrl; const area = tr.querySelector('.paste-area'); if (area) area.innerHTML = '<img src="' + pub.publicUrl + '">'; }
+      }
+    } catch (e) { console.warn('[img→Storage] 异常,本张保留base64', e); }
+  }
+  return data;
+}
+
 async function cloudSave() {
   const username = getUsername();
   if (!username) { openSettings(); return; }
   const data = collectFormData();
+  // 🆕 IMAGE STORAGE 规则:把产品图 base64 传 Supabase Storage,data 里只存 URL。
+  //   报价单体积从几 MB 降到几 KB → 保存/打开/团队列表都快;上传失败的图保留 base64,绝不丢图。
+  await uploadQuoteImages(data);
   
   // 🆕 fix26 + fix42: 保存前校验 — 用黄色 toast 提示(避免红色让人误以为是技术错误)
   const validationErrors = [];
