@@ -2134,6 +2134,7 @@ function setQtMode(mode) {
   var bf = document.getElementById('qtModeFill'), bp = document.getElementById('qtModePreview');
   if (bf) bf.classList.toggle('active', !preview);
   if (bp) bp.classList.toggle('active', preview);
+  if (preview) { try { syncAndCalculate(); } catch (e) {} }  // 🆕 fix:进预览先按当前编辑器内容刷新一次,杜绝"预览是旧快照"
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
 }
 
@@ -2535,19 +2536,21 @@ function syncAndCalculate() {
   let totalQty = 0, totalNw = 0, totalGw = 0, totalCbm = 0;
 
   document.querySelectorAll('#master-items tr').forEach(row => {
-    const sku = row.querySelector('.sku').value;
-    const description = row.querySelector('.description').value;
-    const qty = parseFloat(row.querySelector('.qty').value) || 0;
-    const priceInSelectedCurrency = parseFloat(row.querySelector('.price').value) || 0;
+    const sku = (row.querySelector('.sku')?.value || '');
+    const description = (row.querySelector('.description')?.value || '');
+    const qty = parseFloat(row.querySelector('.qty')?.value) || 0;
+    const priceInSelectedCurrency = parseFloat(row.querySelector('.price')?.value) || 0;
+    // 🆕 fix:完全空白行(无SKU/无描述/无数量/无单价)→ 跳过,不污染导出
+    if (!sku.trim() && !description.trim() && qty <= 0 && priceInSelectedCurrency <= 0) return;
     const priceUSD = priceInSelectedCurrency / rate;
     const imageSrc = row.dataset.imageSrc || '';
-    const cartonNo = row.querySelector('.carton-no').value;
+    const cartonNo = (row.querySelector('.carton-no')?.value || '');
     const length = parseFloat(row.querySelector('.length')?.value) || 0;
     const width  = parseFloat(row.querySelector('.width')?.value) || 0;
     const height = parseFloat(row.querySelector('.height')?.value) || 0;
-    const nw = parseFloat(row.querySelector('.nw').value) || 0;
-    const gw = parseFloat(row.querySelector('.gw').value) || 0;
-    const cbm = parseFloat(row.querySelector('.cbm').value) || 0;
+    const nw = parseFloat(row.querySelector('.nw')?.value) || 0;
+    const gw = parseFloat(row.querySelector('.gw')?.value) || 0;
+    const cbm = parseFloat(row.querySelector('.cbm')?.value) || 0;
 
     const lineTotalUSD = qty * priceUSD;
     subtotalUSD += lineTotalUSD;
