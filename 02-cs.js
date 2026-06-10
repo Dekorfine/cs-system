@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix206
+// 版本 2026.06.05-fix207
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix206
+// 版本 2026.06.05-fix207
 // 预编译切片
 //
 
@@ -1499,20 +1499,41 @@ var CSModule = function CSModule(_ref7) {
     }, 130);
   };
   var addRow = function addRow() {
-    // 🆕 如果当前日期已经有一行完全空白的（用户点过 + 但没填任何东西）→ 直接定位过去,别只弹提示
-    var emptyRow = dayRecords.find(function (r) {
+    var clearFilters = function clearFilters() {
+      setSearch('');
+      setFilterStatus('all');
+      setFilterSite('all');
+      setFilterCategory('all');
+      setFilterDifficulty('all');
+      setFilterOwner('all');
+      setShowUnresolvedOnly(false);
+      setFollowUpFilter('all');
+    };
+    // 🆕 fix207:先找"当前可见列表"里的空白行 → 直接定位(不动筛选)
+    var visibleEmpty = tableRecords.find(function (r) {
       return !isRecordMeaningful(r);
     });
-    if (emptyRow) {
+    if (visibleEmpty) {
       if (viewMode === 'all') setViewMode('day');
       toast('💡 已有一行空白行 · 已帮你定位,直接填即可');
-      focusRow(emptyRow.id);
+      focusRow(visibleEmpty.id);
       return;
     }
-    // 在"全部记录"模式下加新行 → 自动切回当日模式
-    if (viewMode === 'all') {
-      setViewMode('day');
+    // 🆕 fix207:可见列表没有,但当日其实有空白行(被 客服/状态 等筛选藏起来了)→ 清筛选让它显示再定位,
+    //   避免"提示已定位却看不到"(老板按客服筛选时,空白行归属是自己→被过滤掉)。
+    var hiddenEmpty = dayRecords.find(function (r) {
+      return !isRecordMeaningful(r);
+    });
+    if (hiddenEmpty) {
+      if (viewMode === 'all') setViewMode('day');
+      clearFilters();
+      toast('💡 已有一行空白行(刚被筛选隐藏)· 已清除筛选并定位');
+      focusRow(hiddenEmpty.id);
+      return;
     }
+    // 都没有 → 先清筛选(确保新行不会被当前筛选藏掉)+ 切回当日 + 新建
+    if (viewMode === 'all') setViewMode('day');
+    clearFilters();
     var newRec = {
       id: uid(),
       ownerId: user.id,
