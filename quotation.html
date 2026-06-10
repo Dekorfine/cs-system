@@ -4382,6 +4382,14 @@ async function cloudLoad() {
       data = row.data;
     }
     restoreDataToForm(data);
+    // 🆕 载入体检:这张报价云端存的数据若本身缺价格/图片(旧版保存时丢的),明确告知 —— 是数据缺,不是工具坏
+    try {
+      const its = (data.items || []);
+      const broken = its.filter(it => ((it.sku || '').trim() || (it.description || '').trim()) && !(parseFloat(it.price) > 0) && !it.imageSrc).length;
+      if (broken > 0 && its.some(it => parseFloat(it.price) > 0)) {
+        showToast(`⚠ 注意:这张报价存进云端时就缺了 ${broken} 行的价格/图片(旧版本保存造成的数据缺失,不是载入问题)。请补填价格/重贴图片后保存,即可永久修复这张。`, 'err', 12000);
+      }
+    } catch (e) {}
     currentLoadedPath = selectedCloudItem.id;
     currentLoadedSha = selectedCloudItem.sha;
     setCloudStatus(`✓ Loaded: ${selectedCloudItem.buyerName || selectedCloudItem.piNo}`, 'ok');
