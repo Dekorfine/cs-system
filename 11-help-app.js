@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix208
+// 版本 2026.06.05-fix209
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix208
+// 版本 2026.06.05-fix209
 // 预编译切片
 //
 
@@ -2285,6 +2285,53 @@ var App = function App() {
       clearInterval(iv);
       clearTimeout(t);
       document.removeEventListener('visibilitychange', onShow);
+    };
+  }, [cloudOn, user]);
+
+  // 🆕 fix209(重构·实时):workspace_records realtime 实时订阅 —— 任何人改一条,所有人秒级看到(Google 文档级)。
+  //   与 fix208 的 12s 轮询互补:realtime 即时;若 realtime 没在库里开启/掉线,轮询照样兜底,绝不丢。
+  //   回声安全:本地还没推上去的改动 / 不是更新的回声,都不覆盖,不会闪。
+  useEffect(function () {
+    if (!cloudOn || !user || !CLOUD.client) return;
+    var channel;
+    var mergeRow = function mergeRow(row) {
+      if (!row || !row.id) return;
+      setRecords(function (prev) {
+        var idx = prev.findIndex(function (r) {
+          return r.id === row.id;
+        });
+        if (idx < 0) {
+          lastSyncedRef.current.set(row.id, recordSig(row));
+          return [].concat(_toConsumableArray(prev), [recomputeDuration(row)]);
+        }
+        var lr = prev[idx];
+        if (lastSyncedRef.current.get(lr.id) !== recordSig(lr)) return prev; // 本地有未推送改动 → 不覆盖
+        var lts = new Date(lr.updatedAt || lr.updated_at || 0).getTime();
+        var cts = new Date(row.updatedAt || row.updated_at || 0).getTime();
+        if (cts <= lts) return prev; // 不是更新(自己的回声/旧)→ 不动
+        var next = prev.slice();
+        next[idx] = recomputeDuration(row);
+        lastSyncedRef.current.set(row.id, recordSig(row));
+        var u = row.updatedAt || row.updated_at || '';
+        if (u && (!lastPullRef.current || u > lastPullRef.current)) lastPullRef.current = u;
+        return next;
+      });
+    };
+    try {
+      channel = CLOUD.client.channel('ws_records_rt_' + user.id).on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'workspace_records'
+      }, function (payload) {
+        if (payload && payload["new"]) mergeRow(payload["new"]);
+      }).subscribe();
+    } catch (e) {
+      console.warn('[ws_records] realtime 订阅失败,靠 12s 轮询兜底', e);
+    }
+    return function () {
+      try {
+        if (channel) CLOUD.client.removeChannel(channel);
+      } catch (e) {}
     };
   }, [cloudOn, user]);
 
@@ -4660,7 +4707,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix208';
+var APP_VERSION = '2026.06.05-fix209';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
