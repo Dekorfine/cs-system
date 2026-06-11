@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix215
+// 版本 2026.06.05-fix216
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix215
+// 版本 2026.06.05-fix216
 // 预编译切片
 //
 
@@ -1221,13 +1221,7 @@ var App = function App() {
     var ch1 = null,
       ch2 = null;
     try {
-      ch1 = CLOUD.supabase.channel('products_global').on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'products'
-      }, function () {
-        return loadProductsList();
-      }).subscribe();
+      // 🆕 fix216:products 退出 realtime(批量同步会风暴),改 5 分钟轮询
       ch2 = CLOUD.supabase.channel('settings_global').on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -1239,7 +1233,11 @@ var App = function App() {
     } catch (e) {
       console.warn('Realtime 订阅失败', e);
     }
+    var pIv = setInterval(function () {
+      if (document.visibilityState === 'visible') loadProductsList();
+    }, 300000);
     return function () {
+      clearInterval(pIv);
       try {
         if (ch1) CLOUD.supabase.removeChannel(ch1);
         if (ch2) CLOUD.supabase.removeChannel(ch2);
@@ -1520,7 +1518,7 @@ var App = function App() {
               break;
             }
             console.warn('[sync] 云端返回 0 条但本地有', localMeaningful.length, '条 → 跳过覆盖,改为补传本地,防止误清空');
-            lastSyncedRef.current = new Map(); // 把本地全部当未同步,强制重传
+            // 🆕 fix216:不再清基线全量重传(那会触发百万级重写风暴);内容比对会让真正缺的行自然补传
             setTimeout(function () {
               try {
                 syncChangedRecords();
@@ -1587,7 +1585,10 @@ var App = function App() {
               // 🆕 fix210:基线必须与 recordSig 用完全一样的算法(都 updatedAt 优先),否则每条都被误判"已改"→几千条全重传。
               try {
                 (cloud || []).forEach(function (r) {
-                  if (r && r.id) lastSyncedRef.current.set(r.id, recordSig(r));
+                  if (r && r.id) {
+                    lastSyncedRef.current.set(r.id, recordSig(r));
+                    cloudSigRef.current.set(r.id, recordContentSig(r));
+                  }
                 });
               } catch (e) {}
               // 把保留的本地记录补传到云端(防止永久丢失)
@@ -1953,6 +1954,7 @@ var App = function App() {
   var uploadRecordsWithRetry = /*#__PURE__*/function () {
     var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(recordsToUpload) {
       var maxRetries,
+        okGo,
         meaningful,
         CHUNK,
         succeededIds,
@@ -1971,17 +1973,40 @@ var App = function App() {
         while (1) switch (_context8.p = _context8.n) {
           case 0:
             maxRetries = _args8.length > 1 && _args8[1] !== undefined ? _args8[1] : 5;
+            if (!((recordsToUpload || []).length > 500)) {
+              _context8.n = 2;
+              break;
+            }
+            _context8.n = 1;
+            return wsConfirm('⚠ 写入熔断:本次将写入 ' + recordsToUpload.length + ' 行到云端。\n正常同步不应出现这么大的批量,可能是异常重传。\n确认继续?');
+          case 1:
+            okGo = _context8.v;
+            if (okGo) {
+              _context8.n = 2;
+              break;
+            }
+            console.warn('[fix216熔断] 管理员取消了 ' + recordsToUpload.length + ' 行的批量写入');
+            return _context8.a(2, {
+              ok: false,
+              succeededIds: [],
+              failedIds: (recordsToUpload || []).map(function (r) {
+                return r.id;
+              })
+            });
+          case 2:
+            upsertCountRef.current += (recordsToUpload || []).length;
+            if (upsertCountRef.current > 5000) console.warn('[fix216自检] 本会话已 upsert ' + upsertCountRef.current + ' 行(>5000),请检查是否有异常重传');
             if (CLOUD.client) {
-              _context8.n = 1;
+              _context8.n = 3;
               break;
             }
             throw new Error('云端未连接');
-          case 1:
+          case 3:
             meaningful = (recordsToUpload || []).filter(function (r) {
               return r.deleted || isRecordMeaningful(r);
             });
             if (!(meaningful.length === 0)) {
-              _context8.n = 2;
+              _context8.n = 4;
               break;
             }
             return _context8.a(2, {
@@ -1990,55 +2015,55 @@ var App = function App() {
               failedIds: [],
               skipped: (recordsToUpload === null || recordsToUpload === void 0 ? void 0 : recordsToUpload.length) || 0
             });
-          case 2:
-            _context8.p = 2;
-            _context8.n = 3;
-            return ensureRecordShotsUploaded(meaningful);
-          case 3:
-            _context8.n = 5;
-            break;
           case 4:
             _context8.p = 4;
+            _context8.n = 5;
+            return ensureRecordShotsUploaded(meaningful);
+          case 5:
+            _context8.n = 7;
+            break;
+          case 6:
+            _context8.p = 6;
             _t0 = _context8.v;
             console.warn('图片传Storage部分失败,继续', _t0);
-          case 5:
+          case 7:
             CHUNK = 25;
             succeededIds = [];
             failedIds = [];
             i = 0;
-          case 6:
+          case 8:
             if (!(i < meaningful.length)) {
-              _context8.n = 17;
+              _context8.n = 19;
               break;
             }
             batch = meaningful.slice(i, i + CHUNK);
-            _context8.n = 7;
+            _context8.n = 9;
             return upsertBatchWithSchemaRetry(batch, maxRetries);
-          case 7:
+          case 9:
             ok = _context8.v;
             if (!ok) {
-              _context8.n = 8;
+              _context8.n = 10;
               break;
             }
             batch.forEach(function (r) {
               return succeededIds.push(r.id);
             });
-            _context8.n = 16;
+            _context8.n = 18;
             break;
-          case 8:
+          case 10:
             // 整批失败 → 逐条上传,把好的救出来,坏的单独标记
             _iterator7 = _createForOfIteratorHelper(batch);
-            _context8.p = 9;
+            _context8.p = 11;
             _iterator7.s();
-          case 10:
+          case 12:
             if ((_step7 = _iterator7.n()).done) {
-              _context8.n = 13;
+              _context8.n = 15;
               break;
             }
             one = _step7.value;
-            _context8.n = 11;
+            _context8.n = 13;
             return upsertBatchWithSchemaRetry([one], maxRetries);
-          case 11:
+          case 13:
             okOne = _context8.v;
             if (okOne) {
               succeededIds.push(one.id);
@@ -2048,32 +2073,32 @@ var App = function App() {
               syncErrorsRef.current.set(one.id, lastUpsertErrRef.current || '未知错误');
               console.error('[upsert] 这条记录上传失败:', one.id, one.customer, one.order_no || one.orderRef, '·', lastUpsertErrRef.current);
             }
-          case 12:
-            _context8.n = 10;
-            break;
-          case 13:
-            _context8.n = 15;
-            break;
           case 14:
-            _context8.p = 14;
+            _context8.n = 12;
+            break;
+          case 15:
+            _context8.n = 17;
+            break;
+          case 16:
+            _context8.p = 16;
             _t1 = _context8.v;
             _iterator7.e(_t1);
-          case 15:
-            _context8.p = 15;
-            _iterator7.f();
-            return _context8.f(15);
-          case 16:
-            i += CHUNK;
-            _context8.n = 6;
-            break;
           case 17:
+            _context8.p = 17;
+            _iterator7.f();
+            return _context8.f(17);
+          case 18:
+            i += CHUNK;
+            _context8.n = 8;
+            break;
+          case 19:
             return _context8.a(2, {
               ok: failedIds.length === 0,
               succeededIds: succeededIds,
               failedIds: failedIds
             });
         }
-      }, _callee8, null, [[9, 14, 15, 16], [2, 4]]);
+      }, _callee8, null, [[11, 16, 17, 18], [4, 6]]);
     }));
     return function uploadRecordsWithRetry(_x4) {
       return _ref15.apply(this, arguments);
@@ -2110,10 +2135,72 @@ var App = function App() {
   var recordSig = function recordSig(r) {
     return (r.updatedAt || r.updated_at || '') + (r.deleted ? '·del' : '');
   };
+  // 🆕 fix216:内容签名 —— 排除 updatedAt/updated_at/syncedAt/version/createdAt 等易变字段,只看业务内容
+  var recordContentSig = function recordContentSig(r) {
+    if (!r) return '';
+    var VOLATILE = {
+      updatedAt: 1,
+      updated_at: 1,
+      syncedAt: 1,
+      synced_at: 1,
+      version: 1,
+      createdAt: 1,
+      created_at: 1,
+      markedAt: 1
+    };
+    var keys = Object.keys(r).filter(function (k) {
+      return !VOLATILE[k];
+    }).sort();
+    var s = '';
+    var _iterator8 = _createForOfIteratorHelper(keys),
+      _step8;
+    try {
+      for (_iterator8.s(); !(_step8 = _iterator8.n()).done;) {
+        var k = _step8.value;
+        var v = r[k];
+        if (v === undefined || v === null || v === '') continue;
+        s += k + '=' + (_typeof(v) === 'object' ? JSON.stringify(v) : String(v)) + '|';
+      }
+    } catch (err) {
+      _iterator8.e(err);
+    } finally {
+      _iterator8.f();
+    }
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) {
+      h = (h << 5) + h + s.charCodeAt(i) | 0;
+    }
+    return String(h) + ':' + s.length;
+  };
+  var cloudSigRef = useRef(new Map()); // id → 云端已知内容签名(写前比对,内容没变就不写)
+  var upsertCountRef = useRef(0); // 🆕 自检计数:本会话 upsert 行数
+  useEffect(function () {
+    try {
+      // 🆕 签名自测:同行两次相等,改业务字段后不等
+      var a = {
+          id: 't',
+          note: 'x',
+          updatedAt: '1'
+        },
+        b = {
+          id: 't',
+          note: 'x',
+          updatedAt: '2'
+        },
+        c = {
+          id: 't',
+          note: 'y',
+          updatedAt: '1'
+        };
+      console.assert(recordContentSig(a) === recordContentSig(b), '[fix216自测失败] 易变字段影响了签名');
+      console.assert(recordContentSig(a) !== recordContentSig(c), '[fix216自测失败] 业务字段未影响签名');
+    } catch (e) {}
+  }, []);
   var computeChangedRecords = function computeChangedRecords() {
     return (recordsRef.current || []).filter(function (r) {
       if (!r || !r.id) return false;
       if (!isRecordMeaningful(r) && !r.deleted) return false; // 完全空白行不传
+      if (cloudSigRef.current.get(r.id) === recordContentSig(r)) return false; // 🆕 fix216:内容与云端一致 → 不写(根因去重)
       return lastSyncedRef.current.get(r.id) !== recordSig(r); // 新增或内容变了
     });
   };
@@ -2147,7 +2234,10 @@ var App = function App() {
             // 分批+单条隔离
             failed = new Set(res.failedIds || []); // 只把"成功上传的"标记为已同步;失败的不标 → 下次/兜底自动重试
             changed.forEach(function (r) {
-              if (!failed.has(r.id)) lastSyncedRef.current.set(r.id, recordSig(r));
+              if (!failed.has(r.id)) {
+                lastSyncedRef.current.set(r.id, recordSig(r));
+                cloudSigRef.current.set(r.id, recordContentSig(r));
+              }
             });
             setCloudSyncError(failed.size > 0 ? "".concat(failed.size, " \u6761\u8BB0\u5F55\u4E0A\u4F20\u5931\u8D25(\u5176\u4F59\u5DF2\u8FDB\u670D\u52A1\u5668),\u5C06\u81EA\u52A8\u91CD\u8BD5") : null);
             setUnsyncedCount(computeChangedRecords().length);
@@ -2187,7 +2277,9 @@ var App = function App() {
   // 定时兜底:每 15 秒把仍未同步的改动补传一次(防止某次失败后永远卡在本地)
   useEffect(function () {
     if (!cloudOn || !user) return;
-    var iv = setInterval(syncChangedRecords, 15000);
+    var iv = setInterval(function () {
+      if (document.visibilityState === 'visible') syncChangedRecords();
+    }, 60000); // 🆕 fix216:60s 批量窗口,页面不可见不跑
     return function () {
       return clearInterval(iv);
     };
@@ -2216,7 +2308,7 @@ var App = function App() {
               // 🆕 fix213:高水位回退 5 分钟再过滤 —— 各台电脑时钟可能不同步,若同事的 updatedAt 比本机高水位略小会被漏掉;
               //   留 5 分钟安全窗(重叠重拉极少量、合并幂等无副作用),保证别人的跟进/改动一定被拉到。
               sinceMs = lastPullRef.current ? Date.parse(lastPullRef.current) : NaN;
-              since = isNaN(sinceMs) ? null : new Date(sinceMs - 300000).toISOString();
+              since = isNaN(sinceMs) ? null : new Date(sinceMs - 5000).toISOString(); // 🆕 fix216:服务端时间戳-5秒重叠,按 id 去重合并
               _context0.n = 2;
               return function () {
                 var q = CLOUD.client.from('workspace_records').select('*').order('updatedAt', {
@@ -2267,6 +2359,7 @@ var App = function App() {
                     // 本地没有 → 别人/主管新建的,加进来
                     byId.set(cr.id, recomputeDuration(cr));
                     lastSyncedRef.current.set(cr.id, recordSig(cr));
+                    cloudSigRef.current.set(cr.id, recordContentSig(cr));
                     changed = true;
                     return;
                   }
@@ -2276,6 +2369,7 @@ var App = function App() {
                   if (cts > lts) {
                     byId.set(cr.id, recomputeDuration(cr));
                     lastSyncedRef.current.set(cr.id, recordSig(cr));
+                    cloudSigRef.current.set(cr.id, recordContentSig(cr));
                     changed = true;
                   }
                 });
@@ -2295,7 +2389,7 @@ var App = function App() {
         return _ref17.apply(this, arguments);
       };
     }();
-    var iv = setInterval(pull, 12000);
+    var iv = setInterval(pull, 30000); // 🆕 fix216:30s 轮询(REST,不计 Realtime)
     var t = setTimeout(pull, 3500); // 登录后先拉一次(等首次加载合并完成)
     var onShow = function onShow() {
       if (document.visibilityState === 'visible') pull();
@@ -2309,52 +2403,7 @@ var App = function App() {
     };
   }, [cloudOn, user]);
 
-  // 🆕 fix209(重构·实时):workspace_records realtime 实时订阅 —— 任何人改一条,所有人秒级看到(Google 文档级)。
-  //   与 fix208 的 12s 轮询互补:realtime 即时;若 realtime 没在库里开启/掉线,轮询照样兜底,绝不丢。
-  //   回声安全:本地还没推上去的改动 / 不是更新的回声,都不覆盖,不会闪。
-  useEffect(function () {
-    if (!cloudOn || !user || !CLOUD.client) return;
-    var channel;
-    var mergeRow = function mergeRow(row) {
-      if (!row || !row.id) return;
-      setRecords(function (prev) {
-        var idx = prev.findIndex(function (r) {
-          return r.id === row.id;
-        });
-        if (idx < 0) {
-          lastSyncedRef.current.set(row.id, recordSig(row));
-          return [].concat(_toConsumableArray(prev), [recomputeDuration(row)]);
-        }
-        var lr = prev[idx];
-        if (lastSyncedRef.current.get(lr.id) !== recordSig(lr)) return prev; // 本地有未推送改动 → 不覆盖
-        var lts = new Date(lr.updatedAt || lr.updated_at || 0).getTime();
-        var cts = new Date(row.updatedAt || row.updated_at || 0).getTime();
-        if (cts <= lts) return prev; // 不是更新(自己的回声/旧)→ 不动
-        var next = prev.slice();
-        next[idx] = recomputeDuration(row);
-        lastSyncedRef.current.set(row.id, recordSig(row));
-        var u = row.updatedAt || row.updated_at || '';
-        if (u && (!lastPullRef.current || u > lastPullRef.current)) lastPullRef.current = u;
-        return next;
-      });
-    };
-    try {
-      channel = CLOUD.client.channel('ws_records_rt_' + user.id).on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'workspace_records'
-      }, function (payload) {
-        if (payload && payload["new"]) mergeRow(payload["new"]);
-      }).subscribe();
-    } catch (e) {
-      console.warn('[ws_records] realtime 订阅失败,靠 12s 轮询兜底', e);
-    }
-    return function () {
-      try {
-        if (channel) CLOUD.client.removeChannel(channel);
-      } catch (e) {}
-    };
-  }, [cloudOn, user]);
+  // 🆕 fix216:已移除 workspace_records 的 realtime 订阅(消息风暴源);同步靠 30s 增量轮询 + 60s 批量写,Realtime 消息归零。
 
   // 🆕 fix199:离开页面前立即补传 —— 切到别的标签/最小化/锁屏/关闭时马上把未同步改动推上去,
   //   避免"录完就走人、还没到 15 秒就被丢"的窗口(Aletta 中午离开后记录消失的根因之一)。
@@ -2481,7 +2530,7 @@ var App = function App() {
     setForcingSync = _useState30[1];
   var forceSyncAll = /*#__PURE__*/function () {
     var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
-      var all, res, failed, _t13;
+      var all, diff, res, failed, _t13;
       return _regenerator().w(function (_context10) {
         while (1) switch (_context10.p = _context10.n) {
           case 0:
@@ -2504,30 +2553,55 @@ var App = function App() {
             setForcingSync(true);
             toast("\u23F3 \u6B63\u5728\u628A ".concat(all.length, " \u6761\u5168\u90E8\u4E0A\u4F20\u5230\u670D\u52A1\u5668\u2026"));
             _context10.p = 3;
-            _context10.n = 4;
-            return uploadRecordsWithRetry(all);
+            // 🆕 fix216:diff-only —— 只传与云端内容有差异的行;0 行直接结束,不发任何请求
+            diff = all.filter(function (r) {
+              return cloudSigRef.current.get(r.id) !== recordContentSig(r);
+            });
+            if (!(diff.length === 0)) {
+              _context10.n = 4;
+              break;
+            }
+            toast('✓ 云端已一致,无需上传');
+            setForcingSync(false);
+            return _context10.a(2);
           case 4:
+            _context10.n = 5;
+            return wsConfirm('将上传 ' + diff.length + ' 行有差异的记录(共 ' + all.length + ' 行,其余与云端一致)。继续?');
+          case 5:
+            if (_context10.v) {
+              _context10.n = 6;
+              break;
+            }
+            setForcingSync(false);
+            return _context10.a(2);
+          case 6:
+            _context10.n = 7;
+            return uploadRecordsWithRetry(diff);
+          case 7:
             res = _context10.v;
             failed = new Set(res.failedIds || []);
-            all.forEach(function (r) {
-              if (!failed.has(r.id)) lastSyncedRef.current.set(r.id, recordSig(r));
+            diff.forEach(function (r) {
+              if (!failed.has(r.id)) {
+                lastSyncedRef.current.set(r.id, recordSig(r));
+                cloudSigRef.current.set(r.id, recordContentSig(r));
+              }
             });
             setCloudSyncError(failed.size > 0 ? "".concat(failed.size, " \u6761\u4E0A\u4F20\u5931\u8D25,\u81EA\u52A8\u91CD\u8BD5\u4E2D") : null);
             setUnsyncedCount(computeChangedRecords().length);
-            toast(failed.size > 0 ? "\u5DF2\u4E0A\u4F20 ".concat(all.length - failed.size, "/").concat(all.length, " \u6761,").concat(failed.size, " \u6761\u5931\u8D25(\u81EA\u52A8\u91CD\u8BD5)") : "\u2713 \u5DF2\u5168\u90E8\u4E0A\u4F20\u5230\u670D\u52A1\u5668(".concat(all.length, " \u6761)"));
-            _context10.n = 6;
+            toast(failed.size > 0 ? "\u5DF2\u4E0A\u4F20 ".concat(diff.length - failed.size, "/").concat(diff.length, " \u6761,").concat(failed.size, " \u6761\u5931\u8D25(\u81EA\u52A8\u91CD\u8BD5)") : "\u2713 \u5DF2\u4E0A\u4F20 ".concat(diff.length, " \u6761\u5DEE\u5F02\u8BB0\u5F55"));
+            _context10.n = 9;
             break;
-          case 5:
-            _context10.p = 5;
+          case 8:
+            _context10.p = 8;
             _t13 = _context10.v;
             setCloudSyncError(_t13.message);
             alert('部分上传失败,稍后会自动重试。错误:' + (_t13.message || _t13));
-          case 6:
+          case 9:
             setForcingSync(false);
-          case 7:
+          case 10:
             return _context10.a(2);
         }
-      }, _callee10, null, [[3, 5]]);
+      }, _callee10, null, [[3, 8]]);
     }));
     return function forceSyncAll() {
       return _ref19.apply(this, arguments);
@@ -2542,7 +2616,7 @@ var App = function App() {
     setMigrating = _useState32[1];
   var migrateRecordImages = /*#__PURE__*/function () {
     var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
-      var all, hasB64, needs, done, imgs, upOne, slim, BATCH, i, batch, _iterator8, _step8, r, _iterator9, _step9, s, _iterator0, _step0, _s4, _iterator1, _step1, _s5, _iterator10, _step10, f, _iterator11, _step11, _s6, cleaned, _t15, _t16, _t17, _t18, _t19, _t20, _t21;
+      var all, hasB64, needs, done, imgs, upOne, slim, BATCH, i, batch, _iterator9, _step9, r, _iterator0, _step0, s, _iterator1, _step1, _s4, _iterator10, _step10, _s5, _iterator11, _step11, f, _iterator12, _step12, _s6, cleaned, _t15, _t16, _t17, _t18, _t19, _t20, _t21;
       return _regenerator().w(function (_context12) {
         while (1) switch (_context12.p = _context12.n) {
           case 0:
@@ -2659,28 +2733,28 @@ var App = function App() {
               break;
             }
             batch = needs.slice(i, i + BATCH);
-            _iterator8 = _createForOfIteratorHelper(batch);
+            _iterator9 = _createForOfIteratorHelper(batch);
             _context12.p = 8;
-            _iterator8.s();
+            _iterator9.s();
           case 9:
-            if ((_step8 = _iterator8.n()).done) {
+            if ((_step9 = _iterator9.n()).done) {
               _context12.n = 45;
               break;
             }
-            r = _step8.value;
+            r = _step9.value;
             if (!Array.isArray(r.screenshots)) {
               _context12.n = 16;
               break;
             }
-            _iterator9 = _createForOfIteratorHelper(r.screenshots);
+            _iterator0 = _createForOfIteratorHelper(r.screenshots);
             _context12.p = 10;
-            _iterator9.s();
+            _iterator0.s();
           case 11:
-            if ((_step9 = _iterator9.n()).done) {
+            if ((_step0 = _iterator0.n()).done) {
               _context12.n = 13;
               break;
             }
-            s = _step9.value;
+            s = _step0.value;
             _context12.n = 12;
             return upOne(s);
           case 12:
@@ -2692,25 +2766,25 @@ var App = function App() {
           case 14:
             _context12.p = 14;
             _t15 = _context12.v;
-            _iterator9.e(_t15);
+            _iterator0.e(_t15);
           case 15:
             _context12.p = 15;
-            _iterator9.f();
+            _iterator0.f();
             return _context12.f(15);
           case 16:
             if (!Array.isArray(r.feedbackShots)) {
               _context12.n = 23;
               break;
             }
-            _iterator0 = _createForOfIteratorHelper(r.feedbackShots);
+            _iterator1 = _createForOfIteratorHelper(r.feedbackShots);
             _context12.p = 17;
-            _iterator0.s();
+            _iterator1.s();
           case 18:
-            if ((_step0 = _iterator0.n()).done) {
+            if ((_step1 = _iterator1.n()).done) {
               _context12.n = 20;
               break;
             }
-            _s4 = _step0.value;
+            _s4 = _step1.value;
             _context12.n = 19;
             return upOne(_s4);
           case 19:
@@ -2722,25 +2796,25 @@ var App = function App() {
           case 21:
             _context12.p = 21;
             _t16 = _context12.v;
-            _iterator0.e(_t16);
+            _iterator1.e(_t16);
           case 22:
             _context12.p = 22;
-            _iterator0.f();
+            _iterator1.f();
             return _context12.f(22);
           case 23:
             if (!Array.isArray(r.productOptShots)) {
               _context12.n = 30;
               break;
             }
-            _iterator1 = _createForOfIteratorHelper(r.productOptShots);
+            _iterator10 = _createForOfIteratorHelper(r.productOptShots);
             _context12.p = 24;
-            _iterator1.s();
+            _iterator10.s();
           case 25:
-            if ((_step1 = _iterator1.n()).done) {
+            if ((_step10 = _iterator10.n()).done) {
               _context12.n = 27;
               break;
             }
-            _s5 = _step1.value;
+            _s5 = _step10.value;
             _context12.n = 26;
             return upOne(_s5);
           case 26:
@@ -2752,38 +2826,38 @@ var App = function App() {
           case 28:
             _context12.p = 28;
             _t17 = _context12.v;
-            _iterator1.e(_t17);
+            _iterator10.e(_t17);
           case 29:
             _context12.p = 29;
-            _iterator1.f();
+            _iterator10.f();
             return _context12.f(29);
           case 30:
             if (!Array.isArray(r.followUps)) {
               _context12.n = 43;
               break;
             }
-            _iterator10 = _createForOfIteratorHelper(r.followUps);
+            _iterator11 = _createForOfIteratorHelper(r.followUps);
             _context12.p = 31;
-            _iterator10.s();
+            _iterator11.s();
           case 32:
-            if ((_step10 = _iterator10.n()).done) {
+            if ((_step11 = _iterator11.n()).done) {
               _context12.n = 40;
               break;
             }
-            f = _step10.value;
+            f = _step11.value;
             if (!(f && Array.isArray(f.screenshots))) {
               _context12.n = 39;
               break;
             }
-            _iterator11 = _createForOfIteratorHelper(f.screenshots);
+            _iterator12 = _createForOfIteratorHelper(f.screenshots);
             _context12.p = 33;
-            _iterator11.s();
+            _iterator12.s();
           case 34:
-            if ((_step11 = _iterator11.n()).done) {
+            if ((_step12 = _iterator12.n()).done) {
               _context12.n = 36;
               break;
             }
-            _s6 = _step11.value;
+            _s6 = _step12.value;
             _context12.n = 35;
             return upOne(_s6);
           case 35:
@@ -2795,10 +2869,10 @@ var App = function App() {
           case 37:
             _context12.p = 37;
             _t18 = _context12.v;
-            _iterator11.e(_t18);
+            _iterator12.e(_t18);
           case 38:
             _context12.p = 38;
-            _iterator11.f();
+            _iterator12.f();
             return _context12.f(38);
           case 39:
             _context12.n = 32;
@@ -2809,10 +2883,10 @@ var App = function App() {
           case 41:
             _context12.p = 41;
             _t19 = _context12.v;
-            _iterator10.e(_t19);
+            _iterator11.e(_t19);
           case 42:
             _context12.p = 42;
-            _iterator10.f();
+            _iterator11.f();
             return _context12.f(42);
           case 43:
             done++;
@@ -2825,10 +2899,10 @@ var App = function App() {
           case 46:
             _context12.p = 46;
             _t20 = _context12.v;
-            _iterator8.e(_t20);
+            _iterator9.e(_t20);
           case 47:
             _context12.p = 47;
-            _iterator8.f();
+            _iterator9.f();
             return _context12.f(47);
           case 48:
             cleaned = batch.map(function (r) {
@@ -4996,7 +5070,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix215';
+var APP_VERSION = '2026.06.05-fix216';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
