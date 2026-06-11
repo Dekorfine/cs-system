@@ -1,5 +1,5 @@
 // ====== cs-system — 07-photos-reviews ======
-// 版本 2026.06.05-fix214
+// 版本 2026.06.05-fix215
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 07-photos-reviews ======
-// 版本 2026.06.05-fix214
+// 版本 2026.06.05-fix215
 // 预编译切片
 //
 
@@ -243,6 +243,11 @@ var ReviewsModule = function ReviewsModule(_ref) {
       list = list.filter(function (r) {
         return r.claimed_by === user.id || r.assigned_to === user.id || r.status === 'pending' && (!r.assigned_to || r.assigned_to === user.id);
       });
+    } else if (filterStatus === 'published') {
+      // 🆕 fix215:我发起的(看自己发布的全部任务及进度)
+      list = list.filter(function (r) {
+        return r.created_by === user.id || (r.created_by_name || '').split(' ')[0] === (user.name || '').split(' ')[0];
+      });
     } else if (filterStatus !== 'all') list = list.filter(function (r) {
       return r.status === filterStatus;
     });
@@ -274,7 +279,10 @@ var ReviewsModule = function ReviewsModule(_ref) {
       }).length,
       myTasks: reviews.filter(function (r) {
         return (r.claimed_by === user.id || r.assigned_to === user.id) && r.status !== 'completed';
-      }).length
+      }).length,
+      published: reviews.filter(function (r) {
+        return r.created_by === user.id || (r.created_by_name || '').split(' ')[0] === (user.name || '').split(' ')[0];
+      }).length // 🆕 fix215:我发起的
     };
   }, [reviews, user.id]);
   return /*#__PURE__*/React.createElement("div", {
@@ -397,6 +405,10 @@ var ReviewsModule = function ReviewsModule(_ref) {
     key: 'mine',
     label: '👤 我的任务',
     count: stats.myTasks
+  }, {
+    key: 'published',
+    label: '🚀 我发起的',
+    count: stats.published
   }, {
     key: 'pending',
     label: '⏳ 待领取',

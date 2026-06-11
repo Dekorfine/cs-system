@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix214
+// 版本 2026.06.05-fix215
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix214
+// 版本 2026.06.05-fix215
 // 预编译切片
 //
 
@@ -1542,7 +1542,8 @@ var CSModule = function CSModule(_ref7) {
       updatedAt: nowISO(),
       status: 'pending',
       customer: '',
-      site: '',
+      site: STORE.get('cs_last_site', '') || '',
+      // 🆕 fix215:记住上次网站,新行免选
       startTime: '',
       endTime: '',
       durationMin: 0,
@@ -1627,6 +1628,11 @@ var CSModule = function CSModule(_ref7) {
         if (patch.nextFollowUp && updated.status === 'pending') {
           updated.status = 'following';
         }
+        if (patch.site) {
+          try {
+            STORE.set('cs_last_site', patch.site);
+          } catch (e) {}
+        } // 🆕 fix215:记住网站
         // 🆕 fix206(建议3):标记为已解决时,落一次真实"解决时刻"(首次为准,后续编辑不覆盖)→ 用于准确算平均解决时长
         if (patch.status === 'resolved' && !updated.resolvedAt) updated.resolvedAt = nowISO();
         return updated;
@@ -4297,7 +4303,8 @@ var CSModule = function CSModule(_ref7) {
       value: r.category,
       onChange: function onChange(e) {
         return updateRow(r.id, {
-          category: e.target.value
+          category: e.target.value,
+          difficulty: suggestDifficulty(e.target.value, r.durationMin || 0)
         });
       },
       style: {
@@ -4317,7 +4324,35 @@ var CSModule = function CSModule(_ref7) {
       }, c);
     }), r.category && !CATEGORIES.includes(r.category) && /*#__PURE__*/React.createElement("option", {
       value: r.category
-    }, r.category))), /*#__PURE__*/React.createElement("div", {
+    }, r.category)), editable && /*#__PURE__*/React.createElement("div", {
+      style: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 4,
+        marginTop: 5
+      }
+    }, ['咨询', '查单', '物流', '报价', '售后', '退货', '定制咨询', '实拍', '拒付'].map(function (c) {
+      return /*#__PURE__*/React.createElement("button", {
+        key: c,
+        onClick: function onClick() {
+          return updateRow(r.id, {
+            category: c,
+            difficulty: suggestDifficulty(c, r.durationMin || 0)
+          });
+        },
+        style: {
+          padding: '3px 9px',
+          fontSize: 11,
+          borderRadius: 999,
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          fontWeight: 600,
+          border: '1px solid ' + (r.category === c ? 'var(--accent)' : 'var(--line)'),
+          background: r.category === c ? 'var(--accent)' : '#fff',
+          color: r.category === c ? '#fff' : 'var(--ink-3)'
+        }
+      }, c);
+    }))), /*#__PURE__*/React.createElement("div", {
       style: {
         gridColumn: 'span 2'
       }
