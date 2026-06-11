@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix216
+// 版本 2026.06.05-fix217
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix216
+// 版本 2026.06.05-fix217
 // 预编译切片
 //
 
@@ -1954,7 +1954,6 @@ var App = function App() {
   var uploadRecordsWithRetry = /*#__PURE__*/function () {
     var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(recordsToUpload) {
       var maxRetries,
-        okGo,
         meaningful,
         CHUNK,
         succeededIds,
@@ -1973,40 +1972,21 @@ var App = function App() {
         while (1) switch (_context8.p = _context8.n) {
           case 0:
             maxRetries = _args8.length > 1 && _args8[1] !== undefined ? _args8[1] : 5;
-            if (!((recordsToUpload || []).length > 500)) {
-              _context8.n = 2;
-              break;
-            }
-            _context8.n = 1;
-            return wsConfirm('⚠ 写入熔断:本次将写入 ' + recordsToUpload.length + ' 行到云端。\n正常同步不应出现这么大的批量,可能是异常重传。\n确认继续?');
-          case 1:
-            okGo = _context8.v;
-            if (okGo) {
-              _context8.n = 2;
-              break;
-            }
-            console.warn('[fix216熔断] 管理员取消了 ' + recordsToUpload.length + ' 行的批量写入');
-            return _context8.a(2, {
-              ok: false,
-              succeededIds: [],
-              failedIds: (recordsToUpload || []).map(function (r) {
-                return r.id;
-              })
-            });
-          case 2:
+            // 🆕 fix217:熔断改为自动放行 —— >500 行不再弹确认(默认自动写入),只记录告警供排查;内容比对去重仍在,正常不会出现大批量
+            if ((recordsToUpload || []).length > 500) console.warn('[fix217告警] 本次批量写入 ' + recordsToUpload.length + ' 行(>500)。若频繁出现请检查是否异常重传。');
             upsertCountRef.current += (recordsToUpload || []).length;
             if (upsertCountRef.current > 5000) console.warn('[fix216自检] 本会话已 upsert ' + upsertCountRef.current + ' 行(>5000),请检查是否有异常重传');
             if (CLOUD.client) {
-              _context8.n = 3;
+              _context8.n = 1;
               break;
             }
             throw new Error('云端未连接');
-          case 3:
+          case 1:
             meaningful = (recordsToUpload || []).filter(function (r) {
               return r.deleted || isRecordMeaningful(r);
             });
             if (!(meaningful.length === 0)) {
-              _context8.n = 4;
+              _context8.n = 2;
               break;
             }
             return _context8.a(2, {
@@ -2015,55 +1995,55 @@ var App = function App() {
               failedIds: [],
               skipped: (recordsToUpload === null || recordsToUpload === void 0 ? void 0 : recordsToUpload.length) || 0
             });
+          case 2:
+            _context8.p = 2;
+            _context8.n = 3;
+            return ensureRecordShotsUploaded(meaningful);
+          case 3:
+            _context8.n = 5;
+            break;
           case 4:
             _context8.p = 4;
-            _context8.n = 5;
-            return ensureRecordShotsUploaded(meaningful);
-          case 5:
-            _context8.n = 7;
-            break;
-          case 6:
-            _context8.p = 6;
             _t0 = _context8.v;
             console.warn('图片传Storage部分失败,继续', _t0);
-          case 7:
+          case 5:
             CHUNK = 25;
             succeededIds = [];
             failedIds = [];
             i = 0;
-          case 8:
+          case 6:
             if (!(i < meaningful.length)) {
-              _context8.n = 19;
+              _context8.n = 17;
               break;
             }
             batch = meaningful.slice(i, i + CHUNK);
-            _context8.n = 9;
+            _context8.n = 7;
             return upsertBatchWithSchemaRetry(batch, maxRetries);
-          case 9:
+          case 7:
             ok = _context8.v;
             if (!ok) {
-              _context8.n = 10;
+              _context8.n = 8;
               break;
             }
             batch.forEach(function (r) {
               return succeededIds.push(r.id);
             });
-            _context8.n = 18;
+            _context8.n = 16;
             break;
-          case 10:
+          case 8:
             // 整批失败 → 逐条上传,把好的救出来,坏的单独标记
             _iterator7 = _createForOfIteratorHelper(batch);
-            _context8.p = 11;
+            _context8.p = 9;
             _iterator7.s();
-          case 12:
+          case 10:
             if ((_step7 = _iterator7.n()).done) {
-              _context8.n = 15;
+              _context8.n = 13;
               break;
             }
             one = _step7.value;
-            _context8.n = 13;
+            _context8.n = 11;
             return upsertBatchWithSchemaRetry([one], maxRetries);
-          case 13:
+          case 11:
             okOne = _context8.v;
             if (okOne) {
               succeededIds.push(one.id);
@@ -2073,32 +2053,32 @@ var App = function App() {
               syncErrorsRef.current.set(one.id, lastUpsertErrRef.current || '未知错误');
               console.error('[upsert] 这条记录上传失败:', one.id, one.customer, one.order_no || one.orderRef, '·', lastUpsertErrRef.current);
             }
+          case 12:
+            _context8.n = 10;
+            break;
+          case 13:
+            _context8.n = 15;
+            break;
           case 14:
-            _context8.n = 12;
-            break;
-          case 15:
-            _context8.n = 17;
-            break;
-          case 16:
-            _context8.p = 16;
+            _context8.p = 14;
             _t1 = _context8.v;
             _iterator7.e(_t1);
-          case 17:
-            _context8.p = 17;
+          case 15:
+            _context8.p = 15;
             _iterator7.f();
-            return _context8.f(17);
-          case 18:
+            return _context8.f(15);
+          case 16:
             i += CHUNK;
-            _context8.n = 8;
+            _context8.n = 6;
             break;
-          case 19:
+          case 17:
             return _context8.a(2, {
               ok: failedIds.length === 0,
               succeededIds: succeededIds,
               failedIds: failedIds
             });
         }
-      }, _callee8, null, [[11, 16, 17, 18], [4, 6]]);
+      }, _callee8, null, [[9, 14, 15, 16], [2, 4]]);
     }));
     return function uploadRecordsWithRetry(_x4) {
       return _ref15.apply(this, arguments);
@@ -5070,7 +5050,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix216';
+var APP_VERSION = '2026.06.05-fix217';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
