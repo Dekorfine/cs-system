@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix220
+// 版本 2026.06.05-fix221
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix220
+// 版本 2026.06.05-fix221
 // 预编译切片
 //
 
@@ -1254,7 +1254,7 @@ var CSModule = function CSModule(_ref7) {
   // 🆕 fix220:报价提醒一键已跟 —— done=完成跟进(need_followup=false);tomorrow=推迟到明天
   var markQuoteFollowed = /*#__PURE__*/function () {
     var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(quoteId, mode) {
-      var _yield$CLOUD$client$f, row, error, d, _yield$CLOUD$client$f2, e2, _t;
+      var _yield$CLOUD$client$f, row, error, d, isDate, _yield$CLOUD$client$f2, e2, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
           case 0:
@@ -1273,8 +1273,9 @@ var CSModule = function CSModule(_ref7) {
             return _context.a(2);
           case 2:
             d = row.data || {};
-            if (mode === 'tomorrow') {
-              d.followup_date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+            isDate = mode && /^\d{4}-\d{2}-\d{2}$/.test(mode);
+            if (isDate) {
+              d.followup_date = mode;
             } else {
               d.need_followup = false;
             }
@@ -1293,15 +1294,15 @@ var CSModule = function CSModule(_ref7) {
             return _context.a(2);
           case 4:
             setQuoteReminders(function (prev) {
-              return mode === 'tomorrow' ? prev.map(function (x) {
+              return isDate ? prev.map(function (x) {
                 return x.quoteId === quoteId ? _objectSpread(_objectSpread({}, x), {}, {
-                  nextFollowUp: d.followup_date
+                  nextFollowUp: mode
                 }) : x;
               }) : prev.filter(function (x) {
                 return x.quoteId !== quoteId;
               });
             });
-            toast(mode === 'tomorrow' ? '⏭ 已推迟到明天' : '✓ 已标记跟进完成');
+            toast(isDate ? '📅 下次跟进:' + mode : '✓ 已标记跟进完成');
             _context.n = 6;
             break;
           case 5:
@@ -2948,17 +2949,22 @@ var CSModule = function CSModule(_ref7) {
         return markQuoteFollowed(r.quoteId, 'done');
       },
       title: "\u6807\u8BB0\u5DF2\u8DDF\u8FDB,\u4ECE\u63D0\u9192\u79FB\u9664"
-    }, "\u2713 \u5DF2\u8DDF"), /*#__PURE__*/React.createElement("button", {
-      className: "btn-sec",
+    }, "\u2713 \u5DF2\u8DDF"), /*#__PURE__*/React.createElement("input", {
+      type: "date",
+      defaultValue: r.nextFollowUp || '',
+      onChange: function onChange(e) {
+        if (e.target.value) markQuoteFollowed(r.quoteId, e.target.value);
+      },
+      title: "\u9009\u4E0B\u4E00\u6B21\u8DDF\u8FDB\u65E5\u671F",
       style: {
-        padding: '4px 8px',
-        fontSize: 11
-      },
-      onClick: function onClick() {
-        return markQuoteFollowed(r.quoteId, 'tomorrow');
-      },
-      title: "\u63A8\u8FDF\u5230\u660E\u5929\u518D\u8DDF"
-    }, "\u660E\u5929"), /*#__PURE__*/React.createElement("button", {
+        padding: '3px 6px',
+        fontSize: 11,
+        border: '1px solid var(--line)',
+        borderRadius: 6,
+        fontFamily: 'inherit',
+        color: 'var(--ink-2)'
+      }
+    }), /*#__PURE__*/React.createElement("button", {
       className: "btn-sec",
       style: {
         padding: '4px 10px',
@@ -2969,6 +2975,26 @@ var CSModule = function CSModule(_ref7) {
       },
       title: "\u6253\u5F00\u62A5\u4EF7\u5355\u6A21\u5757"
     }, "\uD83D\uDCC4")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+      className: "btn-pri",
+      style: {
+        padding: '4px 10px',
+        fontSize: 11,
+        background: '#16a34a'
+      },
+      title: "\u4E00\u952E\u767B\u8BB0\u4ECA\u5929\u5DF2\u8DDF\u8FDB(\u4ECE\u63D0\u9192\u79FB\u9664;\u8981\u7EA6\u4E0B\u6B21\u65E5\u671F\u7528\u300C\u5904\u7406\u300D)",
+      onClick: function onClick() {
+        updateRow(r.id, {
+          followUps: [].concat(_toConsumableArray(r.followUps || []), [{
+            id: 'fu_' + Date.now(),
+            time: new Date().toISOString(),
+            text: '已跟进(快捷标记)',
+            status: 'done'
+          }]),
+          nextFollowUp: ''
+        });
+        toast('✓ 已记录跟进');
+      }
+    }, "\u2713 \u5DF2\u8DDF"), /*#__PURE__*/React.createElement("button", {
       className: "btn-pri",
       style: {
         padding: '4px 10px',
