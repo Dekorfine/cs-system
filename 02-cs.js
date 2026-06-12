@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix218
+// 版本 2026.06.05-fix219
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix218
+// 版本 2026.06.05-fix219
 // 预编译切片
 //
 
@@ -2836,13 +2836,25 @@ var CSModule = function CSModule(_ref7) {
         fontSize: 12,
         fontWeight: 600
       }
-    }, "\u231B \u7B49\u5BA2\u6237(\u6682\u505C)") : isOverdue ? /*#__PURE__*/React.createElement("span", {
+    }, "\u231B \u7B49\u5BA2\u6237(\u6682\u505C)") : isOverdue ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
       style: {
         color: 'var(--bad)',
         fontSize: 12,
         fontWeight: 600
       }
-    }, "\u903E\u671F ", daysLate, " \u5929") : isToday ? /*#__PURE__*/React.createElement("span", {
+    }, "\u903E\u671F ", daysLate, " \u5929"), function () {
+      var fus = r.followUps || [];
+      var lf = fus.length ? fus.map(function (f) {
+        return (f.time || '').slice(0, 10);
+      }).sort().slice(-1)[0] : '';
+      return /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontSize: 9.5,
+          color: 'var(--ink-4)',
+          marginTop: 1
+        }
+      }, "\u5E94\u8DDF ", r.nextFollowUp || '—', " \xB7 \u6700\u540E\u8DDF\u8FDB ", lf || '无记录', " \xB7 ", r.status || '');
+    }()) : isToday ? /*#__PURE__*/React.createElement("span", {
       style: {
         color: 'var(--gold)',
         fontSize: 12,
