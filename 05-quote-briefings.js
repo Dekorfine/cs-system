@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix217
+// 版本 2026.06.05-fix218
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix217
+// 版本 2026.06.05-fix218
 // 预编译切片
 //
 
@@ -4601,12 +4601,19 @@ var WorkSnapshotPanel = function WorkSnapshotPanel(_ref22) {
     };
 
     // 客服跟进 - 超 N 天未解决
+    // 🆕 fix218:主管面板"逾期"口径与客服端统一 —— 等客户暂停;下次跟进在未来=不逾期;近期已跟进过=已处理不算逾期。
+    //   (旧口径只看"建立超N天且未解决",客服明明跟了也被算逾期 → Miya 看到的假逾期就是这来的)
+    var recentlyFollowed = function recentlyFollowed(r) {
+      return (r.followUps || []).some(function (f) {
+        return (f.time || '').slice(0, 10) >= addDays(today, -thresholds.cs_followup);
+      });
+    };
     var csOverdue = (records || []).filter(function (r) {
-      return !r.deleted && isRecordMeaningful(r) && r.status !== 'resolved' && r.status !== 'transferred' && r.date && r.date < addDays(today, -thresholds.cs_followup) && isMine(r);
+      return !r.deleted && isRecordMeaningful(r) && r.status !== 'resolved' && r.status !== 'transferred' && r.status !== 'waiting' && !(r.nextFollowUp && r.nextFollowUp > today) && !recentlyFollowed(r) && r.date && r.date < addDays(today, -thresholds.cs_followup) && isMine(r);
     });
     // 今日到期跟进
     var csDueToday = (records || []).filter(function (r) {
-      return !r.deleted && isMine(r) && r.status !== 'resolved' && r.nextFollowUp === today;
+      return !r.deleted && isMine(r) && r.status !== 'resolved' && r.status !== 'waiting' && r.nextFollowUp === today;
     });
 
     // 拒付 - 7天内截止 或 已逾期
