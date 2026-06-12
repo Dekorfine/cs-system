@@ -1027,7 +1027,7 @@ async function buildHechiCA(t) {                 // 河池·加拿大 (V100212 �
   const wb = await tplLoadWb('hechi_ca'); const ws = wb.getWorksheet('模板'); const a = t.address || {};
   ws.getCell('B1').value = t.orderNumber; ws.getCell('B2').value = '加拿大海运';
   ws.getCell('B4').value = a.name || t.customerName || ''; ws.getCell('B5').value = a.company || '';
-  ws.getCell('B6').value = a.address1 || ''; ws.getCell('B9').value = a.city || ''; ws.getCell('B10').value = a.province || a.province_code || '';
+  ws.getCell('B6').value = ([a.address1, a.address2].filter(Boolean).join(', ') || ''); ws.getCell('B9').value = a.city || ''; ws.getCell('B10').value = a.province || a.province_code || '';
   ws.getCell('B11').value = a.zip || ''; ws.getCell('B12').value = (a.country_code || 'CA'); ws.getCell('B13').value = a.phone || t.customerPhone || '';
   ws.getCell('B16').value = _tplSel(t).reduce((s, it) => s + _tplQy(it), 0);
   ws.getCell('B17').value = (t.battery === '是' ? '是' : '否'); ws.getCell('B18').value = '否'; ws.getCell('B19').value = '否';
@@ -1042,7 +1042,7 @@ async function buildHechiCA(t) {                 // 河池·加拿大 (V100212 �
 async function _buildHechiEUUK(t, isUK) {        // 河池·英国/欧盟 (sheet 发票模版)
   const wb = await tplLoadWb(isUK ? 'hechi_uk' : 'hechi_eu'); const ws = wb.getWorksheet('发票模版'); const a = t.address || {};
   ws.getCell('B1').value = t.orderNumber; ws.getCell('B2').value = isUK ? '中英卡航' : '中欧卡航';
-  ws.getCell('B4').value = a.name || t.customerName || ''; ws.getCell('B5').value = a.company || ''; ws.getCell('B6').value = a.address1 || ''; ws.getCell('B7').value = a.address2 || '';
+  ws.getCell('B4').value = a.name || t.customerName || ''; ws.getCell('B5').value = a.company || ''; ws.getCell('B6').value = ([a.address1, a.address2].filter(Boolean).join(', ') || ''); ws.getCell('B7').value = a.address2 || '';
   ws.getCell('B8').value = a.city || ''; ws.getCell('B9').value = a.province || ''; ws.getCell('B10').value = a.zip || ''; ws.getCell('B11').value = isUK ? (a.country_code || 'GB') : (a.country_code || ''); ws.getCell('B12').value = a.phone || t.customerPhone || ''; ws.getCell('B13').value = t.customerEmail || '';
   ws.getCell('B14').value = '无';
   ws.getCell('F1').value = (t.battery === '是' ? '是' : '否'); ws.getCell('F2').value = '否'; ws.getCell('F3').value = '否';
@@ -1078,7 +1078,7 @@ async function buildYundingTpl(t) {            // 云鼎·FBA专线(填原生模
   ws.getCell('E4').value = a.company || ''; ws.getCell('E5').value = a.name || t.customerName || '';
   ws.getCell('E6').value = a.phone || t.customerPhone || ''; ws.getCell('E7').value = a.zip || '';
   ws.getCell('E8').value = a.city || ''; ws.getCell('E9').value = a.province || a.province_code || '';
-  ws.getCell('E10').value = a.address1 || ''; ws.getCell('E11').value = a.address2 || ''; ws.getCell('E12').value = t.customerEmail || '';
+  ws.getCell('E10').value = ([a.address1, a.address2].filter(Boolean).join(', ') || ''); ws.getCell('E11').value = a.address2 || ''; ws.getCell('E12').value = t.customerEmail || '';
   // 装箱单产品(第15行起)
   let r = 15;
   for (const it of sel) {
@@ -1099,7 +1099,7 @@ async function buildChanghuiAU(t) {            // 昌晖·澳洲/新西兰(填�
   ws.getCell('B3').value = ref; ws.getCell('F3').value = t.pieces || 1;
   ws.getCell('H3').value = a.name || t.customerName || ''; ws.getCell('M3').value = t.customerEmail || '';
   ws.getCell('H4').value = a.company || ''; ws.getCell('H5').value = cc; ws.getCell('M5').value = a.zip || '';
-  ws.getCell('H6').value = a.address1 || ''; ws.getCell('L6').value = a.address2 || '';
+  ws.getCell('H6').value = ([a.address1, a.address2].filter(Boolean).join(', ') || ''); ws.getCell('L6').value = a.address2 || '';
   ws.getCell('H7').value = a.city || ''; ws.getCell('M7').value = a.province || a.province_code || ''; ws.getCell('H8').value = a.phone || t.customerPhone || '';
   // 🆕 AU 申报规则:整票合计固定 800 USD(压在澳洲 1000 起征线以下);NZ 及其它仍按 TPL_UNIT。
   const items = _tplSel(t);
