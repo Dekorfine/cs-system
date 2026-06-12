@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix221
+// 版本 2026.06.05-fix222
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix221
+// 版本 2026.06.05-fix222
 // 预编译切片
 //
 
@@ -1254,7 +1254,7 @@ var CSModule = function CSModule(_ref7) {
   // 🆕 fix220:报价提醒一键已跟 —— done=完成跟进(need_followup=false);tomorrow=推迟到明天
   var markQuoteFollowed = /*#__PURE__*/function () {
     var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(quoteId, mode) {
-      var _yield$CLOUD$client$f, row, error, d, isDate, _yield$CLOUD$client$f2, e2, _t;
+      var _yield$CLOUD$client$f, row, error, d, isDate, wk, _yield$CLOUD$client$f2, e2, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.p = _context.n) {
           case 0:
@@ -1274,11 +1274,12 @@ var CSModule = function CSModule(_ref7) {
           case 2:
             d = row.data || {};
             isDate = mode && /^\d{4}-\d{2}-\d{2}$/.test(mode);
+            wk = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
             if (isDate) {
               d.followup_date = mode;
             } else {
-              d.need_followup = false;
-            }
+              d.followup_date = wk;
+            } // 🆕 fix222:✓已跟 = 自动排到 7 天后(每周一次循环;成单/丢单/归档自动退出提醒)
             _context.n = 3;
             return CLOUD.client.from('quotations').update({
               data: d
@@ -1294,15 +1295,13 @@ var CSModule = function CSModule(_ref7) {
             return _context.a(2);
           case 4:
             setQuoteReminders(function (prev) {
-              return isDate ? prev.map(function (x) {
+              return prev.map(function (x) {
                 return x.quoteId === quoteId ? _objectSpread(_objectSpread({}, x), {}, {
-                  nextFollowUp: mode
+                  nextFollowUp: isDate ? mode : wk
                 }) : x;
-              }) : prev.filter(function (x) {
-                return x.quoteId !== quoteId;
               });
             });
-            toast(isDate ? '📅 下次跟进:' + mode : '✓ 已标记跟进完成');
+            toast(isDate ? '📅 下次跟进:' + mode : '✓ 已跟 · 下次自动排到 ' + wk);
             _context.n = 6;
             break;
           case 5:

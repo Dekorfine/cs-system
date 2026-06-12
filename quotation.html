@@ -4155,6 +4155,18 @@ async function cloudSave() {
   const username = getUsername();
   if (!username) { openSettings(); return; }
   const data = collectFormData();
+  // 🆕 自动跟进规则:总额(USD) ≥ 2000 自动标记需跟进、跟进日=+7天(每周一次);< 2000 自动取消 —— 不再靠手动勾选
+  try {
+    const totUSD = Number(data._total_usd) || 0;
+    const TH = Number(data.followup_threshold) || 2000;
+    const today = new Date().toISOString().slice(0, 10);
+    if (totUSD >= TH && !['won', 'lost', 'archived'].includes(data._status || '')) {
+      data.need_followup = true;
+      if (!data.followup_date || data.followup_date <= today) data.followup_date = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+    } else if (totUSD < TH) {
+      data.need_followup = false;
+    }
+  } catch (e) {}
   // 🆕 IMAGE STORAGE 规则:把产品图 base64 传 Supabase Storage,data 里只存 URL。
   //   报价单体积从几 MB 降到几 KB → 保存/打开/团队列表都快;上传失败的图保留 base64,绝不丢图。
   await uploadQuoteImages(data);
