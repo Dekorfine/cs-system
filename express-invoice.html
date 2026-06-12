@@ -117,11 +117,11 @@ const LAMP_TYPES = [{
   hs: '9405200090'
 }, {
   re: /ceiling|flush\s*mount/,
-  en: 'Wall Lamp',
-  cn: '壁灯',
+  en: 'Ceiling Lamp',
+  cn: '吸顶灯',
   hs: '9405100000'
 },
-// 🆕 吸顶/吸顶灯默认申报为壁灯(你们实际报关习惯)
+// 🆕 吸顶灯独立申报(Ceiling Lamp/吸顶灯)
 {
   re: /bulb|accessor|spare|part|cable|cord|shade|bracket|adapter|driver/,
   en: 'Accessories',
@@ -243,8 +243,8 @@ function normalizeOrderShape(raw, shopDomain) {
       shipping_address: {
         name: fullName(shipping) || fullName(billing),
         company: shipping.company || billing.company || '',
-        address1: shipping.address_1 || billing.address_1 || '',
-        address2: shipping.address_2 || billing.address_2 || '',
+        address1: shipping.address_1 || shipping.address1 || billing.address_1 || billing.address1 || '',
+        address2: shipping.address_2 || shipping.address2 || billing.address_2 || billing.address2 || '',
         city: shipping.city || billing.city || '',
         province: shipping.state || billing.state || '',
         country: shipping.country || billing.country || '',
@@ -923,7 +923,8 @@ async function buildYundingWorkbook(t) {
         wrapText: true
       };
     }
-    const img = await ydFetchImg(it.image_url);
+    const src = it.image_url || it.imageUrl || it.image || it.img || it.imageSrc || (Array.isArray(it.images) && it.images[0] && (it.images[0].src || it.images[0])) || '';
+    const img = await ydFetchImg(src);
     if (img) {
       try {
         const id = wb.addImage({
@@ -1016,7 +1017,8 @@ const _tplCn = it => it.lampCn || '吊灯', _tplEn = it => it.lampEn || 'Chandel
 // 🆕 模板发票:把产品图嵌入指定单元格(col/row 为 0-based,像云鼎)
 async function _tplEmbedImg(wb, ws, it, col, row) {
   try {
-    const img = await ydFetchImg(it.image_url);
+    const src = it.image_url || it.imageUrl || it.image || it.img || it.imageSrc || (Array.isArray(it.images) && it.images[0] && (it.images[0].src || it.images[0])) || '';
+    const img = await ydFetchImg(src);
     if (img) { const id = wb.addImage({ buffer: img.buf, extension: img.ext }); ws.addImage(id, { tl: { col, row }, ext: { width: 84, height: 84 } }); _imgDiag.embedded++; }
   } catch (e) {}
 }
@@ -1083,7 +1085,8 @@ async function buildYundingTpl(t) {            // 云鼎·FBA专线(填原生模
     const qty = parseInt(it.quantity) || 1;
     ws.getCell('A' + r).value = ref; ws.getCell('D' + r).value = it.lampCn || '吊灯'; ws.getCell('E' + r).value = it.lampEn || 'Chandelier';
     ws.getCell('F' + r).value = YD_HS; ws.getCell('G' + r).value = qty; ws.getCell('H' + r).value = 500 * qty; ws.getCell('S' + r).value = it.salesUrl || '';
-    const img = await ydFetchImg(it.image_url);
+    const src = it.image_url || it.imageUrl || it.image || it.img || it.imageSrc || (Array.isArray(it.images) && it.images[0] && (it.images[0].src || it.images[0])) || '';
+    const img = await ydFetchImg(src);
     if (img) { try { const id = wb.addImage({ buffer: img.buf, extension: img.ext }); ws.addImage(id, { tl: { col: 17, row: r - 1 }, ext: { width: 84, height: 84 } }); _imgDiag.embedded++; } catch (e) {} }
     r++;
   }
