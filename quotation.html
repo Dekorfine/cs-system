@@ -939,6 +939,13 @@ fieldset legend {
   }
   .document-container:last-of-type { page-break-after: auto; }
   .doc-table thead { display: table-header-group; }   /* 🆕 跨页时表头每页重复 */
+  /* 🆕 合理分页加固:任何"块"都不许被拆到两页 —— 产品行(含图)、合计、银行信息、条款、签名 */
+  tr { break-inside: avoid !important; page-break-inside: avoid !important; }
+  td, th { break-inside: avoid !important; }
+  td img { max-height: 150px; }
+  [class*="total"], [class*="bank"], [class*="sign"], [class*="terms"], [class*="info-box"], [class*="summary"], [class*="footer"] {
+    break-inside: avoid !important; page-break-inside: avoid !important;
+  }
   .doc-table tbody tr { page-break-inside: avoid; }
 
   .document-title { font-size: 18px !important; margin-bottom: 10px !important; }
