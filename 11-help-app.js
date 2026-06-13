@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix222
+// 版本 2026.06.05-fix224
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix222
+// 版本 2026.06.05-fix224
 // 预编译切片
 //
 
@@ -1492,29 +1492,61 @@ var App = function App() {
   useEffect(function () {
     if (!cloudOn || !user) return;
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-      var cloud, localMeaningful, localRecords, cloudById, localOnly, localNewer, merged, mx, toResync;
+      var cloud, p, _yield$CLOUD$client$f2, pg, pe, localMeaningful, localRecords, cloudById, localOnly, localNewer, merged, mx, toResync, _t3;
       return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.n) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
-            _context4.n = 1;
-            return CLOUD.list('workspace_records', {
-              order: {
-                col: 'updated_at',
-                asc: false
-              },
-              limit: 1000
-            });
-          case 1:
-            cloud = _context4.v;
+            // 🆕 fix223:总记录已超 1000,limit(1000) 让每台电脑只拿到不同切片 → 各端数量分裂(113/84/5/101)。改为分页拉全量。
+            cloud = [];
+            _context4.p = 1;
+            p = 0;
+          case 2:
+            if (!(p < 20)) {
+              _context4.n = 6;
+              break;
+            }
+            _context4.n = 3;
+            return CLOUD.client.from('workspace_records').select('*').order('updated_at', {
+              ascending: false
+            }).range(p * 1000, (p + 1) * 1000 - 1);
+          case 3:
+            _yield$CLOUD$client$f2 = _context4.v;
+            pg = _yield$CLOUD$client$f2.data;
+            pe = _yield$CLOUD$client$f2.error;
+            if (!pe) {
+              _context4.n = 4;
+              break;
+            }
+            if (p === 0) cloud = null;
+            return _context4.a(3, 6);
+          case 4:
+            cloud = cloud.concat(pg || []);
+            if (!(!pg || pg.length < 1000)) {
+              _context4.n = 5;
+              break;
+            }
+            return _context4.a(3, 6);
+          case 5:
+            p++;
+            _context4.n = 2;
+            break;
+          case 6:
+            _context4.n = 8;
+            break;
+          case 7:
+            _context4.p = 7;
+            _t3 = _context4.v;
+            cloud = null;
+          case 8:
             if (!(Array.isArray(cloud) && cloud.length === 0)) {
-              _context4.n = 2;
+              _context4.n = 9;
               break;
             }
             localMeaningful = (recordsRef.current || []).filter(function (r) {
               return r && isRecordMeaningful(r) && !r.deleted;
             });
             if (!(localMeaningful.length > 0)) {
-              _context4.n = 2;
+              _context4.n = 9;
               break;
             }
             console.warn('[sync] 云端返回 0 条但本地有', localMeaningful.length, '条 → 跳过覆盖,改为补传本地,防止误清空');
@@ -1525,7 +1557,7 @@ var App = function App() {
               } catch (e) {}
             }, 500);
             return _context4.a(2);
-          case 2:
+          case 9:
             if (cloud !== null) {
               // 🆕 fix7: 不能简单云端覆盖! 用户可能有未同步的本地记录(网络断 / 跨日 / 上次同步失败)
               // 旧版策略导致数据丢失: 用户工作一天,本地有 N 条,刷新后被云端覆盖 → 全没了
@@ -1605,10 +1637,10 @@ var App = function App() {
                 }, 800);
               }
             }
-          case 3:
+          case 10:
             return _context4.a(2);
         }
-      }, _callee4);
+      }, _callee4, null, [[1, 7]]);
     }))();
   }, [cloudOn, user, cloudVersion]);
 
@@ -1654,13 +1686,13 @@ var App = function App() {
   // 🆕 IO优化:把记录里的 base64 截图上传到 Storage,记下 url(本会话保留 data 供显示;入库由 sanitize 剥 base64)
   var ensureRecordShotsUploaded = /*#__PURE__*/function () {
     var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(records) {
-      var uploadShot, _iterator, _step, r, _iterator2, _step2, s, _iterator3, _step3, _s, _iterator4, _step4, _s2, _iterator5, _step5, f, _iterator6, _step6, _s3, _t4, _t5, _t6, _t7, _t8, _t9;
+      var uploadShot, _iterator, _step, r, _iterator2, _step2, s, _iterator3, _step3, _s, _iterator4, _step4, _s2, _iterator5, _step5, f, _iterator6, _step6, _s3, _t5, _t6, _t7, _t8, _t9, _t0;
       return _regenerator().w(function (_context6) {
         while (1) switch (_context6.p = _context6.n) {
           case 0:
             uploadShot = /*#__PURE__*/function () {
               var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(s) {
-                var dataUrl, blob, file, res, _t3;
+                var dataUrl, blob, file, res, _t4;
                 return _regenerator().w(function (_context5) {
                   while (1) switch (_context5.p = _context5.n) {
                     case 0:
@@ -1694,8 +1726,8 @@ var App = function App() {
                       break;
                     case 5:
                       _context5.p = 5;
-                      _t3 = _context5.v;
-                      console.warn('截图传Storage失败,保留base64', _t3);
+                      _t4 = _context5.v;
+                      console.warn('截图传Storage失败,保留base64', _t4);
                     case 6:
                       return _context5.a(2);
                   }
@@ -1737,8 +1769,8 @@ var App = function App() {
             break;
           case 7:
             _context6.p = 7;
-            _t4 = _context6.v;
-            _iterator2.e(_t4);
+            _t5 = _context6.v;
+            _iterator2.e(_t5);
           case 8:
             _context6.p = 8;
             _iterator2.f();
@@ -1767,8 +1799,8 @@ var App = function App() {
             break;
           case 14:
             _context6.p = 14;
-            _t5 = _context6.v;
-            _iterator3.e(_t5);
+            _t6 = _context6.v;
+            _iterator3.e(_t6);
           case 15:
             _context6.p = 15;
             _iterator3.f();
@@ -1797,8 +1829,8 @@ var App = function App() {
             break;
           case 21:
             _context6.p = 21;
-            _t6 = _context6.v;
-            _iterator4.e(_t6);
+            _t7 = _context6.v;
+            _iterator4.e(_t7);
           case 22:
             _context6.p = 22;
             _iterator4.f();
@@ -1840,8 +1872,8 @@ var App = function App() {
             break;
           case 30:
             _context6.p = 30;
-            _t7 = _context6.v;
-            _iterator6.e(_t7);
+            _t8 = _context6.v;
+            _iterator6.e(_t8);
           case 31:
             _context6.p = 31;
             _iterator6.f();
@@ -1854,8 +1886,8 @@ var App = function App() {
             break;
           case 34:
             _context6.p = 34;
-            _t8 = _context6.v;
-            _iterator5.e(_t8);
+            _t9 = _context6.v;
+            _iterator5.e(_t9);
           case 35:
             _context6.p = 35;
             _iterator5.f();
@@ -1868,8 +1900,8 @@ var App = function App() {
             break;
           case 38:
             _context6.p = 38;
-            _t9 = _context6.v;
-            _iterator.e(_t9);
+            _t0 = _context6.v;
+            _iterator.e(_t0);
           case 39:
             _context6.p = 39;
             _iterator.f();
@@ -1890,7 +1922,7 @@ var App = function App() {
       var maxRetries,
         attempt,
         cleaned,
-        _yield$CLOUD$client$f2,
+        _yield$CLOUD$client$f3,
         error,
         match,
         missingField,
@@ -1910,8 +1942,8 @@ var App = function App() {
             _context7.n = 2;
             return CLOUD.client.from('workspace_records').upsert(cleaned);
           case 2:
-            _yield$CLOUD$client$f2 = _context7.v;
-            error = _yield$CLOUD$client$f2.error;
+            _yield$CLOUD$client$f3 = _context7.v;
+            error = _yield$CLOUD$client$f3.error;
             if (error) {
               _context7.n = 3;
               break;
@@ -1966,8 +1998,8 @@ var App = function App() {
         one,
         okOne,
         _args8 = arguments,
-        _t0,
-        _t1;
+        _t1,
+        _t10;
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.p = _context8.n) {
           case 0:
@@ -2004,8 +2036,8 @@ var App = function App() {
             break;
           case 4:
             _context8.p = 4;
-            _t0 = _context8.v;
-            console.warn('图片传Storage部分失败,继续', _t0);
+            _t1 = _context8.v;
+            console.warn('图片传Storage部分失败,继续', _t1);
           case 5:
             CHUNK = 25;
             succeededIds = [];
@@ -2061,8 +2093,8 @@ var App = function App() {
             break;
           case 14:
             _context8.p = 14;
-            _t1 = _context8.v;
-            _iterator7.e(_t1);
+            _t10 = _context8.v;
+            _iterator7.e(_t10);
           case 15:
             _context8.p = 15;
             _iterator7.f();
@@ -2186,7 +2218,7 @@ var App = function App() {
   };
   var syncChangedRecords = /*#__PURE__*/function () {
     var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-      var changed, res, failed, _t10;
+      var changed, res, failed, _t11;
       return _regenerator().w(function (_context9) {
         while (1) switch (_context9.p = _context9.n) {
           case 0:
@@ -2232,9 +2264,9 @@ var App = function App() {
             break;
           case 5:
             _context9.p = 5;
-            _t10 = _context9.v;
-            console.error('云端写入失败(将自动重试)', _t10);
-            setCloudSyncError(_t10.message);
+            _t11 = _context9.v;
+            console.error('云端写入失败(将自动重试)', _t11);
+            setCloudSyncError(_t11.message);
           case 6:
             return _context9.a(2);
         }
@@ -2264,6 +2296,22 @@ var App = function App() {
       return clearInterval(iv);
     };
   }, [cloudOn, user]);
+  // 🆕 fix224:编辑后 5 秒内尽快上云 —— workspace_records 已退出 Realtime,REST 写不计消息费;
+  //   60s 窗口太长,填完字段就刷新会丢("选择网站被清空/数据被吞"就是这来的)。每次改动后 5s 防抖上传。
+  useEffect(function () {
+    if (!cloudOn || !user) return;
+    var t = setTimeout(function () {
+      try {
+        syncChangedRecords();
+      } catch (e) {}
+    }, 5000);
+    return function () {
+      return clearTimeout(t);
+    };
+    return function () {
+      return clearInterval(iv);
+    };
+  }, [cloudOn, user]);
 
   // 🆕 fix208(重构·双向实时同步的"拉"这一半):workspace_records 此前只在登录时拉一次 → 主管/同事看不到彼此的新数据,
   //   被迫手动刷新。现在每 12 秒增量拉取云端"自上次拉取后更新过"的记录并合并进来,自动、无需任何手动操作。
@@ -2273,7 +2321,7 @@ var App = function App() {
     var stopped = false;
     var pull = /*#__PURE__*/function () {
       var _ref17 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
-        var sinceMs, since, res, _res, data, error, mx, _t11;
+        var sinceMs, since, res, _res, data, error, mx, _t12;
         return _regenerator().w(function (_context0) {
           while (1) switch (_context0.p = _context0.n) {
             case 0:
@@ -2359,7 +2407,7 @@ var App = function App() {
               break;
             case 6:
               _context0.p = 6;
-              _t11 = _context0.v;
+              _t12 = _context0.v;
             case 7:
               return _context0.a(2);
           }
@@ -2422,7 +2470,7 @@ var App = function App() {
   // 🆕 fix212:同步自检 —— 直接读真实云端,把"本地 vs 云端"摊开,定位到底是"没上云"还是"归属不符"。
   var runSyncDiag = /*#__PURE__*/function () {
     var _ref18 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
-      var targetId, targetName, localAll, localMine, unsynced, unsyncedMine, noOwner, cloudMine, cloudErr, q, stuck, _t12;
+      var targetId, targetName, localAll, localMine, unsynced, unsyncedMine, noOwner, cloudMine, cloudErr, q, stuck, _t13;
       return _regenerator().w(function (_context1) {
         while (1) switch (_context1.p = _context1.n) {
           case 0:
@@ -2469,8 +2517,8 @@ var App = function App() {
             break;
           case 5:
             _context1.p = 5;
-            _t12 = _context1.v;
-            cloudErr = String(_t12.message || _t12);
+            _t13 = _context1.v;
+            cloudErr = String(_t13.message || _t13);
           case 6:
             // 列出未上云的明细(带真实错误)
             stuck = unsyncedMine.slice(0, 12).map(function (r) {
@@ -2510,7 +2558,7 @@ var App = function App() {
     setForcingSync = _useState30[1];
   var forceSyncAll = /*#__PURE__*/function () {
     var _ref19 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
-      var all, diff, res, failed, _t13;
+      var all, diff, res, failed, _t14;
       return _regenerator().w(function (_context10) {
         while (1) switch (_context10.p = _context10.n) {
           case 0:
@@ -2573,9 +2621,9 @@ var App = function App() {
             break;
           case 8:
             _context10.p = 8;
-            _t13 = _context10.v;
-            setCloudSyncError(_t13.message);
-            alert('部分上传失败,稍后会自动重试。错误:' + (_t13.message || _t13));
+            _t14 = _context10.v;
+            setCloudSyncError(_t14.message);
+            alert('部分上传失败,稍后会自动重试。错误:' + (_t14.message || _t14));
           case 9:
             setForcingSync(false);
           case 10:
@@ -2596,7 +2644,7 @@ var App = function App() {
     setMigrating = _useState32[1];
   var migrateRecordImages = /*#__PURE__*/function () {
     var _ref20 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
-      var all, hasB64, needs, done, imgs, upOne, slim, BATCH, i, batch, _iterator9, _step9, r, _iterator0, _step0, s, _iterator1, _step1, _s4, _iterator10, _step10, _s5, _iterator11, _step11, f, _iterator12, _step12, _s6, cleaned, _t15, _t16, _t17, _t18, _t19, _t20, _t21;
+      var all, hasB64, needs, done, imgs, upOne, slim, BATCH, i, batch, _iterator9, _step9, r, _iterator0, _step0, s, _iterator1, _step1, _s4, _iterator10, _step10, _s5, _iterator11, _step11, f, _iterator12, _step12, _s6, cleaned, _t16, _t17, _t18, _t19, _t20, _t21, _t22;
       return _regenerator().w(function (_context12) {
         while (1) switch (_context12.p = _context12.n) {
           case 0:
@@ -2654,7 +2702,7 @@ var App = function App() {
             done = 0, imgs = 0;
             upOne = /*#__PURE__*/function () {
               var _ref21 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(s) {
-                var dataUrl, blob, file, res, _t14;
+                var dataUrl, blob, file, res, _t15;
                 return _regenerator().w(function (_context11) {
                   while (1) switch (_context11.p = _context11.n) {
                     case 0:
@@ -2689,8 +2737,8 @@ var App = function App() {
                       break;
                     case 5:
                       _context11.p = 5;
-                      _t14 = _context11.v;
-                      console.warn('迁移图片失败,保留base64', _t14);
+                      _t15 = _context11.v;
+                      console.warn('迁移图片失败,保留base64', _t15);
                     case 6:
                       return _context11.a(2);
                   }
@@ -2745,8 +2793,8 @@ var App = function App() {
             break;
           case 14:
             _context12.p = 14;
-            _t15 = _context12.v;
-            _iterator0.e(_t15);
+            _t16 = _context12.v;
+            _iterator0.e(_t16);
           case 15:
             _context12.p = 15;
             _iterator0.f();
@@ -2775,8 +2823,8 @@ var App = function App() {
             break;
           case 21:
             _context12.p = 21;
-            _t16 = _context12.v;
-            _iterator1.e(_t16);
+            _t17 = _context12.v;
+            _iterator1.e(_t17);
           case 22:
             _context12.p = 22;
             _iterator1.f();
@@ -2805,8 +2853,8 @@ var App = function App() {
             break;
           case 28:
             _context12.p = 28;
-            _t17 = _context12.v;
-            _iterator10.e(_t17);
+            _t18 = _context12.v;
+            _iterator10.e(_t18);
           case 29:
             _context12.p = 29;
             _iterator10.f();
@@ -2848,8 +2896,8 @@ var App = function App() {
             break;
           case 37:
             _context12.p = 37;
-            _t18 = _context12.v;
-            _iterator12.e(_t18);
+            _t19 = _context12.v;
+            _iterator12.e(_t19);
           case 38:
             _context12.p = 38;
             _iterator12.f();
@@ -2862,8 +2910,8 @@ var App = function App() {
             break;
           case 41:
             _context12.p = 41;
-            _t19 = _context12.v;
-            _iterator11.e(_t19);
+            _t20 = _context12.v;
+            _iterator11.e(_t20);
           case 42:
             _context12.p = 42;
             _iterator11.f();
@@ -2878,8 +2926,8 @@ var App = function App() {
             break;
           case 46:
             _context12.p = 46;
-            _t20 = _context12.v;
-            _iterator9.e(_t20);
+            _t21 = _context12.v;
+            _iterator9.e(_t21);
           case 47:
             _context12.p = 47;
             _iterator9.f();
@@ -2910,8 +2958,8 @@ var App = function App() {
             break;
           case 52:
             _context12.p = 52;
-            _t21 = _context12.v;
-            alert('迁移出错: ' + (_t21.message || _t21));
+            _t22 = _context12.v;
+            alert('迁移出错: ' + (_t22.message || _t22));
           case 53:
             setMigrating(false);
           case 54:
@@ -3031,10 +3079,10 @@ var App = function App() {
         target,
         targetLabel,
         ticket,
-        _yield$CLOUD$client$f3,
+        _yield$CLOUD$client$f4,
         error,
         _args13 = arguments,
-        _t22;
+        _t23;
       return _regenerator().w(function (_context13) {
         while (1) switch (_context13.p = _context13.n) {
           case 0:
@@ -3113,8 +3161,8 @@ var App = function App() {
             _context13.n = 8;
             return CLOUD.client.from('workspace_tickets').upsert(ticket);
           case 8:
-            _yield$CLOUD$client$f3 = _context13.v;
-            error = _yield$CLOUD$client$f3.error;
+            _yield$CLOUD$client$f4 = _context13.v;
+            error = _yield$CLOUD$client$f4.error;
             if (!error) {
               _context13.n = 9;
               break;
@@ -3131,8 +3179,8 @@ var App = function App() {
             break;
           case 12:
             _context13.p = 12;
-            _t22 = _context13.v;
-            alert("\u274C \u7533\u8BF7\u5931\u8D25: ".concat(_t22.message, "\n\n\u5EFA\u8BAE:\u5DE5\u5355\u53EF\u80FD\u672A\u5728\u4E91\u7AEF\u521B\u5EFA,\u4F46\u672C\u5730\u5DF2\u8BB0\u5F55"));
+            _t23 = _context13.v;
+            alert("\u274C \u7533\u8BF7\u5931\u8D25: ".concat(_t23.message, "\n\n\u5EFA\u8BAE:\u5DE5\u5355\u53EF\u80FD\u672A\u5728\u4E91\u7AEF\u521B\u5EFA,\u4F46\u672C\u5730\u5DF2\u8BB0\u5F55"));
             STORE.set('tickets_local', [ticket].concat(_toConsumableArray(STORE.get('tickets_local', []))));
           case 13:
             return _context13.a(2);
@@ -3156,7 +3204,7 @@ var App = function App() {
   useEffect(function () {
     if (!cloudOn || !CLOUD.client) return;
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
-      var _data$value2, _yield$CLOUD$client$f4, data, ids, _t23;
+      var _data$value2, _yield$CLOUD$client$f5, data, ids, _t24;
       return _regenerator().w(function (_context14) {
         while (1) switch (_context14.p = _context14.n) {
           case 0:
@@ -3164,8 +3212,8 @@ var App = function App() {
             _context14.n = 1;
             return CLOUD.client.from('system_settings').select('*').eq('key', 'refund_processors').single();
           case 1:
-            _yield$CLOUD$client$f4 = _context14.v;
-            data = _yield$CLOUD$client$f4.data;
+            _yield$CLOUD$client$f5 = _context14.v;
+            data = _yield$CLOUD$client$f5.data;
             ids = data === null || data === void 0 || (_data$value2 = data.value) === null || _data$value2 === void 0 ? void 0 : _data$value2.user_ids;
             if (Array.isArray(ids) && ids.length > 0) {
               setRefundProcessors(ids);
@@ -3175,7 +3223,7 @@ var App = function App() {
             break;
           case 2:
             _context14.p = 2;
-            _t23 = _context14.v;
+            _t24 = _context14.v;
           case 3:
             return _context14.a(2);
         }
@@ -3194,7 +3242,7 @@ var App = function App() {
     window.__refundProcessors = refundProcessors;
     window.__setRefundProcessors = /*#__PURE__*/function () {
       var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(newIds, currentUserName) {
-        var userNames, _yield$CLOUD$client$f5, error, _t24;
+        var userNames, _yield$CLOUD$client$f6, error, _t25;
         return _regenerator().w(function (_context15) {
           while (1) switch (_context15.p = _context15.n) {
             case 0:
@@ -3223,8 +3271,8 @@ var App = function App() {
                 updated_by_name: currentUserName || (user === null || user === void 0 ? void 0 : user.name) || 'unknown'
               });
             case 2:
-              _yield$CLOUD$client$f5 = _context15.v;
-              error = _yield$CLOUD$client$f5.error;
+              _yield$CLOUD$client$f6 = _context15.v;
+              error = _yield$CLOUD$client$f6.error;
               if (!error) {
                 _context15.n = 3;
                 break;
@@ -3236,8 +3284,8 @@ var App = function App() {
               return _context15.a(2, true);
             case 4:
               _context15.p = 4;
-              _t24 = _context15.v;
-              alert('保存退款处理人配置失败: ' + (_t24.message || _t24));
+              _t25 = _context15.v;
+              alert('保存退款处理人配置失败: ' + (_t25.message || _t25));
               return _context15.a(2, false);
           }
         }, _callee15, null, [[1, 4]]);
@@ -3297,7 +3345,7 @@ var App = function App() {
   };
   var loadCdmMessages = /*#__PURE__*/function () {
     var _ref26 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
-      var client, cutoffMs, _yield$client$from$se, data, error, fb, _t25;
+      var client, cutoffMs, _yield$client$from$se, data, error, fb, _t26;
       return _regenerator().w(function (_context16) {
         while (1) switch (_context16.p = _context16.n) {
           case 0:
@@ -3362,8 +3410,8 @@ var App = function App() {
             break;
           case 8:
             _context16.p = 8;
-            _t25 = _context16.v;
-            console.warn('[CDM] 加载消息失败', _t25);
+            _t26 = _context16.v;
+            console.warn('[CDM] 加载消息失败', _t26);
           case 9:
             cdmLoadingRef.current = false;
             setCdmLoading(false);
@@ -3380,7 +3428,7 @@ var App = function App() {
   // 🆕 fix140: realtime 兜底 — payload 不完整时,按时间水位只增量补拉新行(正常返回 0 行,极轻)
   var cdmIncrementalFetch = /*#__PURE__*/function () {
     var _ref27 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
-      var client, since, _yield$client$from$se2, data, error, _t26;
+      var client, since, _yield$client$from$se2, data, error, _t27;
       return _regenerator().w(function (_context17) {
         while (1) switch (_context17.p = _context17.n) {
           case 0:
@@ -3427,7 +3475,7 @@ var App = function App() {
             break;
           case 5:
             _context17.p = 5;
-            _t26 = _context17.v;
+            _t27 = _context17.v;
           case 6:
             return _context17.a(2);
         }
@@ -3447,7 +3495,7 @@ var App = function App() {
   // 🆕 v22-CV/CW: 加载 shop_owners 和 cdm_timeout_config
   var loadShopOwners = /*#__PURE__*/function () {
     var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
-      var client, _yield$client$from$se3, data, error, _t27;
+      var client, _yield$client$from$se3, data, error, _t28;
       return _regenerator().w(function (_context18) {
         while (1) switch (_context18.p = _context18.n) {
           case 0:
@@ -3487,8 +3535,8 @@ var App = function App() {
             break;
           case 4:
             _context18.p = 4;
-            _t27 = _context18.v;
-            console.warn('[CDM] 加载 shop_owners 失败', _t27);
+            _t28 = _context18.v;
+            console.warn('[CDM] 加载 shop_owners 失败', _t28);
           case 5:
             return _context18.a(2);
         }
@@ -3500,7 +3548,7 @@ var App = function App() {
   }();
   var loadCdmTimeoutConfig = /*#__PURE__*/function () {
     var _ref29 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
-      var client, _yield$client$from$se4, data, error, _t28;
+      var client, _yield$client$from$se4, data, error, _t29;
       return _regenerator().w(function (_context19) {
         while (1) switch (_context19.p = _context19.n) {
           case 0:
@@ -3529,8 +3577,8 @@ var App = function App() {
             break;
           case 4:
             _context19.p = 4;
-            _t28 = _context19.v;
-            console.warn('[CDM] 加载 cdm_timeout_config 失败', _t28);
+            _t29 = _context19.v;
+            console.warn('[CDM] 加载 cdm_timeout_config 失败', _t29);
           case 5:
             return _context19.a(2);
         }
@@ -4212,7 +4260,7 @@ var App = function App() {
     if (!isAdminRole) return;
     var fetchDR = /*#__PURE__*/function () {
       var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
-        var data, _t29;
+        var data, _t30;
         return _regenerator().w(function (_context22) {
           while (1) switch (_context22.p = _context22.n) {
             case 0:
@@ -4232,7 +4280,7 @@ var App = function App() {
               break;
             case 2:
               _context22.p = 2;
-              _t29 = _context22.v;
+              _t30 = _context22.v;
             case 3:
               return _context22.a(2);
           }
@@ -5050,7 +5098,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix222';
+var APP_VERSION = '2026.06.05-fix224';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
