@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix227
+// 版本 2026.06.05-fix228
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix227
+// 版本 2026.06.05-fix228
 // 预编译切片
 //
 
@@ -11711,31 +11711,37 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref71) {
       marginBottom: 14
     }
   }, [{
+    fid: 'all-activities',
     label: '活跃工单',
     val: counts.all,
     color: 'var(--ink-2)',
     bg: 'var(--bg-elevated)'
   }, {
+    fid: 'mine',
     label: '我提的',
     val: counts.mine,
     color: 'var(--accent)',
     bg: 'var(--accent-soft)'
   }, {
+    fid: 'urgent',
     label: '🚨 加急未完',
     val: counts.urgent,
     color: 'var(--bad)',
     bg: 'var(--bad-soft)'
   }, {
+    fid: 'in-progress',
     label: '🔄 进行中',
     val: counts.inProgress,
     color: '#0369a1',
     bg: '#dbeafe'
   }, {
+    fid: 'done',
     label: '✅ 已完成',
     val: counts.done,
     color: 'var(--good)',
     bg: 'var(--good-soft)'
   }, {
+    fid: 'warehouse',
     label: '📦 在仓库',
     val: counts.warehouse,
     color: '#92400e',
@@ -11743,13 +11749,21 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref71) {
   }].map(function (s, i) {
     return /*#__PURE__*/React.createElement("div", {
       key: i,
+      onClick: function onClick() {
+        return setFilter(s.fid);
+      },
+      title: '点击筛选:' + s.label,
       style: {
         padding: '10px 12px',
         borderRadius: 10,
         background: s.bg,
         display: 'flex',
         flexDirection: 'column',
-        gap: 2
+        gap: 2,
+        cursor: 'pointer',
+        transition: 'all .12s',
+        outline: filter === s.fid ? '2px solid ' + s.color : '2px solid transparent',
+        boxShadow: filter === s.fid ? '0 2px 8px rgba(0,0,0,.12)' : 'none'
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
@@ -11768,40 +11782,25 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref71) {
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
-      gap: 8,
+      gap: 10,
       marginBottom: 14,
-      flexWrap: 'wrap'
+      flexWrap: 'wrap',
+      alignItems: 'center'
     }
-  }, [{
-    id: 'all-activities',
-    label: "\u5168\u90E8\u6D3B\u52A8 (".concat(counts.all, ")")
-  }, {
-    id: 'mine',
-    label: "\u6211\u63D0\u7684 (".concat(counts.mine, ")")
-  }, {
-    id: 'urgent',
-    label: "\uD83D\uDEA8 \u52A0\u6025 (".concat(counts.urgent, ")")
-  }, {
-    id: 'in-progress',
-    label: "\uD83D\uDD04 \u8FDB\u884C\u4E2D (".concat(counts.inProgress, ")")
-  }, {
-    id: 'done',
-    label: "\u2705 \u5B8C\u6210 (".concat(counts.done, ")")
-  }, {
-    id: 'all-with-warehouse',
-    label: "\u5168\u90E8\u542B\u4ED3\u5E93 (".concat(counts.allWithWarehouse, ")")
-  }, {
-    id: 'warehouse',
-    label: "\uD83D\uDCE6 \u4ED3\u5E93 (".concat(counts.warehouse, ")")
-  }].map(function (t) {
-    return /*#__PURE__*/React.createElement("button", {
-      key: t.id,
-      className: "tab-btn ".concat(filter === t.id ? 'active' : ''),
-      onClick: function onClick() {
-        return setFilter(t.id);
-      }
-    }, t.label);
-  })), /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--ink-3)'
+    }
+  }, "\uD83D\uDC46 \u70B9\u4E0A\u65B9\u5361\u7247\u7B5B\u9009"), /*#__PURE__*/React.createElement("button", {
+    className: "tab-btn ".concat(filter === 'all-with-warehouse' ? 'active' : ''),
+    onClick: function onClick() {
+      return setFilter('all-with-warehouse');
+    },
+    style: {
+      fontSize: 12
+    }
+  }, "\u5168\u90E8\u542B\u4ED3\u5E93 (".concat(counts.allWithWarehouse, ")"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       flexWrap: 'wrap',
