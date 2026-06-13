@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix230
+// 版本 2026.06.05-fix231
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix230
+// 版本 2026.06.05-fix231
 // 预编译切片
 //
 
@@ -3790,7 +3790,8 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
               title: "[\u5DF2\u4ED8\u6B3E\u8F6C\u5355] ".concat(order.order_no).concat(order.site ? ' · ' + order.site : '', " \xB7 ").concat(order.payment_currency || 'USD', " ").concat(order.payment_amount || 0),
               body: body,
               attachments: attachments,
-              related_type: 'order',
+              related_type: 'offline_transfer',
+              // 🆕 fix231:机器可筛标记(跟单按 to_system='po' AND related_type='offline_transfer' 过滤)
               related_ref: order.order_no,
               status: 'pending',
               thread: [],
@@ -4098,14 +4099,17 @@ var OfflineOrderCard = function OfflineOrderCard(_ref29) {
   var attachments = order.attachments || [];
   var setStatus = /*#__PURE__*/function () {
     var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(newStatus) {
+      var patch;
       return _regenerator().w(function (_context15) {
         while (1) switch (_context15.n) {
           case 0:
-            _context15.n = 1;
-            return CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, order), {}, {
+            patch = _objectSpread(_objectSpread({}, order), {}, {
               status: newStatus,
               updated_at: new Date().toISOString()
-            }));
+            });
+            if (newStatus === 'dispatched' && !order.dispatched_at) patch.dispatched_at = new Date().toISOString(); // 🆕 fix231:出货盖时间戳,提成按月归集用
+            _context15.n = 1;
+            return CLOUD.upsert('offline_orders', patch);
           case 1:
             toast('✓ 已更新');
             onReload();

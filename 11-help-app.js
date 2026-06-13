@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix230
+// 版本 2026.06.05-fix231
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix230
+// 版本 2026.06.05-fix231
 // 预编译切片
 //
 
@@ -3630,6 +3630,120 @@ var App = function App() {
 
   // Realtime 订阅 — 🆕 fix140: 不再每条变更全表重拉 500 行(29 人团队 read_by/回复高频触发 = IO 第一杀手),
   // 改为用 payload 增量 patch 内存列表(剥离大列);payload 不完整时才防抖增量补拉。桌面通知逻辑保留。
+  // 🆕 fix231:消费跟单「出货回执(po_shipped)」→ 回写 CLOUD.offline_orders 出货状态(写 CLOUD 的活由 cs 干,跟单不碰 CLOUD)
+  var consumePoShipped = /*#__PURE__*/function () {
+    var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(m) {
+      var orderNo, dt, bm, _yield$CLOUD$client$f7, oo, cdm, _t30;
+      return _regenerator().w(function (_context20) {
+        while (1) switch (_context20.p = _context20.n) {
+          case 0:
+            _context20.p = 0;
+            orderNo = m.related_ref;
+            if (orderNo) {
+              _context20.n = 1;
+              break;
+            }
+            return _context20.a(2);
+          case 1:
+            dt = null;
+            bm = /dispatched_at=([0-9T:\-\.Z+]+)/.exec(m.body || '');
+            if (bm) dt = bm[1];
+            if (!dt) dt = m.updated_at || new Date().toISOString();
+            _context20.n = 2;
+            return CLOUD.client.from('offline_orders').select('id,status,dispatched_at').eq('order_no', orderNo).limit(1).maybeSingle();
+          case 2:
+            _yield$CLOUD$client$f7 = _context20.v;
+            oo = _yield$CLOUD$client$f7.data;
+            if (!(oo && oo.id && !['completed', 'cancelled'].includes(oo.status))) {
+              _context20.n = 3;
+              break;
+            }
+            _context20.n = 3;
+            return CLOUD.client.from('offline_orders').update({
+              status: 'dispatched',
+              dispatched_at: oo.dispatched_at || dt,
+              updated_at: new Date().toISOString()
+            }).eq('id', oo.id);
+          case 3:
+            // 标记回执已处理,避免重复消费
+            cdm = getCdmClient();
+            if (!(cdm && m.id)) {
+              _context20.n = 4;
+              break;
+            }
+            _context20.n = 4;
+            return cdm.from('cross_dept_messages').update({
+              status: 'resolved'
+            }).eq('id', m.id);
+          case 4:
+            _context20.n = 6;
+            break;
+          case 5:
+            _context20.p = 5;
+            _t30 = _context20.v;
+            console.warn('[po_shipped] 消费失败', _t30);
+          case 6:
+            return _context20.a(2);
+        }
+      }, _callee20, null, [[0, 5]]);
+    }));
+    return function consumePoShipped(_x8) {
+      return _ref30.apply(this, arguments);
+    };
+  }();
+  // 挂载/换人时补扫一遍未处理的出货回执(离线期间漏掉的)
+  useEffect(function () {
+    if (!user) return;
+    var cdm = getCdmClient();
+    if (!cdm) return;
+    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
+      var _yield$cdm$from$selec, data, _iterator13, _step13, m, _t31, _t32;
+      return _regenerator().w(function (_context21) {
+        while (1) switch (_context21.p = _context21.n) {
+          case 0:
+            _context21.p = 0;
+            _context21.n = 1;
+            return cdm.from('cross_dept_messages').select('id,related_ref,body,updated_at,status').eq('related_type', 'po_shipped').neq('status', 'resolved').limit(200);
+          case 1:
+            _yield$cdm$from$selec = _context21.v;
+            data = _yield$cdm$from$selec.data;
+            _iterator13 = _createForOfIteratorHelper(data || []);
+            _context21.p = 2;
+            _iterator13.s();
+          case 3:
+            if ((_step13 = _iterator13.n()).done) {
+              _context21.n = 5;
+              break;
+            }
+            m = _step13.value;
+            _context21.n = 4;
+            return consumePoShipped(m);
+          case 4:
+            _context21.n = 3;
+            break;
+          case 5:
+            _context21.n = 7;
+            break;
+          case 6:
+            _context21.p = 6;
+            _t31 = _context21.v;
+            _iterator13.e(_t31);
+          case 7:
+            _context21.p = 7;
+            _iterator13.f();
+            return _context21.f(7);
+          case 8:
+            _context21.n = 10;
+            break;
+          case 9:
+            _context21.p = 9;
+            _t32 = _context21.v;
+          case 10:
+            return _context21.a(2);
+        }
+      }, _callee21, null, [[2, 6, 7, 8], [0, 9]]);
+    }))();
+  }, [user && user.id]);
   useEffect(function () {
     if (!user) return;
     var client = getCdmClient();
@@ -3651,6 +3765,12 @@ var App = function App() {
               return m.id === row.id;
             }) ? prev : [row].concat(_toConsumableArray(prev));
           });
+          // 🆕 fix231:跟单出货回执 → 自动把线下单置「已出货」(提成才算得上这单)
+          if (payload["new"].related_type === 'po_shipped' && payload["new"].related_ref) {
+            try {
+              consumePoShipped(payload["new"]);
+            } catch (e) {}
+          }
           // 新消息且发给客服部 → 桌面通知
           if (payload["new"].to_system === 'cs' && payload["new"].from_user_id !== user.id) {
             if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -4045,53 +4165,53 @@ var App = function App() {
     };
   }, [user]);
   var onLogout = /*#__PURE__*/function () {
-    var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
-      return _regenerator().w(function (_context20) {
-        while (1) switch (_context20.n) {
+    var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
+      return _regenerator().w(function (_context22) {
+        while (1) switch (_context22.n) {
           case 0:
-            _context20.n = 1;
+            _context22.n = 1;
             return wsConfirm('确认退出登录？');
           case 1:
-            if (_context20.v) {
-              _context20.n = 2;
+            if (_context22.v) {
+              _context22.n = 2;
               break;
             }
-            return _context20.a(2);
+            return _context22.a(2);
           case 2:
             setUser(null);
             STORE.del('current_user');
             STORE.del('impersonate_origin'); // 清除模拟身份
           case 3:
-            return _context20.a(2);
+            return _context22.a(2);
         }
-      }, _callee20);
+      }, _callee22);
     }));
     return function onLogout() {
-      return _ref30.apply(this, arguments);
+      return _ref32.apply(this, arguments);
     };
   }();
 
   // 🆕 切换账号 - 主管/老板免密查看模式
   var switchAccount = /*#__PURE__*/function () {
-    var _ref31 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(targetEmployee) {
+    var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(targetEmployee) {
       var isAdminViewer, ok, origin, _newUser, password, newUser;
-      return _regenerator().w(function (_context21) {
-        while (1) switch (_context21.n) {
+      return _regenerator().w(function (_context23) {
+        while (1) switch (_context23.n) {
           case 0:
             isAdminViewer = user && (user.role === 'admin' || user.role === 'super_admin'); // 主管/老板:无需密码,以查看模式切换
             if (!(isAdminViewer && targetEmployee.id !== user.id)) {
-              _context21.n = 3;
+              _context23.n = 3;
               break;
             }
-            _context21.n = 1;
+            _context23.n = 1;
             return wsConfirm("\uD83D\uDC41 \u4EE5 ".concat(targetEmployee.name).concat(targetEmployee.alias ? ' ' + targetEmployee.alias : '', " \u7684\u8EAB\u4EFD\u67E5\u770B\n\n") + "\u8FD9\u662F\u67E5\u770B\u6A21\u5F0F \u2014 \u4F60\u53EF\u4EE5\u770B\u5230\u8BE5\u5458\u5DE5\u7684\u6240\u6709\u6570\u636E,\u9876\u90E8\u4F1A\u663E\u793A\u660E\u663E\u6807\u8BC6,\u968F\u65F6\u53EF\u4E00\u952E\u5207\u56DE\u3002\n\n" + "\u7EE7\u7EED\u5417?");
           case 1:
-            ok = _context21.v;
+            ok = _context23.v;
             if (ok) {
-              _context21.n = 2;
+              _context23.n = 2;
               break;
             }
-            return _context21.a(2);
+            return _context23.a(2);
           case 2:
             // 记录原始身份(切回用)
             origin = STORE.get('impersonate_origin', null);
@@ -4109,31 +4229,31 @@ var App = function App() {
             setUser(_newUser);
             STORE.set('current_user', _newUser);
             toast("\uD83D\uDC41 \u5DF2\u5207\u6362\u5230 ".concat(_newUser.name, " \u89C6\u89D2 \xB7 \u9876\u90E8\u53EF\u4E00\u952E\u5207\u56DE"));
-            return _context21.a(2);
+            return _context23.a(2);
           case 3:
-            _context21.n = 4;
+            _context23.n = 4;
             return wsPrompt("\u5207\u6362\u5230 ".concat(targetEmployee.name).concat(targetEmployee.alias ? ' ' + targetEmployee.alias : '', " \u7684\u8D26\u53F7\n\n\u8BF7\u8F93\u5165\u8BE5\u8D26\u53F7\u7684\u5BC6\u7801\uFF1A"));
           case 4:
-            password = _context21.v;
+            password = _context23.v;
             if (!(password === null)) {
-              _context21.n = 5;
+              _context23.n = 5;
               break;
             }
-            return _context21.a(2);
+            return _context23.a(2);
           case 5:
             if (password) {
-              _context21.n = 6;
+              _context23.n = 6;
               break;
             }
             alert('密码不能为空');
-            return _context21.a(2);
+            return _context23.a(2);
           case 6:
             if (!(password !== targetEmployee.password)) {
-              _context21.n = 7;
+              _context23.n = 7;
               break;
             }
             alert('❌ 密码错误');
-            return _context21.a(2);
+            return _context23.a(2);
           case 7:
             newUser = _objectSpread({}, targetEmployee);
             setUser(newUser);
@@ -4141,12 +4261,12 @@ var App = function App() {
             STORE.del('impersonate_origin');
             toast("\u2713 \u5DF2\u5207\u6362\u5230 ".concat(newUser.name).concat(newUser.alias ? ' ' + newUser.alias : ''));
           case 8:
-            return _context21.a(2);
+            return _context23.a(2);
         }
-      }, _callee21);
+      }, _callee23);
     }));
-    return function switchAccount(_x8) {
-      return _ref31.apply(this, arguments);
+    return function switchAccount(_x9) {
+      return _ref33.apply(this, arguments);
     };
   }();
 
@@ -4259,13 +4379,13 @@ var App = function App() {
     var isAdminRole = user.role === 'admin' || user.role === 'super_admin';
     if (!isAdminRole) return;
     var fetchDR = /*#__PURE__*/function () {
-      var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
-        var data, _t30;
-        return _regenerator().w(function (_context22) {
-          while (1) switch (_context22.p = _context22.n) {
+      var _ref34 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24() {
+        var data, _t33;
+        return _regenerator().w(function (_context24) {
+          while (1) switch (_context24.p = _context24.n) {
             case 0:
-              _context22.p = 0;
-              _context22.n = 1;
+              _context24.p = 0;
+              _context24.n = 1;
               return CLOUD.list('delete_requests', {
                 order: {
                   col: 'requested_at',
@@ -4274,20 +4394,20 @@ var App = function App() {
                 limit: 200
               });
             case 1:
-              data = _context22.v;
+              data = _context24.v;
               STORE.set('delete_requests_cache', data || []);
-              _context22.n = 3;
+              _context24.n = 3;
               break;
             case 2:
-              _context22.p = 2;
-              _t30 = _context22.v;
+              _context24.p = 2;
+              _t33 = _context24.v;
             case 3:
-              return _context22.a(2);
+              return _context24.a(2);
           }
-        }, _callee22, null, [[0, 2]]);
+        }, _callee24, null, [[0, 2]]);
       }));
       return function fetchDR() {
-        return _ref32.apply(this, arguments);
+        return _ref34.apply(this, arguments);
       };
     }();
     fetchDR();
@@ -4749,19 +4869,19 @@ var App = function App() {
         justifyContent: 'flex-end'
       }
     }, d.unsyncedCount > 0 && /*#__PURE__*/React.createElement("button", {
-      onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
-        return _regenerator().w(function (_context23) {
-          while (1) switch (_context23.n) {
+      onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25() {
+        return _regenerator().w(function (_context25) {
+          while (1) switch (_context25.n) {
             case 0:
-              _context23.n = 1;
+              _context25.n = 1;
               return forceSyncAll();
             case 1:
-              _context23.n = 2;
+              _context25.n = 2;
               return runSyncDiag();
             case 2:
-              return _context23.a(2);
+              return _context25.a(2);
           }
-        }, _callee23);
+        }, _callee25);
       })),
       disabled: forcingSync,
       style: {
@@ -5081,9 +5201,9 @@ var App = function App() {
     allTabs: allTabs,
     layoutPrefs: layoutPrefs,
     defaultTopKeys: DEFAULT_TOP_KEYS,
-    onSave: function onSave(_ref34) {
-      var newTopKeys = _ref34.topKeys,
-        newSidebarOrder = _ref34.sidebarOrder;
+    onSave: function onSave(_ref36) {
+      var newTopKeys = _ref36.topKeys,
+        newSidebarOrder = _ref36.sidebarOrder;
       return setLayoutPrefs(function (p) {
         return _objectSpread(_objectSpread({}, p), {}, {
           topKeys: newTopKeys,
@@ -5098,7 +5218,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix230';
+var APP_VERSION = '2026.06.05-fix231';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
