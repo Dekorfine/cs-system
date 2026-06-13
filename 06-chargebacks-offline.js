@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix224
+// 版本 2026.06.05-fix225
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix224
+// 版本 2026.06.05-fix225
 // 预编译切片
 //
 
@@ -75,11 +75,11 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
     _useState12 = _slicedToArray(_useState11, 2),
     filterOwner = _useState12[0],
     setFilterOwner = _useState12[1]; // 🆕 fix75: 客服筛选
-  var _useState13 = useState('updated'),
+  var _useState13 = useState('deadline'),
     _useState14 = _slicedToArray(_useState13, 2),
     cbSortBy = _useState14[0],
-    setCbSortBy = _useState14[1]; // 🆕 排序
-  var _useState15 = useState('desc'),
+    setCbSortBy = _useState14[1]; // 🆕 fix225:默认按截止日期,最急在前
+  var _useState15 = useState('asc'),
     _useState16 = _slicedToArray(_useState15, 2),
     cbSortDir = _useState16[0],
     setCbSortDir = _useState16[1];
@@ -229,6 +229,9 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
     var ckey = function ckey(c) {
       var _CB_STATUS_ORDER$c$st;
       switch (cbSortBy) {
+        case 'deadline':
+          return c.deadline || '9999-12-31';
+        // 🆕 fix225:按截止日期(无截止排最后)
         case 'updated':
           return c.updated_at || c.created_at || '';
         case 'created':
