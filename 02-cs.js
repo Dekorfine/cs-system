@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix231
+// 版本 2026.06.05-fix232
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix231
+// 版本 2026.06.05-fix232
 // 预编译切片
 //
 
@@ -1327,7 +1327,7 @@ var CSModule = function CSModule(_ref7) {
           case 0:
             _context2.n = 1;
             return CLOUD.list('quotations', {
-              select: 'id,created_by_name,pi_no,buyer_name,amount,currency,status,trashed,need_followup:data->>need_followup,followup_date:data->>followup_date',
+              select: 'id,created_by_name,pi_no,buyer_name,amount,currency,status,trashed,created_at,need_followup:data->>need_followup,followup_date:data->>followup_date',
               limit: 1000
             });
           case 1:
@@ -1359,6 +1359,7 @@ var CSModule = function CSModule(_ref7) {
                 id: 'quote_' + q.id,
                 isQuote: true,
                 quoteId: q.id,
+                createdAt: q.created_at || '',
                 nextFollowUp: fd,
                 status: 'following',
                 ownerId: owner ? owner.id : null,
@@ -1758,21 +1759,25 @@ var CSModule = function CSModule(_ref7) {
     _useState64 = _slicedToArray(_useState63, 2),
     remindersExpanded = _useState64[0],
     setRemindersExpanded = _useState64[1];
-  // 🆕 fix104: 跟进提醒视角 — all(全部)/ self(本人)/ <empId>(单独看某人);标星员工持久化到本地
-  var _useState65 = useState(isAdmin ? 'all' : 'self'),
+  var _useState65 = useState('all'),
     _useState66 = _slicedToArray(_useState65, 2),
-    reminderViewer = _useState66[0],
-    setReminderViewer = _useState66[1];
-  var _useState67 = useState(function () {
+    bucketFilter = _useState66[0],
+    setBucketFilter = _useState66[1]; // 🆕 fix232: all|overdue|today|future|waiting|quote
+  // 🆕 fix104: 跟进提醒视角 — all(全部)/ self(本人)/ <empId>(单独看某人);标星员工持久化到本地
+  var _useState67 = useState(isAdmin ? 'all' : 'self'),
+    _useState68 = _slicedToArray(_useState67, 2),
+    reminderViewer = _useState68[0],
+    setReminderViewer = _useState68[1];
+  var _useState69 = useState(function () {
       try {
         return JSON.parse(localStorage.getItem('cs_starred_staff') || '[]');
       } catch (e) {
         return [];
       }
     }),
-    _useState68 = _slicedToArray(_useState67, 2),
-    starredStaff = _useState68[0],
-    setStarredStaff = _useState68[1];
+    _useState70 = _slicedToArray(_useState69, 2),
+    starredStaff = _useState70[0],
+    setStarredStaff = _useState70[1];
   var toggleStar = function toggleStar(id) {
     return setStarredStaff(function (prev) {
       var next = prev.includes(id) ? prev.filter(function (x) {
@@ -1785,20 +1790,20 @@ var CSModule = function CSModule(_ref7) {
     });
   };
   // 转交 modal
-  var _useState69 = useState(null),
-    _useState70 = _slicedToArray(_useState69, 2),
-    transferModal = _useState70[0],
-    setTransferModal = _useState70[1]; // record id
-  // 批量转交 modal
   var _useState71 = useState(null),
     _useState72 = _slicedToArray(_useState71, 2),
-    batchTransferModal = _useState72[0],
-    setBatchTransferModal = _useState72[1]; // {fromUserId: ...} or null
-  // 转交通知（首次进入 tab 时检测）
-  var _useState73 = useState(false),
+    transferModal = _useState72[0],
+    setTransferModal = _useState72[1]; // record id
+  // 批量转交 modal
+  var _useState73 = useState(null),
     _useState74 = _slicedToArray(_useState73, 2),
-    transferNoticeShown = _useState74[0],
-    setTransferNoticeShown = _useState74[1];
+    batchTransferModal = _useState74[0],
+    setBatchTransferModal = _useState74[1]; // {fromUserId: ...} or null
+  // 转交通知（首次进入 tab 时检测）
+  var _useState75 = useState(false),
+    _useState76 = _slicedToArray(_useState75, 2),
+    transferNoticeShown = _useState76[0],
+    setTransferNoticeShown = _useState76[1];
 
   // 计算"转给我但还没看的"工作
   var incomingTransfers = useMemo(function () {
@@ -1822,12 +1827,24 @@ var CSModule = function CSModule(_ref7) {
     });else if (reminderViewer !== 'all') list = reminders.filter(function (r) {
       return r.ownerId === reminderViewer;
     }); // 单独看某人
-    return _toConsumableArray(list).sort(function (a, b) {
-      var aDate = a.nextFollowUp || '9999-99-99';
-      var bDate = b.nextFollowUp || '9999-99-99';
-      return aDate.localeCompare(bDate);
+    // 🆕 fix232:点上方圆点筛选(逾期/今日/未来/等客户/报价)
+    if (bucketFilter === 'overdue') list = list.filter(function (r) {
+      return r.status !== 'waiting' && r.nextFollowUp < today;
+    });else if (bucketFilter === 'today') list = list.filter(function (r) {
+      return r.status !== 'waiting' && r.nextFollowUp === today;
+    });else if (bucketFilter === 'future') list = list.filter(function (r) {
+      return r.status !== 'waiting' && r.nextFollowUp > today;
+    });else if (bucketFilter === 'waiting') list = list.filter(function (r) {
+      return r.status === 'waiting';
+    });else if (bucketFilter === 'quote') list = list.filter(function (r) {
+      return r.isQuote;
     });
-  }, [reminders, reminderViewer, user.id]);
+    return _toConsumableArray(list).sort(function (a, b) {
+      // 🆕 报价桶:新增的排最前(按创建时间倒序);其它桶维持按下次跟进日期升序
+      if (bucketFilter === 'quote') return (b.createdAt || '').localeCompare(a.createdAt || '');
+      return (a.nextFollowUp || '9999-99-99').localeCompare(b.nextFollowUp || '9999-99-99');
+    });
+  }, [reminders, reminderViewer, user.id, bucketFilter, today]);
 
   // 🆕 高频投诉客户监控（同邮箱 ≥5 封记录 = 疑似投诉/重要客户）
   var HIGH_FREQ_THRESHOLD = 5;
@@ -1878,45 +1895,45 @@ var CSModule = function CSModule(_ref7) {
   }, [records, isAdmin, employees]);
 
   // 高频客户面板展开
-  var _useState75 = useState(false),
-    _useState76 = _slicedToArray(_useState75, 2),
-    highFreqExpanded = _useState76[0],
-    setHighFreqExpanded = _useState76[1];
+  var _useState77 = useState(false),
+    _useState78 = _slicedToArray(_useState77, 2),
+    highFreqExpanded = _useState78[0],
+    setHighFreqExpanded = _useState78[1];
 
   // 🆕 事件管理 (售后/补件/退款) + 供应商
-  var _useState77 = useState([]),
-    _useState78 = _slicedToArray(_useState77, 2),
-    suppliers = _useState78[0],
-    setSuppliers = _useState78[1];
   var _useState79 = useState([]),
     _useState80 = _slicedToArray(_useState79, 2),
-    aftersales = _useState80[0],
-    setAftersales = _useState80[1];
+    suppliers = _useState80[0],
+    setSuppliers = _useState80[1];
   var _useState81 = useState([]),
     _useState82 = _slicedToArray(_useState81, 2),
-    refills = _useState82[0],
-    setRefills = _useState82[1];
+    aftersales = _useState82[0],
+    setAftersales = _useState82[1];
   var _useState83 = useState([]),
     _useState84 = _slicedToArray(_useState83, 2),
-    refunds = _useState84[0],
-    setRefunds = _useState84[1];
-  var _useState85 = useState(null),
+    refills = _useState84[0],
+    setRefills = _useState84[1];
+  var _useState85 = useState([]),
     _useState86 = _slicedToArray(_useState85, 2),
-    eventEditor = _useState86[0],
-    setEventEditor = _useState86[1]; // { kind, record, existingEvent? }
+    refunds = _useState86[0],
+    setRefunds = _useState86[1];
   var _useState87 = useState(null),
     _useState88 = _slicedToArray(_useState87, 2),
-    smartEditor = _useState88[0],
-    setSmartEditor = _useState88[1]; // 🆕 { kind:'chargeback'|'custom'|'photo', record }
+    eventEditor = _useState88[0],
+    setEventEditor = _useState88[1]; // { kind, record, existingEvent? }
+  var _useState89 = useState(null),
+    _useState90 = _slicedToArray(_useState89, 2),
+    smartEditor = _useState90[0],
+    setSmartEditor = _useState90[1]; // 🆕 { kind:'chargeback'|'custom'|'photo', record }
   // 🆕 fix9b: 6 大事件按钮(售后/补件/退款/拒付/定制/实拍)默认折叠,避免每条记录都一大坨按钮
   // 大部分跟进只是回复客户邮件,不需要这些事件;有需要再展开
   // 已被打标(category=拒付/定制咨询/实拍)的记录默认展开,方便快速进入
-  var _useState89 = useState(function () {
+  var _useState91 = useState(function () {
       return new Set();
     }),
-    _useState90 = _slicedToArray(_useState89, 2),
-    expandedEventActions = _useState90[0],
-    setExpandedEventActions = _useState90[1];
+    _useState92 = _slicedToArray(_useState91, 2),
+    expandedEventActions = _useState92[0],
+    setExpandedEventActions = _useState92[1];
   var toggleEventActions = function toggleEventActions(id) {
     return setExpandedEventActions(function (prev) {
       var next = new Set(prev);
@@ -1925,14 +1942,14 @@ var CSModule = function CSModule(_ref7) {
     });
   };
   // 🆕 fix188:工作汇报弹窗 + 记录行 摘要/展开(默认:今日未完成展开,已解决/历史收起;点行头切换)
-  var _useState91 = useState(null),
-    _useState92 = _slicedToArray(_useState91, 2),
-    reportModal = _useState92[0],
-    setReportModal = _useState92[1];
-  var _useState93 = useState({}),
+  var _useState93 = useState(null),
     _useState94 = _slicedToArray(_useState93, 2),
-    rowOverride = _useState94[0],
-    setRowOverride = _useState94[1];
+    reportModal = _useState94[0],
+    setReportModal = _useState94[1];
+  var _useState95 = useState({}),
+    _useState96 = _slicedToArray(_useState95, 2),
+    rowOverride = _useState96[0],
+    setRowOverride = _useState96[1];
   var isRowOpen = function isRowOpen(r, editable) {
     if (rowOverride[r.id] !== undefined) return rowOverride[r.id];
     return !!editable && r.status !== 'resolved' && r.status !== 'transferred';
@@ -1945,13 +1962,13 @@ var CSModule = function CSModule(_ref7) {
 
   // 🆕 fix206(建议1·大厂口径):一键计时器 —— 自动把"现在时间"填进起止时段,免手填、消灭 typo。
   //   同一时刻只允许一个计时器在跑;开另一个 / 收起行 / 切走或关页 都会自动停表落库。
-  var _useState95 = useState(null),
-    _useState96 = _slicedToArray(_useState95, 2),
-    runningTimer = _useState96[0],
-    setRunningTimer = _useState96[1]; // { id, startMs }
-  var _useState97 = useState(0),
+  var _useState97 = useState(null),
     _useState98 = _slicedToArray(_useState97, 2),
-    setTimerNow = _useState98[1]; // 仅用于每秒刷新 mm:ss 显示
+    runningTimer = _useState98[0],
+    setRunningTimer = _useState98[1]; // { id, startMs }
+  var _useState99 = useState(0),
+    _useState100 = _slicedToArray(_useState99, 2),
+    setTimerNow = _useState100[1]; // 仅用于每秒刷新 mm:ss 显示
   useEffect(function () {
     if (!runningTimer) return;
     var iv = setInterval(function () {
@@ -2721,10 +2738,24 @@ var CSModule = function CSModule(_ref7) {
       });
     }
   }, "\uD83D\uDD04 \u6279\u91CF\u8F6C\u4EA4\u5DE5\u4F5C"))), /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-3 flex-wrap"
-  }, /*#__PURE__*/React.createElement("span", {
-    className: "text-xs flex items-center gap-1.5",
+    className: "flex items-center gap-2 flex-wrap"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setBucketFilter(bucketFilter === 'overdue' ? 'all' : 'overdue');
+      setRemindersExpanded(true);
+    },
+    className: "text-xs",
     style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '3px 9px',
+      borderRadius: 999,
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      border: '1px solid ' + (bucketFilter === 'overdue' ? 'var(--accent)' : 'var(--line)'),
+      background: bucketFilter === 'overdue' ? 'var(--accent-soft)' : 'transparent',
       color: 'var(--ink-2)'
     }
   }, /*#__PURE__*/React.createElement("span", {
@@ -2734,9 +2765,23 @@ var CSModule = function CSModule(_ref7) {
     }
   }), "\u903E\u671F ", /*#__PURE__*/React.createElement("span", {
     className: "font-mono font-bold"
-  }, overdueCount)), /*#__PURE__*/React.createElement("span", {
-    className: "text-xs flex items-center gap-1.5",
+  }, overdueCount)), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setBucketFilter(bucketFilter === 'today' ? 'all' : 'today');
+      setRemindersExpanded(true);
+    },
+    className: "text-xs",
     style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '3px 9px',
+      borderRadius: 999,
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      border: '1px solid ' + (bucketFilter === 'today' ? 'var(--accent)' : 'var(--line)'),
+      background: bucketFilter === 'today' ? 'var(--accent-soft)' : 'transparent',
       color: 'var(--ink-2)'
     }
   }, /*#__PURE__*/React.createElement("span", {
@@ -2746,9 +2791,23 @@ var CSModule = function CSModule(_ref7) {
     }
   }), "\u4ECA\u65E5 ", /*#__PURE__*/React.createElement("span", {
     className: "font-mono font-bold"
-  }, todayCount)), /*#__PURE__*/React.createElement("span", {
-    className: "text-xs flex items-center gap-1.5",
+  }, todayCount)), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setBucketFilter(bucketFilter === 'future' ? 'all' : 'future');
+      setRemindersExpanded(true);
+    },
+    className: "text-xs",
     style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '3px 9px',
+      borderRadius: 999,
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      border: '1px solid ' + (bucketFilter === 'future' ? 'var(--accent)' : 'var(--line)'),
+      background: bucketFilter === 'future' ? 'var(--accent-soft)' : 'transparent',
       color: 'var(--ink-2)'
     }
   }, /*#__PURE__*/React.createElement("span", {
@@ -2758,14 +2817,62 @@ var CSModule = function CSModule(_ref7) {
     }
   }), "\u672A\u6765 ", /*#__PURE__*/React.createElement("span", {
     className: "font-mono font-bold"
-  }, futureCount)), /*#__PURE__*/React.createElement("span", {
-    className: "text-xs flex items-center gap-1.5",
+  }, futureCount)), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setBucketFilter(bucketFilter === 'waiting' ? 'all' : 'waiting');
+      setRemindersExpanded(true);
+    },
+    className: "text-xs",
     style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '3px 9px',
+      borderRadius: 999,
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      border: '1px solid ' + (bucketFilter === 'waiting' ? 'var(--accent)' : 'var(--line)'),
+      background: bucketFilter === 'waiting' ? 'var(--accent-soft)' : 'transparent',
       color: 'var(--ink-2)'
     }
   }, "\u231B \u7B49\u5BA2\u6237 ", /*#__PURE__*/React.createElement("span", {
     className: "font-mono font-bold"
   }, waitingCount)), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setBucketFilter(bucketFilter === 'quote' ? 'all' : 'quote');
+      setRemindersExpanded(true);
+    },
+    className: "text-xs",
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      padding: '3px 9px',
+      borderRadius: 999,
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      border: '1px solid ' + (bucketFilter === 'quote' ? 'var(--accent)' : 'var(--line)'),
+      background: bucketFilter === 'quote' ? 'var(--accent-soft)' : 'transparent',
+      color: 'var(--ink-2)'
+    }
+  }, "\uD83D\uDCC4 \u62A5\u4EF7 ", /*#__PURE__*/React.createElement("span", {
+    className: "font-mono font-bold"
+  }, reminders.filter(function (r) {
+    return r.isQuote;
+  }).length)), bucketFilter !== 'all' && /*#__PURE__*/React.createElement("button", {
+    className: "btn-ghost",
+    style: {
+      padding: '3px 8px',
+      fontSize: 11,
+      color: 'var(--accent)'
+    },
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setBucketFilter('all');
+    }
+  }, "\u2715 \u6E05\u9664\u7B5B\u9009"), /*#__PURE__*/React.createElement("button", {
     className: "btn-ghost",
     style: {
       padding: '4px 10px',
@@ -6406,14 +6513,14 @@ var MultiFileUploader = function MultiFileUploader(_ref25) {
     accept = _ref25$accept === void 0 ? '*' : _ref25$accept;
   var fileInputRef = React.useRef(null);
   var dropRef = React.useRef(null);
-  var _useState99 = useState(false),
-    _useState100 = _slicedToArray(_useState99, 2),
-    uploading = _useState100[0],
-    setUploading = _useState100[1];
-  var _useState101 = useState(null),
+  var _useState101 = useState(false),
     _useState102 = _slicedToArray(_useState101, 2),
-    expandedId = _useState102[0],
-    setExpandedId = _useState102[1];
+    uploading = _useState102[0],
+    setUploading = _useState102[1];
+  var _useState103 = useState(null),
+    _useState104 = _slicedToArray(_useState103, 2),
+    expandedId = _useState104[0],
+    setExpandedId = _useState104[1];
   var uploadOne = /*#__PURE__*/function () {
     var _ref26 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(file) {
       var res, newFile, _t4;
@@ -6889,16 +6996,16 @@ var DailyGreeting = function DailyGreeting(_ref30) {
   // 早: 5-11 点 · 中: 11-18 点 · 晚: 18+ / -5 点
   var timeSlot = hour >= 5 && hour < 11 ? 'morning' : hour >= 11 && hour < 18 ? 'noon' : 'evening';
   var storageKey = "greeting_shown_".concat(user.id, "_").concat(today, "_").concat(timeSlot);
-  var _useState103 = useState(function () {
+  var _useState105 = useState(function () {
       try {
         return localStorage.getItem(storageKey) === '1';
       } catch (_unused3) {
         return false;
       }
     }),
-    _useState104 = _slicedToArray(_useState103, 2),
-    hidden = _useState104[0],
-    setHidden = _useState104[1];
+    _useState106 = _slicedToArray(_useState105, 2),
+    hidden = _useState106[0],
+    setHidden = _useState106[1];
 
   // 渲染时立即标记"已显示",避免同一时段刷新页面又出来
   useEffect(function () {
@@ -7102,14 +7209,14 @@ var MultiImageUploader = function MultiImageUploader(_ref31) {
     videoMaxSize = _ref31$videoMaxSize === void 0 ? 100 : _ref31$videoMaxSize;
   var fileInputRef = React.useRef(null);
   var dropRef = React.useRef(null);
-  var _useState105 = useState(false),
-    _useState106 = _slicedToArray(_useState105, 2),
-    uploading = _useState106[0],
-    setUploading = _useState106[1];
-  var _useState107 = useState(null),
+  var _useState107 = useState(false),
     _useState108 = _slicedToArray(_useState107, 2),
-    previewIdx = _useState108[0],
-    setPreviewIdx = _useState108[1];
+    uploading = _useState108[0],
+    setUploading = _useState108[1];
+  var _useState109 = useState(null),
+    _useState110 = _slicedToArray(_useState109, 2),
+    previewIdx = _useState110[0],
+    setPreviewIdx = _useState110[1];
 
   // 标签选项
   var LABELS = [{
@@ -7610,14 +7717,14 @@ var SupplierSelect = function SupplierSelect(_ref34) {
     onChange = _ref34.onChange,
     _ref34$placeholder = _ref34.placeholder,
     placeholder = _ref34$placeholder === void 0 ? '选择供应商...' : _ref34$placeholder;
-  var _useState109 = useState(''),
-    _useState110 = _slicedToArray(_useState109, 2),
-    query = _useState110[0],
-    setQuery = _useState110[1];
-  var _useState111 = useState(false),
+  var _useState111 = useState(''),
     _useState112 = _slicedToArray(_useState111, 2),
-    open = _useState112[0],
-    setOpen = _useState112[1];
+    query = _useState112[0],
+    setQuery = _useState112[1];
+  var _useState113 = useState(false),
+    _useState114 = _slicedToArray(_useState113, 2),
+    open = _useState114[0],
+    setOpen = _useState114[1];
   var ref = React.useRef(null);
   useEffect(function () {
     var handler = function handler(e) {
@@ -7759,94 +7866,94 @@ var EventEditorModal = function EventEditorModal(_ref35) {
     existingEvent = _ref35$existingEvent === void 0 ? null : _ref35$existingEvent;
   // kind: 'aftersale' | 'refill' | 'refund'
   var isEdit = !!existingEvent;
-  var _useState113 = useState(false),
-    _useState114 = _slicedToArray(_useState113, 2),
-    saving = _useState114[0],
-    setSaving = _useState114[1];
+  var _useState115 = useState(false),
+    _useState116 = _slicedToArray(_useState115, 2),
+    saving = _useState116[0],
+    setSaving = _useState116[1];
 
   // 共用字段
-  var _useState115 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.order_ref) || (record === null || record === void 0 ? void 0 : record.orderRef) || ''),
-    _useState116 = _slicedToArray(_useState115, 2),
-    orderRef = _useState116[0],
-    setOrderRef = _useState116[1];
-  var _useState117 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.customer) || (record === null || record === void 0 ? void 0 : record.customer) || ''),
+  var _useState117 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.order_ref) || (record === null || record === void 0 ? void 0 : record.orderRef) || ''),
     _useState118 = _slicedToArray(_useState117, 2),
-    customer = _useState118[0],
-    setCustomer = _useState118[1];
-  var _useState119 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.supplier_id) || null),
+    orderRef = _useState118[0],
+    setOrderRef = _useState118[1];
+  var _useState119 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.customer) || (record === null || record === void 0 ? void 0 : record.customer) || ''),
     _useState120 = _slicedToArray(_useState119, 2),
-    supplierId = _useState120[0],
-    setSupplierId = _useState120[1];
-  var _useState121 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.attachments) || []),
+    customer = _useState120[0],
+    setCustomer = _useState120[1];
+  var _useState121 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.supplier_id) || null),
     _useState122 = _slicedToArray(_useState121, 2),
-    attachments = _useState122[0],
-    setAttachments = _useState122[1];
-  var _useState123 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.notes) || ''),
+    supplierId = _useState122[0],
+    setSupplierId = _useState122[1];
+  var _useState123 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.attachments) || []),
     _useState124 = _slicedToArray(_useState123, 2),
-    notes = _useState124[0],
-    setNotes = _useState124[1];
+    attachments = _useState124[0],
+    setAttachments = _useState124[1];
+  var _useState125 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.notes) || ''),
+    _useState126 = _slicedToArray(_useState125, 2),
+    notes = _useState126[0],
+    setNotes = _useState126[1];
 
   // 售后专属
-  var _useState125 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_type) || 'transport_damage'),
-    _useState126 = _slicedToArray(_useState125, 2),
-    issueType = _useState126[0],
-    setIssueType = _useState126[1];
-  var _useState127 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_sub) || ''),
+  var _useState127 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_type) || 'transport_damage'),
     _useState128 = _slicedToArray(_useState127, 2),
-    issueSub = _useState128[0],
-    setIssueSub = _useState128[1]; // 🆕 fix201:二级子类
-  var _useState129 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_type_custom) || ''),
+    issueType = _useState128[0],
+    setIssueType = _useState128[1];
+  var _useState129 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_sub) || ''),
     _useState130 = _slicedToArray(_useState129, 2),
-    issueTypeCustom = _useState130[0],
-    setIssueTypeCustom = _useState130[1];
-  var _useState131 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.damaged_part) || ''),
+    issueSub = _useState130[0],
+    setIssueSub = _useState130[1]; // 🆕 fix201:二级子类
+  var _useState131 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_type_custom) || ''),
     _useState132 = _slicedToArray(_useState131, 2),
-    damagedPart = _useState132[0],
-    setDamagedPart = _useState132[1];
-  // 🆕 产品改进闭环字段(对齐补发对接表):改进建议 / 沟通图片 / 改进状态
-  var _useState133 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.improvement_suggestion) || ''),
+    issueTypeCustom = _useState132[0],
+    setIssueTypeCustom = _useState132[1];
+  var _useState133 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.damaged_part) || ''),
     _useState134 = _slicedToArray(_useState133, 2),
-    improvementSuggestion = _useState134[0],
-    setImprovementSuggestion = _useState134[1];
-  var _useState135 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.improvement_status) || ''),
+    damagedPart = _useState134[0],
+    setDamagedPart = _useState134[1];
+  // 🆕 产品改进闭环字段(对齐补发对接表):改进建议 / 沟通图片 / 改进状态
+  var _useState135 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.improvement_suggestion) || ''),
     _useState136 = _slicedToArray(_useState135, 2),
-    improvementStatus = _useState136[0],
-    setImprovementStatus = _useState136[1];
-  var _useState137 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.communication_images) || []),
+    improvementSuggestion = _useState136[0],
+    setImprovementSuggestion = _useState136[1];
+  var _useState137 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.improvement_status) || ''),
     _useState138 = _slicedToArray(_useState137, 2),
-    commImages = _useState138[0],
-    setCommImages = _useState138[1];
-  var _useState139 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.product_name) || ''),
+    improvementStatus = _useState138[0],
+    setImprovementStatus = _useState138[1];
+  var _useState139 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.communication_images) || []),
     _useState140 = _slicedToArray(_useState139, 2),
-    productName = _useState140[0],
-    setProductName = _useState140[1];
-  // 🆕 fix186:链接(product_id)+SKU+变体 —— 用于产品售后汇总(按链接归并、SKU 细分)
-  var _useState141 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.sku) || ''),
+    commImages = _useState140[0],
+    setCommImages = _useState140[1];
+  var _useState141 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.product_name) || ''),
     _useState142 = _slicedToArray(_useState141, 2),
-    skuVal = _useState142[0],
-    setSkuVal = _useState142[1];
-  var _useState143 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.product_id) || ''),
+    productName = _useState142[0],
+    setProductName = _useState142[1];
+  // 🆕 fix186:链接(product_id)+SKU+变体 —— 用于产品售后汇总(按链接归并、SKU 细分)
+  var _useState143 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.sku) || ''),
     _useState144 = _slicedToArray(_useState143, 2),
-    productId = _useState144[0],
-    setProductId = _useState144[1];
-  var _useState145 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.variant_title) || ''),
+    skuVal = _useState144[0],
+    setSkuVal = _useState144[1];
+  var _useState145 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.product_id) || ''),
     _useState146 = _slicedToArray(_useState145, 2),
-    variantTitle = _useState146[0],
-    setVariantTitle = _useState146[1];
-  var _useState147 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.product_handle) || ''),
+    productId = _useState146[0],
+    setProductId = _useState146[1];
+  var _useState147 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.variant_title) || ''),
     _useState148 = _slicedToArray(_useState147, 2),
-    productLink = _useState148[0],
-    setProductLink = _useState148[1];
+    variantTitle = _useState148[0],
+    setVariantTitle = _useState148[1];
+  var _useState149 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.product_handle) || ''),
+    _useState150 = _slicedToArray(_useState149, 2),
+    productLink = _useState150[0],
+    setProductLink = _useState150[1];
   var productsList = useProducts(); // 🆕 fix22 联动 1: 售后/补件/退款 productName 联想
   // 🆕 fix117: 一键拉取订单产品(跟单库/Shopify),选对应产品直接填产品名 + 把产品图入附件(免手动上传)
-  var _useState149 = useState({
+  var _useState151 = useState({
       loading: false,
       products: null,
       meta: null
     }),
-    _useState150 = _slicedToArray(_useState149, 2),
-    orderPull = _useState150[0],
-    setOrderPull = _useState150[1];
+    _useState152 = _slicedToArray(_useState151, 2),
+    orderPull = _useState152[0],
+    setOrderPull = _useState152[1];
   var doPullOrder = /*#__PURE__*/function () {
     var _ref36 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
       var on, v, _t6;
@@ -7932,96 +8039,96 @@ var EventEditorModal = function EventEditorModal(_ref35) {
     }
     // 不关闭面板,让用户看到"已存"标记,可继续选/取消
   };
-  var _useState151 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_detail) || ''),
-    _useState152 = _slicedToArray(_useState151, 2),
-    issueDetail = _useState152[0],
-    setIssueDetail = _useState152[1];
-  var _useState153 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.country) || ''),
+  var _useState153 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_detail) || ''),
     _useState154 = _slicedToArray(_useState153, 2),
-    country = _useState154[0],
-    setCountry = _useState154[1];
-  var _useState155 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.packer) || ''),
+    issueDetail = _useState154[0],
+    setIssueDetail = _useState154[1];
+  var _useState155 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.country) || ''),
     _useState156 = _slicedToArray(_useState155, 2),
-    packer = _useState156[0],
-    setPacker = _useState156[1];
-  var _useState157 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.qc) || ''),
+    country = _useState156[0],
+    setCountry = _useState156[1];
+  var _useState157 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.packer) || ''),
     _useState158 = _slicedToArray(_useState157, 2),
-    qc = _useState158[0],
-    setQc = _useState158[1];
-  var _useState159 = useState(normAsStatus(existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.status) || 'pending'),
+    packer = _useState158[0],
+    setPacker = _useState158[1];
+  var _useState159 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.qc) || ''),
     _useState160 = _slicedToArray(_useState159, 2),
-    aftersaleStatus = _useState160[0],
-    setAftersaleStatus = _useState160[1];
-  // 🆕 fix197(方案A):售后内嵌「补件追踪」—— 同一条记录直接带补件状态,不用再新建补件单重填一遍
-  var _useState161 = useState(!!(existingEvent !== null && existingEvent !== void 0 && existingEvent.refill_needed)),
+    qc = _useState160[0],
+    setQc = _useState160[1];
+  var _useState161 = useState(normAsStatus(existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.status) || 'pending'),
     _useState162 = _slicedToArray(_useState161, 2),
-    refillNeeded = _useState162[0],
-    setRefillNeeded = _useState162[1];
-  var _useState163 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_status) || 'pending_order'),
+    aftersaleStatus = _useState162[0],
+    setAftersaleStatus = _useState162[1];
+  // 🆕 fix197(方案A):售后内嵌「补件追踪」—— 同一条记录直接带补件状态,不用再新建补件单重填一遍
+  var _useState163 = useState(!!(existingEvent !== null && existingEvent !== void 0 && existingEvent.refill_needed)),
     _useState164 = _slicedToArray(_useState163, 2),
-    asRefillStatus = _useState164[0],
-    setAsRefillStatus = _useState164[1];
-  var _useState165 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_qty) || ''),
+    refillNeeded = _useState164[0],
+    setRefillNeeded = _useState164[1];
+  var _useState165 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_status) || 'pending_order'),
     _useState166 = _slicedToArray(_useState165, 2),
-    asRefillQty = _useState166[0],
-    setAsRefillQty = _useState166[1];
-  var _useState167 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_note) || ''),
+    asRefillStatus = _useState166[0],
+    setAsRefillStatus = _useState166[1];
+  var _useState167 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_qty) || ''),
     _useState168 = _slicedToArray(_useState167, 2),
-    asRefillNote = _useState168[0],
-    setAsRefillNote = _useState168[1];
-  var _useState169 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_tracking) || ''),
+    asRefillQty = _useState168[0],
+    setAsRefillQty = _useState168[1];
+  var _useState169 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_note) || ''),
     _useState170 = _slicedToArray(_useState169, 2),
-    asRefillTracking = _useState170[0],
-    setAsRefillTracking = _useState170[1];
+    asRefillNote = _useState170[0],
+    setAsRefillNote = _useState170[1];
+  var _useState171 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refill_tracking) || ''),
+    _useState172 = _slicedToArray(_useState171, 2),
+    asRefillTracking = _useState172[0],
+    setAsRefillTracking = _useState172[1];
 
   // 补件专属
-  var _useState171 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.items) || [{
+  var _useState173 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.items) || [{
       item: '',
       qty: 1,
       unit: '套',
       attachments: []
     }]),
-    _useState172 = _slicedToArray(_useState171, 2),
-    refillItems = _useState172[0],
-    setRefillItems = _useState172[1];
-  var _useState173 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.expected_ship_date) || ''),
     _useState174 = _slicedToArray(_useState173, 2),
-    expectedShipDate = _useState174[0],
-    setExpectedShipDate = _useState174[1];
-  var _useState175 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.status) || 'pending_order'),
+    refillItems = _useState174[0],
+    setRefillItems = _useState174[1];
+  var _useState175 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.expected_ship_date) || ''),
     _useState176 = _slicedToArray(_useState175, 2),
-    refillStatus = _useState176[0],
-    setRefillStatus = _useState176[1];
+    expectedShipDate = _useState176[0],
+    setExpectedShipDate = _useState176[1];
+  var _useState177 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.status) || 'pending_order'),
+    _useState178 = _slicedToArray(_useState177, 2),
+    refillStatus = _useState178[0],
+    setRefillStatus = _useState178[1];
 
   // 退款专属
-  var _useState177 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_type) || 'quality_issue'),
-    _useState178 = _slicedToArray(_useState177, 2),
-    refundType = _useState178[0],
-    setRefundType = _useState178[1];
-  var _useState179 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_type_custom) || ''),
+  var _useState179 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_type) || 'quality_issue'),
     _useState180 = _slicedToArray(_useState179, 2),
-    refundTypeCustom = _useState180[0],
-    setRefundTypeCustom = _useState180[1];
-  var _useState181 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.amount) || ''),
+    refundType = _useState180[0],
+    setRefundType = _useState180[1];
+  var _useState181 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_type_custom) || ''),
     _useState182 = _slicedToArray(_useState181, 2),
-    amount = _useState182[0],
-    setAmount = _useState182[1];
-  var _useState183 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.currency) || 'USD'),
+    refundTypeCustom = _useState182[0],
+    setRefundTypeCustom = _useState182[1];
+  var _useState183 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.amount) || ''),
     _useState184 = _slicedToArray(_useState183, 2),
-    currency = _useState184[0],
-    setCurrency = _useState184[1];
-  var _useState185 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.payment_method) || 'shopify_payments'),
+    amount = _useState184[0],
+    setAmount = _useState184[1];
+  var _useState185 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.currency) || 'USD'),
     _useState186 = _slicedToArray(_useState185, 2),
-    paymentMethod = _useState186[0],
-    setPaymentMethod = _useState186[1];
-  var _useState187 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.payment_method_custom) || ''),
+    currency = _useState186[0],
+    setCurrency = _useState186[1];
+  var _useState187 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.payment_method) || 'shopify_payments'),
     _useState188 = _slicedToArray(_useState187, 2),
-    paymentMethodCustom = _useState188[0],
-    setPaymentMethodCustom = _useState188[1];
-  var _useState189 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_reason) || ''),
+    paymentMethod = _useState188[0],
+    setPaymentMethod = _useState188[1];
+  var _useState189 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.payment_method_custom) || ''),
     _useState190 = _slicedToArray(_useState189, 2),
-    refundReason = _useState190[0],
-    setRefundReason = _useState190[1];
+    paymentMethodCustom = _useState190[0],
+    setPaymentMethodCustom = _useState190[1];
+  var _useState191 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_reason) || ''),
+    _useState192 = _slicedToArray(_useState191, 2),
+    refundReason = _useState192[0],
+    setRefundReason = _useState192[1];
   var supplier = suppliers.find(function (s) {
     return s.id === supplierId;
   });
@@ -9702,27 +9809,27 @@ var BatchTransferModal = function BatchTransferModal(_ref38) {
     setFromUserId = _ref38.setFromUserId,
     onClose = _ref38.onClose,
     onTransfer = _ref38.onTransfer;
-  var _useState191 = useState(new Set()),
-    _useState192 = _slicedToArray(_useState191, 2),
-    selectedIds = _useState192[0],
-    setSelectedIds = _useState192[1];
-  var _useState193 = useState(''),
+  var _useState193 = useState(new Set()),
     _useState194 = _slicedToArray(_useState193, 2),
-    filterSite = _useState194[0],
-    setFilterSite = _useState194[1];
+    selectedIds = _useState194[0],
+    setSelectedIds = _useState194[1];
   var _useState195 = useState(''),
     _useState196 = _slicedToArray(_useState195, 2),
-    targetUserId = _useState196[0],
-    setTargetUserId = _useState196[1];
-  // 🆕 fix79: 智能搜索 — 员工很多时按名字/拼音/部门搜
+    filterSite = _useState196[0],
+    setFilterSite = _useState196[1];
   var _useState197 = useState(''),
     _useState198 = _slicedToArray(_useState197, 2),
-    fromSearch = _useState198[0],
-    setFromSearch = _useState198[1];
+    targetUserId = _useState198[0],
+    setTargetUserId = _useState198[1];
+  // 🆕 fix79: 智能搜索 — 员工很多时按名字/拼音/部门搜
   var _useState199 = useState(''),
     _useState200 = _slicedToArray(_useState199, 2),
-    targetSearch = _useState200[0],
-    setTargetSearch = _useState200[1];
+    fromSearch = _useState200[0],
+    setFromSearch = _useState200[1];
+  var _useState201 = useState(''),
+    _useState202 = _slicedToArray(_useState201, 2),
+    targetSearch = _useState202[0],
+    setTargetSearch = _useState202[1];
 
   // 候选源员工列表
   var candidateEmployees = employees.filter(function (e) {
@@ -10306,23 +10413,23 @@ var FollowUpModal = function FollowUpModal(_ref40) {
     onAddEvent = _ref40.onAddEvent,
     onEditEvent = _ref40.onEditEvent,
     onDeleteEvent = _ref40.onDeleteEvent;
-  var _useState201 = useState(false),
-    _useState202 = _slicedToArray(_useState201, 2),
-    escalateModal = _useState202[0],
-    setEscalateModal = _useState202[1];
-  var _useState203 = useState(''),
+  var _useState203 = useState(false),
     _useState204 = _slicedToArray(_useState203, 2),
-    escalateReason = _useState204[0],
-    setEscalateReason = _useState204[1];
-  var _useState205 = useState('high'),
+    escalateModal = _useState204[0],
+    setEscalateModal = _useState204[1];
+  var _useState205 = useState(''),
     _useState206 = _slicedToArray(_useState205, 2),
-    escalateUrgency = _useState206[0],
-    setEscalateUrgency = _useState206[1];
-  // 🆕 fix7: 升级层级 — 'admin'(给主管) / 'boss'(给老板)
-  var _useState207 = useState('admin'),
+    escalateReason = _useState206[0],
+    setEscalateReason = _useState206[1];
+  var _useState207 = useState('high'),
     _useState208 = _slicedToArray(_useState207, 2),
-    escalateLevel = _useState208[0],
-    setEscalateLevel = _useState208[1];
+    escalateUrgency = _useState208[0],
+    setEscalateUrgency = _useState208[1];
+  // 🆕 fix7: 升级层级 — 'admin'(给主管) / 'boss'(给老板)
+  var _useState209 = useState('admin'),
+    _useState210 = _slicedToArray(_useState209, 2),
+    escalateLevel = _useState210[0],
+    setEscalateLevel = _useState210[1];
   var isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
   var isSuperAdmin = user && user.role === 'super_admin';
   // 🆕 fix7: 当前用户能升级到的层级 — staff/finance → 主管;admin → 老板;super_admin → 不能升级(已在顶)
@@ -10425,14 +10532,14 @@ var FollowUpModal = function FollowUpModal(_ref40) {
       return _ref41.apply(this, arguments);
     };
   }();
-  var _useState209 = useState(''),
-    _useState210 = _slicedToArray(_useState209, 2),
-    newFollowText = _useState210[0],
-    setNewFollowText = _useState210[1];
-  var _useState211 = useState(record.status),
+  var _useState211 = useState(''),
     _useState212 = _slicedToArray(_useState211, 2),
-    newFollowStatus = _useState212[0],
-    setNewFollowStatus = _useState212[1];
+    newFollowText = _useState212[0],
+    setNewFollowText = _useState212[1];
+  var _useState213 = useState(record.status),
+    _useState214 = _slicedToArray(_useState213, 2),
+    newFollowStatus = _useState214[0],
+    setNewFollowStatus = _useState214[1];
   var fileInputRef = useRef(null);
   var dropZoneRef = useRef(null);
 
@@ -10607,10 +10714,10 @@ var FollowUpModal = function FollowUpModal(_ref40) {
     setNewFollowText('');
     toast(patch.nextFollowUp ? '✓ 跟进已保存 · 下次跟进自动设为 ' + patch.nextFollowUp + '(可手改)' : '✓ 跟进记录已保存');
   };
-  var _useState213 = useState(null),
-    _useState214 = _slicedToArray(_useState213, 2),
-    viewingImg = _useState214[0],
-    setViewingImg = _useState214[1];
+  var _useState215 = useState(null),
+    _useState216 = _slicedToArray(_useState215, 2),
+    viewingImg = _useState216[0],
+    setViewingImg = _useState216[1];
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     className: "modal-backdrop",
     onClick: onClose
@@ -11868,14 +11975,14 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref42) {
     today = _ref42.today,
     last7Start = _ref42.last7Start,
     monthStart = _ref42.monthStart;
-  var _useState215 = useState('7d'),
-    _useState216 = _slicedToArray(_useState215, 2),
-    view = _useState216[0],
-    setView = _useState216[1]; // '7d' | 'month'
-  var _useState217 = useState(false),
+  var _useState217 = useState('7d'),
     _useState218 = _slicedToArray(_useState217, 2),
-    showAll = _useState218[0],
-    setShowAll = _useState218[1];
+    view = _useState218[0],
+    setView = _useState218[1]; // '7d' | 'month'
+  var _useState219 = useState(false),
+    _useState220 = _slicedToArray(_useState219, 2),
+    showAll = _useState220[0],
+    setShowAll = _useState220[1];
   var startDate = view === '7d' ? last7Start : monthStart;
 
   // 选定的员工列表
