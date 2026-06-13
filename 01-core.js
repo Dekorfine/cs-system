@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix225
+// 版本 2026.06.05-fix226
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -27,7 +27,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix225
+// 版本 2026.06.05-fix226
 // 预编译切片
 //
 
@@ -2807,7 +2807,8 @@ function _submitPhotoRequest() {
             applicable_shops: applicableShops || [],
             product_type: '客服需求',
             product_notes: null,
-            status: 'draft',
+            status: 'shooting',
+            // 🆕 fix226:客服提交=明确要拍 → 直接进拍摄部「待拍摄」队列(draft是拍摄部内部暂存桶,客服永远不写)
             priority: urgency === 'urgent' ? 'urgent' : 'normal',
             notes: null,
             external_request: {
@@ -3019,7 +3020,8 @@ function _batchSubmitPhotoRequests() {
               product_image: ((_rowAttachments$ = rowAttachments[0]) === null || _rowAttachments$ === void 0 ? void 0 : _rowAttachments$.url) || null,
               applicable_shops: r.applicableShops || defaults.applicableShops || [],
               product_type: '客服需求',
-              status: 'draft',
+              status: 'shooting',
+              // 🆕 fix226:客服提交=明确要拍 → 直接进拍摄部「待拍摄」队列(draft是拍摄部内部暂存桶,客服永远不写)
               priority: (r.urgency || defaults.urgency) === 'urgent' ? 'urgent' : 'normal',
               external_request: {
                 source: '客服',
