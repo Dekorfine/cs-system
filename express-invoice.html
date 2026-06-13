@@ -2278,6 +2278,7 @@ function MakeInvoice() {
   // 🆕 自动识别快递:先看文件名关键词,再看表头特征
   const detectCourier = async (file) => {
     const name = file.name || '';
+    if (/亿俐缇|亿利提|亿丽缇|亿俐提|yiliti|ylt/i.test(name)) return { key: 'yiliti', label: '亿俐缇·中东专线', reason: '文件名' };
     if (/昌晖|长辉|changhui|店小秘|北简/i.test(name)) return { key: 'changhui', label: '昌晖', reason: '文件名' };
     if (/信源|xinyuan/i.test(name)) return { key: 'xinyuan', label: '信源(通用模板)', reason: '文件名' };
     if (/河池|hechi/i.test(name)) return { key: 'hechi', label: '河池(自动按国家)', reason: '文件名' };
@@ -2292,6 +2293,7 @@ function MakeInvoice() {
       for (let i = 0; i < Math.min(aoa.length, 6); i++) (aoa[i] || []).forEach(c => { const s = String(c == null ? '' : c).trim(); if (s) heads.push(s); });
       const H = heads.join('|');
       if (/客户参考号|收货渠道|目的国家/.test(H) && /客户订单号|订单编号|渠道/.test(H)) return { key: 'changhui', label: '昌晖', reason: '表头特征(含客户参考号/收货渠道/目的国家)' };
+      if (/入仓号/.test(H) && /单号|国家/.test(H)) return { key: 'yiliti', label: '亿俐缇·中东专线', reason: '表头特征(含入仓号列)' };
       if (/品名（是否带电）|是否带电|是否FBA|业务员/.test(H) && /单号|国家/.test(H)) return { key: 'hechi', label: '河池(默认,如是信源请手动改)', reason: '表头特征·河池与信源同列,默认河池' };
       if (/FBA仓库|报关类型/.test(H)) return { key: 'yunding', label: '云鼎', reason: '表头特征' };
     } catch (e) {}
