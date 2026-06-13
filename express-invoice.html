@@ -963,7 +963,7 @@ function tplHsFor(cn, en) {
   return /\b(table|desk|floor|reading|bedside)\s*lamp|\b(table|desk|floor|reading|bedside)\b|台灯|落地灯|床头灯|台燈|檯燈|座灯/.test(s) ? '9405210090' : '9405110000';
 }
 // 模板改为同目录独立文件 + 运行时 fetch(去掉内嵌 base64/atob,避免被杀毒误判为 HTML 走私木马)
-const TPL_FILES = { hechi_ca: 'hechi_ca.xlsx', hechi_uk: 'hechi_uk.xlsx', hechi_eu: 'hechi_eu.xlsx', xinyuan_ca: 'xinyuan_ca.xlsx', yunding: 'yunding.xlsx', changhui_au: 'changhui_au.xlsx' };
+const TPL_FILES = { hechi_ca: 'hechi_ca.xlsx', hechi_uk: 'hechi_uk.xlsx', hechi_eu: 'hechi_eu.xlsx', xinyuan_ca: 'xinyuan_ca.xlsx', yunding: 'yunding.xlsx', changhui_au: 'changhui_au.xlsx', yiliti: 'yiliti.xlsx' };
 const TPL_DIR = 'fapiao-templates/';  // 与本页同目录下的子文件夹(GitHub Pages 同源)
 
 // 🆕 中文国名 → 二字码 + 英文名(覆盖欧盟27 + 英美加墨菲澳新)
@@ -977,8 +977,14 @@ const COUNTRY_CN = {
   '芬兰': { code: 'FI', en: 'Finland' }, '希腊': { code: 'GR', en: 'Greece' }, '捷克': { code: 'CZ', en: 'Czechia' }, '匈牙利': { code: 'HU', en: 'Hungary' },
   '罗马尼亚': { code: 'RO', en: 'Romania' }, '卢森堡': { code: 'LU', en: 'Luxembourg' }, '斯洛伐克': { code: 'SK', en: 'Slovakia' }, '斯洛文尼亚': { code: 'SI', en: 'Slovenia' },
   '克罗地亚': { code: 'HR', en: 'Croatia' }, '保加利亚': { code: 'BG', en: 'Bulgaria' }, '立陶宛': { code: 'LT', en: 'Lithuania' }, '拉脱维亚': { code: 'LV', en: 'Latvia' },
-  '爱沙尼亚': { code: 'EE', en: 'Estonia' }, '塞浦路斯': { code: 'CY', en: 'Cyprus' }, '马耳他': { code: 'MT', en: 'Malta' }
+  '爱沙尼亚': { code: 'EE', en: 'Estonia' }, '塞浦路斯': { code: 'CY', en: 'Cyprus' }, '马耳他': { code: 'MT', en: 'Malta' },
+  // 🆕 中东专线(亿俐缇)
+  '阿联酋': { code: 'AE', en: 'United Arab Emirates' }, '沙特': { code: 'SA', en: 'Saudi Arabia' }, '沙特阿拉伯': { code: 'SA', en: 'Saudi Arabia' },
+  '卡塔尔': { code: 'QA', en: 'Qatar' }, '阿曼': { code: 'OM', en: 'Oman' }, '科威特': { code: 'KW', en: 'Kuwait' }, '巴林': { code: 'BH', en: 'Bahrain' },
+  '约旦': { code: 'JO', en: 'Jordan' }, '埃及': { code: 'EG', en: 'Egypt' }
 };
+// 🆕 亿俐缇:国家 → 电话区号
+const YLT_ZONE = { AE:'+971', SA:'+966', QA:'+974', OM:'+968', KW:'+965', BH:'+973', JO:'+962', EG:'+20' };
 const COUNTRY_CODE = {};  // 二字码 → {cn, en}(反查,D 列若已是 CA 这种)
 Object.entries(COUNTRY_CN).forEach(([cn, v]) => { if (!COUNTRY_CODE[v.code]) COUNTRY_CODE[v.code] = { cn, en: v.en }; });
 const EU_CODES = ['DE', 'FR', 'ES', 'IT', 'NL', 'BE', 'IE', 'AT', 'PT', 'PL', 'SE', 'DK', 'FI', 'GR', 'CZ', 'HU', 'RO', 'LU', 'SK', 'SI', 'HR', 'BG', 'LT', 'LV', 'EE', 'CY', 'MT'];
@@ -1092,6 +1098,48 @@ async function buildYundingTpl(t) {            // 云鼎·FBA专线(填原生模
   }
   return wb;
 }
+// 🆕 亿俐缇·中东专线(海运/空运)— 填原生模板「PACKING LIST&INVOICE」· 入仓号必填 · 整票申报固定 500 USD · 商品默认灯具
+async function buildYiliti(t) {
+  const wb = await tplLoadWb('yiliti'); const ws = wb.getWorksheet('PACKING LIST&INVOICE'); const a = t.address || {};
+  const cc = (t.country && t.country.code) || (a.country_code || '').toUpperCase();
+  const ec = t.entranceCode || '';                                   // YLT 入仓号
+  const battery = (t.battery === '是');
+  const pieces = parseInt(t.pieceCount) || _tplSel(t).reduce((s, it) => s + _tplQy(it), 0) || 1;
+  // 订单信息行
+  ws.getCell('B5').value = ec;                                       // YLT入仓号
+  ws.getCell('D5').value = '无牌'; ws.getCell('E5').value = battery ? '带电' : '无电'; ws.getCell('F5').value = '无磁';  // 货物属性
+  // 收货人信息行
+  ws.getCell('B7').value = a.name || t.customerName || '';
+  ws.getCell('D7').value = YLT_ZONE[cc] || '';                       // 电话区号(按国家自动)
+  ws.getCell('F7').value = a.phone || t.customerPhone || '';
+  ws.getCell('H7').value = ((t.country && t.country.en) || a.country || '').toUpperCase();  // 收货国家(英文)
+  ws.getCell('J7').value = a.province || a.province_code || '';      // 省份(选填)
+  ws.getCell('L7').value = a.city || '';                             // 城市
+  ws.getCell('N7').value = [a.address1, a.address2].filter(Boolean).join('\n');  // 详细地址
+  // 产品行(单行汇总:商品默认灯具;整票货值固定 500;单价=500/件数)
+  const unit = pieces > 0 ? +(500 / pieces).toFixed(2) : 500;
+  const r = 15;
+  ws.getCell('A' + r).value = 1;                                     // 箱号
+  ws.getCell('B' + r).value = '灯具';                                // 中文品名
+  ws.getCell('C' + r).value = 'Light';                               // 英文品名
+  ws.getCell('D' + r).value = 9405100000;                            // HS
+  ws.getCell('E' + r).value = '铁艺/照明';                            // 产品要素(材质/用途)
+  ws.getCell('F' + r).value = pieces;                                // 箱数
+  ws.getCell('G' + r).value = 1;                                     // 单箱数量
+  ws.getCell('H' + r).value = pieces;                                // 总数量
+  ws.getCell('I' + r).value = unit;                                  // 单价
+  ws.getCell('J' + r).value = 500;                                   // 货值(固定)
+  ws.getCell('O' + r).value = '无';                                  // 牌子
+  ws.getCell('P' + r).value = battery ? '带电have battery' : '不带电No have battery';
+  ws.getCell('Q' + r).value = '不带磁No have magnetic';
+  ws.getCell('R' + r).value = ec;                                    // 唛头 = 入仓号
+  // 合计行
+  ws.getCell('F16').value = pieces; ws.getCell('H16').value = pieces; ws.getCell('J16').value = 500;
+  // 产品图(S列=第19列,0-based 18;行15 → 0-based 14)
+  const it0 = _tplSel(t)[0]; if (it0) await _tplEmbedImg(wb, ws, it0, 18, 14);
+  return wb;
+}
+
 async function buildChanghuiAU(t) {            // 昌晖·澳洲/新西兰(填原生模板「运单信息」· AU/NZ 同模板,国家由 H5 区分)
   const wb = await tplLoadWb('changhui_au'); const ws = wb.getWorksheet('运单信息'); const a = t.address || {};
   const ref = String(t.orderNumber || t.carrierRef || '').replace(/^#+/, '');  // 🆕 原单号 = 我们的订单号(不带#,匹配已能识别加不加#)
@@ -1131,6 +1179,7 @@ const TPL_COURIERS = {
   hechi_eu:   { name: '河池·欧盟',   build: buildHechiEU,  zh: '河池欧盟' },
   xinyuan_ca: { name: '信源·加拿大', build: buildXinyuanCA, zh: '信源加拿大' },
   changhui_au:{ name: '昌晖·澳新',   build: buildChanghuiAU, zh: '昌晖澳新' },
+  yiliti:     { name: '亿俐缇',       build: buildYiliti,     zh: '亿俐缇' },
 };
 
 const COURIERS = {
@@ -1148,7 +1197,8 @@ const COURIERS = {
   },
   hechi:      { name: '河池(自动按国家)', mode: 'template' },
   xinyuan:    { name: '信源(通用模板)',   mode: 'template' },
-  changhui_au:{ name: '昌晖·澳新',   mode: 'template' }
+  changhui_au:{ name: '昌晖·澳新',   mode: 'template' },
+  yiliti:     { name: '亿俐缇·中东专线', mode: 'template' }
 };
 // 🆕 云鼎产品整理:保留检测到的真实灯型(壁灯/吊灯/枝形吊灯…,和「建议申报」一致)· 只把 HS 固定为云鼎口径 8539510000 · 同灯型(中英文名相同)合并成一行、数量累加 · 逐行可改
 function prepYundingItems(items) {
@@ -1574,6 +1624,11 @@ function MakeInvoice() {
     const ref = t.ydRef || t.orderNumber;
     const pc = parseInt(t.pieceCount) || (t.items || []).filter(it => it.selected !== false).reduce((s, it) => s + (parseInt(it.quantity) || 0), 0);
     const cn = (t.country && t.country.cn) ? ' ' + t.country.cn : '';   // 🆕 国家中文全称
+    // 🆕 亿俐缇命名:入仓号_国家_1票X件_运输方式
+    if (t.tplKey === 'yiliti') {
+      const parts = [t.entranceCode || ref, (t.country && t.country.cn) || '', pc ? ('1票' + pc + '件') : '', t.shipMode || ''].filter(Boolean);
+      return safeName(parts.join('_'));
+    }
     return safeName(ref) + cn + (pc ? ` 1票${pc}件` : '');
   };
   const exportYunding = async () => {
@@ -2068,6 +2123,70 @@ function MakeInvoice() {
     } catch (e) { setErr('导入失败:' + (e.message || e)); }
     setImporting(false);
   };
+  // 🆕 亿俐缇·中东专线:上传交接清单 → 读「单号/国家/件数/运输方式/带电/入仓号」→ 按单号拉收货人 → 出发票(一单一票)
+  const importYilitiHandoff = async (file) => {
+    setImporting(true); setErr(''); setImportReport(null);
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const sh = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(sh, { header: 1, blankrows: false });
+      let hr = -1, orderCol = -1, countryCol = -1, pieceCol = -1, batteryCol = -1, ecCol = -1, shipCol = -1;
+      for (let i = 0; i < Math.min(aoa.length, 12); i++) {
+        const row = (aoa[i] || []).map(x => String(x == null ? '' : x).trim());
+        let oi = row.findIndex(h => /^(单号|订单号|订单编号)$/.test(h));
+        if (oi < 0) oi = row.findIndex(h => /单号|订单号|订单编号/.test(h) && !/序号/.test(h));
+        if (oi >= 0) {
+          hr = i; orderCol = oi;
+          countryCol = row.findIndex(h => /国家|country/i.test(h));
+          pieceCol   = row.findIndex(h => /件数|箱数|^数量$/.test(h));
+          batteryCol = row.findIndex(h => /带电|品名/.test(h));
+          ecCol      = row.findIndex(h => /入仓号|入仓|仓号/.test(h));
+          shipCol    = row.findIndex(h => /运输方式|运输|海运|空运|^方式$/.test(h));
+          break;
+        }
+      }
+      if (hr < 0) throw new Error('没找到「单号」列 — 请确认上传的是亿俐缇交接清单');
+      if (ecCol < 0) throw new Error('没找到「入仓号」列 — 亿俐缇发票必须有入仓号,请确认交接清单含入仓号列');
+      const get = (r, i) => i >= 0 ? String((r && r[i]) == null ? '' : r[i]).trim() : '';
+      const rows = [], seen = new Set();
+      for (let i = hr + 1; i < aoa.length; i++) {
+        const r = aoa[i] || [];
+        const raw = get(r, orderCol);
+        if (!raw || /合计|总计|签字|signature|日期/i.test(raw)) continue;
+        if (seen.has(raw)) continue; seen.add(raw);
+        rows.push({ rawNo: raw, country: get(r, countryCol), pieces: get(r, pieceCol), battery: get(r, batteryCol), ec: get(r, ecCol), ship: get(r, shipCol) });
+      }
+      if (!rows.length) throw new Error('没读到单号');
+      const allKeys = [];
+      rows.forEach(x => x.rawNo.split(/[\/,，、\s]+/).forEach(p => { const k = p.trim(); if (k) allKeys.push(k); }));
+      const map = await bulkFetchByKeys(allKeys);
+      const newTickets = [], unmatched = [];
+      rows.forEach(row => {
+        const parts = row.rawNo.split(/[\/,，、\s]+/).map(s => s.trim()).filter(Boolean);
+        const orders = parts.map(p => map[p] || map[normOrderKey(p)]).filter(Boolean);
+        if (!orders.length) { unmatched.push(row.rawNo + (row.ec ? '(' + row.ec + ')' : '')); return; }
+        const items = [];
+        orders.forEach(o => (o.items || []).forEach(it => items.push({ ...it, selected: true })));
+        const t = makeTicket(orders[0], items);
+        const country = resolveCountry(row.country);
+        t.country = country;
+        t.tplKey = 'yiliti';
+        t.entranceCode = row.ec;                                  // 入仓号(以交接清单为准)
+        t.shipMode = /空运|air/i.test(row.ship) ? '空运' : (/海运|sea/i.test(row.ship) ? '海运' : (row.ship || ''));
+        t.battery = (/是|带电|有/.test(row.battery) && !/否|不/.test(row.battery)) ? '是' : '否';
+        t.pieceCount = row.pieces || '';
+        t.ydRef = parts.join('-');
+        t.sheetOrderNo = row.rawNo;
+        if (country && t.address) t.address = { ...t.address, country_code: country.code };
+        newTickets.push(t);
+      });
+      setTickets(prev => [...prev, ...newTickets]);
+      setImportReport({ total: rows.length, matched: newTickets.length, unmatched });
+      setConn('ok');
+    } catch (e) { setErr('导入失败:' + (e.message || e)); }
+    setImporting(false);
+  };
   // 🆕 昌晖澳新:上传店小秘数据表 → 读「订单编号(我们的,匹配)/客户参考号(XM8T,留底)/目的地→AU·NZ/渠道/件数」;美国行跳过(走「昌晖」导出)
   const importChanghuiData = async (file) => {
     setImporting(true); setErr(''); setImportReport(null);
@@ -2129,7 +2248,7 @@ function MakeInvoice() {
     } catch (e) { setErr('导入失败:' + (e.message || e)); }
     setImporting(false);
   };
-  const importSheet = file => (courier === 'hechi' || courier === 'xinyuan') ? importHechiHandoff(file, courier) : (courier === 'changhui_au' ? importChanghuiData(file) : ((courier === 'yunding' || TPL_COURIERS[courier]) ? importYundingSheet(file) : importOrderSheet(file)));
+  const importSheet = file => courier === 'yiliti' ? importYilitiHandoff(file) : ((courier === 'hechi' || courier === 'xinyuan') ? importHechiHandoff(file, courier) : (courier === 'changhui_au' ? importChanghuiData(file) : ((courier === 'yunding' || TPL_COURIERS[courier]) ? importYundingSheet(file) : importOrderSheet(file))));
 
   // 🆕 自动识别快递:先看文件名关键词,再看表头特征
   const detectCourier = async (file) => {
@@ -2161,6 +2280,7 @@ function MakeInvoice() {
     if (det.key && det.key !== courier) setCourier(det.key);
     if (det.key) setDetectNote(`已自动识别快递:${det.label} · 依据:${det.reason}。识别错了可在上方「快递公司」下拉手动改后重新上传。`);
     else setDetectNote('没能自动识别快递,请在上方「快递公司」下拉手动选择后重新上传(或检查文件名是否含 昌晖/河池/信源/云鼎)。');
+    if (key === 'yiliti') return importYilitiHandoff(file);
     if (key === 'hechi' || key === 'xinyuan') return importHechiHandoff(file, key);
     if (key === 'changhui_au') return importChanghuiData(file);
     if (key === 'changhui') return importOrderSheet(file);
