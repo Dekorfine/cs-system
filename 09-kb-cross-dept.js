@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix226
+// 版本 2026.06.05-fix227
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix226
+// 版本 2026.06.05-fix227
 // 预编译切片
 //
 
@@ -11292,50 +11292,65 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref71) {
     _useState218 = _slicedToArray(_useState217, 2),
     filter = _useState218[0],
     setFilter = _useState218[1];
-  var _useState219 = useState(false),
+  var _useState219 = useState('all'),
     _useState220 = _slicedToArray(_useState219, 2),
-    loading = _useState220[0],
-    setLoading = _useState220[1];
-  var _useState221 = useState([]),
+    ageFilter = _useState220[0],
+    setAgeFilter = _useState220[1]; // 🆕 fix227:停留天数(未完成的工单等待了多久)
+  var _useState221 = useState({
+      from: '',
+      to: ''
+    }),
     _useState222 = _slicedToArray(_useState221, 2),
-    list = _useState222[0],
-    setList = _useState222[1];
-  var _useState223 = useState(false),
+    ageCustom = _useState222[0],
+    setAgeCustom = _useState222[1];
+  var _useState223 = useState(''),
     _useState224 = _slicedToArray(_useState223, 2),
-    showNew = _useState224[0],
-    setShowNew = _useState224[1];
+    prcSearch = _useState224[0],
+    setPrcSearch = _useState224[1]; // 🆕 fix227:智能搜索
   var _useState225 = useState(false),
     _useState226 = _slicedToArray(_useState225, 2),
-    showBatch = _useState226[0],
-    setShowBatch = _useState226[1];
-  var _useState227 = useState(null),
+    loading = _useState226[0],
+    setLoading = _useState226[1];
+  var _useState227 = useState([]),
     _useState228 = _slicedToArray(_useState227, 2),
-    detailItem = _useState228[0],
-    setDetailItem = _useState228[1];
-  var _useState229 = useState(null),
+    list = _useState228[0],
+    setList = _useState228[1];
+  var _useState229 = useState(false),
     _useState230 = _slicedToArray(_useState229, 2),
-    editItem = _useState230[0],
-    setEditItem = _useState230[1];
-  var _useState231 = useState(((_window$isWtkpiConfig = (_window = window).isWtkpiConfigured) === null || _window$isWtkpiConfig === void 0 ? void 0 : _window$isWtkpiConfig.call(_window)) || false),
+    showNew = _useState230[0],
+    setShowNew = _useState230[1];
+  var _useState231 = useState(false),
     _useState232 = _slicedToArray(_useState231, 2),
-    configured = _useState232[0],
-    setConfigured = _useState232[1];
+    showBatch = _useState232[0],
+    setShowBatch = _useState232[1];
+  var _useState233 = useState(null),
+    _useState234 = _slicedToArray(_useState233, 2),
+    detailItem = _useState234[0],
+    setDetailItem = _useState234[1];
+  var _useState235 = useState(null),
+    _useState236 = _slicedToArray(_useState235, 2),
+    editItem = _useState236[0],
+    setEditItem = _useState236[1];
+  var _useState237 = useState(((_window$isWtkpiConfig = (_window = window).isWtkpiConfigured) === null || _window$isWtkpiConfig === void 0 ? void 0 : _window$isWtkpiConfig.call(_window)) || false),
+    _useState238 = _slicedToArray(_useState237, 2),
+    configured = _useState238[0],
+    setConfigured = _useState238[1];
   var lastRefreshRef = useRef(0);
   // 🆕 fix140: 分页 — 默认 150 条,「加载更多」每次 +150。refresh 重拉「当前已加载量」,
   //           保证客户端 sub-tab 筛选语义不变(在已加载集上过滤),且不再一次性全表拉。
   var PHOTO_PAGE = 150;
-  var _useState233 = useState(PHOTO_PAGE),
-    _useState234 = _slicedToArray(_useState233, 2),
-    loadedCount = _useState234[0],
-    setLoadedCount = _useState234[1];
-  var _useState235 = useState(false),
-    _useState236 = _slicedToArray(_useState235, 2),
-    hasMore = _useState236[0],
-    setHasMore = _useState236[1];
-  var _useState237 = useState(false),
-    _useState238 = _slicedToArray(_useState237, 2),
-    loadingMore = _useState238[0],
-    setLoadingMore = _useState238[1];
+  var _useState239 = useState(PHOTO_PAGE),
+    _useState240 = _slicedToArray(_useState239, 2),
+    loadedCount = _useState240[0],
+    setLoadedCount = _useState240[1];
+  var _useState241 = useState(false),
+    _useState242 = _slicedToArray(_useState241, 2),
+    hasMore = _useState242[0],
+    setHasMore = _useState242[1];
+  var _useState243 = useState(false),
+    _useState244 = _slicedToArray(_useState243, 2),
+    loadingMore = _useState244[0],
+    setLoadingMore = _useState244[1];
   var refresh = /*#__PURE__*/function () {
     var _ref72 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee35(count) {
       var _window$isWtkpiConfig2, _window2;
@@ -11491,12 +11506,42 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref71) {
     if (filter === 'in-progress') return ['shooting', 'shot', 'editing', 'edited', 'uploading'].includes(r.status);
     if (filter === 'done') return r.status === 'done';
     return true;
+  }).filter(function (r) {
+    // 🆕 fix227:智能搜索(产品名/SKU/店铺/链接/提需求人/原因)
+    var q = prcSearch.trim().toLowerCase();
+    if (q) {
+      var _r$external_request3, _r$external_request4;
+      var hay = [r.product_name, r.sku, (r.applicable_shops || []).join(' '), r.reason, (_r$external_request3 = r.external_request) === null || _r$external_request3 === void 0 ? void 0 : _r$external_request3.reason, (_r$external_request4 = r.external_request) === null || _r$external_request4 === void 0 ? void 0 : _r$external_request4.from_name, r.created_by_name, (r.attachments || []).map(function (a) {
+        return a && a.url;
+      }).join(' ')].filter(Boolean).join(' ').toLowerCase();
+      if (!q.split(/\s+/).every(function (w) {
+        return hay.includes(w);
+      })) return false;
+    }
+    // 🆕 fix227:按"停留天数"筛(只对未完成工单有意义 —— 已完成/仓库不算逾期)
+    if (ageFilter !== 'all') {
+      var _r$external_request5;
+      var ms = r.created_at_ms || ((_r$external_request5 = r.external_request) === null || _r$external_request5 === void 0 ? void 0 : _r$external_request5.created_at_ms) || (r.created_at ? Date.parse(r.created_at) : 0);
+      if (!ms) return false;
+      var days = (Date.now() - ms) / 86400000;
+      var pending = !['done', 'cancelled'].includes(r.status);
+      if (ageFilter === 'custom') {
+        var f = ageCustom.from ? Date.parse(ageCustom.from) : null;
+        var t = ageCustom.to ? Date.parse(ageCustom.to) + 86400000 : null;
+        if (f && ms < f) return false;
+        if (t && ms > t) return false;
+      } else {
+        var n = parseInt(ageFilter, 10); // 7 / 14 / 30 / 60
+        if (!(pending && days >= n)) return false;
+      }
+    }
+    return true;
   });
 
   // 🆕 fix59 v4: 我提的且在仓库的(用于顶部横幅)
   var myWarehoused = list.filter(function (r) {
-    var _r$external_request3;
-    return ((_r$external_request3 = r.external_request) === null || _r$external_request3 === void 0 ? void 0 : _r$external_request3.from_user_id) === user.id && isWarehoused(r);
+    var _r$external_request6;
+    return ((_r$external_request6 = r.external_request) === null || _r$external_request6 === void 0 ? void 0 : _r$external_request6.from_user_id) === user.id && isWarehoused(r);
   });
   if (!configured) {
     return /*#__PURE__*/React.createElement("div", {
@@ -11544,12 +11589,12 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref71) {
     all: activeList.length,
     allWithWarehouse: list.length,
     mine: activeList.filter(function (r) {
-      var _r$external_request4;
-      return ((_r$external_request4 = r.external_request) === null || _r$external_request4 === void 0 ? void 0 : _r$external_request4.from_user_id) === user.id;
+      var _r$external_request7;
+      return ((_r$external_request7 = r.external_request) === null || _r$external_request7 === void 0 ? void 0 : _r$external_request7.from_user_id) === user.id;
     }).length,
     urgent: activeList.filter(function (r) {
-      var _r$external_request5;
-      return (r.priority === 'urgent' || ((_r$external_request5 = r.external_request) === null || _r$external_request5 === void 0 ? void 0 : _r$external_request5.urgency) === 'urgent') && r.status !== 'done';
+      var _r$external_request8;
+      return (r.priority === 'urgent' || ((_r$external_request8 = r.external_request) === null || _r$external_request8 === void 0 ? void 0 : _r$external_request8.urgency) === 'urgent') && r.status !== 'done';
     }).length,
     inProgress: activeList.filter(function (r) {
       return ['shooting', 'shot', 'editing', 'edited', 'uploading'].includes(r.status);
@@ -11756,7 +11801,102 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref71) {
         return setFilter(t.id);
       }
     }, t.label);
-  })), visible.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 12
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: prcSearch,
+    onChange: function onChange(e) {
+      return setPrcSearch(e.target.value);
+    },
+    placeholder: "\uD83D\uDD0D \u641C\u4EA7\u54C1\u540D / SKU / \u5E97\u94FA / \u94FE\u63A5 / \u63D0\u9700\u6C42\u4EBA\u2026",
+    style: {
+      flex: '1 1 280px',
+      minWidth: 200,
+      padding: '7px 12px',
+      fontSize: 13,
+      border: '1px solid var(--line)',
+      borderRadius: 8,
+      fontFamily: 'inherit'
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11.5,
+      color: 'var(--ink-3)',
+      fontWeight: 600
+    }
+  }, "\u23F1 \u505C\u7559:"), [['all', '全部'], ['7', '超7天未拍'], ['14', '超14天'], ['30', '超30天'], ['60', '超2个月'], ['custom', '自定义']].map(function (_ref74) {
+    var _ref75 = _slicedToArray(_ref74, 2),
+      v = _ref75[0],
+      lb = _ref75[1];
+    return /*#__PURE__*/React.createElement("button", {
+      key: v,
+      onClick: function onClick() {
+        return setAgeFilter(v);
+      },
+      style: {
+        padding: '4px 11px',
+        fontSize: 11.5,
+        borderRadius: 999,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        fontWeight: 600,
+        border: '1px solid ' + (ageFilter === v ? 'var(--accent)' : 'var(--line)'),
+        background: ageFilter === v ? 'var(--accent)' : '#fff',
+        color: ageFilter === v ? '#fff' : 'var(--ink-3)'
+      }
+    }, lb);
+  }), ageFilter === 'custom' && /*#__PURE__*/React.createElement("span", {
+    style: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 5
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: ageCustom.from,
+    onChange: function onChange(e) {
+      return setAgeCustom(function (s) {
+        return _objectSpread(_objectSpread({}, s), {}, {
+          from: e.target.value
+        });
+      });
+    },
+    style: {
+      padding: '4px 6px',
+      fontSize: 11,
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontFamily: 'inherit'
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 11,
+      color: 'var(--ink-3)'
+    }
+  }, "~"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: ageCustom.to,
+    onChange: function onChange(e) {
+      return setAgeCustom(function (s) {
+        return _objectSpread(_objectSpread({}, s), {}, {
+          to: e.target.value
+        });
+      });
+    },
+    style: {
+      padding: '4px 6px',
+      fontSize: 11,
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontFamily: 'inherit'
+    }
+  }))), visible.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: 'center',
       padding: '64px 20px',
@@ -11907,13 +12047,13 @@ var PhotoRequestsModule = function PhotoRequestsModule(_ref71) {
     }
   }));
 };
-var PhotoRequestCard = function PhotoRequestCard(_ref74) {
+var PhotoRequestCard = function PhotoRequestCard(_ref76) {
   var _item$applicable_shop, _PHOTO_STATUS_MAP$wh$;
-  var item = _ref74.item,
-    currentUserId = _ref74.currentUserId,
-    onOpen = _ref74.onOpen,
-    onEdit = _ref74.onEdit,
-    toast = _ref74.toast;
+  var item = _ref76.item,
+    currentUserId = _ref76.currentUserId,
+    onOpen = _ref76.onOpen,
+    onEdit = _ref76.onEdit,
+    toast = _ref76.toast;
   var st = PHOTO_STATUS_MAP[item.status] || {
     label: item.status,
     color: '#999',
@@ -12205,49 +12345,49 @@ var humanAgoMs = function humanAgoMs(ms) {
   if (ms < 7 * 86400000) return Math.floor(ms / 86400000) + ' 天前';
   return Math.floor(ms / (7 * 86400000)) + ' 周前';
 };
-var PhotoRequestNewModal = function PhotoRequestNewModal(_ref75) {
-  var user = _ref75.user,
-    toast = _ref75.toast,
-    onClose = _ref75.onClose,
-    onSuccess = _ref75.onSuccess,
-    _ref75$prefill = _ref75.prefill,
-    prefill = _ref75$prefill === void 0 ? {} : _ref75$prefill;
-  var _useState239 = useState(prefill.productName || ''),
-    _useState240 = _slicedToArray(_useState239, 2),
-    productName = _useState240[0],
-    setProductName = _useState240[1];
-  var _useState241 = useState(prefill.sku || ''),
-    _useState242 = _slicedToArray(_useState241, 2),
-    sku = _useState242[0],
-    setSku = _useState242[1];
-  var _useState243 = useState(prefill.shops || []),
-    _useState244 = _slicedToArray(_useState243, 2),
-    shops = _useState244[0],
-    setShops = _useState244[1];
-  var _useState245 = useState(prefill.reason || ''),
+var PhotoRequestNewModal = function PhotoRequestNewModal(_ref77) {
+  var user = _ref77.user,
+    toast = _ref77.toast,
+    onClose = _ref77.onClose,
+    onSuccess = _ref77.onSuccess,
+    _ref77$prefill = _ref77.prefill,
+    prefill = _ref77$prefill === void 0 ? {} : _ref77$prefill;
+  var _useState245 = useState(prefill.productName || ''),
     _useState246 = _slicedToArray(_useState245, 2),
-    reason = _useState246[0],
-    setReason = _useState246[1];
-  var _useState247 = useState('normal'),
+    productName = _useState246[0],
+    setProductName = _useState246[1];
+  var _useState247 = useState(prefill.sku || ''),
     _useState248 = _slicedToArray(_useState247, 2),
-    urgency = _useState248[0],
-    setUrgency = _useState248[1];
-  var _useState249 = useState([]),
+    sku = _useState248[0],
+    setSku = _useState248[1];
+  var _useState249 = useState(prefill.shops || []),
     _useState250 = _slicedToArray(_useState249, 2),
-    attachments = _useState250[0],
-    setAttachments = _useState250[1];
-  var _useState251 = useState(false),
+    shops = _useState250[0],
+    setShops = _useState250[1];
+  var _useState251 = useState(prefill.reason || ''),
     _useState252 = _slicedToArray(_useState251, 2),
-    uploading = _useState252[0],
-    setUploading = _useState252[1];
-  var _useState253 = useState(false),
+    reason = _useState252[0],
+    setReason = _useState252[1];
+  var _useState253 = useState('normal'),
     _useState254 = _slicedToArray(_useState253, 2),
-    submitting = _useState254[0],
-    setSubmitting = _useState254[1];
-  var _useState255 = useState(false),
+    urgency = _useState254[0],
+    setUrgency = _useState254[1];
+  var _useState255 = useState([]),
     _useState256 = _slicedToArray(_useState255, 2),
-    dragOver = _useState256[0],
-    setDragOver = _useState256[1]; // 🆕 fix83: 拖拽高亮
+    attachments = _useState256[0],
+    setAttachments = _useState256[1];
+  var _useState257 = useState(false),
+    _useState258 = _slicedToArray(_useState257, 2),
+    uploading = _useState258[0],
+    setUploading = _useState258[1];
+  var _useState259 = useState(false),
+    _useState260 = _slicedToArray(_useState259, 2),
+    submitting = _useState260[0],
+    setSubmitting = _useState260[1];
+  var _useState261 = useState(false),
+    _useState262 = _slicedToArray(_useState261, 2),
+    dragOver = _useState262[0],
+    setDragOver = _useState262[1]; // 🆕 fix83: 拖拽高亮
   var externalRefId = prefill.externalRefId || null;
   var toggleShop = function toggleShop(label) {
     setShops(function (prev) {
@@ -12257,7 +12397,7 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref75) {
     });
   };
   var uploadFiles = /*#__PURE__*/function () {
-    var _ref76 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee37(files) {
+    var _ref78 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee37(files) {
       var imgs, newAttachments, _iterator6, _step6, f, a, _t30, _t31;
       return _regenerator().w(function (_context40) {
         while (1) switch (_context40.p = _context40.n) {
@@ -12319,11 +12459,11 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref75) {
       }, _callee37, null, [[4, 6], [2, 9, 10, 11]]);
     }));
     return function uploadFiles(_x21) {
-      return _ref76.apply(this, arguments);
+      return _ref78.apply(this, arguments);
     };
   }();
   var handleFiles = /*#__PURE__*/function () {
-    var _ref77 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee38(e) {
+    var _ref79 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee38(e) {
       return _regenerator().w(function (_context41) {
         while (1) switch (_context41.n) {
           case 0:
@@ -12337,7 +12477,7 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref75) {
       }, _callee38);
     }));
     return function handleFiles(_x22) {
-      return _ref77.apply(this, arguments);
+      return _ref79.apply(this, arguments);
     };
   }();
 
@@ -12384,7 +12524,7 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref75) {
     });
   };
   var submit = /*#__PURE__*/function () {
-    var _ref78 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee39() {
+    var _ref80 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee39() {
       var _t32;
       return _regenerator().w(function (_context42) {
         while (1) switch (_context42.p = _context42.n) {
@@ -12448,7 +12588,7 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref75) {
       }, _callee39, null, [[5, 7]]);
     }));
     return function submit() {
-      return _ref78.apply(this, arguments);
+      return _ref80.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
@@ -12809,11 +12949,11 @@ var PhotoRequestNewModal = function PhotoRequestNewModal(_ref75) {
     disabled: submitting || uploading
   }, submitting ? '⏳ 提交中…' : '✓ 提交给拍摄部')))), document.body);
 };
-var PhotoRequestDetailModal = function PhotoRequestDetailModal(_ref79) {
+var PhotoRequestDetailModal = function PhotoRequestDetailModal(_ref81) {
   var _item$applicable_shop2, _PHOTO_STATUS_MAP$wh$2, _ext$attachments;
-  var item = _ref79.item,
-    onClose = _ref79.onClose,
-    onEdit = _ref79.onEdit;
+  var item = _ref81.item,
+    onClose = _ref81.onClose,
+    onEdit = _ref81.onEdit;
   var ext = item.external_request || {};
   var st = PHOTO_STATUS_MAP[item.status] || {
     label: item.status,
@@ -13117,49 +13257,49 @@ if (typeof window !== 'undefined') {
 // 🆕 fix53 v3: 协作编辑 Modal — 任何人可改基础字段(merge,不覆盖)
 // 拍摄部填的字段(status / photographer / review 等)灰底只读
 // ════════════════════════════════════════════════════════════════════
-var PhotoRequestEditModal = function PhotoRequestEditModal(_ref80) {
-  var item = _ref80.item,
-    user = _ref80.user,
-    toast = _ref80.toast,
-    onClose = _ref80.onClose,
-    onSuccess = _ref80.onSuccess;
+var PhotoRequestEditModal = function PhotoRequestEditModal(_ref82) {
+  var item = _ref82.item,
+    user = _ref82.user,
+    toast = _ref82.toast,
+    onClose = _ref82.onClose,
+    onSuccess = _ref82.onSuccess;
   var ext = item.external_request || {};
-  var _useState257 = useState(item.product_name || ''),
-    _useState258 = _slicedToArray(_useState257, 2),
-    productName = _useState258[0],
-    setProductName = _useState258[1];
-  var _useState259 = useState(item.sku || ''),
-    _useState260 = _slicedToArray(_useState259, 2),
-    sku = _useState260[0],
-    setSku = _useState260[1];
-  var _useState261 = useState(item.applicable_shops || []),
-    _useState262 = _slicedToArray(_useState261, 2),
-    shops = _useState262[0],
-    setShops = _useState262[1];
-  var _useState263 = useState(item.product_type || '常规产品'),
+  var _useState263 = useState(item.product_name || ''),
     _useState264 = _slicedToArray(_useState263, 2),
-    productType = _useState264[0],
-    setProductType = _useState264[1];
-  var _useState265 = useState(item.product_notes || ''),
+    productName = _useState264[0],
+    setProductName = _useState264[1];
+  var _useState265 = useState(item.sku || ''),
     _useState266 = _slicedToArray(_useState265, 2),
-    productNotes = _useState266[0],
-    setProductNotes = _useState266[1];
-  var _useState267 = useState(''),
+    sku = _useState266[0],
+    setSku = _useState266[1];
+  var _useState267 = useState(item.applicable_shops || []),
     _useState268 = _slicedToArray(_useState267, 2),
-    reasonAppend = _useState268[0],
-    setReasonAppend = _useState268[1];
-  var _useState269 = useState([]),
+    shops = _useState268[0],
+    setShops = _useState268[1];
+  var _useState269 = useState(item.product_type || '常规产品'),
     _useState270 = _slicedToArray(_useState269, 2),
-    newAttachments = _useState270[0],
-    setNewAttachments = _useState270[1];
-  var _useState271 = useState(false),
+    productType = _useState270[0],
+    setProductType = _useState270[1];
+  var _useState271 = useState(item.product_notes || ''),
     _useState272 = _slicedToArray(_useState271, 2),
-    uploading = _useState272[0],
-    setUploading = _useState272[1];
-  var _useState273 = useState(false),
+    productNotes = _useState272[0],
+    setProductNotes = _useState272[1];
+  var _useState273 = useState(''),
     _useState274 = _slicedToArray(_useState273, 2),
-    saving = _useState274[0],
-    setSaving = _useState274[1];
+    reasonAppend = _useState274[0],
+    setReasonAppend = _useState274[1];
+  var _useState275 = useState([]),
+    _useState276 = _slicedToArray(_useState275, 2),
+    newAttachments = _useState276[0],
+    setNewAttachments = _useState276[1];
+  var _useState277 = useState(false),
+    _useState278 = _slicedToArray(_useState277, 2),
+    uploading = _useState278[0],
+    setUploading = _useState278[1];
+  var _useState279 = useState(false),
+    _useState280 = _slicedToArray(_useState279, 2),
+    saving = _useState280[0],
+    setSaving = _useState280[1];
   var toggleShop = function toggleShop(label) {
     setShops(function (prev) {
       return prev.includes(label) ? prev.filter(function (s) {
@@ -13168,7 +13308,7 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref80) {
     });
   };
   var handleFiles = /*#__PURE__*/function () {
-    var _ref81 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee40(e) {
+    var _ref83 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee40(e) {
       var files, news, _i3, _files, f, a, _t33;
       return _regenerator().w(function (_context43) {
         while (1) switch (_context43.p = _context43.n) {
@@ -13217,11 +13357,11 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref80) {
       }, _callee40, null, [[3, 5]]);
     }));
     return function handleFiles(_x23) {
-      return _ref81.apply(this, arguments);
+      return _ref83.apply(this, arguments);
     };
   }();
   var save = /*#__PURE__*/function () {
-    var _ref82 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee41() {
+    var _ref84 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee41() {
       var _t34;
       return _regenerator().w(function (_context44) {
         while (1) switch (_context44.p = _context44.n) {
@@ -13272,7 +13412,7 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref80) {
       }, _callee41, null, [[2, 5]]);
     }));
     return function save() {
-      return _ref82.apply(this, arguments);
+      return _ref84.apply(this, arguments);
     };
   }();
   var statusLines = renderStatusLine(item);
@@ -13635,29 +13775,29 @@ var PhotoRequestEditModal = function PhotoRequestEditModal(_ref80) {
 // 适合客服汇总员场景:周末整理一批待拍产品
 // ════════════════════════════════════════════════════════════════════
 // 🆕 fix56: 批量录入单行的附件组件 — 支持点击 / 粘贴 / 拖拽上传 + 缩略图预览
-var RowAttachments = function RowAttachments(_ref83) {
-  var items = _ref83.items,
-    onChange = _ref83.onChange,
-    toast = _ref83.toast;
-  var _useState275 = useState(false),
-    _useState276 = _slicedToArray(_useState275, 2),
-    uploading = _useState276[0],
-    setUploading = _useState276[1];
-  var _useState277 = useState(false),
-    _useState278 = _slicedToArray(_useState277, 2),
-    dragOver = _useState278[0],
-    setDragOver = _useState278[1];
-  var _useState279 = useState(false),
-    _useState280 = _slicedToArray(_useState279, 2),
-    focused = _useState280[0],
-    setFocused = _useState280[1]; // 🆕 fix64: 聚焦提示
-  var _useState281 = useState(null),
+var RowAttachments = function RowAttachments(_ref85) {
+  var items = _ref85.items,
+    onChange = _ref85.onChange,
+    toast = _ref85.toast;
+  var _useState281 = useState(false),
     _useState282 = _slicedToArray(_useState281, 2),
-    preview = _useState282[0],
-    setPreview = _useState282[1]; // 🆕 fix64: 放大预览 lightbox
+    uploading = _useState282[0],
+    setUploading = _useState282[1];
+  var _useState283 = useState(false),
+    _useState284 = _slicedToArray(_useState283, 2),
+    dragOver = _useState284[0],
+    setDragOver = _useState284[1];
+  var _useState285 = useState(false),
+    _useState286 = _slicedToArray(_useState285, 2),
+    focused = _useState286[0],
+    setFocused = _useState286[1]; // 🆕 fix64: 聚焦提示
+  var _useState287 = useState(null),
+    _useState288 = _slicedToArray(_useState287, 2),
+    preview = _useState288[0],
+    setPreview = _useState288[1]; // 🆕 fix64: 放大预览 lightbox
   var fileInputRef = useRef(null);
   var handleFiles = /*#__PURE__*/function () {
-    var _ref84 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee42(files) {
+    var _ref86 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee42(files) {
       var list, news, _iterator8, _step8, f, a, _t35, _t36;
       return _regenerator().w(function (_context45) {
         while (1) switch (_context45.p = _context45.n) {
@@ -13720,11 +13860,11 @@ var RowAttachments = function RowAttachments(_ref83) {
       }, _callee42, null, [[4, 6], [2, 9, 10, 11]]);
     }));
     return function handleFiles(_x24) {
-      return _ref84.apply(this, arguments);
+      return _ref86.apply(this, arguments);
     };
   }();
   var handlePaste = /*#__PURE__*/function () {
-    var _ref85 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee43(e) {
+    var _ref87 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee43(e) {
       var _e$clipboardData4;
       var clipItems, imageFiles;
       return _regenerator().w(function (_context46) {
@@ -13754,11 +13894,11 @@ var RowAttachments = function RowAttachments(_ref83) {
       }, _callee43);
     }));
     return function handlePaste(_x25) {
-      return _ref85.apply(this, arguments);
+      return _ref87.apply(this, arguments);
     };
   }();
   var handleDrop = /*#__PURE__*/function () {
-    var _ref86 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee44(e) {
+    var _ref88 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee44(e) {
       var _e$dataTransfer;
       return _regenerator().w(function (_context47) {
         while (1) switch (_context47.n) {
@@ -13773,7 +13913,7 @@ var RowAttachments = function RowAttachments(_ref83) {
       }, _callee44);
     }));
     return function handleDrop(_x26) {
-      return _ref86.apply(this, arguments);
+      return _ref88.apply(this, arguments);
     };
   }();
   var removeAt = function removeAt(idx) {
@@ -13949,12 +14089,12 @@ var RowAttachments = function RowAttachments(_ref83) {
     }
   }, "\u2715")), document.body));
 };
-var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref87) {
-  var user = _ref87.user,
-    toast = _ref87.toast,
-    onClose = _ref87.onClose,
-    onSuccess = _ref87.onSuccess;
-  var _useState283 = useState([{
+var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref89) {
+  var user = _ref89.user,
+    toast = _ref89.toast,
+    onClose = _ref89.onClose,
+    onSuccess = _ref89.onSuccess;
+  var _useState289 = useState([{
       productName: '',
       sku: '',
       urgency: 'normal',
@@ -13973,25 +14113,25 @@ var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref87) {
       reason: '',
       attachments: []
     }]),
-    _useState284 = _slicedToArray(_useState283, 2),
-    rows = _useState284[0],
-    setRows = _useState284[1];
-  var _useState285 = useState([]),
-    _useState286 = _slicedToArray(_useState285, 2),
-    defaultShops = _useState286[0],
-    setDefaultShops = _useState286[1];
-  var _useState287 = useState('normal'),
-    _useState288 = _slicedToArray(_useState287, 2),
-    defaultUrgency = _useState288[0],
-    setDefaultUrgency = _useState288[1];
-  var _useState289 = useState(''),
     _useState290 = _slicedToArray(_useState289, 2),
-    reasonPrefix = _useState290[0],
-    setReasonPrefix = _useState290[1];
-  var _useState291 = useState(false),
+    rows = _useState290[0],
+    setRows = _useState290[1];
+  var _useState291 = useState([]),
     _useState292 = _slicedToArray(_useState291, 2),
-    submitting = _useState292[0],
-    setSubmitting = _useState292[1];
+    defaultShops = _useState292[0],
+    setDefaultShops = _useState292[1];
+  var _useState293 = useState('normal'),
+    _useState294 = _slicedToArray(_useState293, 2),
+    defaultUrgency = _useState294[0],
+    setDefaultUrgency = _useState294[1];
+  var _useState295 = useState(''),
+    _useState296 = _slicedToArray(_useState295, 2),
+    reasonPrefix = _useState296[0],
+    setReasonPrefix = _useState296[1];
+  var _useState297 = useState(false),
+    _useState298 = _slicedToArray(_useState297, 2),
+    submitting = _useState298[0],
+    setSubmitting = _useState298[1];
   var addRow = function addRow() {
     return setRows([].concat(_toConsumableArray(rows), [{
       productName: '',
@@ -14026,7 +14166,7 @@ var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref87) {
     return sum + (((_r$attachments = r.attachments) === null || _r$attachments === void 0 ? void 0 : _r$attachments.length) || 0);
   }, 0);
   var submit = /*#__PURE__*/function () {
-    var _ref88 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee45() {
+    var _ref90 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee45() {
       var result, _t37;
       return _regenerator().w(function (_context48) {
         while (1) switch (_context48.p = _context48.n) {
@@ -14078,7 +14218,7 @@ var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref87) {
       }, _callee45, null, [[4, 6]]);
     }));
     return function submit() {
-      return _ref88.apply(this, arguments);
+      return _ref90.apply(this, arguments);
     };
   }();
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
