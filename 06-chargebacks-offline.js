@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix229
+// 版本 2026.06.05-fix230
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix229
+// 版本 2026.06.05-fix230
 // 预编译切片
 //
 
@@ -2382,9 +2382,13 @@ var COMMISSION_DEFAULTS = {
   rate2: 0.002,
   // >阈值 部分比例
   baseRate: 7.0,
-  // 基准汇率
+  // 基准汇率(参考)
   floorRate: 6.5,
-  // 保底汇率(当月实际<基准时)
+  // 保底汇率
+  fixedRate: 6.5,
+  // 🆕 fix230:试运行固定结算汇率(主管确认:先固定 6.5)
+  useFixed: true,
+  // true=直接用 fixedRate;false=按"实际≥7→7,否则6.5"规则
   refundRate: 0.003,
   // 退款追回默认比例
   shippedStatuses: ['dispatched', 'completed'] // 视为"已出货"的状态
@@ -2492,8 +2496,8 @@ var OfflineCommissionView = function OfflineCommissionView(_ref13) {
     persist(n, null);
   };
   var actualRate = monthRate[month] != null && monthRate[month] !== '' ? Number(monthRate[month]) : cfg.baseRate;
-  var settleRate = actualRate >= cfg.baseRate ? cfg.baseRate : cfg.floorRate; // ≥基准用基准;否则保底
-
+  // 🆕 fix230:试运行固定 6.5(useFixed);若关掉则回到"实际≥7用7,否则6.5"规则
+  var settleRate = cfg.useFixed ? Number(cfg.fixedRate) || 6.5 : actualRate >= cfg.baseRate ? cfg.baseRate : cfg.floorRate;
   var monthOrders = React.useMemo(function () {
     return (list || []).filter(function (o) {
       if (o.deleted) return false;
@@ -2671,7 +2675,7 @@ var OfflineCommissionView = function OfflineCommissionView(_ref13) {
       color: 'var(--ink-3)',
       marginTop: 4
     }
-  }, "\u4EC5\u7EDF\u8BA1\u3010\u5DF2\u51FA\u8D27\u3011\u7EBF\u4E0B\u5355 \xB7 \u672C\u6708\u7ED3\u7B97\u6C47\u7387 ", /*#__PURE__*/React.createElement("strong", null, settleRate), "(\u5B9E\u9645 ", actualRate, actualRate >= cfg.baseRate ? ' ≥基准→用基准' : ' <基准→用保底', ") \xB7 ", qStr(month), " ", payMonth)), /*#__PURE__*/React.createElement("div", {
+  }, "\u4EC5\u7EDF\u8BA1\u3010\u5DF2\u51FA\u8D27\u3011\u7EBF\u4E0B\u5355 \xB7 \u7ED3\u7B97\u6C47\u7387 ", /*#__PURE__*/React.createElement("strong", null, settleRate), cfg.useFixed ? '(试运行固定)' : actualRate >= cfg.baseRate ? '(实际' + actualRate + ' ≥基准→用基准)' : '(实际' + actualRate + ' <基准→用保底)', " \xB7 ", qStr(month), " ", payMonth)), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       gap: 8,
@@ -2754,7 +2758,7 @@ var OfflineCommissionView = function OfflineCommissionView(_ref13) {
       gap: 10,
       fontSize: 12
     }
-  }, [['tierThreshold', '阶梯阈值(元)', '1'], ['rate1', '≤阈值比例(如0.003)', '0.0001'], ['rate2', '>阈值比例', '0.0001'], ['baseRate', '基准汇率', '0.01'], ['floorRate', '保底汇率', '0.01'], ['refundRate', '退款追回比例', '0.0001']].map(function (_ref17) {
+  }, [['tierThreshold', '阶梯阈值(元)', '1'], ['rate1', '≤阈值比例(如0.003)', '0.0001'], ['rate2', '>阈值比例', '0.0001'], ['fixedRate', '固定结算汇率', '0.01'], ['baseRate', '基准汇率', '0.01'], ['floorRate', '保底汇率', '0.01'], ['refundRate', '退款追回比例', '0.0001']].map(function (_ref17) {
     var _ref18 = _slicedToArray(_ref17, 3),
       k = _ref18[0],
       lb = _ref18[1],
@@ -2785,6 +2789,22 @@ var OfflineCommissionView = function OfflineCommissionView(_ref13) {
       }
     }));
   }), /*#__PURE__*/React.createElement("label", {
+    style: {
+      display: 'inline-flex',
+      gap: 6,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "checkbox",
+    checked: !!cfg.useFixed,
+    onChange: function onChange(e) {
+      return setCfgField('useFixed', e.target.checked);
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: 'var(--ink-3)'
+    }
+  }, "\u56FA\u5B9A\u6C47\u7387(\u5173\u6389\u5219\u6309\u5B9E\u9645\u22657\u75287\u5426\u52196.5)")), /*#__PURE__*/React.createElement("label", {
     style: {
       display: 'flex',
       flexDirection: 'column',
@@ -3646,7 +3666,7 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
   // 加载跟单员工(从 shop_owners 表里跟单系统的负责人)
   useEffect(function () {
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
-      var client, _yield$client$from$se, data, owners, uniqueEmps, list, matched, _t1;
+      var client, _yield$client$from$se, data, owners, uniqueEmps, _yield$client$from$se2, dir, list, matched, _t1, _t10;
       return _regenerator().w(function (_context13) {
         while (1) switch (_context13.p = _context13.n) {
           case 0:
@@ -3673,6 +3693,29 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
                 name: o.user_name || '未命名'
               };
             });
+            // 🆕 fix230:兜底从 org_directory 拉跟单部全员(店铺负责人没维护时下拉也有名字)
+            _context13.p = 3;
+            _context13.n = 4;
+            return client.from('org_directory').select('*');
+          case 4:
+            _yield$client$from$se2 = _context13.v;
+            dir = _yield$client$from$se2.data;
+            (dir || []).filter(function (p) {
+              return /po|跟单|order/i.test(p.system || p.dept || p.source_system || '');
+            }).forEach(function (p) {
+              var id = p.user_id || p.id;
+              var nm = p.display_name || p.name;
+              if (id && nm && !uniqueEmps[id]) uniqueEmps[id] = {
+                id: id,
+                name: nm
+              };
+            });
+            _context13.n = 6;
+            break;
+          case 5:
+            _context13.p = 5;
+            _t1 = _context13.v;
+          case 6:
             list = Object.values(uniqueEmps);
             setPoEmployees(list);
             // 根据 order.site 自动推荐
@@ -3685,23 +3728,23 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
                 setPoUserName(matched.user_name);
               }
             }
-            _context13.n = 4;
+            _context13.n = 8;
             break;
-          case 3:
-            _context13.p = 3;
-            _t1 = _context13.v;
-            console.warn('加载跟单员工失败', _t1);
-          case 4:
+          case 7:
+            _context13.p = 7;
+            _t10 = _context13.v;
+            console.warn('加载跟单员工失败', _t10);
+          case 8:
             return _context13.a(2);
         }
-      }, _callee13, null, [[1, 3]]);
+      }, _callee13, null, [[3, 5], [1, 7]]);
     }))();
   }, [order.site]);
   var products = order.products || [];
   var dispatchText = order.follow_dispatch_text || generateDispatchText(order, products);
   var transfer = /*#__PURE__*/function () {
     var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
-      var client, userName, body, attachments, msg, _yield$client$from$in, error, _t10;
+      var client, userName, body, attachments, msg, _yield$client$from$in, error, _t11;
       return _regenerator().w(function (_context14) {
         while (1) switch (_context14.p = _context14.n) {
           case 0:
@@ -3783,8 +3826,8 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
             break;
           case 8:
             _context14.p = 8;
-            _t10 = _context14.v;
-            alert('转单失败: ' + (_t10.message || _t10));
+            _t11 = _context14.v;
+            alert('转单失败: ' + (_t11.message || _t11));
           case 9:
             setSending(false);
           case 10:
@@ -4543,7 +4586,7 @@ var ProductImageSlot = function ProductImageSlot(_ref31) {
   };
   var handleFiles = /*#__PURE__*/function () {
     var _ref32 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(files) {
-      var file, dataUrl, _t11;
+      var file, dataUrl, _t12;
       return _regenerator().w(function (_context16) {
         while (1) switch (_context16.p = _context16.n) {
           case 0:
@@ -4564,8 +4607,8 @@ var ProductImageSlot = function ProductImageSlot(_ref31) {
             break;
           case 4:
             _context16.p = 4;
-            _t11 = _context16.v;
-            alert('上传失败: ' + (_t11.message || '不支持的格式'));
+            _t12 = _context16.v;
+            alert('上传失败: ' + (_t12.message || '不支持的格式'));
           case 5:
             return _context16.a(2);
         }
@@ -4578,7 +4621,7 @@ var ProductImageSlot = function ProductImageSlot(_ref31) {
   var onPaste = /*#__PURE__*/function () {
     var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(e) {
       var _e$clipboardData;
-      var items, _iterator2, _step2, it, f, _t12;
+      var items, _iterator2, _step2, it, f, _t13;
       return _regenerator().w(function (_context17) {
         while (1) switch (_context17.p = _context17.n) {
           case 0:
@@ -4614,8 +4657,8 @@ var ProductImageSlot = function ProductImageSlot(_ref31) {
             break;
           case 6:
             _context17.p = 6;
-            _t12 = _context17.v;
-            _iterator2.e(_t12);
+            _t13 = _context17.v;
+            _iterator2.e(_t13);
           case 7:
             _context17.p = 7;
             _iterator2.f();
@@ -5134,7 +5177,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
   // 🆕 切换网站时,扫描历史 + 显示下一个编号建议
   var handleSiteChange = /*#__PURE__*/function () {
     var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(newSite) {
-      var result, userHasNotEdited, _t13;
+      var result, userHasNotEdited, _t14;
       return _regenerator().w(function (_context19) {
         while (1) switch (_context19.p = _context19.n) {
           case 0:
@@ -5165,8 +5208,8 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
             break;
           case 4:
             _context19.p = 4;
-            _t13 = _context19.v;
-            toast('⚠ 扫描历史失败,请手动输入: ' + _t13.message);
+            _t14 = _context19.v;
+            toast('⚠ 扫描历史失败,请手动输入: ' + _t14.message);
           case 5:
             setGenerating(false);
           case 6:
@@ -5180,7 +5223,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
   }();
   var handleManualGenerate = /*#__PURE__*/function () {
     var _ref38 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
-      var result, _t14;
+      var result, _t15;
       return _regenerator().w(function (_context20) {
         while (1) switch (_context20.p = _context20.n) {
           case 0:
@@ -5207,8 +5250,8 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
             break;
           case 4:
             _context20.p = 4;
-            _t14 = _context20.v;
-            toast('⚠ ' + _t14.message);
+            _t15 = _context20.v;
+            toast('⚠ ' + _t15.message);
           case 5:
             setGenerating(false);
           case 6:
@@ -5260,7 +5303,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
   };
   var handleSave = /*#__PURE__*/function () {
     var _ref39 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
-      var _yield$CLOUD$client$f6, existing, userName, now, seqConfig, prefix, separator, m, n, dispatchText, payload, res, _t15, _t16;
+      var _yield$CLOUD$client$f6, existing, userName, now, seqConfig, prefix, separator, m, n, dispatchText, payload, res, _t16, _t17;
       return _regenerator().w(function (_context21) {
         while (1) switch (_context21.p = _context21.n) {
           case 0:
@@ -5305,7 +5348,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
             break;
           case 7:
             _context21.p = 7;
-            _t15 = _context21.v;
+            _t16 = _context21.v;
           case 8:
             setSaving(true);
             userName = user.name + (user.alias ? ' ' + user.alias : '');
@@ -5345,8 +5388,8 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
             break;
           case 12:
             _context21.p = 12;
-            _t16 = _context21.v;
-            console.warn('更新 sequence 失败(不影响订单保存):', _t16);
+            _t17 = _context21.v;
+            console.warn('更新 sequence 失败(不影响订单保存):', _t17);
           case 13:
             dispatchText = generateDispatchText({
               order_no: orderNo,
@@ -6302,7 +6345,7 @@ var QuoteSearchModal = function QuoteSearchModal(_ref40) {
 
   useEffect(function () {
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
-      var data, _t17;
+      var data, _t18;
       return _regenerator().w(function (_context22) {
         while (1) switch (_context22.p = _context22.n) {
           case 0:
@@ -6324,7 +6367,7 @@ var QuoteSearchModal = function QuoteSearchModal(_ref40) {
             break;
           case 2:
             _context22.p = 2;
-            _t17 = _context22.v;
+            _t18 = _context22.v;
             toast('加载报价单失败');
           case 3:
             setLoading(false);
@@ -6876,7 +6919,7 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref43) {
     setDateFilter = _useState208[1];
   var load = /*#__PURE__*/function () {
     var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
-      var data, _t18;
+      var data, _t19;
       return _regenerator().w(function (_context23) {
         while (1) switch (_context23.p = _context23.n) {
           case 0:
@@ -6899,8 +6942,8 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref43) {
             break;
           case 3:
             _context23.p = 3;
-            _t18 = _context23.v;
-            toast('❌ ' + _t18.message);
+            _t19 = _context23.v;
+            toast('❌ ' + _t19.message);
           case 4:
             setLoading(false);
           case 5:
@@ -7664,7 +7707,7 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref49) {
     setCuPull = _useState242[1];
   var cuDoPull = /*#__PURE__*/function () {
     var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26() {
-      var on, v, _t19;
+      var on, v, _t20;
       return _regenerator().w(function (_context26) {
         while (1) switch (_context26.p = _context26.n) {
           case 0:
@@ -7697,7 +7740,7 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref49) {
             break;
           case 4:
             _context26.p = 4;
-            _t19 = _context26.v;
+            _t20 = _context26.v;
             setCuPull({
               loading: false,
               products: []
@@ -8350,7 +8393,7 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref52) {
     setDateFilter = _useState264[1];
   var load = /*#__PURE__*/function () {
     var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28() {
-      var data, _t20;
+      var data, _t21;
       return _regenerator().w(function (_context28) {
         while (1) switch (_context28.p = _context28.n) {
           case 0:
@@ -8373,8 +8416,8 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref52) {
             break;
           case 3:
             _context28.p = 3;
-            _t20 = _context28.v;
-            toast('❌ ' + _t20.message);
+            _t21 = _context28.v;
+            toast('❌ ' + _t21.message);
           case 4:
             setLoading(false);
           case 5:
@@ -9045,7 +9088,7 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref57) {
     setPvPull = _useState284[1];
   var pvDoPull = /*#__PURE__*/function () {
     var _ref58 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee31() {
-      var on, v, _t21;
+      var on, v, _t22;
       return _regenerator().w(function (_context31) {
         while (1) switch (_context31.p = _context31.n) {
           case 0:
@@ -9075,7 +9118,7 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref57) {
             break;
           case 4:
             _context31.p = 4;
-            _t21 = _context31.v;
+            _t22 = _context31.v;
             setPvPull({
               loading: false,
               products: []
@@ -9798,7 +9841,7 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref60) {
   var dropRef = useRef(null);
   var uploadOneFile = /*#__PURE__*/function () {
     var _ref61 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee33(file) {
-      var res, _t22;
+      var res, _t23;
       return _regenerator().w(function (_context33) {
         while (1) switch (_context33.p = _context33.n) {
           case 0:
@@ -9830,8 +9873,8 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref60) {
             return _context33.a(2, res);
           case 6:
             _context33.p = 6;
-            _t22 = _context33.v;
-            alert('上传失败: ' + _t22.message);
+            _t23 = _context33.v;
+            alert('上传失败: ' + _t23.message);
             return _context33.a(2, null);
           case 7:
             _context33.p = 7;
@@ -9848,7 +9891,7 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref60) {
   }();
   var addFiles = /*#__PURE__*/function () {
     var _ref62 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee34(files) {
-      var list, uploaded, _iterator5, _step5, f, r, _t23;
+      var list, uploaded, _iterator5, _step5, f, r, _t24;
       return _regenerator().w(function (_context34) {
         while (1) switch (_context34.p = _context34.n) {
           case 0:
@@ -9884,8 +9927,8 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref60) {
             break;
           case 7:
             _context34.p = 7;
-            _t23 = _context34.v;
-            _iterator5.e(_t23);
+            _t24 = _context34.v;
+            _iterator5.e(_t24);
           case 8:
             _context34.p = 8;
             _iterator5.f();
