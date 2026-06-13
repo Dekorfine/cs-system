@@ -1246,6 +1246,7 @@ function MakeInvoice() {
   const [detectNote, setDetectNote] = useState(''); // 🆕 自动识别快递的提示
   const importRef = useRef(null); // 🆕 fix86
   const [lightboxImg, setLightboxImg] = useState(null); // 🆕 fix90: 点缩略图看大图
+  const [imgBusy, setImgBusy] = useState({}); // 🆕 单行重载图: key=`${tid}:${idx}`
   const [storeField, setStoreField] = useState(null);
   const [stores, setStores] = useState([]); // [{name,count}] 全部店铺
   const [activeStore, setActiveStore] = useState('all');
@@ -1547,6 +1548,27 @@ function MakeInvoice() {
       ...patch
     } : it)
   }));
+  // 🆕 单行「↻ 重载图」—— 实时按订单号查 Shopify,SKU 优先匹配该行,回填 image_url(手动单查能看到图,批量偶尔漏,这里给个一键补)
+  const reloadItemImg = async (t, idx) => {
+    const key = t.id + ':' + idx;
+    setImgBusy(b => ({ ...b, [key]: true }));
+    try {
+      const ords = [t.sheetOrderNo, t.orderNumber, t.ydRef].filter(Boolean);
+      const cand = []; ords.forEach(o => String(o).split(/[\/,，、\s-]+/).forEach(p => { const k = p.trim(); if (k) cand.push(k); }));
+      const it = (t.items || [])[idx] || {};
+      let found = '';
+      for (const k of cand) {
+        const live = await (typeof lookupShopifyLive === 'function' ? lookupShopifyLive(normOrderKey(k), null, false).catch(() => null) : Promise.resolve(null));
+        if (!live || !(live.items || []).length) continue;
+        const m = (it.sku && live.items.find(li => li.sku === it.sku)) || live.items.find(li => pickItemImage(li)) || live.items[idx];
+        const url = m && pickItemImage(m);
+        if (url) { found = url; break; }
+      }
+      if (found) { upItem(t.id, idx, { image_url: found }); }
+      else { setErr('这条暂时取不到图(实时接口也没有该产品图,可能跟单库还没回扫)。可稍后再试或手动确认产品。'); }
+    } catch (e) { setErr('重载图失败:' + (e.message || e)); }
+    setImgBusy(b => { const n = { ...b }; delete n[t.id + ':' + idx]; return n; });
+  };
   const rmItem = (id, idx) => setTickets(p => p.map(t => t.id !== id ? t : {
     ...t,
     items: t.items.filter((_, i) => i !== idx)
@@ -1806,10 +1828,11 @@ function MakeInvoice() {
     //   按 SKU 优先、否则按顺序把 image_url 回填到该单;跟单把库补好后此步自然不再触发(本地已有图)
     if (!window.__LIVE_OFF) {
       const hasImg = o => o && (o.items || []).some(it => it && it.image_url);
+      const missingAny = o => o && (o.items || []).some(it => it && !it.image_url);  // 🆕 任一行缺图就补
       const seen = new Set(), needImg = [];
       Object.values(map).forEach(o => {
         const bk = o && normOrderKey(o.orderNumber || '');
-        if (bk && !seen.has(bk) && !hasImg(o)) { seen.add(bk); needImg.push(bk); }
+        if (bk && !seen.has(bk) && missingAny(o)) { seen.add(bk); needImg.push(bk); }
       });
       window.__LIVE_TIMEOUTS = 0;  // 🆕 补图前重置超时计数,别被前面的兜底连累
       let _enriched = 0;
@@ -1823,14 +1846,16 @@ function MakeInvoice() {
           if (!live) { console.warn('[补图] 实时查不到:' + bk); return; }
           if (!hasImg(live)) { console.warn('[补图] 实时返回但无图:' + bk + '(跟单实时接口可能也没补图)'); return; }
           Object.values(map).forEach(dbo => {
-            if (!dbo || normOrderKey(dbo.orderNumber || '') !== bk || hasImg(dbo)) return;
+            if (!dbo || normOrderKey(dbo.orderNumber || '') !== bk) return;
+            let filled = false;
             (dbo.items || []).forEach((it, idx) => {
               if (it && !it.image_url) {
-                const m = (it.sku && (live.items || []).find(li => li.sku === it.sku)) || (live.items || [])[idx];
-                if (m && m.image_url) { it.image_url = m.image_url; }
+                const m = (it.sku && (live.items || []).find(li => li.sku === it.sku)) || (live.items || []).find(li => (li.image_url || li.imageUrl || li.image)) || (live.items || [])[idx];
+                const url = m && (m.image_url || m.imageUrl || m.image);
+                if (url) { it.image_url = url; filled = true; }
               }
             });
-            if (hasImg(dbo)) _enriched++;
+            if (filled) _enriched++;
           });
         });
         if (i + CONC < needImg.length) await new Promise(r => setTimeout(r, 100));
@@ -3185,11 +3210,16 @@ function MakeInvoice() {
             borderRadius: 5,
             cursor: 'zoom-in'
           }
-        }) : /*#__PURE__*/React.createElement("span", {
+        }) : /*#__PURE__*/React.createElement("button", {
+          onClick: () => reloadItemImg(t, ii),
+          disabled: !!imgBusy[t.id + ':' + ii],
+          title: "\u91CD\u65B0\u52A0\u8F7D\u56FE\u7247",
           style: {
-            color: '#c7c7cc'
+            width: 46, height: 46, borderRadius: 5, border: '1px dashed #c7c7cc',
+            background: '#fafafa', cursor: imgBusy[t.id + ':' + ii] ? 'default' : 'pointer',
+            color: '#0071e3', fontSize: 16, lineHeight: 1, fontFamily: 'inherit'
           }
-        }, "\u2014")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
+        }, imgBusy[t.id + ':' + ii] ? "\u22EF" : "\u21BB")), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("input", {
           value: it.lampCn,
           onChange: e => upItem(t.id, ii, {
             lampCn: e.target.value
