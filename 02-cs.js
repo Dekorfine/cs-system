@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix240
+// 版本 2026.06.05-fix241
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix240
+// 版本 2026.06.05-fix241
 // 预编译切片
 //
 
@@ -1930,22 +1930,26 @@ var CSModule = function CSModule(_ref7) {
     setShowSupportCfg = _useState74[1];
   useEffect(function () {
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-      var _yield$CLOUD$client$f5, data, _t4;
+      var _yield$CLOUD$client$f5, data, row, _t4;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
           case 0:
             _context5.p = 0;
             _context5.n = 1;
-            return CLOUD.client.from('app_config').select('value').eq('key', 'cs_support_members').maybeSingle();
+            return CLOUD.client.from('app_config').select('value,updated_at').eq('key', 'cs_support_members').order('updated_at', {
+              ascending: false
+            }).limit(1);
           case 1:
             _yield$CLOUD$client$f5 = _context5.v;
             data = _yield$CLOUD$client$f5.data;
-            if (data && data.value && Array.isArray(data.value.ids)) setSupportMembers(data.value.ids);
+            row = Array.isArray(data) ? data[0] : data;
+            if (row && row.value && Array.isArray(row.value.ids)) setSupportMembers(row.value.ids);
             _context5.n = 3;
             break;
           case 2:
             _context5.p = 2;
             _t4 = _context5.v;
+            console.warn('[支持客服名单] 读取失败', _t4);
           case 3:
             return _context5.a(2);
         }
@@ -1954,31 +1958,62 @@ var CSModule = function CSModule(_ref7) {
   }, []);
   var saveSupportMembers = /*#__PURE__*/function () {
     var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(ids) {
-      var _t5;
+      var _yield$CLOUD$client$f6, exist, row, error, _yield$CLOUD$client$f7, _yield$CLOUD$client$f8, _t5;
       return _regenerator().w(function (_context6) {
         while (1) switch (_context6.p = _context6.n) {
           case 0:
-            setSupportMembers(ids);
+            setSupportMembers(ids); // 先本地生效
             _context6.p = 1;
             _context6.n = 2;
-            return CLOUD.client.from('app_config').upsert({
+            return CLOUD.client.from('app_config').select('id').eq('key', 'cs_support_members').limit(1);
+          case 2:
+            _yield$CLOUD$client$f6 = _context6.v;
+            exist = _yield$CLOUD$client$f6.data;
+            row = Array.isArray(exist) ? exist[0] : exist;
+            if (!(row && row.id != null)) {
+              _context6.n = 4;
+              break;
+            }
+            _context6.n = 3;
+            return CLOUD.client.from('app_config').update({
+              value: {
+                ids: ids
+              }
+            }).eq('id', row.id);
+          case 3:
+            _yield$CLOUD$client$f7 = _context6.v;
+            error = _yield$CLOUD$client$f7.error;
+            _context6.n = 6;
+            break;
+          case 4:
+            _context6.n = 5;
+            return CLOUD.client.from('app_config').insert({
               key: 'cs_support_members',
               value: {
                 ids: ids
               }
             });
-          case 2:
+          case 5:
+            _yield$CLOUD$client$f8 = _context6.v;
+            error = _yield$CLOUD$client$f8.error;
+          case 6:
+            if (!error) {
+              _context6.n = 7;
+              break;
+            }
+            throw error;
+          case 7:
             toast('✓ 支持客服名单已保存 · 全系统生效');
-            _context6.n = 4;
+            _context6.n = 9;
             break;
-          case 3:
-            _context6.p = 3;
+          case 8:
+            _context6.p = 8;
             _t5 = _context6.v;
-            toast('保存失败:' + (_t5.message || _t5));
-          case 4:
+            toast('保存失败:' + (_t5.message || _t5) + '(请截图发管理员)');
+          case 9:
             return _context6.a(2);
         }
-      }, _callee6, null, [[1, 3]]);
+      }, _callee6, null, [[1, 8]]);
     }));
     return function saveSupportMembers(_x6) {
       return _ref12.apply(this, arguments);
@@ -10860,7 +10895,7 @@ var FollowUpModal = function FollowUpModal(_ref43) {
   // 一键升级 → 自动建工单到 workspace_tickets
   var submitEscalate = /*#__PURE__*/function () {
     var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
-      var targetRole, candidates, allCandidates, targetUser, levelLabel, ticket, _yield$CLOUD$client$f6, error, local, prevHistory, _t11;
+      var targetRole, candidates, allCandidates, targetUser, levelLabel, ticket, _yield$CLOUD$client$f9, error, local, prevHistory, _t11;
       return _regenerator().w(function (_context16) {
         while (1) switch (_context16.p = _context16.n) {
           case 0:
@@ -10910,8 +10945,8 @@ var FollowUpModal = function FollowUpModal(_ref43) {
             _context16.n = 4;
             return CLOUD.client.from('workspace_tickets').upsert(ticket);
           case 4:
-            _yield$CLOUD$client$f6 = _context16.v;
-            error = _yield$CLOUD$client$f6.error;
+            _yield$CLOUD$client$f9 = _context16.v;
+            error = _yield$CLOUD$client$f9.error;
             if (!error) {
               _context16.n = 5;
               break;
