@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix241
+// 版本 2026.06.05-fix243
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix241
+// 版本 2026.06.05-fix243
 // 预编译切片
 //
 
@@ -1469,22 +1469,28 @@ var App = function App() {
     // 🆕 fix199:逐级降级保存 —— 配额满时绝不让记录"文本"丢失(图在云端,大不了本地不存图)。
     var key = STORE.k('cs_records');
     // 🆕 fix203:每次都写一份极小的"文本备份键"(无图,永远存得下),主键万一损坏/被清可自动恢复
+    // 🆕 fix243:大数据量下只缓存近窗(全量在云端,刷新会从云端拉全);层层降级都基于近窗,保证存得下
+    var win = recentCacheWindow(records);
     try {
-      localStorage.setItem(STORE.k('cs_records_bak'), JSON.stringify(minimalRecords(records)));
+      localStorage.setItem(STORE.k('cs_records_bak'), JSON.stringify(minimalRecords(win)));
     } catch (e) {}
     try {
-      localStorage.setItem(key, JSON.stringify(records));
+      localStorage.setItem(key, JSON.stringify(win));
       return;
-    } catch (e) {}
+    } catch (e) {} // 近窗·含图
     try {
-      localStorage.setItem(key, JSON.stringify(slimRecordsForCache(records)));
+      localStorage.setItem(key, JSON.stringify(slimRecordsForCache(win)));
       return;
-    } catch (e) {} // 剥图版
+    } catch (e) {} // 近窗·剥图
     try {
-      // 最后兜底:只留核心字段(无图无附件),保证刷新后记录还在,不再"凭空消失"
-      localStorage.setItem(key, JSON.stringify(minimalRecords(records)));
-    } catch (e) {
-      console.error('[cs_records] 本地保存失败(配额已满,连无图版都存不下)', e);
+      localStorage.setItem(key, JSON.stringify(minimalRecords(win)));
+      return;
+    } catch (e) {} // 近窗·极简
+    try {
+      localStorage.setItem(key, JSON.stringify(minimalRecords(recentCacheWindow(records).slice(0, 800))));
+    } // 仍超→只留最近 800 条核心
+    catch (e) {
+      console.warn('[cs_records] 本地缓存超额,已仅保留云端数据(刷新会从云端重新拉全,不影响数据安全)');
     }
   }, [records]);
 
@@ -2158,8 +2164,9 @@ var App = function App() {
       version: 1,
       createdAt: 1,
       created_at: 1,
-      markedAt: 1
-    };
+      markedAt: 1,
+      durationMin: 1
+    }; // 🆕 fix243:durationMin 是从起止时间重算的派生字段,排除否则 recompute 后签名全变→5964 行全量重传
     var keys = Object.keys(r).filter(function (k) {
       return !VOLATILE[k];
     }).sort();
@@ -5224,7 +5231,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix241';
+var APP_VERSION = '2026.06.05-fix243';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
