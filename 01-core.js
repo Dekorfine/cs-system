@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix238
+// 版本 2026.06.05-fix239
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -27,7 +27,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix238
+// 版本 2026.06.05-fix239
 // 预编译切片
 //
 
@@ -1445,6 +1445,12 @@ function siteFromOrderRef(ref) {
 }
 // 全局 helper(切片后跨 .js 可用)
 if (typeof window !== 'undefined') window.__siteFromOrderRef = siteFromOrderRef;
+// 🆕 fix239:统一站点取值 —— 有的记录网站存在 r.website(不是 r.site),列表只读 r.site 就显示"—"。一律走这个兜底。
+function siteOf(r) {
+  if (!r) return '';
+  return (r.site || '').trim() || (r.website || '').trim() || siteFromOrderRef(r.orderRef) || '';
+}
+if (typeof window !== 'undefined') window.__siteOf = siteOf;
 
 // 🆕 fix22 联动 3: 网站 Context — 让自定义网站出现在所有下拉里
 // 内置 SITES 永远在前,自定义网站按代码追加

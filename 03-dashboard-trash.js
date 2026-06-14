@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix238
+// 版本 2026.06.05-fix239
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix238
+// 版本 2026.06.05-fix239
 // 预编译切片
 //
 
@@ -1320,7 +1320,7 @@ var DashboardModule = function DashboardModule(_ref4) {
   var siteStats = useMemo(function () {
     var map = new Map();
     periodRecords.forEach(function (r) {
-      var site = r.site || window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef) || '(未填)'; // 🆕 fix92: 无 site 时按订单号前缀推断
+      var site = siteOf(r) || '(未填)'; // 🆕 fix92/239: r.site→r.website→订单号前缀
       if (!map.has(site)) map.set(site, {
         name: site,
         total: 0,
@@ -1762,7 +1762,7 @@ var DashboardModule = function DashboardModule(_ref4) {
         borderRadius: 6,
         fontSize: 10
       }
-    }, r.site || window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef) || '?'), /*#__PURE__*/React.createElement("span", {
+    }, siteOf(r) || '?'), /*#__PURE__*/React.createElement("span", {
       style: {
         fontWeight: 700,
         fontSize: 11,
@@ -1870,7 +1870,7 @@ var DashboardModule = function DashboardModule(_ref4) {
         borderRadius: 6,
         fontSize: 10
       }
-    }, r.site || window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef) || '?'), /*#__PURE__*/React.createElement("span", {
+    }, siteOf(r) || '?'), /*#__PURE__*/React.createElement("span", {
       style: {
         fontWeight: 700,
         fontSize: 11,
@@ -2684,7 +2684,7 @@ var UnresolvedList = function UnresolvedList(_ref11) {
       style: {
         background: 'var(--bg-elevated)'
       }
-    }, r.site || '—')), /*#__PURE__*/React.createElement("td", {
+    }, siteOf(r) || '—')), /*#__PURE__*/React.createElement("td", {
       className: "text-[11px] font-mono",
       style: {
         color: 'var(--ink-3)'
@@ -3092,7 +3092,7 @@ var KpiRecordsTable = function KpiRecordsTable(_ref14) {
       style: {
         background: 'var(--bg-elevated)'
       }
-    }, r.site || '—')), /*#__PURE__*/React.createElement("td", {
+    }, siteOf(r) || '—')), /*#__PURE__*/React.createElement("td", {
       className: "text-[11px] font-mono",
       style: {
         color: 'var(--ink-3)'
@@ -3536,7 +3536,7 @@ var RecordDetailModal = function RecordDetailModal(_ref18) {
     style: {
       color: '#b45309'
     }
-  }, "\uD83D\uDFE1 \u672A\u8BBE(\u4E3B\u7BA1\u8BF7\u63D0\u9192\u5BA2\u670D\u8865\u4E0A)")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, "\u7F51\u7AD9:"), " ", r.website || r.site)), r.note && /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDFE1 \u672A\u8BBE(\u4E3B\u7BA1\u8BF7\u63D0\u9192\u5BA2\u670D\u8865\u4E0A)")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, "\u7F51\u7AD9:"), " ", siteOf(r) || '—')), r.note && /*#__PURE__*/React.createElement("div", {
     className: "mb-3"
   }, /*#__PURE__*/React.createElement("div", {
     className: "text-[11px] font-bold mb-1",

@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix238
+// 版本 2026.06.05-fix239
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix238
+// 版本 2026.06.05-fix239
 // 预编译切片
 //
 
@@ -1169,7 +1169,7 @@ var CSModule = function CSModule(_ref7) {
       var emp = employees.find(function (e) {
         return e.id === r.ownerId;
       });
-      rows.push([r.date, emp ? emp.name + (emp.alias ? ' ' + emp.alias : '') : '—', statusMap[r.status] || r.status, r.customer || '', r.site || '', r.startTime || '', r.endTime || '', r.durationMin || 0, diffMap[r.difficulty] || '', r.category || '', r.orderRef || '', r.note || '', r.nextFollowUp || '', (r.screenshots || []).length, (r.followUps || []).length, r.createdAt || '', r.updatedAt || '']);
+      rows.push([r.date, emp ? emp.name + (emp.alias ? ' ' + emp.alias : '') : '—', statusMap[r.status] || r.status, r.customer || '', siteOf(r), r.startTime || '', r.endTime || '', r.durationMin || 0, diffMap[r.difficulty] || '', r.category || '', r.orderRef || '', r.note || '', r.nextFollowUp || '', (r.screenshots || []).length, (r.followUps || []).length, r.createdAt || '', r.updatedAt || '']);
     });
     var tag = dateRange === 'day' ? viewDate : dateRange === '7d' ? '近7天' : dateRange === '30d' ? '近30天' : dateRange === 'range' ? "".concat(rangeStart, "_").concat(rangeEnd) : '全部';
     var filename = "\u5BA2\u670D\u8DDF\u8FDB_".concat(tag, "_").concat(todayISO(), ".csv");
@@ -1228,7 +1228,7 @@ var CSModule = function CSModule(_ref7) {
         return '<div class="fu"><span class="fu-time">' + esc((f.time || '').slice(0, 16)) + '</span> ' + esc(f.text || '') + '</div>';
       }).join('');
       var followupsBlock = followups ? '<div class="fu-list">' + followups + '</div>' : '';
-      return '<tr>' + '<td class="num">' + (i + 1) + '</td>' + '<td>' + esc(r.date || '') + '</td>' + '<td><span class="status status-' + r.status + '">' + esc(statusMap[r.status] || r.status) + '</span></td>' + '<td>' + esc(r.customer || '') + '</td>' + '<td>' + esc(empName) + '</td>' + '<td>' + esc(r.site || '') + '</td>' + '<td>' + esc(r.startTime || '') + ' ~ ' + esc(r.endTime || '') + '<br><small>' + (r.durationMin || 0) + ' 分钟</small></td>' + '<td>' + esc(diffMap[r.difficulty] || '') + '</td>' + '<td>' + esc(r.category || '') + '</td>' + '<td>' + esc(r.orderRef || '') + '</td>' + '<td>' + esc(r.note || '') + followupsBlock + '</td>' + '<td>' + esc(r.nextFollowUp || '') + '</td>' + '<td class="img-cell">' + shotsHTML + '</td>' + '</tr>';
+      return '<tr>' + '<td class="num">' + (i + 1) + '</td>' + '<td>' + esc(r.date || '') + '</td>' + '<td><span class="status status-' + r.status + '">' + esc(statusMap[r.status] || r.status) + '</span></td>' + '<td>' + esc(r.customer || '') + '</td>' + '<td>' + esc(empName) + '</td>' + '<td>' + esc(siteOf(r)) + '</td>' + '<td>' + esc(r.startTime || '') + ' ~ ' + esc(r.endTime || '') + '<br><small>' + (r.durationMin || 0) + ' 分钟</small></td>' + '<td>' + esc(diffMap[r.difficulty] || '') + '</td>' + '<td>' + esc(r.category || '') + '</td>' + '<td>' + esc(r.orderRef || '') + '</td>' + '<td>' + esc(r.note || '') + followupsBlock + '</td>' + '<td>' + esc(r.nextFollowUp || '') + '</td>' + '<td class="img-cell">' + shotsHTML + '</td>' + '</tr>';
     }).join('');
     var filterBanner = filterTags.length > 0 ? '<div class="filters">🔍 <strong>已应用筛选：</strong> ' + filterTags.map(esc).join(' · ') + '</div>' : '';
     var exporterName = (user.name || '') + (user.alias ? ' ' + user.alias : '');
@@ -12253,7 +12253,7 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref43) {
       if (r.date < startDate || r.date > today) return;
       var cell = m[r.ownerId].byDay[r.date];
       if (!cell) return;
-      var site = (r.site || '').trim() || window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef) || '?';
+      var site = siteOf(r) || '?';
       cell.total++;
       cell.bySite[site] = (cell.bySite[site] || 0) + 1;
       m[r.ownerId].sitesTotal[site] = (m[r.ownerId].sitesTotal[site] || 0) + 1;
