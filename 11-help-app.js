@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix235
+// 版本 2026.06.05-fix236
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix235
+// 版本 2026.06.05-fix236
 // 预编译切片
 //
 
@@ -2974,6 +2974,10 @@ var App = function App() {
 
   // tab - 持久化到 localStorage，刷新后保留
   var _useState33 = useState(function () {
+      var _useState35 = useState(null),
+        _useState36 = _slicedToArray(_useState35, 2),
+        quoteOpenRef = _useState36[0],
+        setQuoteOpenRef = _useState36[1]; // 🆕 fix236:点报价「📄」要打开的报价id
       // URL hash 优先 (#tab=kb)，其次 localStorage，最后按角色默认
       // 🆕 fix11: 正则允许下划线,匹配 cross_dept / delete_approvals / ai_reviews / admin_overview / offline_orders / custom_photo 等
       var hashMatch = window.location.hash.match(/tab=([a-z_]+)/);
@@ -3008,10 +3012,10 @@ var App = function App() {
 
   // 🆕 fix145: 跳转并聚焦某条记录 —— setActiveTab + 把目标 id 存进 navFocus,目标页用 useEffect+useRef 自动打开。
   //            id 为空 = 只切 tab(「查看全部」类按钮),不聚焦。
-  var _useState35 = useState(null),
-    _useState36 = _slicedToArray(_useState35, 2),
-    navFocus = _useState36[0],
-    setNavFocus = _useState36[1]; // { tab, id, sub, t } | null
+  var _useState37 = useState(null),
+    _useState38 = _slicedToArray(_useState37, 2),
+    navFocus = _useState38[0],
+    setNavFocus = _useState38[1]; // { tab, id, sub, t } | null
   var goFocus = useCallback(function (tab, id, sub) {
     if (!tab) return;
     setActiveTab(tab);
@@ -3039,15 +3043,15 @@ var App = function App() {
   }, [activeTab]);
 
   // 跟踪访问过的 iframe tab —— 让 iframe 保持挂载，避免切 tab 时丢数据
-  var _useState37 = useState(function () {
+  var _useState39 = useState(function () {
       var s = new Set();
       // 如果初始 tab 是 iframe 类，也算访问过
       if (['quote', 'kb', 'ai_reviews'].includes(activeTab)) s.add(activeTab);
       return s;
     }),
-    _useState38 = _slicedToArray(_useState37, 2),
-    visitedTabs = _useState38[0],
-    setVisitedTabs = _useState38[1];
+    _useState40 = _slicedToArray(_useState39, 2),
+    visitedTabs = _useState40[0],
+    setVisitedTabs = _useState40[1];
   useEffect(function () {
     if (['quote', 'kb', 'ai_reviews'].includes(activeTab) && !visitedTabs.has(activeTab)) {
       setVisitedTabs(function (prev) {
@@ -3195,12 +3199,12 @@ var App = function App() {
   // 🆕 fix9: 退款处理人员配置 (Miya / Nicole / Yulia 三人默认 — 主管可在设置改)
   // 业务场景: 所有客服可记录退款,但"批准/完成/上传截图"由名单中的人执行
   // 默认值:从 INITIAL_EMPLOYEES 推断 (u_miya/u_nicole/u_yulia),云端有配置时优先用云端
-  var _useState39 = useState(function () {
+  var _useState41 = useState(function () {
       return STORE.get('refund_processors_cache', ['u_miya', 'u_nicole', 'u_yulia']);
     }),
-    _useState40 = _slicedToArray(_useState39, 2),
-    refundProcessors = _useState40[0],
-    setRefundProcessors = _useState40[1];
+    _useState42 = _slicedToArray(_useState41, 2),
+    refundProcessors = _useState42[0],
+    setRefundProcessors = _useState42[1];
   useEffect(function () {
     if (!cloudOn || !CLOUD.client) return;
     _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
@@ -3304,27 +3308,27 @@ var App = function App() {
   // ══════════════════════════════════════════════════════════════
   // 📨 fix9c: 跨部门协作消息 — 美工/客服/跟单 三系统共用消息总线
   // ══════════════════════════════════════════════════════════════
-  var _useState41 = useState([]),
-    _useState42 = _slicedToArray(_useState41, 2),
-    cdmMessages = _useState42[0],
-    setCdmMessages = _useState42[1];
-  var _useState43 = useState(false),
+  var _useState43 = useState([]),
     _useState44 = _slicedToArray(_useState43, 2),
-    cdmLoading = _useState44[0],
-    setCdmLoading = _useState44[1];
+    cdmMessages = _useState44[0],
+    setCdmMessages = _useState44[1];
+  var _useState45 = useState(false),
+    _useState46 = _slicedToArray(_useState45, 2),
+    cdmLoading = _useState46[0],
+    setCdmLoading = _useState46[1];
   var cdmLoadingRef = useRef(false);
   // 🆕 fix140: 最大 created_at_ms 水位,realtime 兜底增量补拉用(只取新于水位的行)
   var cdmMaxCreatedRef = useRef(0);
   var cdmCatchupTimer = useRef(null);
   // 🆕 v22-CV/CW: 店铺-负责人映射 + 超时阈值配置 (三方共享)
-  var _useState45 = useState([]),
-    _useState46 = _slicedToArray(_useState45, 2),
-    shopOwners = _useState46[0],
-    setShopOwners = _useState46[1];
-  var _useState47 = useState({}),
+  var _useState47 = useState([]),
     _useState48 = _slicedToArray(_useState47, 2),
-    cdmTimeoutConfig = _useState48[0],
-    setCdmTimeoutConfig = _useState48[1];
+    shopOwners = _useState48[0],
+    setShopOwners = _useState48[1];
+  var _useState49 = useState({}),
+    _useState50 = _slicedToArray(_useState49, 2),
+    cdmTimeoutConfig = _useState50[0],
+    setCdmTimeoutConfig = _useState50[1];
 
   // 🆕 fix140: 列表轻量列(不含 attachments/thread 巨型 base64)— 初拉与增量补拉共用
   var CDM_LIST_COLS = 'id,from_system,from_user_id,from_user_name,to_system,to_user_id,to_user_name,category,priority,title,body,related_ref,related_type,related_shop,assigned_to_id,assigned_to_name,assigned_by_id,assigned_by_name,assigned_at_ms,watchers,status,read_by,created_at_ms,updated_at';
@@ -3838,14 +3842,14 @@ var App = function App() {
   // 普通客服默认不显示 dashboard 在顶部(只在侧栏可点)
   var isAdmin = (user === null || user === void 0 ? void 0 : user.role) === 'admin' || (user === null || user === void 0 ? void 0 : user.role) === 'super_admin';
   var DEFAULT_TOP_KEYS = isAdmin ? ['dashboard', 'cs', 'chargebacks', 'offline_orders', 'custom_photo', 'events'] : ['cs', 'chargebacks', 'offline_orders', 'custom_photo', 'events', 'reviews'];
-  var _useState49 = useState({
+  var _useState51 = useState({
       topKeys: DEFAULT_TOP_KEYS,
       sidebarOrder: [],
       sidebarCollapsed: false
     }),
-    _useState50 = _slicedToArray(_useState49, 2),
-    layoutPrefs = _useState50[0],
-    setLayoutPrefs = _useState50[1];
+    _useState52 = _slicedToArray(_useState51, 2),
+    layoutPrefs = _useState52[0],
+    setLayoutPrefs = _useState52[1];
   // 登录或切换账号时重新加载该用户的布局
   useEffect(function () {
     if (!user) return;
@@ -3870,10 +3874,10 @@ var App = function App() {
     if (!user) return;
     STORE.set("nav_layout_".concat(user.id), layoutPrefs);
   }, [layoutPrefs, user === null || user === void 0 ? void 0 : user.id]);
-  var _useState51 = useState(false),
-    _useState52 = _slicedToArray(_useState51, 2),
-    customizeOpen = _useState52[0],
-    setCustomizeOpen = _useState52[1];
+  var _useState53 = useState(false),
+    _useState54 = _slicedToArray(_useState53, 2),
+    customizeOpen = _useState54[0],
+    setCustomizeOpen = _useState54[1];
 
   // 计算完整 tabs 列表 — 单一数据源,TopNav 和 Sidebar 都从这里拿
   // 🆕 fix11-hotfix1: stats 在函数体后面才定义 → 用 ?. 防御性访问,首渲染时 stats 是 undefined 不崩
@@ -4104,13 +4108,13 @@ var App = function App() {
   }, [allTabs, layoutPrefs.topKeys, layoutPrefs.sidebarOrder]);
 
   // 通知权限
-  var _useState53 = useState(function () {
+  var _useState55 = useState(function () {
       if (typeof Notification === 'undefined') return 'unsupported';
       return Notification.permission;
     }),
-    _useState54 = _slicedToArray(_useState53, 2),
-    notifPerm = _useState54[0],
-    setNotifPerm = _useState54[1];
+    _useState56 = _slicedToArray(_useState55, 2),
+    notifPerm = _useState56[0],
+    setNotifPerm = _useState56[1];
   var requestNotifPerm = function requestNotifPerm() {
     if (typeof Notification === 'undefined') {
       toast('⚠️ 当前浏览器不支持桌面通知');
@@ -4549,10 +4553,10 @@ var App = function App() {
   }, [user, records, notifPerm]);
 
   // 🔍 全局智能搜索（必须在条件 return 之前定义,符合 React Rules of Hooks）
-  var _useState55 = useState(false),
-    _useState56 = _slicedToArray(_useState55, 2),
-    searchOpen = _useState56[0],
-    setSearchOpen = _useState56[1];
+  var _useState57 = useState(false),
+    _useState58 = _slicedToArray(_useState57, 2),
+    searchOpen = _useState58[0],
+    setSearchOpen = _useState58[1];
   useEffect(function () {
     var handler = function handler(e) {
       var _document$activeEleme, _document$activeEleme2;
@@ -5052,8 +5056,9 @@ var App = function App() {
     toast: toast,
     cloudOn: cloudOn,
     focusId: focusFor('cs'),
-    onOpenQuoteTab: function onOpenQuoteTab() {
-      return setActiveTab('quote');
+    onOpenQuoteTab: function onOpenQuoteTab(ref) {
+      setQuoteOpenRef(ref || null);
+      setActiveTab('quote');
     }
   })), activeTab === 'chargebacks' && /*#__PURE__*/React.createElement(ChargebacksModule, {
     user: user,
@@ -5111,7 +5116,8 @@ var App = function App() {
     user: user,
     employees: employees,
     toast: toast,
-    cloudOn: cloudOn
+    cloudOn: cloudOn,
+    openRef: quoteOpenRef
   })), visitedTabs.has('kb') && /*#__PURE__*/React.createElement("div", {
     style: {
       display: activeTab === 'kb' ? 'block' : 'none'
@@ -5218,7 +5224,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix235';
+var APP_VERSION = '2026.06.05-fix236';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

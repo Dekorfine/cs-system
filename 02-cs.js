@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix235
+// 版本 2026.06.05-fix236
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix235
+// 版本 2026.06.05-fix236
 // 预编译切片
 //
 
@@ -3264,10 +3264,10 @@ var CSModule = function CSModule(_ref7) {
         fontSize: 11
       },
       onClick: function onClick() {
-        return onOpenQuoteTab && onOpenQuoteTab();
+        return onOpenQuoteTab && onOpenQuoteTab(r.quoteId);
       },
-      title: "\u6253\u5F00\u62A5\u4EF7\u5355\u6A21\u5757"
-    }, "\uD83D\uDCC4")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
+      title: "\u6253\u5F00\u8FD9\u5F20\u62A5\u4EF7\u5355"
+    }, "\uD83D\uDCC4 \u6253\u5F00")) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("button", {
       className: "btn-pri",
       style: {
         padding: '4px 10px',

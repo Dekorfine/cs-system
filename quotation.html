@@ -3850,6 +3850,7 @@ async function loadCloudList() {
   renderCloudList();
   if (typeof checkEmailHistory === 'function') checkEmailHistory();  // 🆕 触发邮箱历史检查
   setCloudStatus(`✓ 已加载 ${cloudRecords.length} 条记录 · ${cloudRecords.length} loaded`, 'ok');
+  tryOpenPendingQuote();   // 🆕 从工作台「📄」跳转过来时,自动打开对应报价
 }
 
 // 把 Supabase row 转换成 UI 需要的 cloud record 结构
@@ -3946,6 +3947,38 @@ function showEmailHistory() {
   list.style.display = 'block';
 }
 
+// 🆕 从客服工作台「📄」按钮跳转:按 报价id / PI号 直接打开该报价
+let __pendingOpenQuote = null;
+function openCloudRecordByRef(ref) {
+  if (!ref) return false;
+  const key = String(ref).trim();
+  const rec = (cloudRecords || []).find(r =>
+    String(r.id) === key || String(r.path) === key || String(r.piNo || '') === key ||
+    String(r.piNo || '').replace(/^Q-/i, '') === key.replace(/^Q-/i, ''));
+  if (!rec) return false;
+  // 切到云端列表视图并选中加载
+  if (typeof switchPreview === 'function') { try { switchPreview('fill'); } catch (e) {} }
+  selectedCloudItem = rec;
+  if (typeof loadFromCloud === 'function') loadFromCloud();
+  else if (typeof loadSelectedFromCloud === 'function') loadSelectedFromCloud();
+  try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+  return true;
+}
+function tryOpenPendingQuote() {
+  if (!__pendingOpenQuote) return;
+  if (openCloudRecordByRef(__pendingOpenQuote)) { __pendingOpenQuote = null; }
+}
+// 初始化:从 hash 读 open=xxx
+(function initOpenFromHash() {
+  try { const m = (window.location.hash || '').match(/open=([^&]+)/); if (m) __pendingOpenQuote = decodeURIComponent(m[1]); } catch (e) {}
+})();
+// 父窗口(工作台)实时通知打开某报价(iframe 已挂载时也能用)
+window.addEventListener('message', (e) => {
+  if (e && e.data && e.data.type === 'open-quote' && e.data.ref) {
+    __pendingOpenQuote = String(e.data.ref);
+    if (!tryOpenPendingQuote() && typeof loadCloudList === 'function') { loadCloudList(); }  // 列表没加载好就先拉再开
+  }
+});
 function loadCloudRecordByPath(path) {
   const rec = cloudRecords.find(r => r.path === path);
   if (!rec) return;
