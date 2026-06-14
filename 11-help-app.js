@@ -2974,10 +2974,6 @@ var App = function App() {
 
   // tab - 持久化到 localStorage，刷新后保留
   var _useState33 = useState(function () {
-      var _useState35 = useState(null),
-        _useState36 = _slicedToArray(_useState35, 2),
-        quoteOpenRef = _useState36[0],
-        setQuoteOpenRef = _useState36[1]; // 🆕 fix236:点报价「📄」要打开的报价id
       // URL hash 优先 (#tab=kb)，其次 localStorage，最后按角色默认
       // 🆕 fix11: 正则允许下划线,匹配 cross_dept / delete_approvals / ai_reviews / admin_overview / offline_orders / custom_photo 等
       var hashMatch = window.location.hash.match(/tab=([a-z_]+)/);
@@ -2999,6 +2995,10 @@ var App = function App() {
     _useState34 = _slicedToArray(_useState33, 2),
     activeTab = _useState34[0],
     setActiveTab = _useState34[1];
+  var _useState35 = useState(null),
+    _useState36 = _slicedToArray(_useState35, 2),
+    quoteOpenRef = _useState36[0],
+    setQuoteOpenRef = _useState36[1]; // 🆕 fix236:点报价「📄」要打开的报价id
   // tab 切换时写入 localStorage + URL hash
   useEffect(function () {
     localStorage.setItem('ws_active_tab', activeTab);
