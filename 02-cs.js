@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix244
+// 版本 2026.06.05-fix245
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix244
+// 版本 2026.06.05-fix245
 // 预编译切片
 //
 
@@ -3539,20 +3539,54 @@ var CSModule = function CSModule(_ref7) {
         fontSize: 11,
         background: '#16a34a'
       },
-      title: "\u4E00\u952E\u767B\u8BB0\u4ECA\u5929\u5DF2\u8DDF\u8FDB(\u4ECE\u63D0\u9192\u79FB\u9664;\u8981\u7EA6\u4E0B\u6B21\u65E5\u671F\u7528\u300C\u5904\u7406\u300D)",
+      title: "\u5DF2\u5904\u7406\u5B8C,\u7ED3\u675F\u8DDF\u8FDB(\u4ECE\u63D0\u9192\u79FB\u9664,\u8FDB\u5DE5\u4F5C\u8BB0\u5F55)",
       onClick: function onClick() {
         updateRow(r.id, {
+          status: 'resolved',
           followUps: [].concat(_toConsumableArray(r.followUps || []), [{
             id: 'fu_' + Date.now(),
             time: new Date().toISOString(),
-            text: '已跟进(快捷标记)',
+            text: '已解决(快捷)',
             status: 'done'
-          }]),
-          nextFollowUp: ''
+          }])
         });
-        toast('✓ 已记录跟进');
+        toast('✓ 已标记已解决');
       }
-    }, "\u2713 \u5DF2\u8DDF"), /*#__PURE__*/React.createElement("button", {
+    }, "\u2713 \u5DF2\u89E3\u51B3"), /*#__PURE__*/React.createElement("span", {
+      style: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 3,
+        fontSize: 10.5,
+        color: 'var(--ink-3)'
+      }
+    }, "\u4E0B\u6B21\u8DDF", /*#__PURE__*/React.createElement("input", {
+      type: "date",
+      defaultValue: r.nextFollowUp || addDays(today, 1),
+      title: "\u4ECA\u5929\u8DDF\u8FC7\u4E86\u2192\u8BBE\u4E0B\u4E00\u6B21\u8DDF\u8FDB\u65E5\u671F(\u5230\u671F\u624D\u518D\u63D0\u9192,\u4E0D\u4F1A\u7ACB\u523B\u903E\u671F)",
+      onChange: function onChange(e) {
+        if (e.target.value) {
+          updateRow(r.id, {
+            nextFollowUp: e.target.value,
+            followUps: [].concat(_toConsumableArray(r.followUps || []), [{
+              id: 'fu_' + Date.now(),
+              time: new Date().toISOString(),
+              text: '已跟进·约下次 ' + e.target.value,
+              status: 'following'
+            }])
+          });
+          toast('📅 已记录跟进 · 下次 ' + e.target.value);
+        }
+      },
+      style: {
+        padding: '3px 6px',
+        fontSize: 11,
+        border: '1px solid var(--line)',
+        borderRadius: 6,
+        fontFamily: 'inherit',
+        color: 'var(--ink-2)'
+      }
+    })), /*#__PURE__*/React.createElement("button", {
       className: "btn-pri",
       style: {
         padding: '4px 10px',
@@ -3560,7 +3594,8 @@ var CSModule = function CSModule(_ref7) {
       },
       onClick: function onClick() {
         return setFollowUpModal(r.id);
-      }
+      },
+      title: "\u5B8C\u6574\u5904\u7406:\u622A\u56FE/\u5173\u8054\u4E8B\u4EF6/\u6539\u72B6\u6001"
     }, "\u5904\u7406"), isAdmin && /*#__PURE__*/React.createElement("button", {
       className: "btn-sec",
       style: {
