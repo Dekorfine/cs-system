@@ -12571,6 +12571,11 @@ const KB_DAO = {
   
   // 管理员判断：通过本地标记或团队配置
   isAdmin() {
+    // 🆕 fix246:cs-system 以主管身份打开时,URL 带 admin=1 / role=admin → 直接放行(已在工作台认证过,无需再输口令)
+    try {
+      var sp = new URLSearchParams(window.location.search);
+      if (sp.get('admin') === '1' || sp.get('role') === 'admin' || sp.get('role') === 'super_admin') return true;
+    } catch (e) {}
     return localStorage.getItem('kb_is_admin') === '1';
   },
   
@@ -15341,6 +15346,13 @@ function attachEvents() {
   });
   // 初始化时同步勾选状态
   setTimeout(() => {
+    // 🆕 fix246:cs-system 主管(URL admin=1)打开 → 自动开启主管模式,无需手输口令
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get('admin') === '1' || sp.get('role') === 'admin' || sp.get('role') === 'super_admin') {
+        localStorage.setItem('kb_is_admin', '1');
+      }
+    } catch (e) {}
     const cb = $('#setting-admin-mode');
     if (cb) cb.checked = KB_DAO.isAdmin();
   }, 100);
