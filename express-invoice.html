@@ -1069,7 +1069,7 @@ async function buildXinyuanCA(t) {               // 信源·加拿大 (V95649 ·
   const iv = wb.getWorksheet('Commercial Invoice发票');
   iv.getCell('J2').value = _tplSel(t).reduce((s, it) => s + _tplQy(it), 0); iv.getCell('K2').value = t.weight || '';
   iv.getCell('B3').value = a.name || t.customerName || ''; iv.getCell('E3').value = a.phone || t.customerPhone || '';
-  iv.getCell('B4').value = (t.country && t.country.en) || 'Canada'; iv.getCell('E5').value = t.customerEmail || ''; iv.getCell('B5').value = a.province || ''; iv.getCell('B6').value = a.city || ''; iv.getCell('E6').value = a.zip || ''; iv.getCell('B7').value = ([a.address1, a.address2].filter(Boolean).join(', ') || '');
+  iv.getCell('B4').value = (t.country && t.country.en) || 'Canada'; iv.getCell('E4').value = a.company || ''; iv.getCell('E5').value = t.customerEmail || ''; iv.getCell('B5').value = a.province || ''; iv.getCell('B6').value = a.city || ''; iv.getCell('E6').value = a.zip || ''; iv.getCell('B7').value = ([a.address1, a.address2].filter(Boolean).join(', ') || '');
   let r = 10; for (const it of _tplSel(t)) { const q = _tplQy(it); iv.getCell('A' + r).value = _tplEn(it) + '/' + _tplCn(it); iv.getCell('B' + r).value = '金属，塑料'; iv.getCell('C' + r).value = (it.hs || tplHsFor(_tplCn(it), _tplEn(it))); iv.getCell('D' + r).value = q; iv.getCell('E' + r).value = TPL_UNIT; iv.getCell('F' + r).value = TPL_UNIT * q; await _tplEmbedImg(wb, iv, it, 6, r - 1); r++; }
   return wb;
 }
