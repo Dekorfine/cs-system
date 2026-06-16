@@ -12671,13 +12671,18 @@ const KB_DAO = {
       updated_at: new Date().toISOString(),
     };
     if (images !== undefined) payload.images = images;  // 🆕 fix74
-    let { error } = await sb.from('kb_edits').upsert(payload);
+    let { error } = await sb.from('kb_edits').upsert(payload, { onConflict: 'entry_id' });
     if (error && /images/i.test(error.message || '')) {
       // 容错:kb_edits 还没加 images 列 → 去掉重试(图片仅存本地)
       console.warn('[KB] kb_edits.images 列不存在,图片仅本地保存。请跑 ALTER TABLE');
       delete payload.images;
-      const retry = await sb.from('kb_edits').upsert(payload);
+      const retry = await sb.from('kb_edits').upsert(payload, { onConflict: 'entry_id' });
       error = retry.error;
+    }
+    if (error) {
+      // 🆕 fix248:暴露真实错误(404=表没建 / 401=key不匹配 / 42501=RLS权限),方便定位
+      console.error('[KB] kb_edits 云端保存失败 →', error.code || '', error.message || error, error);
+      window.__kbLastSaveErr = error;
     }
     return !error;
   },
@@ -13850,7 +13855,14 @@ async function saveEdit() {
     state.edits[id] = { a_cn: cn, a_en: en, images: imgs, ts: Date.now(), by: user };
     const ok = await KB_DAO.saveEdit(user, id, cn, en, '', imgs);
     if (ok) showToast('✓ 已保存并同步全团队');
-    else showToast('已保存本地（云端同步失败）', 'warn');
+    else {
+      const er = window.__kbLastSaveErr || {};
+      const hint = (er.code === '42P01' || /not exist|404|relation/i.test(er.message||'')) ? '云端没有 kb_edits 表,请先在 Supabase 跑 create_kb_edits.sql'
+        : (er.code === '42501' || /policy|permission|RLS/i.test(er.message||'')) ? '云端权限不足(RLS),请在建表 SQL 里开 anon 读写'
+        : (/JWT|key|401|apikey/i.test(er.message||'')) ? 'anon key 不匹配,请检查云同步设置里的 key'
+        : (er.message || '未知错误');
+      showToast('云端同步失败:' + hint, 'warn');
+    }
   }
   persistEdits();
   exitEditMode();
