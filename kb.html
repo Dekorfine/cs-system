@@ -15524,6 +15524,24 @@ async function init() {
       renderArticleList();
       // 后台加载 Gemini key（非阻塞）
       GEMINI.loadKey().catch(()=>{});
+      // 🆕 fix247:kb_edits 实时同步 —— 任何人编辑保存后,其他在线的人即时看到更新(无需刷新)
+      try {
+        if (sb && !window.__kbEditsRT) {
+          window.__kbEditsRT = sb.channel('kb_edits_rt')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'kb_edits' }, (payload) => {
+              try {
+                const row = payload.new || payload.old; if (!row || !row.entry_id) return;
+                if (payload.eventType === 'DELETE') { delete state.edits[row.entry_id]; }
+                else { state.edits[row.entry_id] = { a_cn: row.a_cn, a_en: row.a_en, images: Array.isArray(row.images) ? row.images : undefined, by: row.edited_by, ts: new Date(row.updated_at || Date.now()).getTime() }; }
+                persistEdits();
+                try { renderArticleList(); } catch (e) {}
+                try { if (state.currentModal === row.entry_id) renderModal(row.entry_id); } catch (e) {}
+              } catch (e) {}
+            })
+            .subscribe();
+          console.log('[KB] kb_edits 实时订阅已开启');
+        }
+      } catch (e) { console.warn('[KB] 实时订阅失败(非致命):', e); }
       console.log('[KB] Supabase sync complete:', favs.length, 'favs,', Object.keys(ratings).length, 'rated entries,', Object.keys(edits).length, 'edits');
     } catch(e) {
       console.warn('[KB] Supabase sync error (non-fatal):', e);
