@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix246
+// 版本 2026.06.05-fix247
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix246
+// 版本 2026.06.05-fix247
 // 预编译切片
 //
 
@@ -1930,32 +1930,58 @@ var CSModule = function CSModule(_ref7) {
     setShowSupportCfg = _useState74[1];
   useEffect(function () {
     if (!CLOUD.client) return; // fix244:云未就绪先跳过,cloudOn 变化后重试
-    _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
-      var _yield$CLOUD$client$f5, data, row, _t4;
-      return _regenerator().w(function (_context5) {
-        while (1) switch (_context5.p = _context5.n) {
-          case 0:
-            _context5.p = 0;
-            _context5.n = 1;
-            return CLOUD.client.from('app_config').select('value,updated_at').eq('key', 'cs_support_members').order('updated_at', {
-              ascending: false
-            }).limit(1);
-          case 1:
-            _yield$CLOUD$client$f5 = _context5.v;
-            data = _yield$CLOUD$client$f5.data;
-            row = Array.isArray(data) ? data[0] : data;
-            if (row && row.value && Array.isArray(row.value.ids)) setSupportMembers(row.value.ids);
-            _context5.n = 3;
-            break;
-          case 2:
-            _context5.p = 2;
-            _t4 = _context5.v;
-            console.warn('[支持客服名单] 读取失败', _t4);
-          case 3:
-            return _context5.a(2);
-        }
-      }, _callee5, null, [[0, 2]]);
-    }))();
+    var loadSupportRoster = /*#__PURE__*/function () {
+      var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+        var _yield$CLOUD$client$f5, data, row, _t4;
+        return _regenerator().w(function (_context5) {
+          while (1) switch (_context5.p = _context5.n) {
+            case 0:
+              _context5.p = 0;
+              _context5.n = 1;
+              return CLOUD.client.from('app_config').select('value,updated_at').eq('key', 'cs_support_members').order('updated_at', {
+                ascending: false
+              }).limit(1);
+            case 1:
+              _yield$CLOUD$client$f5 = _context5.v;
+              data = _yield$CLOUD$client$f5.data;
+              row = Array.isArray(data) ? data[0] : data;
+              if (row && row.value && Array.isArray(row.value.ids)) setSupportMembers(row.value.ids);
+              _context5.n = 3;
+              break;
+            case 2:
+              _context5.p = 2;
+              _t4 = _context5.v;
+              console.warn('[支持客服名单] 读取失败', _t4);
+            case 3:
+              return _context5.a(2);
+          }
+        }, _callee5, null, [[0, 2]]);
+      }));
+      return function loadSupportRoster() {
+        return _ref11.apply(this, arguments);
+      };
+    }();
+    loadSupportRoster();
+    // 🆕 fix247:实时 + 轮询双保险 —— boss/任一主管改了名单,其它账号即时同步(不用刷新)
+    var ch = null,
+      poll = null;
+    try {
+      ch = CLOUD.client.channel('app_config_support_rt').on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'app_config',
+        filter: 'key=eq.cs_support_members'
+      }, function () {
+        loadSupportRoster();
+      }).subscribe();
+    } catch (e) {}
+    poll = setInterval(loadSupportRoster, 60000); // 兜底:表未进实时发布时,60s 拉一次
+    return function () {
+      try {
+        if (ch) CLOUD.client.removeChannel(ch);
+      } catch (e) {}
+      if (poll) clearInterval(poll);
+    };
   }, [cloudOn]);
   var saveSupportMembers = /*#__PURE__*/function () {
     var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(ids) {
