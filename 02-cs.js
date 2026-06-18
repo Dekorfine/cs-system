@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix248
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix248
 // 预编译切片
 //
 
@@ -2290,9 +2290,16 @@ var CSModule = function CSModule(_ref7) {
   };
   var stopTimer = function stopTimer() {
     if (runningTimer) {
-      updateRow(runningTimer.id, {
-        endTime: nowHHMM()
+      // 🆕 fix248(Abby 反馈):点停止 = 这单收尾。当前若还是"待处理"(pending),自动跳"已解决"(resolved),省一步手点。
+      //   已是 跟进中/等客户/已解决/已转交 的不动(那些是有意设的状态,避免误伤)。updateRow 内会自动补 resolvedAt。
+      var _stopRow = records.find(function (x) {
+        return x.id === runningTimer.id;
       });
+      var _stopPatch = {
+        endTime: nowHHMM()
+      };
+      if (_stopRow && _stopRow.status === 'pending') _stopPatch.status = 'resolved';
+      updateRow(runningTimer.id, _stopPatch);
       setRunningTimer(null);
     }
   };
