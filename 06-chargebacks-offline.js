@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix249
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix249
 // 预编译切片
 //
 
@@ -256,6 +256,20 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
     });
     return l;
   }, [list, filterStatus, search, user.id, timeFilter, timeCustom, dateFilter, filterOwner, cbSortBy, cbSortDir]);
+  // 🆕 fix249:重复拒付检测 —— 同一订单号被录入多条(常见于两人同时处理、重复录入)。
+  //   按规范化订单号(去 # / 去空格 / 大写)分组,≥2 条即判重。基于已过滤 deleted 的 list,删除后自动解除。
+  var dupKeyOf = function dupKeyOf(c) {
+    return String(c && c.order_no || '').trim().toUpperCase().replace(/^#/, '');
+  };
+  var dupByOrder = useMemo(function () {
+    var m = {};
+    list.forEach(function (c) {
+      var k = dupKeyOf(c);
+      if (!k) return;
+      (m[k] = m[k] || []).push(c);
+    });
+    return m;
+  }, [list]);
   var stats = useMemo(function () {
     var active = list.filter(function (c) {
       return !['won', 'lost', 'closed', 'responded', 'awaiting'].includes(c.status);
@@ -637,9 +651,11 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
       gap: 12
     } : undefined
   }, filtered.map(function (cb) {
+    var _dupGrp = dupByOrder[dupKeyOf(cb)] || [];
     return /*#__PURE__*/React.createElement(ChargebackCard, {
       key: cb.id,
       cb: cb,
+      dupGroup: _dupGrp.length > 1 ? _dupGrp : null,
       employees: employees,
       user: user,
       isAdmin: isAdmin,
@@ -677,6 +693,7 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
 };
 var ChargebackCard = function ChargebackCard(_ref5) {
   var cb = _ref5.cb,
+    dupGroup = _ref5.dupGroup,
     employees = _ref5.employees,
     user = _ref5.user,
     isAdmin = _ref5.isAdmin,
@@ -801,7 +818,30 @@ var ChargebackCard = function ChargebackCard(_ref5) {
     style: {
       padding: '12px 16px'
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, dupGroup && dupGroup.length > 1 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: 6,
+      padding: '7px 10px',
+      marginBottom: 10,
+      background: '#fef2f2',
+      border: '1px solid #fecaca',
+      borderRadius: 8,
+      fontSize: 11,
+      color: '#b91c1c',
+      lineHeight: 1.5
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 13,
+      flexShrink: 0
+    }
+  }, "⚠️"), /*#__PURE__*/React.createElement("span", null, /*#__PURE__*/React.createElement("b", null, "重复拒付"), " · 同一订单 ", /*#__PURE__*/React.createElement("b", null, cb.order_no || '?'), " 共 ", dupGroup.length, " 条 — 另由 ", dupGroup.filter(function (o) {
+    return o.id !== cb.id;
+  }).map(function (o) {
+    return (o.created_by_name || '?') + '(' + (String(o.created_at || '').slice(5, 10) || '—') + ')';
+  }).join('、'), " 录入。只需保留 1 条,请协商删除多余的。")), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       justifyContent: 'space-between',
