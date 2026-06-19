@@ -91,6 +91,26 @@
   #toast.show{opacity:1;}
   #toast.warn{background:#b45309;} #toast.err{background:#b91c1c;} #toast.ok{background:#15803d;}
 
+  .itemrow{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);}
+  .itemrow:last-child{border-bottom:none;}
+  .ithumb{width:48px;height:48px;border-radius:7px;background:var(--bg);border:1px solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .ithumb img{width:100%;height:100%;object-fit:cover;cursor:zoom-in;}
+  .thumbph{font-size:18px;opacity:.4;}
+  .itxt{font-size:12px;line-height:1.45;}
+
+  /* 分页 */
+  .pager{display:flex;gap:6px;justify-content:center;align-items:center;margin-top:14px;flex-wrap:wrap;}
+  .pgbtn{padding:6px 11px;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;}
+  .pgbtn.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;}
+  .pgbtn:disabled{opacity:.4;cursor:default;}
+  .pgdots{color:var(--ter);padding:0 2px;}
+
+  /* 看大图灯箱(独立打开时本地用;嵌入时提到父窗口) */
+  .lb{position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:4vh 4vw;cursor:zoom-out;}
+  .lb.show{display:flex;}
+  .lb img{max-width:100%;max-height:92vh;object-fit:contain;border-radius:8px;cursor:default;}
+  .lb .lbx{position:fixed;top:14px;right:22px;color:#fff;font-size:30px;cursor:pointer;line-height:1;}
+
   @media(max-width:680px){
     .row{grid-template-columns:1fr;gap:6px;}
     .stcol{text-align:left;}
@@ -117,9 +137,13 @@
     <span class="chip revise" data-f="revise" onclick="setStatus('revise')">需跟单</span>
     <span class="chip" data-f="confirmed" onclick="setStatus('confirmed')">已发货</span>
     <span class="chip" data-f="closed" onclick="setStatus('closed')">已完成</span>
-    <input type="date" id="dFrom" title="创建起" onchange="render()">
+    <span class="chip" data-t="all" onclick="setPreset('all')">全部时间</span>
+    <span class="chip" data-t="today" onclick="setPreset('today')">今天</span>
+    <span class="chip" data-t="7" onclick="setPreset('7')">近7天</span>
+    <span class="chip" data-t="30" onclick="setPreset('30')">近30天</span>
+    <input type="date" id="dFrom" title="创建起" onchange="applyFilterChange()">
     <span class="sub">~</span>
-    <input type="date" id="dTo" title="创建止" onchange="render()">
+    <input type="date" id="dTo" title="创建止" onchange="applyFilterChange()">
   </div>
   <div class="count" id="count"></div>
   <div id="list"><div class="empty">加载中…</div></div>
@@ -128,6 +152,8 @@
   <div class="mask" id="mask" onclick="if(event.target===this)closeModal()">
     <div class="modal" id="modal"></div>
   </div>
+  <!-- 本地看大图(仅独立打开时用;嵌入 cs-system 时提到父窗口) -->
+  <div class="lb" id="localLB" onclick="closeLightbox()"><img onclick="event.stopPropagation()" alt=""><span class="lbx" onclick="closeLightbox()">✕</span></div>
   <div id="toast"></div>
 
 <script>
@@ -157,6 +183,8 @@ const ST = {
 };
 
 let ALL=[], statusF='all', shopF='all', Q='', followup=false;
+let PAGE=1, PAGE_SIZE=50;     // 分页(客户端分页,统计仍用全量)
+let imgCache={};              // order_name → 行项目图缓存
 let editing=null;
 
 /* URL 参数:?me=跟进人  ?view=followup */
@@ -176,9 +204,17 @@ function toast(msg,kind){ const t=document.getElementById('toast'); t.textConten
 /* ============ 加载 ============ */
 async function load(){
   try{
-    const { data, error } = await SB.from('qty_confirmations').select('*').order('created_at',{ascending:false});
-    if(error) throw error;
-    ALL=data||[]; 
+    // 分页全量拉(PostgREST 单次≤1000;循环 range 累加,统计才准),最多 5000 条
+    let all=[], from=0, size=1000;
+    for(let i=0;i<5;i++){
+      const { data, error } = await SB.from('qty_confirmations').select('*')
+        .order('created_at',{ascending:false}).range(from, from+size-1);
+      if(error) throw error;
+      all=all.concat(data||[]);
+      if(!data || data.length<size) break;
+      from+=size;
+    }
+    ALL=all;
     document.getElementById('refreshInfo').textContent='共 '+ALL.length+' 条 · 更新于 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
     renderStats(); render();
   }catch(e){ document.getElementById('list').innerHTML='<div class="empty">加载失败:'+esc(e.message||e)+'<br><span class="sub">检查 qty_conf_read 策略 / 网络</span></div>'; }
@@ -206,11 +242,21 @@ function renderStats(){
     shops.map(s=>`<span class="shopchip ${shopF===s?'on':''}" onclick="setShop('${esc(s)}')">${esc(brandOf(s))} <b>${byShop[s]}</b></span>`).join('');
 }
 
-function setStatus(f){ statusF=f; if(followup&&f!=='revise'){followup=false;syncFollowupUI();} document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.f===f)); renderStats(); render(); }
-function setShop(s){ shopF=s; renderStats(); render(); }
-function toggleFollowup(){ followup=!followup; if(followup){statusF='revise';} else {statusF='all';} syncFollowupUI(); document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.f===statusF)); renderStats(); render(); }
+function applyFilterChange(){ PAGE=1; render(); }
+function setStatus(f){ statusF=f; PAGE=1; if(followup&&f!=='revise'){followup=false;syncFollowupUI();} document.querySelectorAll('.chip[data-f]').forEach(c=>c.classList.toggle('on',c.dataset.f===f)); renderStats(); render(); }
+function setShop(s){ shopF=s; PAGE=1; renderStats(); render(); }
+function setPreset(t){
+  const dF=document.getElementById('dFrom'), dT=document.getElementById('dTo');
+  const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  if(t==='all'){ dF.value=''; dT.value=''; }
+  else if(t==='today'){ const n=new Date(); dF.value=fmt(n); dT.value=fmt(n); }
+  else { const n=new Date(), s=new Date(Date.now()-(Number(t)-1)*86400000); dF.value=fmt(s); dT.value=fmt(n); }
+  document.querySelectorAll('.chip[data-t]').forEach(c=>c.classList.toggle('on',c.dataset.t===t));
+  PAGE=1; render();
+}
+function toggleFollowup(){ followup=!followup; PAGE=1; if(followup){statusF='revise';} else {statusF='all';} syncFollowupUI(); document.querySelectorAll('.chip[data-f]').forEach(c=>c.classList.toggle('on',c.dataset.f===statusF)); renderStats(); render(); }
 function syncFollowupUI(){ document.body.classList.toggle('followup-on',followup); const b=document.getElementById('followupBtn'); b.textContent=followup?'← 返回全部':'🧵 需跟单处理'; }
-document.getElementById('q').addEventListener('input',e=>{ Q=e.target.value.trim().toLowerCase(); render(); });
+document.getElementById('q').addEventListener('input',e=>{ Q=e.target.value.trim().toLowerCase(); PAGE=1; render(); });
 
 /* ============ 列表渲染 ============ */
 function passFilter(r){
@@ -229,10 +275,15 @@ function itemsHtml(items){
 }
 function render(){
   let list=ALL.filter(passFilter);
-  document.getElementById('count').textContent='匹配 '+list.length+' 条'+(followup?' · 交给跟单团队处理(改完标「已完成」)':'');
+  const total=list.length;
+  const pages=Math.max(1, Math.ceil(total/PAGE_SIZE));
+  if(PAGE>pages) PAGE=pages; if(PAGE<1) PAGE=1;
+  const start=(PAGE-1)*PAGE_SIZE;
+  const pageList=list.slice(start, start+PAGE_SIZE);
+  document.getElementById('count').textContent='匹配 '+total+' 条'+(pages>1?(' · 第 '+PAGE+'/'+pages+' 页'):'')+(followup?' · 交给跟单团队处理(改完标「已完成」)':'');
   const el=document.getElementById('list');
-  if(!list.length){ el.innerHTML='<div class="empty">'+(followup?'🎉 暂无需跟单处理的记录':'没有匹配的记录')+'</div>'; return; }
-  el.innerHTML='<div class="rows">'+list.map((r,i)=>{
+  if(!total){ el.innerHTML='<div class="empty">'+(followup?'🎉 暂无需跟单处理的记录':'没有匹配的记录')+'</div>'; return; }
+  el.innerHTML='<div class="rows">'+pageList.map(r=>{
     const ov=isOverdue(r), st=ST[r.status]||ST.pending;
     const stLabel=ov?'⚠ 逾期未回复':st.label, stCol=ov?'var(--danger)':st.col, stBg=ov?'rgba(220,38,38,.12)':st.bg;
     const dlOver = r.status==='pending' && ov;
@@ -243,8 +294,17 @@ function render(){
       <div class="dt">发信 ${fmtDate(r.email_sent_at)}<br><span class="dl ${dlOver?'over':''}">截 ${fmtDate(r.reply_deadline)}</span></div>
       <div class="stcol"><span class="pill" style="color:${stCol};background:${stBg};">${stLabel}</span><div class="handler">${r.handler?'👤 '+esc(r.handler):'未指派'}</div></div>
     </div>`;
-  }).join('')+'</div>';
+  }).join('')+'</div>'+pagerHtml(pages);
 }
+function pagerHtml(pages){
+  if(pages<=1) return '';
+  let win=[]; for(let p=1;p<=pages;p++){ if(p===1||p===pages||Math.abs(p-PAGE)<=2) win.push(p); }
+  let html='<button class="pgbtn" '+(PAGE<=1?'disabled':'')+' onclick="goPage('+(PAGE-1)+')">‹ 上一页</button>';
+  let last=0; win.forEach(p=>{ if(last&&p-last>1) html+='<span class="pgdots">…</span>'; html+='<button class="pgbtn '+(p===PAGE?'on':'')+'" onclick="goPage('+p+')">'+p+'</button>'; last=p; });
+  html+='<button class="pgbtn" '+(PAGE>=pages?'disabled':'')+' onclick="goPage('+(PAGE+1)+')">下一页 ›</button>';
+  return '<div class="pager">'+html+'</div>';
+}
+function goPage(p){ PAGE=p; render(); try{ document.getElementById('list').scrollIntoView({behavior:'smooth',block:'start'}); }catch(_){ window.scrollTo(0,0); } }
 
 /* ============ 编辑弹层 ============ */
 function openModal(idx){
@@ -254,8 +314,13 @@ function openModal(idx){
     <h2>${esc(r.order_name||'—')} · ${esc(brandOf(r.shop))}
       <a href="${esc(r.admin_url||'#')}" target="_blank" rel="noopener" style="font-size:12px;font-weight:500;">在 Shopify 打开 ↗</a></h2>
     <div class="msub">${esc(r.customer_name||'')} · ${esc(r.customer_email||'')} · ${esc(r.currency||'')} ${esc(r.order_total!=null?r.order_total:'')}</div>
-    <div class="field"><label>触发超量商品(${r.item_count!=null?r.item_count:(r.items||[]).length} 项)</label>
-      <div class="itembox">${(Array.isArray(r.items)&&r.items.length)?r.items.map(it=>`${esc(it.sku||'?')} ×<b>${esc(it.quantity)}</b> &nbsp;<span class="sub">${esc(it.title||'')}</span>`).join('<br>'):'—'}</div></div>
+    <div class="field"><label>触发超量商品(${r.item_count!=null?r.item_count:(r.items||[]).length} 项)· 点图看大图</label>
+      <div class="itembox" id="itemBox">${(Array.isArray(r.items)&&r.items.length)?r.items.map((it,ii)=>`
+        <div class="itemrow">
+          <div class="ithumb" id="ithumb${ii}"><span class="thumbph">🖼</span></div>
+          <div class="itxt"><b>${esc(it.sku||'?')}</b> ×<b style="color:var(--danger)">${esc(it.quantity)}</b><div class="sub">${esc(it.title||'')}</div></div>
+        </div>`).join(''):'—'}</div>
+      <div class="sub" id="imgStatus" style="margin-top:5px"></div></div>
     <div class="field"><label>发信 ${fmtDT(r.email_sent_at)} · 回复截止 ${fmtDT(r.reply_deadline)} ${isOverdue(r)?'<span style="color:var(--danger);font-weight:700">· 已逾期</span>':''}</label></div>
     <div class="field"><label>状态(改动会同步回写 Shopify 订单标签)</label>
       <div class="statusbtns" id="sbtns">
@@ -272,6 +337,7 @@ function openModal(idx){
     </div>`;
   pickStatus(editing._newStatus);
   document.getElementById('mask').classList.add('show');
+  loadOrderImages(editing);
 }
 function pickStatus(s){ editing._newStatus=s; document.querySelectorAll('#sbtns .sbtn').forEach(b=>b.classList.toggle('sel',b.dataset.s===s)); }
 function closeModal(){ document.getElementById('mask').classList.remove('show'); editing=null; }
@@ -316,12 +382,69 @@ async function writeTags(r, status){
   return j;
 }
 
+/* ============ 订单图(开详情时按订单号实时拉 Shopify 行项目图)============ */
+async function loadOrderImages(r){
+  const box=document.getElementById('itemBox'); if(!box)return;
+  const status=document.getElementById('imgStatus');
+  if((r.shop||'')==='mooielight'){ if(status)status.textContent='(Woo 店,暂不拉订单图)'; return; }
+  if(status)status.textContent='正在拉取订单图…';
+  try{
+    const prods=await fetchOrderProducts(r);
+    const bySku={}; prods.forEach(p=>{ if(p.sku) bySku[String(p.sku).toLowerCase()]=p.image_url; });
+    (r.items||[]).forEach((it,ii)=>{
+      const el=document.getElementById('ithumb'+ii); if(!el)return;
+      let img = it.image_url||it.image||it.img || bySku[String(it.sku||'').toLowerCase()];
+      if(!img && prods.length===1) img=prods[0].image_url; // 单品兜底
+      if(img){ el.innerHTML='<img src="'+esc(img)+'" loading="lazy" data-full="'+esc(img)+'" onclick="openLightbox(this.dataset.full)">'; }
+    });
+    if(status)status.textContent = prods.length? '' : '未取到订单图(订单号可能与 Shopify 不一致)';
+  }catch(e){ if(status)status.textContent='订单图拉取失败:'+esc(e.message||e); }
+}
+async function fetchOrderProducts(r){
+  const key=(r.shop||'')+'|'+(r.order_name||'');
+  if(imgCache[key]) return imgCache[key];
+  const domain=(r.shop||'').includes('.myshopify.com')? r.shop : (r.shop||'')+'.myshopify.com';
+  const base=String(r.order_name||'').trim().replace(/^#/,'');
+  for(const nm of [base, '#'+base]){
+    let res; try{
+      res=await fetch(EDGE+'/shopify-api',{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+PUB_KEY,'apikey':PUB_KEY},
+        body:JSON.stringify({shop:domain,action:'list_orders',params:{name:nm,status:'any',limit:5,auto_save:false}})});
+    }catch(_){ continue; }
+    if(!res.ok) continue;
+    const json=await res.json().catch(()=>null);
+    const arr=json&&(json.orders||json.data||[]);
+    if(json&&json.ok!==false&&Array.isArray(arr)&&arr.length){
+      const o=arr[0];
+      const li=o.line_items||(o.raw_payload&&o.raw_payload.line_items)||[];
+      const products=li.map(it=>({title:it.title||it.name||'', image_url:pickImg(it), quantity:it.quantity||1, sku:it.sku||(it.variant&&it.variant.sku)||''})).filter(p=>p.image_url||p.title);
+      imgCache[key]=products; return products;
+    }
+  }
+  imgCache[key]=[]; return [];
+}
+function pickImg(li){
+  const c=[li.image_url,li.imageUrl,li.img,li.img_url,li.thumbnail,li.product_image,li.featured_image,li.image];
+  for(const x of c){ if(typeof x==='string'&&x.trim())return x.trim(); if(x&&typeof x==='object'){const s=x.src||x.url||x.image_url; if(s)return s;} }
+  return '';
+}
+
+/* ============ 看大图:嵌入 cs-system 时提到父窗口顶层;独立打开时本地显示 ============ */
+function openLightbox(url){
+  if(!url)return;
+  if(window.parent && window.parent!==window){
+    try{ window.parent.postMessage({__lightbox:{url:url}}, '*'); return; }catch(_){}
+  }
+  const ov=document.getElementById('localLB'); ov.querySelector('img').src=url; ov.classList.add('show'); document.body.style.overflow='hidden';
+}
+function closeLightbox(){ const ov=document.getElementById('localLB'); ov.classList.remove('show'); ov.querySelector('img').src=''; document.body.style.overflow=''; }
+
 /* 初始化 */
 syncFollowupUI();
-if(followup){ statusF='revise'; document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.f==='revise')); }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeModal(); });
+if(followup){ statusF='revise'; document.querySelectorAll('.chip[data-f]').forEach(c=>c.classList.toggle('on',c.dataset.f==='revise')); }
+document.addEventListener('keydown',e=>{ if(e.key!=='Escape')return; const lb=document.getElementById('localLB'); if(lb&&lb.classList.contains('show'))closeLightbox(); else closeModal(); });
 load();
-setInterval(()=>{ if(!editing) load(); }, 120000); // 2 分钟刷新,编辑中暂停
+setInterval(()=>{ if(!editing && !document.getElementById('localLB').classList.contains('show')) load(); }, 120000); // 2 分钟刷新,编辑/看图时暂停
 </script>
 </body>
 </html>
