@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix250
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix250
 // 预编译切片
 //
 
@@ -3707,6 +3707,133 @@ var InventoryModule = function InventoryModule(_ref24) {
     key: iframeUrl,
     src: iframeUrl,
     title: "\u5E93\u5B58\u67E5\u8BE2",
+    onLoad: function onLoad() {
+      return setLoadStatus('loaded');
+    },
+    style: {
+      width: '100%',
+      height: 'calc(100vh - 220px)',
+      minHeight: 560,
+      border: 'none',
+      borderRadius: 12,
+      background: '#fafafa',
+      display: 'block'
+    }
+  }));
+};
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix250: 📦 数量核实跟进(iframe 嵌入 qty-confirm.html)
+// SKU≥2 自动核实流程的跟进台:列表/筛选/统计 + 改状态回写 Shopify 标签 + 跟单视图。
+// 数据在 po-system 库 pyfmuknvjqfwcqvbrsvw 的 qty_confirmations,逻辑全在独立 qty-confirm.html。
+// qty-confirm.html 须与 index.html 同目录部署。带 ?me= 把当前客服名预填进 handler。
+// ════════════════════════════════════════════════════════════════════
+var QtyConfirmModule = function QtyConfirmModule(_ref24b) {
+  var user = _ref24b.user,
+    toast = _ref24b.toast;
+  var _meQC = encodeURIComponent(user && (user.name || user.username) || '');
+  var _qcUrl = function _qcUrl() {
+    return "qty-confirm.html?me=" + _meQC + "&t=" + Date.now().toString(36);
+  };
+  var _useStateQC = useState(_qcUrl),
+    _useStateQC2 = _slicedToArray(_useStateQC, 2),
+    iframeUrl = _useStateQC2[0],
+    setIframeUrl = _useStateQC2[1];
+  var _useStateQC3 = useState('loading'),
+    _useStateQC4 = _slicedToArray(_useStateQC3, 2),
+    loadStatus = _useStateQC4[0],
+    setLoadStatus = _useStateQC4[1];
+  useEffect(function () {
+    var timer = setTimeout(function () {
+      return setLoadStatus(function (s) {
+        return s === 'loading' ? 'timeout' : s;
+      });
+    }, 8000);
+    return function () {
+      return clearTimeout(timer);
+    };
+  }, [iframeUrl]);
+  var reload = function reload() {
+    setLoadStatus('loading');
+    setIframeUrl(_qcUrl());
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "paper rounded-2xl",
+    style: {
+      padding: '14px',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 10,
+      padding: '0 4px',
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-display",
+    style: {
+      fontSize: 20,
+      fontWeight: 600,
+      letterSpacing: '-.022em',
+      flex: 1,
+      minWidth: 180
+    }
+  }, "\uD83D\uDCE6 \u6570\u91CF\u6838\u5B9E\u8DDF\u8FDB", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 400,
+      color: 'var(--ink-3)',
+      marginLeft: 8
+    }
+  }, "SKU\u22652 \u81EA\u52A8\u6838\u5B9E \xB7 \u6539\u72B6\u6001\u56DE\u5199 Shopify \u6807\u7B7E")), /*#__PURE__*/React.createElement("button", {
+    onClick: reload,
+    className: "btn-sec",
+    style: {
+      padding: '5px 12px',
+      fontSize: 12
+    }
+  }, "\uD83D\uDD04 \u91CD\u8F7D"), /*#__PURE__*/React.createElement("a", {
+    href: iframeUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "btn-sec",
+    style: {
+      padding: '5px 12px',
+      fontSize: 12,
+      textDecoration: 'none',
+      display: 'inline-block'
+    }
+  }, "\u2197 \u65B0\u7A97\u53E3\u6253\u5F00")), loadStatus === 'timeout' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#fef3c7',
+      border: '1px solid #f59e0b',
+      borderRadius: 10,
+      padding: '12px 14px',
+      marginBottom: 10,
+      fontSize: 13,
+      color: '#92400e',
+      lineHeight: 1.6
+    }
+  }, "\u26A0 ", /*#__PURE__*/React.createElement("strong", null, "\u9875\u9762\u52A0\u8F7D\u8D85\u65F6"), "\u3002\u8BF7\u786E\u8BA4 GitHub Pages \u4ED3\u5E93\u6839\u76EE\u5F55\u6709 qty-confirm.html \u8FD9\u4E2A\u6587\u4EF6\u3002", /*#__PURE__*/React.createElement("button", {
+    onClick: reload,
+    style: {
+      marginLeft: 8,
+      padding: '4px 10px',
+      fontSize: 12,
+      background: '#f59e0b',
+      color: 'white',
+      border: 'none',
+      borderRadius: 6,
+      cursor: 'pointer',
+      fontFamily: 'inherit'
+    }
+  }, "\u91CD\u8BD5")), /*#__PURE__*/React.createElement("iframe", {
+    key: iframeUrl,
+    src: iframeUrl,
+    title: "\u6570\u91CF\u6838\u5B9E\u8DDF\u8FDB",
     onLoad: function onLoad() {
       return setLoadStatus('loaded');
     },

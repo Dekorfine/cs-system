@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数量核实跟进 · JANEDECOR</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#f7f7f4;--card:#fff;--border:#e7e5e0;--text:#1c1a17;--sec:#6b6660;--ter:#9c9690;
+        --accent:#2563eb;--ok:#16a34a;--warn:#f59e0b;--danger:#dc2626;--revise:#7c3aed;--closed:#6b7280;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--text);padding:14px;font-size:14px;}
+  a{color:var(--accent);text-decoration:none;} a:hover{text-decoration:underline;}
+  .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}
+  h1{font-size:17px;display:flex;align-items:center;gap:8px;}
+  .sub{font-size:11px;color:var(--ter);}
+  .followup-on h1::after{content:"· 需跟单处理视图";color:var(--revise);font-size:13px;font-weight:600;margin-left:4px;}
+
+  /* 统计卡 */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(124px,1fr));gap:8px;margin-bottom:10px;}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 12px;cursor:pointer;transition:.12s;}
+  .stat:hover{border-color:var(--accent);}
+  .stat.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;}
+  .stat .n{font-size:21px;font-weight:700;line-height:1.1;}
+  .stat .l{font-size:11px;color:var(--sec);margin-top:2px;}
+  .stat.warn .n{color:var(--warn);} .stat.danger .n{color:var(--danger);}
+  .stat.revise .n{color:var(--revise);} .stat.ok .n{color:var(--ok);} .stat.closed .n{color:var(--closed);}
+
+  /* 店铺分组 */
+  .shops{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+  .shopchip{font-size:11px;padding:4px 10px;border:1px solid var(--border);border-radius:14px;background:var(--card);color:var(--sec);cursor:pointer;}
+  .shopchip.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
+  .shopchip b{font-weight:700;}
+
+  /* 筛选 */
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  input[type=text],input[type=date],select{padding:7px 11px;font-size:13px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);}
+  input#q{flex:1;min-width:200px;border-radius:18px;}
+  .chip{padding:6px 12px;font-size:12px;border:1px solid var(--border);border-radius:16px;background:var(--card);color:var(--sec);cursor:pointer;}
+  .chip.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600;}
+  .chip.danger.on{background:var(--danger);border-color:var(--danger);}
+  .chip.revise.on{background:var(--revise);border-color:var(--revise);}
+  .btn{padding:6px 12px;font-size:12px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);cursor:pointer;}
+  .btn:hover{border-color:var(--accent);}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn.followup{background:var(--revise);color:#fff;border-color:var(--revise);}
+  .count{font-size:12px;color:var(--sec);margin-bottom:8px;}
+
+  /* 列表 */
+  .rows{display:flex;flex-direction:column;gap:8px;}
+  .row{background:var(--card);border:1px solid var(--border);border-radius:11px;padding:11px 13px;cursor:pointer;
+       display:grid;grid-template-columns:130px 1fr 1.2fr 88px 96px;gap:10px;align-items:center;transition:.12s;}
+  .row:hover{border-color:var(--accent);}
+  .row.overdue{border-color:var(--danger);background:#fef4f4;}
+  .ordno{font-weight:700;font-size:14px;}
+  .ordno .shop{display:block;font-size:10.5px;color:var(--ter);font-weight:500;margin-top:1px;}
+  .cust{font-size:12px;line-height:1.4;overflow:hidden;}
+  .cust .em{color:var(--sec);font-size:11px;}
+  .items{display:flex;flex-wrap:wrap;gap:4px;}
+  .skuchip{font-size:10.5px;font-family:monospace;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--sec);}
+  .skuchip b{color:var(--danger);}
+  .dt{font-size:11px;color:var(--sec);line-height:1.4;}
+  .dt .dl.over{color:var(--danger);font-weight:700;}
+  .stcol{text-align:right;}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:10px;white-space:nowrap;}
+  .handler{font-size:10.5px;color:var(--ter);margin-top:3px;}
+  .empty{padding:48px;text-align:center;color:var(--ter);}
+
+  /* 编辑弹层(iframe 内固定覆盖,内部单滚动) */
+  .mask{position:fixed;inset:0;background:rgba(20,18,16,.45);display:none;align-items:flex-start;justify-content:center;z-index:50;padding:20px;overflow-y:auto;}
+  .mask.show{display:flex;}
+  .modal{background:var(--card);border-radius:14px;width:min(560px,100%);padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);}
+  .modal h2{font-size:16px;margin-bottom:2px;}
+  .modal .msub{font-size:12px;color:var(--sec);margin-bottom:14px;}
+  .field{margin-bottom:12px;} .field label{display:block;font-size:11px;color:var(--sec);margin-bottom:4px;font-weight:600;}
+  textarea{width:100%;min-height:64px;padding:8px 11px;font:inherit;font-size:13px;border:1px solid var(--border);border-radius:9px;resize:vertical;}
+  .statusbtns{display:flex;gap:8px;flex-wrap:wrap;}
+  .sbtn{flex:1;min-width:96px;padding:9px;border:1.5px solid var(--border);border-radius:10px;background:var(--card);cursor:pointer;font-size:12.5px;font-weight:600;color:var(--sec);text-align:center;}
+  .sbtn.sel{color:#fff;}
+  .sbtn[data-s=pending].sel{background:var(--warn);border-color:var(--warn);}
+  .sbtn[data-s=revise].sel{background:var(--revise);border-color:var(--revise);}
+  .sbtn[data-s=confirmed].sel{background:var(--ok);border-color:var(--ok);}
+  .sbtn[data-s=closed].sel{background:var(--closed);border-color:var(--closed);}
+  .modal-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:16px;}
+  .modal-foot .right{display:flex;gap:8px;}
+  .itembox{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:12px;line-height:1.7;}
+
+  /* toast */
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1c1a17;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;z-index:90;opacity:0;transition:.25s;max-width:90%;}
+  #toast.show{opacity:1;}
+  #toast.warn{background:#b45309;} #toast.err{background:#b91c1c;} #toast.ok{background:#15803d;}
+
+  @media(max-width:680px){
+    .row{grid-template-columns:1fr;gap:6px;}
+    .stcol{text-align:left;}
+  }
+</style>
+</head>
+<body>
+  <div class="top" id="topbar">
+    <h1>📦 数量核实跟进</h1>
+    <span class="sub" id="refreshInfo"></span>
+    <span style="flex:1"></span>
+    <button class="btn followup" id="followupBtn" onclick="toggleFollowup()">🧵 需跟单处理</button>
+    <button class="btn" onclick="load()">↻ 刷新</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+  <div class="shops" id="shops"></div>
+
+  <div class="controls">
+    <input type="text" id="q" placeholder="🔍 订单号 / 客户邮箱">
+    <span class="chip on" data-f="all" onclick="setStatus('all')">全部</span>
+    <span class="chip" data-f="pending" onclick="setStatus('pending')">待处理</span>
+    <span class="chip danger" data-f="overdue" onclick="setStatus('overdue')">逾期未回复</span>
+    <span class="chip revise" data-f="revise" onclick="setStatus('revise')">需跟单</span>
+    <span class="chip" data-f="confirmed" onclick="setStatus('confirmed')">已发货</span>
+    <span class="chip" data-f="closed" onclick="setStatus('closed')">已完成</span>
+    <input type="date" id="dFrom" title="创建起" onchange="render()">
+    <span class="sub">~</span>
+    <input type="date" id="dTo" title="创建止" onchange="render()">
+  </div>
+  <div class="count" id="count"></div>
+  <div id="list"><div class="empty">加载中…</div></div>
+
+  <!-- 编辑弹层 -->
+  <div class="mask" id="mask" onclick="if(event.target===this)closeModal()">
+    <div class="modal" id="modal"></div>
+  </div>
+  <div id="toast"></div>
+
+<script>
+/* ============ 连接(po-system 项目,与 Shopify 集成同库)============ */
+const PROJECT_URL = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co';
+const PUB_KEY = 'sb_publishable_dFjk1WN_Hc0Te6IhXZysZg_SXvKQU4C';
+const EDGE = PROJECT_URL + '/functions/v1';
+const SB = supabase.createClient(PROJECT_URL, PUB_KEY);
+
+/* 店铺 handle → 品牌(展示用;未知则显示 handle) */
+const SHOP_BRAND = {
+  vakkerlighting:'Vakkerlight', vkfrench:'Pinlighting', dekorfine:'Dekorfine',
+  docolight:'Docos', vkwholesale:'Mooiehome', docolamp:'Docolamp',
+  vakkerge:'Radilum', decormote:'Rayonshine', janedecor:'Mooijane', mooielight:'Mooielight'
+};
+/* 状态 → 标签回写映射(对齐 Shopify add_order_tags) */
+const TAG_MAP = {
+  confirmed:{tags:['确认无误'], remove:['数量待确认']},
+  revise:{tags:['客户要改'], remove:['数量待确认']},
+  closed:{tags:['已处理'], remove:[]}
+};
+const ST = {
+  pending:{label:'待处理·等客户', col:'var(--warn)', bg:'rgba(245,158,11,.13)'},
+  revise:{label:'客户已回复·需跟单', col:'var(--revise)', bg:'rgba(124,58,237,.12)'},
+  confirmed:{label:'确认无误·按原单发货', col:'var(--ok)', bg:'rgba(22,163,74,.12)'},
+  closed:{label:'已完成', col:'var(--closed)', bg:'rgba(107,114,128,.13)'}
+};
+
+let ALL=[], statusF='all', shopF='all', Q='', followup=false;
+let editing=null;
+
+/* URL 参数:?me=跟进人  ?view=followup */
+const qp = new URLSearchParams(location.search);
+const ME = qp.get('me') || '';
+if(qp.get('view')==='followup') followup=true;
+
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const brandOf=h=>SHOP_BRAND[h]||h||'—';
+function fmtDT(s){ if(!s)return '—'; const d=new Date(s); if(isNaN(d))return '—';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function fmtDate(s){ if(!s)return ''; return String(s).slice(0,10); }
+const isOverdue=r=>r.status==='pending' && r.reply_deadline && new Date(r.reply_deadline) < new Date();
+
+function toast(msg,kind){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show'+(kind?' '+kind:''); clearTimeout(t._t); t._t=setTimeout(()=>t.className='',kind==='err'||kind==='warn'?4200:2400); }
+
+/* ============ 加载 ============ */
+async function load(){
+  try{
+    const { data, error } = await SB.from('qty_confirmations').select('*').order('created_at',{ascending:false});
+    if(error) throw error;
+    ALL=data||[]; 
+    document.getElementById('refreshInfo').textContent='共 '+ALL.length+' 条 · 更新于 '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+    renderStats(); render();
+  }catch(e){ document.getElementById('list').innerHTML='<div class="empty">加载失败:'+esc(e.message||e)+'<br><span class="sub">检查 qty_conf_read 策略 / 网络</span></div>'; }
+}
+
+/* ============ 统计卡 + 店铺分组 ============ */
+function renderStats(){
+  const c={total:ALL.length,pending:0,overdue:0,revise:0,confirmed:0,closed:0};
+  ALL.forEach(r=>{ if(c[r.status]!=null)c[r.status]++; if(isOverdue(r))c.overdue++; });
+  const cards=[
+    {k:'all',n:c.total,l:'总发送',cls:''},
+    {k:'pending',n:c.pending,l:'待处理',cls:'warn'},
+    {k:'overdue',n:c.overdue,l:'逾期未回复',cls:'danger'},
+    {k:'revise',n:c.revise,l:'客户已回复',cls:'revise'},
+    {k:'confirmed',n:c.confirmed,l:'到期/确认发货',cls:'ok'},
+    {k:'closed',n:c.closed,l:'已完成',cls:'closed'},
+  ];
+  document.getElementById('stats').innerHTML=cards.map(x=>
+    `<div class="stat ${x.cls} ${statusF===x.k?'on':''}" onclick="setStatus('${x.k}')"><div class="n">${x.n}</div><div class="l">${x.l}</div></div>`).join('');
+
+  const byShop={}; ALL.forEach(r=>{ const s=r.shop||'(无)'; byShop[s]=(byShop[s]||0)+1; });
+  const shops=Object.keys(byShop).sort((a,b)=>byShop[b]-byShop[a]);
+  document.getElementById('shops').innerHTML=
+    `<span class="shopchip ${shopF==='all'?'on':''}" onclick="setShop('all')">全部店铺</span>`+
+    shops.map(s=>`<span class="shopchip ${shopF===s?'on':''}" onclick="setShop('${esc(s)}')">${esc(brandOf(s))} <b>${byShop[s]}</b></span>`).join('');
+}
+
+function setStatus(f){ statusF=f; if(followup&&f!=='revise'){followup=false;syncFollowupUI();} document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.f===f)); renderStats(); render(); }
+function setShop(s){ shopF=s; renderStats(); render(); }
+function toggleFollowup(){ followup=!followup; if(followup){statusF='revise';} else {statusF='all';} syncFollowupUI(); document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.f===statusF)); renderStats(); render(); }
+function syncFollowupUI(){ document.body.classList.toggle('followup-on',followup); const b=document.getElementById('followupBtn'); b.textContent=followup?'← 返回全部':'🧵 需跟单处理'; }
+document.getElementById('q').addEventListener('input',e=>{ Q=e.target.value.trim().toLowerCase(); render(); });
+
+/* ============ 列表渲染 ============ */
+function passFilter(r){
+  if(statusF==='overdue'){ if(!isOverdue(r))return false; }
+  else if(statusF!=='all'){ if(r.status!==statusF)return false; }
+  if(shopF!=='all' && (r.shop||'(无)')!==shopF) return false;
+  if(Q){ const hit=(r.order_name||'').toLowerCase().includes(Q)||(r.customer_email||'').toLowerCase().includes(Q)||(r.customer_name||'').toLowerCase().includes(Q); if(!hit)return false; }
+  const df=document.getElementById('dFrom').value, dt=document.getElementById('dTo').value;
+  if(df && fmtDate(r.created_at) < df) return false;
+  if(dt && fmtDate(r.created_at) > dt) return false;
+  return true;
+}
+function itemsHtml(items){
+  if(!Array.isArray(items)||!items.length) return '<span class="sub">—</span>';
+  return items.map(it=>`<span class="skuchip" title="${esc(it.title||'')}">${esc(it.sku||'?')} <b>×${esc(it.quantity!=null?it.quantity:'?')}</b></span>`).join('');
+}
+function render(){
+  let list=ALL.filter(passFilter);
+  document.getElementById('count').textContent='匹配 '+list.length+' 条'+(followup?' · 交给跟单团队处理(改完标「已完成」)':'');
+  const el=document.getElementById('list');
+  if(!list.length){ el.innerHTML='<div class="empty">'+(followup?'🎉 暂无需跟单处理的记录':'没有匹配的记录')+'</div>'; return; }
+  el.innerHTML='<div class="rows">'+list.map((r,i)=>{
+    const ov=isOverdue(r), st=ST[r.status]||ST.pending;
+    const stLabel=ov?'⚠ 逾期未回复':st.label, stCol=ov?'var(--danger)':st.col, stBg=ov?'rgba(220,38,38,.12)':st.bg;
+    const dlOver = r.status==='pending' && ov;
+    return `<div class="row ${ov?'overdue':''}" onclick="openModal(${ALL.indexOf(r)})">
+      <div class="ordno"><a href="${esc(r.admin_url||'#')}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.order_name||'—')} ↗</a><span class="shop">${esc(brandOf(r.shop))}</span></div>
+      <div class="cust">${esc(r.customer_name||'(未填名)')}<div class="em">${esc(r.customer_email||'')}</div></div>
+      <div class="items">${itemsHtml(r.items)}</div>
+      <div class="dt">发信 ${fmtDate(r.email_sent_at)}<br><span class="dl ${dlOver?'over':''}">截 ${fmtDate(r.reply_deadline)}</span></div>
+      <div class="stcol"><span class="pill" style="color:${stCol};background:${stBg};">${stLabel}</span><div class="handler">${r.handler?'👤 '+esc(r.handler):'未指派'}</div></div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+/* ============ 编辑弹层 ============ */
+function openModal(idx){
+  const r=ALL[idx]; if(!r)return; editing={...r, _idx:idx, _newStatus:r.status, _note:r.note||'', _handler:r.handler||ME||''};
+  const st=ST[r.status]||ST.pending;
+  document.getElementById('modal').innerHTML=`
+    <h2>${esc(r.order_name||'—')} · ${esc(brandOf(r.shop))}
+      <a href="${esc(r.admin_url||'#')}" target="_blank" rel="noopener" style="font-size:12px;font-weight:500;">在 Shopify 打开 ↗</a></h2>
+    <div class="msub">${esc(r.customer_name||'')} · ${esc(r.customer_email||'')} · ${esc(r.currency||'')} ${esc(r.order_total!=null?r.order_total:'')}</div>
+    <div class="field"><label>触发超量商品(${r.item_count!=null?r.item_count:(r.items||[]).length} 项)</label>
+      <div class="itembox">${(Array.isArray(r.items)&&r.items.length)?r.items.map(it=>`${esc(it.sku||'?')} ×<b>${esc(it.quantity)}</b> &nbsp;<span class="sub">${esc(it.title||'')}</span>`).join('<br>'):'—'}</div></div>
+    <div class="field"><label>发信 ${fmtDT(r.email_sent_at)} · 回复截止 ${fmtDT(r.reply_deadline)} ${isOverdue(r)?'<span style="color:var(--danger);font-weight:700">· 已逾期</span>':''}</label></div>
+    <div class="field"><label>状态(改动会同步回写 Shopify 订单标签)</label>
+      <div class="statusbtns" id="sbtns">
+        <div class="sbtn" data-s="pending"  onclick="pickStatus('pending')">待处理·等客户</div>
+        <div class="sbtn" data-s="revise"   onclick="pickStatus('revise')">客户要改·需跟单</div>
+        <div class="sbtn" data-s="confirmed" onclick="pickStatus('confirmed')">确认无误·发货</div>
+        <div class="sbtn" data-s="closed"   onclick="pickStatus('closed')">已完成</div>
+      </div></div>
+    <div class="field"><label>跟进人 handler</label><input type="text" id="mHandler" value="${esc(editing._handler)}" placeholder="指派/认领" style="width:100%"></div>
+    <div class="field"><label>备注 / 客户诉求(转 revise 时务必写清)</label><textarea id="mNote" placeholder="客户要求改成…/ 取消多余数量 等">${esc(editing._note)}</textarea></div>
+    <div class="modal-foot">
+      <span class="sub" id="mWarn"></span>
+      <div class="right"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" id="mSave" onclick="saveEdit()">保存并回写标签</button></div>
+    </div>`;
+  pickStatus(editing._newStatus);
+  document.getElementById('mask').classList.add('show');
+}
+function pickStatus(s){ editing._newStatus=s; document.querySelectorAll('#sbtns .sbtn').forEach(b=>b.classList.toggle('sel',b.dataset.s===s)); }
+function closeModal(){ document.getElementById('mask').classList.remove('show'); editing=null; }
+
+async function saveEdit(){
+  if(!editing)return;
+  const r=editing, newStatus=r._newStatus;
+  const note=document.getElementById('mNote').value.trim();
+  const handler=document.getElementById('mHandler').value.trim();
+  const btn=document.getElementById('mSave'); btn.disabled=true; btn.textContent='保存中…';
+  try{
+    const patch={status:newStatus, note:note||null, handler:handler||null, updated_at:new Date().toISOString()};
+    if((newStatus==='confirmed'||newStatus==='closed') && !r.resolved_at) patch.resolved_at=new Date().toISOString();
+    const { error } = await SB.from('qty_confirmations').update(patch).eq('shopify_order_id', r.shopify_order_id);
+    if(error) throw error;
+    // 本地同步
+    Object.assign(ALL[r._idx], patch);
+    // 回写 Shopify 标签(best-effort;Woo 店跳过)
+    let warn='';
+    if(TAG_MAP[newStatus]){
+      if((r.shop||'')==='mooielight'){ warn='(Woo 店,标签未回写)'; }
+      else{
+        try{ await writeTags(r, newStatus); }
+        catch(e){ warn='状态已存,但标签回写失败:'+(e.message||e); }
+      }
+    }
+    closeModal(); renderStats(); render();
+    toast(warn? warn : '✓ 已保存并回写标签', warn?'warn':'ok');
+  }catch(e){ btn.disabled=false; btn.textContent='保存并回写标签'; document.getElementById('mWarn').textContent='保存失败:'+(e.message||e); document.getElementById('mWarn').style.color='var(--danger)'; }
+}
+
+async function writeTags(r, status){
+  const m=TAG_MAP[status]; if(!m)return;
+  const shop=(r.shop||'').includes('.myshopify.com')? r.shop : (r.shop||'')+'.myshopify.com';
+  const res=await fetch(EDGE+'/shopify-api',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+PUB_KEY},
+    body:JSON.stringify({shop, action:'add_order_tags', params:{order_id:r.shopify_order_id, tags:m.tags, remove:m.remove}})
+  });
+  let j={}; try{ j=await res.json(); }catch(_){}
+  if(!res.ok) throw new Error(j.error||j.message||('HTTP '+res.status));
+  return j;
+}
+
+/* 初始化 */
+syncFollowupUI();
+if(followup){ statusF='revise'; document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.f==='revise')); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeModal(); });
+load();
+setInterval(()=>{ if(!editing) load(); }, 120000); // 2 分钟刷新,编辑中暂停
+</script>
+</body>
+</html>
