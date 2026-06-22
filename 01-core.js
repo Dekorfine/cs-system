@@ -4747,6 +4747,13 @@ var LoginScreen = function LoginScreen(_ref0) {
     }) || employees.find(function (e) {
       return String(e.id || '').replace(/^u_/, '').toLowerCase() === acc;
     });
+    // 🆕 fix254:支持用中文名登录 —— 仅当该姓名唯一时才允许(重名则不匹配,需改用账号/英文名,避免登错号)
+    if (!sel) {
+      var _byName = employees.filter(function (e) {
+        return String(e.name || '').trim().toLowerCase() === acc;
+      });
+      if (_byName.length === 1) sel = _byName[0];
+    }
     if (!sel) {
       setError('账号不存在 — 请联系主管确认你的账号');
       return;
@@ -4815,7 +4822,7 @@ var LoginScreen = function LoginScreen(_ref0) {
         if (p) p.focus();
       }
     },
-    placeholder: "\u4F60\u7684\u8D26\u53F7(\u82F1\u6587\u540D\u5C0F\u5199,\u5982 nicole)",
+    placeholder: "\u8D26\u53F7 / \u4E2D\u6587\u540D\uFF08\u5982 nicole \u6216 \u9648\u4E3D\u743C\uFF09",
     style: {
       fontSize: 15,
       padding: '12px 14px',
