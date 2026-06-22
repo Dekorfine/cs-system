@@ -248,17 +248,23 @@ const nowISO=()=>new Date().toISOString();
 // 复刻 App 的 CLOUD.upsert:遇到"未知列"自动删掉该列重试,直到成功或遇到真错误
 async function writeWithRetry(mode, payload, id){
   let p=Object.assign({},payload);
+  let dateFixed=false;
   for(let i=0;i<25;i++){
     let res;
     if(mode==='insert') res=await SB.from('workspace_records').insert(p).select();
     else res=await SB.from('workspace_records').update(p).eq('id',id).select();
     if(!res.error) return {ok:true};
     const msg=String((res.error&&(res.error.message||res.error.details))||'');
-    // 仅"列不存在"才删列重试;NOT NULL 等真约束错误直接抛出
+    // 1) 列不存在 → 删列重试
     const m = msg.match(/Could not find the '([^']+)' column/i)
            || msg.match(/'([A-Za-z_0-9]+)' column of '[^']+' in the schema cache/i)
            || (/(does not exist|schema cache)/i.test(msg) && msg.match(/column "?([A-Za-z_0-9]+)"?/i));
     if(m && m[1] && Object.prototype.hasOwnProperty.call(p,m[1])){ delete p[m[1]]; continue; }
+    // 2) 日期/时间/数字列收到空串("" 不合法)→ 把疑似日期时间字段的空串改 null 重试(仅一次)
+    if(!dateFixed && /invalid input syntax for type (date|timestamp|time|integer|numeric)/i.test(msg)){
+      ['nextFollowUp','date','startTime','endTime','work_date','ops_followup','ops_remind','ops_start','ops_end'].forEach(function(k){ if(p[k]==='') p[k]=null; });
+      dateFixed=true; continue;
+    }
     return {ok:false, error:res.error};
   }
   return {ok:false, error:{message:'重试次数过多(列名持续不匹配)'}};
@@ -281,7 +287,7 @@ async function saveEntry(){
     ownerId: ME_ID||me, date: workDate, createdAt: iso, updatedAt: iso, status: 'resolved',
     customer: '', site: shop||'', startTime: start||'', endTime: end||'', durationMin: minutes||0,
     difficulty: '', diffSuggested: false, category: wc, orderRef: '',
-    note: note||'', nextFollowUp: followup||'',
+    note: note||'', nextFollowUp: followup||null,
     isFeedback: false, feedbackNote: '', feedbackShots: [],
     isProductOpt: false, productOptNote: '', productOptShots: [],
     screenshots: [], followUps: [], deleted: false,
