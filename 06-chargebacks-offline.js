@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix274
+// 版本 2026.06.05-fix275
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix274
+// 版本 2026.06.05-fix275
 // 预编译切片
 //
 
@@ -38,6 +38,7 @@ function RecordTrashView(props) {
   var s_loading = useState(true); var loading = s_loading[0], setLoading = s_loading[1];
   var C = { ink: 'var(--ink-1,#1c1a17)', sec: 'var(--ink-3,#6b6660)', line: 'var(--line,#e7e5e0)', ok: '#16a34a', danger: '#dc2626' };
   function load() {
+    if (!CLOUD.client) { setTimeout(load, 300); return; } // 🆕 fix275: 云未就绪等待重试
     setLoading(true);
     CLOUD.client.from(tableName).select('*').eq('deleted', true).order('updated_at', { ascending: false }).limit(2000).then(function (res) {
       setRows((res && res.data) || []); setLoading(false);
@@ -45,12 +46,14 @@ function RecordTrashView(props) {
   }
   useEffect(function () { load(); }, []);
   function restore(r) {
+    if (!CLOUD.client) { toast('云未就绪,请稍后再试'); return; }
     CLOUD.client.from(tableName).update({ deleted: false, updated_at: new Date().toISOString() }).eq('id', r.id).then(function (res) {
       if (res && res.error) { toast('恢复失败:' + res.error.message); return; }
       toast('✓ 已恢复'); load(); if (onReload) onReload();
     });
   }
   function purge(r) {
+    if (!CLOUD.client) { toast('云未就绪,请稍后再试'); return; }
     wsConfirm('彻底删除这条记录?删除后不可恢复。').then(function (ok) {
       if (!ok) return;
       CLOUD.client.from(tableName)['delete']().eq('id', r.id).then(function (res) {
@@ -61,6 +64,7 @@ function RecordTrashView(props) {
   }
   function purgeAll() {
     if (!rows.length) return;
+    if (!CLOUD.client) { toast('云未就绪,请稍后再试'); return; }
     wsConfirm('清空回收站?将彻底删除 ' + rows.length + ' 条记录,不可恢复。').then(function (ok) {
       if (!ok) return;
       var ids = rows.map(function (r) { return r.id; });

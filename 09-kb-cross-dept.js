@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix274
+// 版本 2026.06.05-fix275
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix274
+// 版本 2026.06.05-fix275
 // 预编译切片
 //
 
@@ -14774,6 +14774,7 @@ function OpsModule(props) {
   var s_trashRows = useState([]); var trashRows = s_trashRows[0], setTrashRows = s_trashRows[1];
 
   function load() {
+    if (!CLOUD.client) { setTimeout(load, 300); return; } // 🆕 fix275: 云未就绪时等待重试,避免 CLOUD.client.from 读 null 白屏
     setLoading(true);
     CLOUD.client.from('workspace_records').select('*').eq('record_kind', 'ops_task').order('work_date', { ascending: false }).limit(5000).then(function (res) {
       var data = (res && res.data) || [];
@@ -14783,6 +14784,7 @@ function OpsModule(props) {
     });
   }
   function loadCustom() {
+    if (!CLOUD.client) { setTimeout(loadCustom, 300); return; } // 🆕 fix275: 同上
     CLOUD.client.from('app_config').select('value').eq('key', 'ops_work_contents').maybeSingle().then(function (res) {
       var v = res && res.data && res.data.value;
       setCustomWC(Array.isArray(v) ? v.filter(Boolean) : []);
@@ -14793,6 +14795,7 @@ function OpsModule(props) {
   function wcAll() { return OPS_BASE_WC.concat(customWC, [OPS_OTHER_WC]); }
 
   function saveCustom(next) {
+    if (!CLOUD.client) { toast('云未就绪,请稍后再试'); return Promise.resolve(false); }
     return CLOUD.client.from('app_config').upsert({ key: 'ops_work_contents', value: next }).then(function (res) {
       if (res && res.error) { toast('保存失败:' + res.error.message); return false; }
       return true;
@@ -14858,6 +14861,7 @@ function OpsModule(props) {
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function delRow(r) {
+    if (!CLOUD.client) { toast('云未就绪,请稍后再试'); return; }
     // 🆕 fix271: 软删必须用 .update() 只改指定列。
     // 不能用 CLOUD.upsert 传部分字段 —— upsert=INSERT...ON CONFLICT,Postgres 先按这几个字段构造 INSERT 行,
     // workspace_records 的 ownerId 等 NOT NULL 列没给值 → NOT NULL 违约 → 400(非缺列,自动剥离救不了)。
@@ -14868,12 +14872,14 @@ function OpsModule(props) {
   }
   // 🆕 fix272: 回收站 — 恢复 / 彻底删除 / 清空
   function restoreRow(r) {
+    if (!CLOUD.client) { toast('云未就绪,请稍后再试'); return; }
     CLOUD.client.from('workspace_records').update({ deleted: false, ops_updated: new Date().toISOString() }).eq('id', r.id).then(function (res) {
       if (res && res.error) { toast('恢复失败:' + res.error.message); return; }
       toast('✓ 已恢复'); load();
     });
   }
   function purgeRow(r) {
+    if (!CLOUD.client) { toast('云未就绪,请稍后再试'); return; }
     wsConfirm('彻底删除这条记录?删除后不可恢复。').then(function (ok) {
       if (!ok) return;
       CLOUD.client.from('workspace_records').delete().eq('id', r.id).then(function (res) {
@@ -14884,6 +14890,7 @@ function OpsModule(props) {
   }
   function purgeAll() {
     if (!trashRows.length) return;
+    if (!CLOUD.client) { toast('云未就绪,请稍后再试'); return; }
     wsConfirm('清空回收站?将彻底删除 ' + trashRows.length + ' 条记录,不可恢复。').then(function (ok) {
       if (!ok) return;
       var ids = trashRows.map(function (r) { return r.id; });
