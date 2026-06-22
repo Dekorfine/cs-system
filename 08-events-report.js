@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix280
+// 版本 2026.06.05-fix281
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4051,6 +4051,26 @@ var ImageGalleryModal = function ImageGalleryModal(_ref24) {
     _useState76 = _slicedToArray(_useState75, 2),
     activeIdx = _useState76[0],
     setActiveIdx = _useState76[1];
+  // 🆕 fix281: 默认服务器端压缩快览(1000px),需要时一键看高清/原图
+  var _hdState = useState(false),
+    hd = _hdState[0],
+    setHd = _hdState[1];
+  var pv = function pv(u) {
+    if (!window.__imgProxy) return u;
+    var s = window.imgDisplaySrc ? window.imgDisplaySrc(u) : u;
+    return window.__imgProxy(s, { w: 1000, q: 55, output: 'webp', fit: 'inside' });
+  };
+  var _imgsAll = event && event.attachments || [];
+  useEffect(function () { setHd(false); }, [activeIdx]); // 切图重置回快览
+  useEffect(function () {
+    // 预加载相邻图(用同样的压缩尺寸),翻页几乎无等待
+    if (_imgsAll.length < 2) return;
+    [activeIdx - 1, activeIdx + 1].forEach(function (k) {
+      var j = (k + _imgsAll.length) % _imgsAll.length,
+        im = _imgsAll[j];
+      if (im && im.url) { var _pre = new Image(); _pre.src = pv(im.url); }
+    });
+  }, [activeIdx]);
   if (!event || !event.attachments || event.attachments.length === 0) return null;
   var imgs = event.attachments;
   var current = imgs[activeIdx];
@@ -4105,7 +4125,7 @@ var ImageGalleryModal = function ImageGalleryModal(_ref24) {
       fontSize: 20
     }
   }, "\u2039"), /*#__PURE__*/React.createElement("img", {
-    src: window.__imgFull ? window.__imgFull(current.url) : current.url,
+    src: hd ? window.__imgFull ? window.__imgFull(current.url) : current.url : pv(current.url),
     onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
     "data-full": current.url,
     style: {
@@ -4160,10 +4180,46 @@ var ImageGalleryModal = function ImageGalleryModal(_ref24) {
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       textAlign: 'center',
-      color: 'rgba(255,255,255,.8)',
-      fontSize: 12
+      color: 'rgba(255,255,255,.85)',
+      fontSize: 12,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      flexWrap: 'wrap'
     }
-  }, activeIdx + 1, " / ", imgs.length, " \xB7 ", current.label || '')));
+  }, /*#__PURE__*/React.createElement("span", null, activeIdx + 1, " / ", imgs.length, current.label ? " \xB7 " + current.label : ''), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { return setHd(!hd); },
+    style: {
+      padding: '3px 10px',
+      fontSize: 11.5,
+      fontWeight: 600,
+      borderRadius: 999,
+      border: '1px solid rgba(255,255,255,.35)',
+      background: hd ? 'rgba(255,255,255,.9)' : 'rgba(255,255,255,.12)',
+      color: hd ? '#111' : '#fff',
+      cursor: 'pointer',
+      fontFamily: 'inherit'
+    },
+    title: hd ? '\u5F53\u524D\u9AD8\u6E05 \xB7 \u70B9\u51FB\u6362\u56DE\u538B\u7F29\u5FEB\u89C8' : '\u5F53\u524D\u538B\u7F29\u5FEB\u89C8(\u9ED8\u8BA4) \xB7 \u70B9\u51FB\u770B\u9AD8\u6E05'
+  }, hd ? "\u26A1 \u5207\u56DE\u5FEB\u89C8" : "\uD83D\uDD0D \u770B\u9AD8\u6E05"), /*#__PURE__*/React.createElement("a", {
+    href: window.imgDisplaySrc ? window.imgDisplaySrc(current.url) : current.url,
+    target: "_blank",
+    rel: "noopener",
+    style: {
+      padding: '3px 10px',
+      fontSize: 11.5,
+      fontWeight: 600,
+      borderRadius: 999,
+      border: '1px solid rgba(255,255,255,.35)',
+      background: 'rgba(255,255,255,.12)',
+      color: '#fff',
+      cursor: 'pointer',
+      textDecoration: 'none',
+      fontFamily: 'inherit'
+    },
+    title: "\u5728\u65B0\u6807\u7B7E\u6253\u5F00\u539F\u56FE"
+  }, "\u2B07 \u539F\u56FE"))));
 };
 
 // ============================================================
