@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix251
+// 版本 2026.06.05-fix252
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix251
+// 版本 2026.06.05-fix252
 // 预编译切片
 //
 
@@ -1123,7 +1123,10 @@ var App = function App() {
     if (!overlay) {
       overlay = document.createElement('div');
       overlay.id = '__img_lightbox__';
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:4vh 4vw;cursor:zoom-out;';
+      // 🆕 fix252: z-index 99999 → 2147483647(最大)。兜底灯箱是所有纯 img 点击的统一出口,
+      //   之前 99999 被 100000+ 的弹层(售后/补件/退款 EventEditorModal 等)压在后面,导致"大图在表单后面"。
+      //   抬到顶层后,与 ImgPreviewModal(2147483600,fix192)同为最上层,任何弹层里点图都在最前。
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:4vh 4vw;cursor:zoom-out;';
       overlay.innerHTML = '<img style="max-width:100%;max-height:92vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5)"/><div style="position:fixed;top:14px;right:20px;color:#fff;font-size:30px;line-height:1;cursor:pointer">✕</div>';
       overlay.addEventListener('click', function () {
         overlay.style.display = 'none';
@@ -5262,7 +5265,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix251';
+var APP_VERSION = '2026.06.05-fix252';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
