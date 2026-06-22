@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix279
+// 版本 2026.06.05-fix280
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -42,7 +42,9 @@ var EventsModule = function EventsModule(_ref) {
     cloudOn = _ref.cloudOn,
     focusId = _ref.focusId,
     focusSub = _ref.focusSub;
-  var _useState = useState('aftersales'),
+  var _useState = useState(function () {
+    try { var _v = localStorage.getItem('events_subtab'); return ['aftersales', 'refills', 'refunds', 'summary'].indexOf(_v) >= 0 ? _v : 'aftersales'; } catch (e) { return 'aftersales'; }
+  }),
     _useState2 = _slicedToArray(_useState, 2),
     subTab = _useState2[0],
     setSubTab = _useState2[1]; // aftersales | refills | refunds | summary
@@ -84,6 +86,10 @@ var EventsModule = function EventsModule(_ref) {
     setEventListModal = _useState18[1]; // 🆕 fix81: 数字点击弹出列表
   // 🆕 fix145: 从搜索跳来 → 切到对应子表 + 找到该条事件 → 自动打开编辑;useRef 防重复
   var evFocusRef = useRef(null);
+  // 🆕 fix280: 记住上次选的子标签(刷新后不再跳回售后清单)
+  useEffect(function () {
+    try { localStorage.setItem('events_subtab', subTab); } catch (e) {}
+  }, [subTab]);
   useEffect(function () {
     if (!focusId || focusId === evFocusRef.current) return;
     var byKind = {
