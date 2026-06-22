@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix251
+// 版本 2026.06.05-fix264
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix251
+// 版本 2026.06.05-fix264
 // 预编译切片
 //
 
@@ -5974,6 +5974,7 @@ var CSModule = function CSModule(_ref7) {
     kind: eventEditor.kind,
     record: eventEditor.record,
     existingEvent: eventEditor.existingEvent,
+    existingRefills: refills,
     suppliers: suppliers,
     onAddSupplier: function onAddSupplier(name) {
       // 🆕 fix257:任何人可在表单里自定义新增供应商(写 CLOUD suppliers 表 + 更新本地列表)
@@ -8442,6 +8443,8 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     user = _ref38.user,
     onClose = _ref38.onClose,
     onSaved = _ref38.onSaved,
+    _ref38$existingRefills = _ref38.existingRefills,
+    existingRefills = _ref38$existingRefills === void 0 ? [] : _ref38$existingRefills,
     _ref38$existingEvent = _ref38.existingEvent,
     existingEvent = _ref38$existingEvent === void 0 ? null : _ref38$existingEvent;
   // kind: 'aftersale' | 'refill' | 'refund'
@@ -8456,6 +8459,10 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     _useState124 = _slicedToArray(_useState123, 2),
     orderRef = _useState124[0],
     setOrderRef = _useState124[1];
+  // 🆕 fix264:补件登记去重提醒 —— 同一订单号已登记过补发就警告(防重复录入)
+  var dupRefills = kind === 'refill' && orderRef.trim() ? (existingRefills || []).filter(function (x) {
+    return x && !x.deleted && (x.order_ref || '').trim().toLowerCase() === orderRef.trim().toLowerCase() && (!existingEvent || x.id !== existingEvent.id);
+  }) : [];
   var _useState125 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.customer) || (record === null || record === void 0 ? void 0 : record.customer) || ''),
     _useState126 = _slicedToArray(_useState125, 2),
     customer = _useState126[0],
@@ -9843,7 +9850,20 @@ var EventEditorModal = function EventEditorModal(_ref38) {
       fontFamily: 'inherit',
       resize: 'vertical'
     }
-  }))))), kind === 'refill' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }))))), kind === 'refill' && /*#__PURE__*/React.createElement(React.Fragment, null, dupRefills.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#fff7ed',
+      border: '1px solid #fdba74',
+      borderRadius: 8,
+      padding: '10px 12px',
+      marginBottom: 14,
+      fontSize: 12.5,
+      color: '#9a3412',
+      lineHeight: 1.6
+    }
+  }, /*#__PURE__*/React.createElement("b", null, "\u26A0\uFE0F \u53EF\u80FD\u91CD\u590D:"), " \u8BA2\u5355 ", /*#__PURE__*/React.createElement("b", null, orderRef.trim()), " \u5DF2\u767B\u8BB0\u8FC7 ", dupRefills.length, " \u6761\u8865\u53D1\uFF08\u5F55\u5165\u4EBA:", dupRefills.map(function (d) {
+    return d.created_by_name || '?';
+  }).join('\u3001'), "\uFF09\u3002\u8BF7\u5148\u5230\u300C\uD83D\uDCE6 \u8865\u53D1\u67E5\u8BE2\u300D\u6838\u5BF9\uFF0C\u907F\u514D\u91CD\u590D\u767B\u8BB0\u6216\u6F0F\u53D1\u3002"), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 14
     }
