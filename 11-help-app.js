@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix268
+// 版本 2026.06.05-fix282
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1160,13 +1160,46 @@ var App = function App() {
       //   之前 99999 被 100000+ 的弹层(售后/补件/退款 EventEditorModal 等)压在后面,导致"大图在表单后面"。
       //   抬到顶层后,与 ImgPreviewModal(2147483600,fix192)同为最上层,任何弹层里点图都在最前。
       overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;padding:4vh 4vw;cursor:zoom-out;';
-      overlay.innerHTML = '<img style="max-width:100%;max-height:92vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5)"/><div style="position:fixed;top:14px;right:20px;color:#fff;font-size:30px;line-height:1;cursor:pointer">✕</div>';
+      overlay.innerHTML = '<img style="max-width:100%;max-height:92vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5)"/>'
+        + '<div id="__lb_bar__" style="position:fixed;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center">'
+        + '<button id="__lb_hd__" style="padding:6px 13px;font-size:12px;font-weight:600;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-family:inherit">\uD83D\uDD0D \u770B\u9AD8\u6E05</button>'
+        + '<a id="__lb_orig__" target="_blank" rel="noopener" style="padding:6px 13px;font-size:12px;font-weight:600;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);color:#fff;cursor:pointer;text-decoration:none;font-family:inherit">\u2B07 \u539F\u56FE</a>'
+        + '</div>'
+        + '<div style="position:fixed;top:14px;right:20px;color:#fff;font-size:30px;line-height:1;cursor:pointer">\u2715</div>';
       overlay.addEventListener('click', function () {
         overlay.style.display = 'none';
       });
       document.body.appendChild(overlay);
     }
     var imgEl = overlay.querySelector('img');
+    // 🆕 fix282: 兜底灯箱也默认压缩快览(1000px)+ 看高清/原图工具条
+    var _lbFull = '';
+    var _lbPv = function _lbPv(u) {
+      if (!u) return u;
+      if (u.indexOf('data:') === 0) return u;
+      var s = window.imgDisplaySrc ? window.imgDisplaySrc(u) : u;
+      return window.__imgProxy ? window.__imgProxy(s, { w: 1000, q: 55, output: 'webp', fit: 'inside' }) : u;
+    };
+    var _lbShow = function _lbShow(full) {
+      _lbFull = full;
+      imgEl.src = _lbPv(full);
+      var hb = overlay.querySelector('#__lb_hd__');
+      if (hb) { hb.textContent = '\uD83D\uDD0D \u770B\u9AD8\u6E05'; hb.dataset.hd = '0'; hb.style.background = 'rgba(255,255,255,.12)'; hb.style.color = '#fff'; }
+      var ob = overlay.querySelector('#__lb_orig__');
+      if (ob) ob.href = (window.imgDisplaySrc ? window.imgDisplaySrc(full) : full) || '#';
+      overlay.style.display = 'flex';
+    };
+    var _lbBar = overlay.querySelector('#__lb_bar__');
+    if (_lbBar && !_lbBar.dataset.wired) {
+      _lbBar.dataset.wired = '1';
+      _lbBar.addEventListener('click', function (ev) { ev.stopPropagation(); });
+      var _hb2 = overlay.querySelector('#__lb_hd__');
+      if (_hb2) _hb2.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (_hb2.dataset.hd === '1') { imgEl.src = _lbPv(_lbFull); _hb2.textContent = '\uD83D\uDD0D \u770B\u9AD8\u6E05'; _hb2.dataset.hd = '0'; _hb2.style.background = 'rgba(255,255,255,.12)'; _hb2.style.color = '#fff'; }
+        else { imgEl.src = window.__imgFull ? window.__imgFull(_lbFull) : _lbFull; _hb2.textContent = '\u26A1 \u5FEB\u89C8'; _hb2.dataset.hd = '1'; _hb2.style.background = 'rgba(255,255,255,.92)'; _hb2.style.color = '#111'; }
+      });
+    }
     var onClick = function onClick(e) {
       var t = e.target;
       if (!t || t.tagName !== 'IMG') return;
@@ -1177,16 +1210,14 @@ var App = function App() {
       if (rect.width && rect.width < 30) return; // 极小图标/头像跳过
       e.preventDefault();
       e.stopPropagation();
-      imgEl.src = window.__imgFull ? window.__imgFull(full) : full;
-      overlay.style.display = 'flex';
+      _lbShow(full);
     };
     document.addEventListener('click', onClick, true); // 捕获阶段,先于组件自身/超链接
     // 🆕 fix251: iframe 内(数量核实跟进等)点图 → postMessage 提到父窗口顶层灯箱
     var onLBMsg = function onLBMsg(e) {
       var d = e && e.data;
       if (d && d.__lightbox && d.__lightbox.url) {
-        imgEl.src = window.__imgFull ? window.__imgFull(d.__lightbox.url) : d.__lightbox.url;
-        overlay.style.display = 'flex';
+        _lbShow(d.__lightbox.url);
       }
     };
     window.addEventListener('message', onLBMsg);
@@ -5401,7 +5432,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix281';
+var APP_VERSION = '2026.06.05-fix282';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

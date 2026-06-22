@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix281
+// 版本 2026.06.05-fix282
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3046,7 +3046,8 @@ var AftersalesTable = function AftersalesTable(_ref18) {
       cursor: 'zoom-out'
     }
   }, /*#__PURE__*/React.createElement("img", {
-    src: prodPreview,
+    src: window.__imgProxy ? window.__imgProxy(window.imgDisplaySrc ? window.imgDisplaySrc(prodPreview) : prodPreview, { w: 1000, q: 55, output: 'webp', fit: 'inside' }) : prodPreview,
+    "data-full": prodPreview,
     alt: "",
     onClick: function onClick(e) {
       return e.stopPropagation();
@@ -3761,7 +3762,8 @@ var RefundsTable = function RefundsTable(_ref22) {
       cursor: 'zoom-out'
     }
   }, /*#__PURE__*/React.createElement("img", {
-    src: prodPreview,
+    src: window.__imgProxy ? window.__imgProxy(window.imgDisplaySrc ? window.imgDisplaySrc(prodPreview) : prodPreview, { w: 1000, q: 55, output: 'webp', fit: 'inside' }) : prodPreview,
+    "data-full": prodPreview,
     alt: "",
     onClick: function onClick(e) {
       return e.stopPropagation();

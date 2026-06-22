@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix278
+// 版本 2026.06.05-fix282
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -2363,8 +2363,13 @@ try {
 var ImgPreviewModal = function ImgPreviewModal(_ref5) {
   var img = _ref5.img,
     onClose = _ref5.onClose;
+  // 🆕 fix282: 默认服务器端压缩快览(1000px),「看高清」按钮再切 1400px,「原图」开新标签
+  var _hdState = useState(false),
+    hd = _hdState[0],
+    setHd = _hdState[1];
   if (!img) return null;
   var src = imgDisplaySrc(img);
+  var pvSrc = window.__imgProxy ? window.__imgProxy(src, { w: 1000, q: 55, output: 'webp', fit: 'inside' }) : __imgFull(src);
   // 🆕 fix192:portal 到 document.body —— 之前渲染在 app 树内,被有 transform 的祖先困在低层叠上下文,
   //   再高的 z-index 也压不过 createPortal 到 body 的弹窗(售后/拒付等),导致"大图在表单后面"。
   //   portal 到 body 后与那些弹窗同级,z-index 才真正生效,永远在最上层。
@@ -2382,7 +2387,7 @@ var ImgPreviewModal = function ImgPreviewModal(_ref5) {
       padding: 24
     }
   }, /*#__PURE__*/React.createElement("img", {
-    src: __imgFull(src),
+    src: hd ? __imgFull(src) : pvSrc,
     onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
     alt: "",
     onClick: function onClick(e) {
@@ -2411,6 +2416,25 @@ var ImgPreviewModal = function ImgPreviewModal(_ref5) {
       lineHeight: '40px'
     }
   }, "\u2715"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick(e) {
+      e.stopPropagation();
+      setHd(!hd);
+    },
+    title: hd ? '\u5F53\u524D\u9AD8\u6E05 \xB7 \u70B9\u51FB\u6362\u56DE\u538B\u7F29\u5FEB\u89C8' : '\u5F53\u524D\u538B\u7F29\u5FEB\u89C8(\u9ED8\u8BA4) \xB7 \u70B9\u51FB\u770B\u9AD8\u6E05',
+    style: {
+      position: 'fixed',
+      bottom: 18,
+      right: 150,
+      background: hd ? '#111' : 'rgba(255,255,255,0.92)',
+      color: hd ? '#fff' : '#111',
+      border: 'none',
+      borderRadius: 8,
+      padding: '7px 14px',
+      fontSize: 12,
+      fontWeight: 600,
+      cursor: 'pointer'
+    }
+  }, hd ? "\u26A1 \u5FEB\u89C8" : "\uD83D\uDD0D \u770B\u9AD8\u6E05"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick(e) {
       e.stopPropagation();
       wsOpenImg(src);
