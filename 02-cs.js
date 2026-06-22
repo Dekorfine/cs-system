@@ -5975,6 +5975,19 @@ var CSModule = function CSModule(_ref7) {
     record: eventEditor.record,
     existingEvent: eventEditor.existingEvent,
     suppliers: suppliers,
+    onAddSupplier: function onAddSupplier(name) {
+      // 🆕 fix257:任何人可在表单里自定义新增供应商(写 CLOUD suppliers 表 + 更新本地列表)
+      return CLOUD.client.from('suppliers').insert({
+        name: name
+      }).select().then(function (res) {
+        if (res.error) throw res.error;
+        var ns = res.data && res.data[0] || null;
+        if (ns) setSuppliers(function (prev) {
+          return [ns].concat(prev || []);
+        });
+        return ns;
+      });
+    },
     user: user,
     onClose: function onClose() {
       return setEventEditor(null);
@@ -8245,6 +8258,7 @@ var SupplierSelect = function SupplierSelect(_ref37) {
   var suppliers = _ref37.suppliers,
     value = _ref37.value,
     onChange = _ref37.onChange,
+    onAddSupplier = _ref37.onAddSupplier,
     _ref37$placeholder = _ref37.placeholder,
     placeholder = _ref37$placeholder === void 0 ? '选择供应商...' : _ref37$placeholder;
   var _useState117 = useState(''),
@@ -8255,6 +8269,10 @@ var SupplierSelect = function SupplierSelect(_ref37) {
     _useState120 = _slicedToArray(_useState119, 2),
     open = _useState120[0],
     setOpen = _useState120[1];
+  var _useStateAdd = useState(false),
+    _useStateAdd2 = _slicedToArray(_useStateAdd, 2),
+    adding = _useStateAdd2[0],
+    setAdding = _useStateAdd2[1];
   var ref = React.useRef(null);
   useEffect(function () {
     var handler = function handler(e) {
@@ -8275,6 +8293,24 @@ var SupplierSelect = function SupplierSelect(_ref37) {
   var selected = suppliers.find(function (s) {
     return s.id === value || s.id === parseInt(value);
   });
+  // 🆕 fix257:任何人可自定义新增供应商 —— 输入了名称且库里无同名时,下拉显示「+ 新建」
+  var _q = query.trim();
+  var canAdd = !!onAddSupplier && !!_q && !suppliers.some(function (s) {
+    return (s.name || '').trim().toLowerCase() === _q.toLowerCase();
+  });
+  var doAdd = function doAdd() {
+    if (!canAdd || adding) return;
+    setAdding(true);
+    Promise.resolve(onAddSupplier(_q)).then(function (ns) {
+      if (ns && ns.id != null) onChange(ns.id);
+      setOpen(false);
+      setQuery('');
+    })["catch"](function (e) {
+      alert('新增供应商失败:' + (e && e.message || e));
+    })["finally"](function () {
+      setAdding(false);
+    });
+  };
   return /*#__PURE__*/React.createElement("div", {
     ref: ref,
     style: {
@@ -8331,7 +8367,20 @@ var SupplierSelect = function SupplierSelect(_ref37) {
       zIndex: 100,
       boxShadow: '0 8px 20px rgba(0,0,0,.1)'
     }
-  }, filtered.length === 0 ? /*#__PURE__*/React.createElement("div", {
+  }, canAdd && /*#__PURE__*/React.createElement("div", {
+    onClick: doAdd,
+    style: {
+      padding: '9px 12px',
+      cursor: adding ? 'wait' : 'pointer',
+      borderBottom: '1px solid var(--bg)',
+      fontSize: 12.5,
+      fontWeight: 600,
+      color: 'var(--accent)',
+      background: '#f5f8ff',
+      position: 'sticky',
+      top: 0
+    }
+  }, adding ? '正在新增…' : "\u2795 \u65B0\u5EFA\u4F9B\u5E94\u5546\uFF1A\u300C" + _q + "\u300D"), filtered.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '12px',
       textAlign: 'center',
@@ -8389,6 +8438,7 @@ var EventEditorModal = function EventEditorModal(_ref38) {
   var kind = _ref38.kind,
     record = _ref38.record,
     suppliers = _ref38.suppliers,
+    onAddSupplier = _ref38.onAddSupplier,
     user = _ref38.user,
     onClose = _ref38.onClose,
     onSaved = _ref38.onSaved,
@@ -8936,7 +8986,7 @@ var EventEditorModal = function EventEditorModal(_ref38) {
       display: 'flex',
       alignItems: 'flex-start',
       justifyContent: 'center',
-      padding: '5vh 20px',
+      padding: '2.5vh 16px',
       overflowY: 'auto',
       overflowX: 'hidden'
     }
@@ -8947,11 +8997,11 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     style: {
       background: 'white',
       borderRadius: 14,
-      maxWidth: 680,
+      maxWidth: 960,
       width: '100%',
       display: 'flex',
       flexDirection: 'column',
-      maxHeight: '90vh'
+      maxHeight: '95vh'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -10317,7 +10367,8 @@ var EventEditorModal = function EventEditorModal(_ref38) {
   }, "\uFF08\u5171 ", suppliers.length, " \u5BB6\u53EF\u9009\uFF09")), /*#__PURE__*/React.createElement(SupplierSelect, {
     suppliers: suppliers,
     value: supplierId,
-    onChange: setSupplierId
+    onChange: setSupplierId,
+    onAddSupplier: onAddSupplier
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 14

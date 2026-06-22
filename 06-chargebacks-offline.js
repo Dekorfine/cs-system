@@ -6852,9 +6852,10 @@ var CustomPhotoModule = function CustomPhotoModule(_ref42) {
     _useState184 = _slicedToArray(_useState183, 2),
     subTab = _useState184[0],
     setSubTab = _useState184[1];
+  var SHOW_PHOTO_VERIFY = false; // 🆕 fix257:暂时隐藏「实拍核实」,只保留定制咨询(恢复改 true)
   return /*#__PURE__*/React.createElement("div", {
     className: "fade-in"
-  }, /*#__PURE__*/React.createElement("div", {
+  }, SHOW_PHOTO_VERIFY && /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-3",
     style: {
       marginBottom: 12,
@@ -6892,11 +6893,11 @@ var CustomPhotoModule = function CustomPhotoModule(_ref42) {
       background: subTab === 'photo' ? 'var(--accent)' : 'white',
       color: subTab === 'photo' ? 'white' : 'var(--ink-2)'
     }
-  }, "\uD83D\uDCF8 \u5B9E\u62CD\u6838\u5B9E")), subTab === 'custom' && /*#__PURE__*/React.createElement(CustomInquiriesSubModule, {
+  }, "\uD83D\uDCF8 \u5B9E\u62CD\u6838\u5B9E")), (!SHOW_PHOTO_VERIFY || subTab === 'custom') && /*#__PURE__*/React.createElement(CustomInquiriesSubModule, {
     user: user,
     employees: employees,
     toast: toast
-  }), subTab === 'photo' && /*#__PURE__*/React.createElement(PhotoVerificationsSubModule, {
+  }), SHOW_PHOTO_VERIFY && subTab === 'photo' && /*#__PURE__*/React.createElement(PhotoVerificationsSubModule, {
     user: user,
     employees: employees,
     toast: toast
