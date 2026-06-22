@@ -113,6 +113,16 @@
     </div>
   </div>
 
+  <!-- 主管:自定义工作内容(默认隐藏,仅主管/总管可见) -->
+  <div class="card" id="wcMgr" style="display:none">
+    <h2>⚙ 工作内容管理 <span class="sub" style="font-weight:400">· 仅主管可见 · 添加后所有客服同步看到</span></h2>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <input type="text" id="wcNew" placeholder="输入新的工作内容,如「某某快递对数据」,回车或点添加" style="flex:1;min-width:240px" onkeydown="if(event.key==='Enter')addCustomWC()">
+      <button class="btn primary" onclick="addCustomWC()">+ 添加</button>
+    </div>
+    <div id="wcCustomList" style="font-size:12px;line-height:1.9"></div>
+  </div>
+
   <!-- 统计 -->
   <div class="card">
     <h2>📊 操作客服统计(按当前筛选)</h2>
@@ -141,9 +151,12 @@ const SB = supabase.createClient('https://kwrajryhwyytkjkkidor.supabase.co','sb_
 const qp = new URLSearchParams(location.search);
 const ME = qp.get('me') || '';
 const ME_ID = qp.get('id') || '';
+let IS_SUP = false; // 是否主管/总管(从 cs_accounts 查 role,决定能否管理工作内容)
 
-/* 工作内容类目(来自岗位职责梳理;打单按店铺用上面的"店铺"字段) */
-const WORK_CONTENTS = ['打单','录尺寸','跟进发货·填已发','核实订单(拍照·催促)','处理退回件','发渠道管理·算运费','对接快递群','发票','转单号','补发配件·催单','退款处理','产品评价','物料采购入库','清未齐订单·集中出货','改单贴单','质检打印安装说明','线下单','每日收尾','其他'];
+/* 工作内容类目(岗位职责梳理;打单按店铺用上面的"店铺"字段)。BASE=固定项;CUSTOM=主管在 app_config 自定义;其他永远排末尾 */
+const BASE_WC = ['昌晖对数据','昌晖做发票','昌晖填转单号','明扬对数据','明扬填转单号','正石对数据','正石填转单号','做报关资料','云鼎对数据','云鼎做发票','云鼎群里的派送通知和签收通知·发邮件给客户','填已发','打单','宏杉对数据','宏杉填转单号','河池对数据','河池做发票','河池填转单号','信源对数据','信源做发票','信源填转单号','亿俐缇对数据','亿俐缇做发票','速联达对数据','速联达下单·备注运费细节到订单','速联达填转单号','改单·改件数','汇智通对数据','汇智通做发票','汇智通填转单号','做评价','空运发货算运费·讲价','退款·记录','处理各对接群的反馈问题','催单·跟进各网站订单','检查是否漏发渠道·漏填转单号','清货','检查','处理快递公司退回的包裹','收藏艺彩实拍图','处理并跟进补发配件','打印安装说明书','跟进各快递公司的渠道更改','做备货清单','下单工厂物料','发各网站渠道'];
+const OTHER_WC = '其他';
+let CUSTOM_WC = []; // 主管自定义,存 app_config(全员同步)
 const COMP = {done:{l:'已完成',c:'done'},doing:{l:'进行中',c:'doing'},undone:{l:'未完成',c:'undone'}};
 
 let ALL=[], editingId=null, comp='done', timer=null, ACCOUNTS=[];
@@ -153,9 +166,56 @@ const hhmm=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+'
 function minutesBetween(s,e){ if(!s||!e)return null; const[a,b]=s.split(':').map(Number),[c,d]=e.split(':').map(Number); let m=(c*60+d)-(a*60+b); if(m<0)m+=1440; return m; }
 function toast(msg,k){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(k?' '+k:'');clearTimeout(t._t);t._t=setTimeout(()=>t.className='',k==='err'?4000:2200);}
 
+/* ===== 工作内容下拉构建 + 主管自定义(存 app_config 全员同步)===== */
+function wcAll(){ return BASE_WC.concat(CUSTOM_WC, [OTHER_WC]); }
+function rebuildWC(){
+  const fw=document.getElementById('fWC'), fl=document.getElementById('filWC');
+  const curF=fw.value, curL=fl.value, all=wcAll();
+  fw.innerHTML=''; fl.innerHTML='<option value="">全部工作内容</option>';
+  all.forEach(w=>{ const o='<option>'+esc(w)+'</option>'; fw.insertAdjacentHTML('beforeend',o); fl.insertAdjacentHTML('beforeend',o); });
+  if(curF && all.includes(curF)) fw.value=curF; else fw.selectedIndex=0;
+  if(curL && all.includes(curL)) fl.value=curL;
+}
+async function initRole(){
+  if(!ME_ID) return;
+  try{ const {data}=await SB.from('cs_accounts').select('role').eq('id',ME_ID).maybeSingle(); const r=(data&&data.role)||''; IS_SUP=(r==='admin'||r==='super_admin'); }catch(_){}
+}
+async function loadCustomWC(){
+  try{ const {data}=await SB.from('app_config').select('value').eq('key','ops_work_contents').maybeSingle(); CUSTOM_WC=Array.isArray(data&&data.value)?data.value.filter(Boolean):[]; }catch(_){ CUSTOM_WC=[]; }
+  rebuildWC(); renderWCMgr();
+}
+async function saveCustomWC(){
+  try{ const {error}=await SB.from('app_config').upsert({key:'ops_work_contents', value:CUSTOM_WC}); if(error)throw error; return true; }
+  catch(e){ toast('保存失败:'+(e.message||e),'err'); return false; }
+}
+function renderWCMgr(){
+  const box=document.getElementById('wcCustomList'); if(!box)return;
+  if(!CUSTOM_WC.length){ box.innerHTML='<span style="color:var(--sec)">暂无自定义项 · 基础清单已有 '+BASE_WC.length+' 项。在上面输入框添加,会同步给所有客服。</span>'; return; }
+  box.innerHTML='已添加自定义('+CUSTOM_WC.length+'):'+CUSTOM_WC.map((w,i)=>'<span style="display:inline-block;background:#f1f5f9;border:1px solid var(--border);border-radius:14px;padding:3px 6px 3px 10px;margin:3px;font-size:12px">'+esc(w)+' <a style="color:#ef4444;cursor:pointer;text-decoration:none;font-weight:700" onclick="removeCustomWC('+i+')">✕</a></span>').join('');
+}
+async function addCustomWC(){
+  const inp=document.getElementById('wcNew'); const v=(inp.value||'').trim();
+  if(!v) return;
+  if(BASE_WC.includes(v)||CUSTOM_WC.includes(v)||v===OTHER_WC){ toast('已存在该工作内容','err'); return; }
+  CUSTOM_WC.push(v);
+  if(await saveCustomWC()){ inp.value=''; rebuildWC(); renderWCMgr(); toast('✓ 已添加并同步全员','ok'); }
+  else { CUSTOM_WC.pop(); }
+}
+async function removeCustomWC(i){
+  const removed=CUSTOM_WC[i]; if(removed===undefined) return;
+  CUSTOM_WC.splice(i,1);
+  if(await saveCustomWC()){ rebuildWC(); renderWCMgr(); toast('已删除并同步','ok'); }
+  else { CUSTOM_WC.splice(i,0,removed); }
+}
+async function bootstrap(){
+  await initRole();
+  if(IS_SUP){ const m=document.getElementById('wcMgr'); if(m) m.style.display=''; }
+  await loadCustomWC();
+}
+
 /* 初始化下拉 */
 document.getElementById('meLabel').textContent = ME ? ('记录人:'+ME) : '(未识别登录人,请从工作台打开)';
-WORK_CONTENTS.forEach(w=>{ document.getElementById('fWC').insertAdjacentHTML('beforeend','<option>'+esc(w)+'</option>'); document.getElementById('filWC').insertAdjacentHTML('beforeend','<option>'+esc(w)+'</option>'); });
+rebuildWC();
 document.getElementById('fDate').value=todayStr();
 pickComp('done');
 ['q','filWC','filPerson','filComp','filFrom','filTo'].forEach(id=>document.getElementById(id).addEventListener('input',render));
@@ -358,6 +418,7 @@ async function delRec(id){
   try{ new MutationObserver(function(ms){ if(ms.some(function(x){return x.addedNodes.length;})) suppress(); }).observe(document.body,{childList:true,subtree:true}); }catch(_){}
 })();
 
+bootstrap();
 load();
 setInterval(()=>{ if(!editingId && !timer) load(); }, 120000);
 </script>
