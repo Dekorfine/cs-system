@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix278
+// 版本 2026.06.05-fix279
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -2898,41 +2898,23 @@ var AftersalesTable = function AftersalesTable(_ref18) {
       var a0 = e.attachments[0] || {};
       var u0 = a0.url || a0.dataUrl || a0.data || '';
       return /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4
-        }
+        style: { position: 'relative', display: 'inline-block', width: 64, height: 64, verticalAlign: 'middle' }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
         src: window.__imgThumb ? window.__imgThumb(u0, 128, 55) : u0,
-        onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
+        onError: function (ev) { window.__imgOnError && window.__imgOnError(ev); },
         "data-full": u0,
         alt: "",
-        style: {
-          width: 64,
-          height: 64,
-          objectFit: 'cover',
-          borderRadius: 5,
-          border: '1px solid var(--line)',
-          cursor: 'zoom-in'
-        }
-      }) : null, (e.attachments.length > 1 || !u0) && /*#__PURE__*/React.createElement("button", {
-        onClick: function onClick() {
-          return setOpenImageId(e.id);
-        },
+        onClick: function onClick() { return setOpenImageId(e.id); },
+        style: { width: 64, height: 64, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--line)', cursor: 'pointer' }
+      }) : /*#__PURE__*/React.createElement("button", {
+        onClick: function onClick() { return setOpenImageId(e.id); },
         title: "\u67E5\u770B\u5168\u90E8\u56FE\u7247",
-        style: {
-          padding: '3px 6px',
-          background: '#f0f9ff',
-          color: '#0369a1',
-          border: '1px solid #7dd3fc',
-          borderRadius: 5,
-          cursor: 'pointer',
-          fontFamily: 'inherit',
-          fontSize: 11,
-          fontWeight: 600
-        }
-      }, "\uD83D\uDCF7 ", e.attachments.length));
+        style: { width: 64, height: 64, borderRadius: 5, border: '1px dashed #7dd3fc', background: '#f0f9ff', color: '#0369a1', cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }
+      }, "\uD83D\uDCF7 ", e.attachments.length), u0 && e.attachments.length > 1 && /*#__PURE__*/React.createElement("span", {
+        onClick: function onClick() { return setOpenImageId(e.id); },
+        title: "\u67E5\u770B\u5168\u90E8 " + e.attachments.length + " \u5F20\u56FE\u7247",
+        style: { position: 'absolute', top: 2, right: 2, background: 'rgba(3,105,161,.94)', color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1, padding: '2px 5px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', border: '1px solid #fff', boxShadow: '0 1px 2px rgba(0,0,0,.35)', userSelect: 'none' }
+      }, "\uD83D\uDCF7", e.attachments.length));
     }() : '-'), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(OrderProductThumb, {
       orderNo: e.order_ref,
       onPreview: setProdPreview
@@ -3223,41 +3205,23 @@ var RefillsTable = function RefillsTable(_ref20) {
       var a0 = e.attachments[0] || {};
       var u0 = a0.url || a0.dataUrl || a0.data || '';
       return /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4
-        }
+        style: { position: 'relative', display: 'inline-block', width: 64, height: 64, verticalAlign: 'middle' }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
         src: window.__imgThumb ? window.__imgThumb(u0, 128, 55) : u0,
-        onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
+        onError: function (ev) { window.__imgOnError && window.__imgOnError(ev); },
         "data-full": u0,
         alt: "",
-        style: {
-          width: 64,
-          height: 64,
-          objectFit: 'cover',
-          borderRadius: 5,
-          border: '1px solid var(--line)',
-          cursor: 'zoom-in'
-        }
-      }) : null, (e.attachments.length > 1 || !u0) && /*#__PURE__*/React.createElement("button", {
-        onClick: function onClick() {
-          return setOpenImageId(e.id);
-        },
+        onClick: function onClick() { return setOpenImageId(e.id); },
+        style: { width: 64, height: 64, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--line)', cursor: 'pointer' }
+      }) : /*#__PURE__*/React.createElement("button", {
+        onClick: function onClick() { return setOpenImageId(e.id); },
         title: "\u67E5\u770B\u5168\u90E8\u56FE\u7247",
-        style: {
-          padding: '3px 6px',
-          background: '#f0f9ff',
-          color: '#0369a1',
-          border: '1px solid #7dd3fc',
-          borderRadius: 5,
-          cursor: 'pointer',
-          fontSize: 11,
-          fontWeight: 600,
-          fontFamily: 'inherit'
-        }
-      }, "\uD83D\uDCF7 ", e.attachments.length));
+        style: { width: 64, height: 64, borderRadius: 5, border: '1px dashed #7dd3fc', background: '#f0f9ff', color: '#0369a1', cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }
+      }, "\uD83D\uDCF7 ", e.attachments.length), u0 && e.attachments.length > 1 && /*#__PURE__*/React.createElement("span", {
+        onClick: function onClick() { return setOpenImageId(e.id); },
+        title: "\u67E5\u770B\u5168\u90E8 " + e.attachments.length + " \u5F20\u56FE\u7247",
+        style: { position: 'absolute', top: 2, right: 2, background: 'rgba(3,105,161,.94)', color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1, padding: '2px 5px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', border: '1px solid #fff', boxShadow: '0 1px 2px rgba(0,0,0,.35)', userSelect: 'none' }
+      }, "\uD83D\uDCF7", e.attachments.length));
     }() : '-'), /*#__PURE__*/React.createElement("td", {
       style: {
         fontSize: 12
@@ -3681,41 +3645,23 @@ var RefundsTable = function RefundsTable(_ref22) {
       var a0 = r.attachments[0] || {};
       var u0 = a0.url || a0.dataUrl || a0.data || '';
       return /*#__PURE__*/React.createElement("div", {
-        style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4
-        }
+        style: { position: 'relative', display: 'inline-block', width: 64, height: 64, verticalAlign: 'middle' }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
         src: window.__imgThumb ? window.__imgThumb(u0, 128, 55) : u0,
-        onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
+        onError: function (ev) { window.__imgOnError && window.__imgOnError(ev); },
         "data-full": u0,
         alt: "",
-        style: {
-          width: 64,
-          height: 64,
-          objectFit: 'cover',
-          borderRadius: 5,
-          border: '1px solid var(--line)',
-          cursor: 'zoom-in'
-        }
-      }) : null, (r.attachments.length > 1 || !u0) && /*#__PURE__*/React.createElement("button", {
-        onClick: function onClick() {
-          return setOpenImageId(r.id);
-        },
+        onClick: function onClick() { return setOpenImageId(r.id); },
+        style: { width: 64, height: 64, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--line)', cursor: 'pointer' }
+      }) : /*#__PURE__*/React.createElement("button", {
+        onClick: function onClick() { return setOpenImageId(r.id); },
         title: "\u67E5\u770B\u5168\u90E8\u56FE\u7247",
-        style: {
-          padding: '3px 6px',
-          background: '#f0f9ff',
-          color: '#0369a1',
-          border: '1px solid #7dd3fc',
-          borderRadius: 5,
-          cursor: 'pointer',
-          fontSize: 11,
-          fontWeight: 600,
-          fontFamily: 'inherit'
-        }
-      }, "\uD83D\uDCF7 ", r.attachments.length));
+        style: { width: 64, height: 64, borderRadius: 5, border: '1px dashed #7dd3fc', background: '#f0f9ff', color: '#0369a1', cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'inherit' }
+      }, "\uD83D\uDCF7 ", r.attachments.length), u0 && r.attachments.length > 1 && /*#__PURE__*/React.createElement("span", {
+        onClick: function onClick() { return setOpenImageId(r.id); },
+        title: "\u67E5\u770B\u5168\u90E8 " + r.attachments.length + " \u5F20\u56FE\u7247",
+        style: { position: 'absolute', top: 2, right: 2, background: 'rgba(3,105,161,.94)', color: '#fff', fontSize: 10, fontWeight: 700, lineHeight: 1, padding: '2px 5px', borderRadius: 9, cursor: 'pointer', fontFamily: 'inherit', border: '1px solid #fff', boxShadow: '0 1px 2px rgba(0,0,0,.35)', userSelect: 'none' }
+      }, "\uD83D\uDCF7", r.attachments.length));
     }() : '-'), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(OrderProductThumb, {
       orderNo: r.order_ref,
       onPreview: setProdPreview
