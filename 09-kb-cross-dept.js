@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix273
+// 版本 2026.06.05-fix274
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix273
+// 版本 2026.06.05-fix274
 // 预编译切片
 //
 
@@ -14810,8 +14810,8 @@ function OpsModule(props) {
     saveCustom(next).then(function (ok) { if (ok) { setCustomWC(next); toast('已删除并同步'); } });
   }
 
-  function resetForm() {
-    setEditingId(null); setFWC(OPS_BASE_WC[0]); setFShop(''); setFQty(''); setFDate(_opsToday());
+  function resetForm(keepWC) {
+    setEditingId(null); if (!keepWC) setFWC(myWcStats.lastWC || OPS_BASE_WC[0]); setFShop(''); setFQty(''); setFDate(_opsToday());
     setFStart(''); setFEnd(''); setComp('done'); setFReason(''); setFFollow(''); setFRemind(''); setFNote(''); setTiming(false);
   }
   function toggleTimer() {
@@ -14846,7 +14846,7 @@ function OpsModule(props) {
     CLOUD.upsert('workspace_records', rec).then(function (ok) {
       setSaving(false);
       if (ok === null) { toast('保存失败:' + ((CLOUD._lastError && CLOUD._lastError.message) || '未知')); return; }
-      toast('✓ 已保存'); resetForm(); load();
+      toast('✓ 已保存'); resetForm(true); load();
     });
   }
   function editRow(r) {
@@ -14895,6 +14895,28 @@ function OpsModule(props) {
   }
 
   var persons = useMemo(function () { var s = {}; rows.forEach(function (r) { if (r.staff_name) s[r.staff_name] = 1; }); return Object.keys(s).sort(); }, [rows]);
+
+  // 🆕 fix274: 工作内容记忆 —— 从「该客服自己的历史记录」算常用度 + 上次选择(无需新存储)
+  var myWcStats = useMemo(function () {
+    var cnt = {}, lastWC = null, lastT = '';
+    rows.forEach(function (r) {
+      if (r.staff_id !== user.id && r.staff_name !== user.name) return;
+      var w = r.work_content; if (!w) return;
+      cnt[w] = (cnt[w] || 0) + 1;
+      var t = r.ops_updated || r.ops_created || r.work_date || '';
+      if (t >= lastT) { lastT = t; lastWC = w; }
+    });
+    var ordered = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; });
+    return { cnt: cnt, ordered: ordered, lastWC: lastWC };
+  }, [rows, user.id, user.name]);
+  // 默认选上次用的(仅首次、非编辑态)
+  var didInitWC = useRef(false);
+  useEffect(function () {
+    if (!didInitWC.current && !editingId && myWcStats.lastWC) {
+      didInitWC.current = true;
+      setFWC(myWcStats.lastWC);
+    }
+  }, [myWcStats.lastWC]);
 
   var filtered = useMemo(function () {
     var qq = q.trim().toLowerCase();
@@ -14969,7 +14991,17 @@ function OpsModule(props) {
         return h('button', { key: k, onClick: function () { setComp(k); }, style: { flex: 1, padding: '8px 2px', fontSize: 12, border: 'none', borderRight: i < 2 ? '1px solid ' + C.line : 'none', background: bg, color: on ? '#fff' : C.sec, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' } }, OPS_COMP[k]);
       }));
   }
-  function wcOptions() { return wcAll().map(function (w) { return h('option', { key: w, value: w }, w); }); }
+  function wcOptions() {
+    var all = wcAll();
+    var used = myWcStats.ordered.filter(function (w) { return all.indexOf(w) >= 0; });
+    if (!used.length) return all.map(function (w) { return h('option', { key: w, value: w }, w); });
+    var usedSet = {}; used.forEach(function (w) { usedSet[w] = 1; });
+    var rest = all.filter(function (w) { return !usedSet[w]; });
+    return [
+      h('optgroup', { key: '_used', label: '⭐ 常用(按使用次数)' }, used.map(function (w) { return h('option', { key: 'u_' + w, value: w }, w + '（' + myWcStats.cnt[w] + '次）'); })),
+      h('optgroup', { key: '_all', label: '全部工作内容' }, rest.map(function (w) { return h('option', { key: 'a_' + w, value: w }, w); }))
+    ];
+  }
   // 🆕 fix272: 回收站面板
   var opsTrashPanel = h('div', { style: { border: '1px solid ' + C.line, borderRadius: 12, padding: 14 } },
     h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 } },
