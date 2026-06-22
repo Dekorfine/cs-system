@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix271
+// 版本 2026.06.05-fix272
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix271
+// 版本 2026.06.05-fix272
 // 预编译切片
 //
 
@@ -14769,12 +14769,16 @@ function OpsModule(props) {
   var s_sd = useState('desc'); var sortDir = s_sd[0], setSortDir = s_sd[1];
   var s_pg = useState(1); var page = s_pg[0], setPage = s_pg[1];
   var s_ps = useState(20); var pageSize = s_ps[0], setPageSize = s_ps[1];
+  // 🆕 fix272: 回收站
+  var s_trash = useState(false); var showTrash = s_trash[0], setShowTrash = s_trash[1];
+  var s_trashRows = useState([]); var trashRows = s_trashRows[0], setTrashRows = s_trashRows[1];
 
   function load() {
     setLoading(true);
     CLOUD.client.from('workspace_records').select('*').eq('record_kind', 'ops_task').order('work_date', { ascending: false }).limit(5000).then(function (res) {
       var data = (res && res.data) || [];
       setRows(data.filter(function (r) { return r && !r.deleted; }));
+      setTrashRows(data.filter(function (r) { return r && r.deleted; })); // 🆕 fix272
       setLoading(false);
     });
   }
@@ -14859,7 +14863,34 @@ function OpsModule(props) {
     // workspace_records 的 ownerId 等 NOT NULL 列没给值 → NOT NULL 违约 → 400(非缺列,自动剥离救不了)。
     CLOUD.client.from('workspace_records').update({ deleted: true, ops_updated: new Date().toISOString() }).eq('id', r.id).then(function (res) {
       if (res && res.error) { toast('删除失败:' + res.error.message); return; }
-      toast('已删除'); load();
+      toast('已移入回收站'); load();
+    });
+  }
+  // 🆕 fix272: 回收站 — 恢复 / 彻底删除 / 清空
+  function restoreRow(r) {
+    CLOUD.client.from('workspace_records').update({ deleted: false, ops_updated: new Date().toISOString() }).eq('id', r.id).then(function (res) {
+      if (res && res.error) { toast('恢复失败:' + res.error.message); return; }
+      toast('✓ 已恢复'); load();
+    });
+  }
+  function purgeRow(r) {
+    wsConfirm('彻底删除这条记录?删除后不可恢复。').then(function (ok) {
+      if (!ok) return;
+      CLOUD.client.from('workspace_records').delete().eq('id', r.id).then(function (res) {
+        if (res && res.error) { toast('删除失败:' + res.error.message); return; }
+        toast('已彻底删除'); load();
+      });
+    });
+  }
+  function purgeAll() {
+    if (!trashRows.length) return;
+    wsConfirm('清空回收站?将彻底删除 ' + trashRows.length + ' 条记录,不可恢复。').then(function (ok) {
+      if (!ok) return;
+      var ids = trashRows.map(function (r) { return r.id; });
+      CLOUD.client.from('workspace_records').delete().in('id', ids).then(function (res) {
+        if (res && res.error) { toast('清空失败:' + res.error.message); return; }
+        toast('✓ 回收站已清空'); load();
+      });
     });
   }
 
@@ -14939,6 +14970,32 @@ function OpsModule(props) {
       }));
   }
   function wcOptions() { return wcAll().map(function (w) { return h('option', { key: w, value: w }, w); }); }
+  // 🆕 fix272: 回收站面板
+  var opsTrashPanel = h('div', { style: { border: '1px solid ' + C.line, borderRadius: 12, padding: 14 } },
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 } },
+      h('div', { style: { fontWeight: 600, fontSize: 15 } }, '🗑️ 回收站 (' + trashRows.length + ')'),
+      h('span', { style: { fontSize: 12, color: C.sec, marginRight: 'auto' } }, '删除的记录在这里 · 可恢复;彻底删除后不可找回'),
+      trashRows.length > 0 ? h('button', { onClick: purgeAll, style: { padding: '6px 12px', fontSize: 12, border: '1px solid #fca5a5', borderRadius: 8, background: '#fff', color: C.danger, cursor: 'pointer', fontFamily: 'inherit' } }, '清空回收站') : null),
+    trashRows.length === 0
+      ? h('div', { style: { padding: 28, textAlign: 'center', color: C.sec } }, '回收站是空的')
+      : h('div', { style: { overflowX: 'auto', border: '1px solid ' + C.line, borderRadius: 10 } },
+        h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 } },
+          h('thead', null, h('tr', { style: { background: '#fafafa' } },
+            ['日期', '工作内容', '店铺', '数量', '录入人', '删除时间', '操作'].map(function (t, i) {
+              return h('th', { key: i, style: { padding: '8px 10px', textAlign: i === 6 ? 'center' : 'left', fontSize: 12, color: C.sec, borderBottom: '2px solid ' + C.line, whiteSpace: 'nowrap' } }, t);
+            }))),
+          h('tbody', null, trashRows.map(function (r) {
+            return h('tr', { key: r.id, style: { borderBottom: '1px solid ' + C.line } },
+              h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap', color: C.sec } }, r.work_date || '—'),
+              h('td', { style: { padding: '8px 10px', fontWeight: 600 } }, r.work_content || '—'),
+              h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap' } }, r.work_shop || '—'),
+              h('td', { style: { padding: '8px 10px', textAlign: 'right' } }, r.work_qty == null ? '—' : r.work_qty),
+              h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap' } }, r.staff_name || '—'),
+              h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap', color: C.sec } }, (r.ops_updated || '').slice(0, 16).replace('T', ' ') || '—'),
+              h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap', textAlign: 'center' } },
+                h('button', { onClick: function () { restoreRow(r); }, style: { padding: '4px 9px', fontSize: 12, border: '1px solid ' + C.ok, borderRadius: 7, background: '#fff', color: C.ok, cursor: 'pointer', marginRight: 5, fontFamily: 'inherit' } }, '↩️ 恢复'),
+                h('button', { onClick: function () { purgeRow(r); }, style: { padding: '4px 9px', fontSize: 12, border: '1px solid #fca5a5', borderRadius: 7, background: '#fff', color: C.danger, cursor: 'pointer', fontFamily: 'inherit' } }, '彻底删除')));
+          })))));
 
   return h('div', { className: 'paper rounded-2xl', style: { padding: '16px 18px' } },
     // 标题
@@ -14946,9 +15003,10 @@ function OpsModule(props) {
       h('div', { className: 'font-display', style: { fontSize: 20, fontWeight: 600, flex: 1, minWidth: 200 } }, '🛠️ 操作客服工作台',
         h('span', { style: { fontSize: 12, fontWeight: 400, color: C.sec, marginLeft: 8 } }, '打单 / 录尺寸 / 跟进发货 等任务型日常记录 · 与支持客服分开统计')),
       h('span', { style: { fontSize: 12, color: C.accent, fontWeight: 600 } }, '记录人:' + (user.name || '')),
-      h('button', { onClick: load, style: { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' } }, '🔄 刷新')),
+      h('button', { onClick: load, style: { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' } }, '🔄 刷新'),
+      h('button', { onClick: function () { setShowTrash(!showTrash); }, style: { padding: '6px 12px', fontSize: 12, border: '1px solid ' + (showTrash ? C.danger : C.line), borderRadius: 8, background: showTrash ? '#fef2f2' : '#fff', color: showTrash ? C.danger : C.ink, cursor: 'pointer', fontFamily: 'inherit', fontWeight: showTrash ? 600 : 400 } }, showTrash ? '← 返回列表' : ('🗑️ 回收站' + (trashRows.length ? ' (' + trashRows.length + ')' : '')))),
     // 录入表单
-    h('div', { style: { border: '1px solid ' + C.line, borderRadius: 12, padding: 14, marginTop: 12, marginBottom: 12 } },
+    !showTrash && h(React.Fragment, null, h('div', { style: { border: '1px solid ' + C.line, borderRadius: 12, padding: 14, marginTop: 12, marginBottom: 12 } },
       h('div', { style: { fontWeight: 600, marginBottom: 10 } }, editingId ? '✏️ 编辑记录' : '➕ 记录一项工作'),
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '13px 14px', alignItems: 'end' } },
         h('div', null, fl('工作内容 *'), h('select', { value: fWC, onChange: function (e) { setFWC(e.target.value); }, style: inp() }, wcOptions())),
@@ -15036,7 +15094,8 @@ function OpsModule(props) {
                     h('button', { onClick: function () { delRow(r); }, style: { padding: '4px 9px', fontSize: 12, border: '1px solid #fca5a5', borderRadius: 7, background: '#fff', color: C.danger, cursor: 'pointer', fontFamily: 'inherit' } }, '删除')));
               })))
         )),
-      pager('bottom'))
+      pager('bottom'))),
+    showTrash && opsTrashPanel
   );
 }
 
