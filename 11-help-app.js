@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix262
+// 版本 2026.06.05-fix263
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix262
+// 版本 2026.06.05-fix263
 // 预编译切片
 //
 
@@ -4021,6 +4021,11 @@ var App = function App() {
       icon: '📦',
       group: 'resources'
     }, {
+      key: 'refill_query',
+      label: '📦 补发查询',
+      icon: '📦',
+      group: 'resources'
+    }, {
       key: 'ops_workbench',
       label: '🛠️ 操作客服工作台',
       icon: '🛠️',
@@ -5224,6 +5229,9 @@ var App = function App() {
   }), activeTab === 'qty_confirm' && /*#__PURE__*/React.createElement(QtyConfirmModule, {
     user: user,
     toast: toast
+  }), activeTab === 'refill_query' && /*#__PURE__*/React.createElement(RefillQueryModule, {
+    user: user,
+    toast: toast
   }), activeTab === 'ops_workbench' && /*#__PURE__*/React.createElement(OpsWorkbenchModule, {
     user: user,
     toast: toast
@@ -5310,7 +5318,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix262';
+var APP_VERSION = '2026.06.05-fix263';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)

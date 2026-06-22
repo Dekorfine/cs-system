@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix263
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -29,7 +29,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix263
 // 预编译切片
 //
 
@@ -8049,3 +8049,183 @@ var TicketDetailModal = function TicketDetailModal(_ref57) {
 // ============================================================
 // 知识库模块 - 跳转到独立 kb.html (Supabase + Gemini + 智能搜索 + 编辑同步)
 // ============================================================
+
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix263: 📦 补发查询 —— 统一核对各订单是否已登记补发(防漏单)
+//   合并两处数据源:refills 表(独立补发单) + aftersales.refill_needed(售后内嵌补件)
+//   标准清单全内置:智能搜索 / 分类筛选 / 列排序 / 顶底分页 / 单一滚动 / CLOUD 读取 / toast
+// ════════════════════════════════════════════════════════════════════
+function RefillQueryModule(props) {
+  var toast = props.toast;
+  var s_rows = useState([]); var rows = s_rows[0], setRows = s_rows[1];
+  var s_loading = useState(true); var loading = s_loading[0], setLoading = s_loading[1];
+  var s_q = useState(''); var q = s_q[0], setQ = s_q[1];
+  var s_person = useState(''); var fPerson = s_person[0], setFPerson = s_person[1];
+  var s_status = useState(''); var fStatus = s_status[0], setFStatus = s_status[1];
+  var s_source = useState(''); var fSource = s_source[0], setFSource = s_source[1];
+  var s_from = useState(''); var fFrom = s_from[0], setFFrom = s_from[1];
+  var s_to = useState(''); var fTo = s_to[0], setFTo = s_to[1];
+  var s_sortKey = useState('date'); var sortKey = s_sortKey[0], setSortKey = s_sortKey[1];
+  var s_sortDir = useState('desc'); var sortDir = s_sortDir[0], setSortDir = s_sortDir[1];
+  var s_page = useState(1); var page = s_page[0], setPage = s_page[1];
+  var s_size = useState(20); var pageSize = s_size[0], setPageSize = s_size[1];
+
+  function load() {
+    setLoading(true);
+    Promise.all([
+      CLOUD.list('refills', { order: { col: 'updated_at', asc: false }, limit: 3000 }),
+      CLOUD.list('aftersales', { order: { col: 'updated_at', asc: false }, limit: 3000 })
+    ]).then(function (res) {
+      var refills = res[0] || [], aftersales = res[1] || [];
+      var merged = [];
+      refills.forEach(function (r) {
+        if (!r || r.deleted) return;
+        var items = Array.isArray(r.items) ? r.items : [];
+        var itemsText = items.map(function (i) { return (i.item || '') + (i.qty ? ' ×' + i.qty : ''); }).filter(Boolean).join('、');
+        merged.push({
+          id: 'rf_' + r.id, source: '补发单',
+          order_ref: r.order_ref || '', customer: r.customer || '',
+          detail: itemsText || (r.notes || ''), status: r.status || '',
+          tracking: r.tracking || '', person: r.created_by_name || '',
+          date: (r.created_at || r.updated_at || '') + '', expected: r.expected_ship_date || ''
+        });
+      });
+      aftersales.forEach(function (a) {
+        if (!a || !a.refill_needed || a.deleted) return;
+        merged.push({
+          id: 'as_' + a.id, source: '售后内补件',
+          order_ref: a.order_ref || '', customer: a.customer || '',
+          detail: (a.refill_note || a.damaged_part || ''), status: a.refill_status || '',
+          tracking: a.refill_tracking || '', person: a.created_by_name || '',
+          date: (a.created_at || a.updated_at || '') + '', expected: ''
+        });
+      });
+      setRows(merged); setLoading(false);
+    });
+  }
+  useEffect(function () { load(); }, []);
+
+  var persons = useMemo(function () {
+    var set = {}; rows.forEach(function (r) { if (r.person) set[r.person] = 1; });
+    return Object.keys(set).sort();
+  }, [rows]);
+  var statuses = useMemo(function () {
+    var set = {}; rows.forEach(function (r) { if (r.status) set[r.status] = 1; });
+    return Object.keys(set).sort();
+  }, [rows]);
+
+  var filtered = useMemo(function () {
+    var qq = q.trim().toLowerCase();
+    return rows.filter(function (r) {
+      if (fPerson && r.person !== fPerson) return false;
+      if (fStatus && r.status !== fStatus) return false;
+      if (fSource && r.source !== fSource) return false;
+      if (fFrom && (r.date || '').slice(0, 10) < fFrom) return false;
+      if (fTo && (r.date || '').slice(0, 10) > fTo) return false;
+      if (qq) {
+        var hay = (r.order_ref + ' ' + r.customer + ' ' + r.detail + ' ' + r.person + ' ' + r.tracking).toLowerCase();
+        if (hay.indexOf(qq) < 0) return false;
+      }
+      return true;
+    });
+  }, [rows, q, fPerson, fStatus, fSource, fFrom, fTo]);
+
+  var sorted = useMemo(function () {
+    var arr = filtered.slice();
+    arr.sort(function (a, b) {
+      var av = (a[sortKey] || '') + '', bv = (b[sortKey] || '') + '';
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }, [filtered, sortKey, sortDir]);
+
+  var totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  var curPage = Math.min(page, totalPages);
+  var paged = sorted.slice((curPage - 1) * pageSize, curPage * pageSize);
+
+  function toggleSort(k) { if (sortKey === k) { setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); } else { setSortKey(k); setSortDir('asc'); } setPage(1); }
+  function clearFilters() { setQ(''); setFPerson(''); setFStatus(''); setFSource(''); setFFrom(''); setFTo(''); setPage(1); }
+  function fmtDate(d) { if (!d) return '—'; var s = (d + '').slice(0, 10); return s || '—'; }
+
+  var h = React.createElement;
+  var C = { ink: 'var(--ink-1,#1c1a17)', sec: 'var(--ink-3,#6b6660)', line: 'var(--line,#e7e5e0)', accent: 'var(--accent,#2563eb)', card: '#fff' };
+
+  function inputStyle() { return { padding: '7px 10px', fontSize: 13, border: '1px solid ' + C.line, borderRadius: 8, background: '#fff', color: C.ink, fontFamily: 'inherit' }; }
+
+  function pager(key) {
+    return h('div', { key: key, style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 0', justifyContent: 'flex-end' } },
+      h('span', { style: { fontSize: 12, color: C.sec, marginRight: 'auto' } }, '共 ' + sorted.length + ' 条 · 第 ' + curPage + '/' + totalPages + ' 页'),
+      h('select', { value: pageSize, onChange: function (e) { setPageSize(parseInt(e.target.value, 10)); setPage(1); }, style: inputStyle() },
+        [10, 20, 50, 100].map(function (n) { return h('option', { key: n, value: n }, n + ' 条/页'); })),
+      h('button', { onClick: function () { setPage(1); }, disabled: curPage <= 1, style: pgBtn(curPage <= 1) }, '«'),
+      h('button', { onClick: function () { setPage(Math.max(1, curPage - 1)); }, disabled: curPage <= 1, style: pgBtn(curPage <= 1) }, '‹ 上一页'),
+      h('button', { onClick: function () { setPage(Math.min(totalPages, curPage + 1)); }, disabled: curPage >= totalPages, style: pgBtn(curPage >= totalPages) }, '下一页 ›'),
+      h('button', { onClick: function () { setPage(totalPages); }, disabled: curPage >= totalPages, style: pgBtn(curPage >= totalPages) }, '»')
+    );
+  }
+  function pgBtn(disabled) { return { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: disabled ? '#f5f5f4' : '#fff', color: disabled ? '#bbb' : C.ink, cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit' }; }
+
+  function th(label, key) {
+    var active = sortKey === key;
+    return h('th', { onClick: function () { toggleSort(key); }, style: { padding: '8px 10px', textAlign: 'left', fontSize: 12, color: active ? C.accent : C.sec, cursor: 'pointer', whiteSpace: 'nowrap', borderBottom: '2px solid ' + C.line, userSelect: 'none' } },
+      label, active ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
+  }
+
+  return h('div', { className: 'paper rounded-2xl', style: { padding: '16px 18px' } },
+    // 标题
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 6 } },
+      h('div', { className: 'font-display', style: { fontSize: 20, fontWeight: 600, flex: 1, minWidth: 180 } }, '📦 补发查询',
+        h('span', { style: { fontSize: 12, fontWeight: 400, color: C.sec, marginLeft: 8 } }, '核对订单是否已登记补发 · 防漏单')),
+      h('button', { onClick: load, style: { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' } }, '🔄 刷新')
+    ),
+    h('div', { style: { fontSize: 12, color: C.sec, marginBottom: 12, lineHeight: 1.6 } },
+      '合并两处来源:独立「补发单」+ 售后记录里的「内嵌补件」。在客服跟进里给某记录加「补件」事件即登记到这里。'),
+    // 筛选条
+    h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 } },
+      h('input', { type: 'text', value: q, onChange: function (e) { setQ(e.target.value); setPage(1); }, placeholder: '🔍 搜订单号 / 客户 / 配件 / 录入人 / 追踪号', style: Object.assign(inputStyle(), { flex: 1, minWidth: 220, borderRadius: 16 }) }),
+      h('select', { value: fPerson, onChange: function (e) { setFPerson(e.target.value); setPage(1); }, style: inputStyle() },
+        [h('option', { key: '', value: '' }, '全部录入人')].concat(persons.map(function (p) { return h('option', { key: p, value: p }, p); }))),
+      h('select', { value: fStatus, onChange: function (e) { setFStatus(e.target.value); setPage(1); }, style: inputStyle() },
+        [h('option', { key: '', value: '' }, '全部状态')].concat(statuses.map(function (st) { return h('option', { key: st, value: st }, st); }))),
+      h('select', { value: fSource, onChange: function (e) { setFSource(e.target.value); setPage(1); }, style: inputStyle() },
+        [h('option', { key: '', value: '' }, '全部来源'), h('option', { key: 'a', value: '补发单' }, '补发单'), h('option', { key: 'b', value: '售后内补件' }, '售后内补件')]),
+      h('input', { type: 'date', value: fFrom, onChange: function (e) { setFFrom(e.target.value); setPage(1); }, style: inputStyle(), title: '起始日期' }),
+      h('span', { style: { color: C.sec } }, '~'),
+      h('input', { type: 'date', value: fTo, onChange: function (e) { setFTo(e.target.value); setPage(1); }, style: inputStyle(), title: '结束日期' }),
+      h('button', { onClick: clearFilters, style: { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: '#fafafa', cursor: 'pointer', fontFamily: 'inherit' } }, '清空筛选')
+    ),
+    // 顶部分页
+    pager('top'),
+    // 表格(单一滚动:只横向溢出,纵向交给整页)
+    h('div', { style: { overflowX: 'auto', border: '1px solid ' + C.line, borderRadius: 10 } },
+      h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 760 } },
+        h('thead', null, h('tr', { style: { background: '#fafafa' } },
+          th('订单号', 'order_ref'), th('客户', 'customer'),
+          h('th', { style: { padding: '8px 10px', textAlign: 'left', fontSize: 12, color: C.sec, borderBottom: '2px solid ' + C.line } }, '配件 / 说明'),
+          th('状态', 'status'), th('追踪号', 'tracking'), th('录入人', 'person'), th('来源', 'source'), th('日期', 'date'))),
+        h('tbody', null,
+          loading
+            ? h('tr', null, h('td', { colSpan: 8, style: { padding: 24, textAlign: 'center', color: C.sec } }, '加载中…'))
+            : (paged.length === 0
+              ? h('tr', null, h('td', { colSpan: 8, style: { padding: 24, textAlign: 'center', color: C.sec } }, '没有匹配的补发记录'))
+              : paged.map(function (r) {
+                return h('tr', { key: r.id, style: { borderBottom: '1px solid ' + C.line } },
+                  h('td', { style: { padding: '8px 10px', fontWeight: 600, whiteSpace: 'nowrap' } }, r.order_ref || '—'),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap' } }, r.customer || '—'),
+                  h('td', { style: { padding: '8px 10px', color: C.sec, maxWidth: 320 } }, r.detail || '—'),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap' } }, r.status || '—'),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: 12 } }, r.tracking || '—'),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap' } }, r.person || '—'),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap' } }, h('span', { style: { fontSize: 11, padding: '2px 8px', borderRadius: 10, background: r.source === '补发单' ? '#e0f2fe' : '#fef3c7', color: r.source === '补发单' ? '#0369a1' : '#92400e' } }, r.source)),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap', color: C.sec } }, fmtDate(r.date)));
+              }))
+        )
+      )
+    ),
+    // 底部分页
+    pager('bottom')
+  );
+}
