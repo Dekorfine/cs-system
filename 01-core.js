@@ -1903,6 +1903,7 @@ function empToAccountRow(e) {
     team: e.team || '',
     hide_from_list: !!e.hideFromList,
     active: e.active !== false && !e.disabled,
+    allowed_tabs: Array.isArray(e.allowedTabs) && e.allowedTabs.length ? e.allowedTabs : null,
     updated_at: new Date().toISOString()
   };
 }
@@ -1918,7 +1919,8 @@ function accountRowToEmp(r) {
     title: r.title || '',
     team: r.team || '',
     hideFromList: !!r.hide_from_list,
-    disabled: r.active === false
+    disabled: r.active === false,
+    allowedTabs: Array.isArray(r.allowed_tabs) ? r.allowed_tabs : null // 🆕 fix260:按 tab 权限(空=角色默认)
   };
 }
 // 拉云端账号:成功→数组;失败(表不存在/未连)→null(调用方回退本地)

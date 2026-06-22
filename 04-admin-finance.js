@@ -359,6 +359,145 @@ var WtkpiConfigSection = function WtkpiConfigSection(_ref) {
     }
   }, /*#__PURE__*/React.createElement("strong", null, "\uD83D\uDD10 \u5B89\u5168\u8BF4\u660E:"), "\u8FD9\u4E2A Key \u4FDD\u5B58\u5728\u4F60\u7684\u6D4F\u89C8\u5668 localStorage \u91CC(\u4E0D\u4F20\u5230\u4E91\u7AEF)\u3002", /*#__PURE__*/React.createElement("strong", null, "\u6BCF\u4E2A\u4EBA\u90FD\u8981\u81EA\u5DF1\u914D\u4E00\u6B21"), "(\u6216\u8005\u4E3B\u7BA1\u767B\u5F55\u6BCF\u53F0\u7535\u8111\u914D\u4E00\u6B21)\u3002", /*#__PURE__*/React.createElement("strong", null, "\u63A8\u8350\u7528 anon key(\u914D\u5408 RLS \u7B56\u7565)"), ",\u4E0D\u8981\u7528 service_role key,\u6CC4\u9732\u540E\u679C\u4E25\u91CD\u3002"));
 };
+var ASSIGNABLE_TABS = [['cs', '\uD83D\uDCDE \u5BA2\u670D\u8DDF\u8FDB'], ['chargebacks', '\uD83D\uDEA8 \u62D2\u4ED8'], ['offline_orders', '\uD83D\uDCB3 \u7EBF\u4E0B\u5355'], ['custom_photo', '\uD83C\uDFA8 \u5B9A\u5236&\u5B9E\u62CD'], ['events', '\uD83D\uDCCB \u5DE5\u4F5C\u4E3B\u7EBF'], ['reviews', '\u2B50 \u4EA7\u54C1\u8BC4\u4EF7'], ['suppliers', '\uD83C\uDFED \u4F9B\u5E94\u5546'], ['kb', '\uD83D\uDCDA \u77E5\u8BC6\u5E93'], ['email_templates', '\uD83D\uDCE7 \u90AE\u4EF6\u6A21\u677F'], ['quote', '\uD83D\uDCDD \u62A5\u4EF7\u5355'], ['freight_calc', '\uD83D\uDE9A \u8FD0\u8D39\u7CBE\u7B97\u5668'], ['kpi_scorer', '\uD83D\uDCCB \u7EE9\u6548\u8003\u6838'], ['express_invoice', '\uD83D\uDCE6 \u5FEB\u9012\u53D1\u7968'], ['inventory', '\uD83D\uDCE6 \u5E93\u5B58\u67E5\u8BE2'], ['qty_confirm', '\uD83D\uDCE6 \u6570\u91CF\u6838\u5B9E'], ['ops_workbench', '\uD83D\uDEE0\uFE0F \u64CD\u4F5C\u5BA2\u670D\u5DE5\u4F5C\u53F0'], ['tasks', '\uD83D\uDCCC \u4EFB\u52A1\u5206\u6D3E'], ['cross_dept', '\uD83D\uDCE8 \u8DE8\u90E8\u95E8\u534F\u4F5C'], ['influencers', '\u2728 \u5F71\u54CD\u8005\u5408\u4F5C'], ['workflows', '\uD83D\uDCCB \u5DE5\u4F5C\u6D41/SOP'], ['photo_requests', '\uD83D\uDCF7 \u62CD\u6444\u9700\u6C42'], ['briefings', '\uD83D\uDCE2 \u4F1A\u8BAE\u7EAA\u8981'], ['dashboard', '\uD83D\uDCC8 \u6570\u636E\u770B\u677F']];
+// 🆕 fix260:按 tab 给员工分配可见功能页(主管/总管可改;空=角色默认)
+var TabPermModal = function TabPermModal(_refTP) {
+  var emp = _refTP.emp,
+    onClose = _refTP.onClose,
+    onSave = _refTP.onSave;
+  var _tp = useState(Array.isArray(emp.allowedTabs) ? emp.allowedTabs.slice() : []),
+    _tp2 = _slicedToArray(_tp, 2),
+    sel = _tp2[0],
+    setSel = _tp2[1];
+  var toggle = function toggle(k) {
+    setSel(function (prev) {
+      return prev.indexOf(k) >= 0 ? prev.filter(function (x) {
+        return x !== k;
+      }) : prev.concat([k]);
+    });
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    onClick: onClose,
+    style: {
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,.45)',
+      zIndex: 100000,
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      padding: '4vh 16px',
+      overflowY: 'auto'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick(e) {
+      return e.stopPropagation();
+    },
+    style: {
+      background: 'white',
+      borderRadius: 14,
+      maxWidth: 640,
+      width: '100%',
+      maxHeight: '92vh',
+      display: 'flex',
+      flexDirection: 'column'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '16px 20px',
+      borderBottom: '1px solid var(--line)'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 17,
+      fontWeight: 700
+    }
+  }, "\uD83D\uDD10 \u6743\u9650\u8BBE\u7F6E \xB7 ", emp.name, emp.alias ? ' (' + emp.alias + ')' : ''), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-3)',
+      marginTop: 4,
+      lineHeight: 1.6
+    }
+  }, "\u4E0D\u52FE\u4EFB\u4F55 = \u6CBF\u7528\u89D2\u8272\u9ED8\u8BA4(\u770B\u5230\u8BE5\u89D2\u8272\u5168\u90E8\u9ED8\u8BA4\u9875)\u3002\u52FE\u9009\u540E\uFF0C\u8BE5\u5458\u5DE5\u53EA\u80FD\u770B\u5230\u52FE\u9009\u7684\u529F\u80FD\u9875 + \u4F7F\u7528\u624B\u518C\u3002\u4E3B\u7BA1/\u603B\u7BA1\u4E0D\u53D7\u9650\u3002")), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '14px 20px',
+      overflowY: 'auto',
+      flex: 1,
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))',
+      gap: 8
+    }
+  }, ASSIGNABLE_TABS.map(function (t) {
+    var on = sel.indexOf(t[0]) >= 0;
+    return /*#__PURE__*/React.createElement("label", {
+      key: t[0],
+      style: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px 10px',
+        border: '1px solid ' + (on ? 'var(--accent)' : 'var(--line)'),
+        background: on ? 'rgba(37,99,235,.06)' : 'white',
+        borderRadius: 9,
+        cursor: 'pointer',
+        fontSize: 13
+      }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox",
+      checked: on,
+      onChange: function onChange() {
+        return toggle(t[0]);
+      }
+    }), t[1]);
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '12px 20px',
+      borderTop: '1px solid var(--line)',
+      display: 'flex',
+      gap: 8,
+      alignItems: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    className: "btn-ghost",
+    onClick: function onClick() {
+      return setSel([]);
+    },
+    style: {
+      fontSize: 12
+    }
+  }, "\u6E05\u7A7A(=\u9ED8\u8BA4)"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-ghost",
+    onClick: function onClick() {
+      return setSel(ASSIGNABLE_TABS.map(function (x) {
+        return x[0];
+      }));
+    },
+    style: {
+      fontSize: 12
+    }
+  }, "\u5168\u9009"), /*#__PURE__*/React.createElement("span", {
+    style: {
+      flex: 1,
+      fontSize: 12,
+      color: 'var(--ink-4)'
+    }
+  }, sel.length ? '已选 ' + sel.length + ' 项' : '未勾选 = 角色默认'), /*#__PURE__*/React.createElement("button", {
+    className: "btn-sec",
+    onClick: onClose,
+    style: {
+      padding: '6px 14px'
+    }
+  }, "\u53D6\u6D88"), /*#__PURE__*/React.createElement("button", {
+    className: "btn-primary",
+    onClick: function onClick() {
+      return onSave(sel);
+    },
+    style: {
+      padding: '6px 16px'
+    }
+  }, "\u4FDD\u5B58"))));
+};
 var AdminModule = function AdminModule(_ref5) {
   var user = _ref5.user,
     employees = _ref5.employees,
@@ -385,6 +524,10 @@ var AdminModule = function AdminModule(_ref5) {
     _useState14 = _slicedToArray(_useState13, 2),
     showNew = _useState14[0],
     setShowNew = _useState14[1];
+  var _usePermEmp = useState(null),
+    _usePermEmp2 = _slicedToArray(_usePermEmp, 2),
+    permEmp = _usePermEmp2[0],
+    setPermEmp = _usePermEmp2[1]; // 🆕 fix260:正在编辑权限的员工
   var _useState15 = useState('cloud'),
     _useState16 = _slicedToArray(_useState15, 2),
     section = _useState16[0],
@@ -1290,7 +1433,28 @@ var AdminModule = function AdminModule(_ref5) {
     }, /*#__PURE__*/React.createElement(Icon, {
       name: "edit",
       className: "w-3 h-3 inline"
-    }), " \u7F16\u8F91"), e.id !== user.id && /*#__PURE__*/React.createElement("button", {
+    }), " \u7F16\u8F91"), /*#__PURE__*/React.createElement("button", {
+      className: "btn-sec",
+      onClick: function onClick() {
+        return setPermEmp(e);
+      },
+      style: {
+        padding: '4px 10px'
+      },
+      title: "\u8BBE\u7F6E\u8BE5\u5458\u5DE5\u53EF\u89C1\u7684\u529F\u80FD\u9875"
+    }, "\uD83D\uDD10 \u6743\u9650"), permEmp && permEmp.id === e.id && /*#__PURE__*/React.createElement(TabPermModal, {
+      emp: permEmp,
+      onClose: function onClose() {
+        return setPermEmp(null);
+      },
+      onSave: function onSave(tabs) {
+        updateEmp(permEmp.id, {
+          allowedTabs: tabs
+        });
+        setPermEmp(null);
+        toast('\u2713 \u6743\u9650\u5DF2\u4FDD\u5B58 \xB7 ' + e.name);
+      }
+    }), e.id !== user.id && /*#__PURE__*/React.createElement("button", {
       className: "btn-danger",
       onClick: function onClick() {
         return deleteEmp(e.id);
