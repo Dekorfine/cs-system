@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix276
+// 版本 2026.06.05-fix277
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -7206,6 +7206,10 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref43) {
       return _ref45.apply(this, arguments);
     };
   }();
+  // 🆕 fix277: 分页 + 回收站
+  var _cipg = useState(1), ciPage = _cipg[0], setCiPage = _cipg[1];
+  var _cips = useState(50), ciSize = _cips[0], setCiSize = _cips[1];
+  var _citr = useState(false), ciShowTrash = _citr[0], setCiShowTrash = _citr[1];
   var filtered = useMemo(function () {
     var l = list;
     if (filterStage === 'active') l = l.filter(function (c) {
@@ -7267,6 +7271,11 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref43) {
     });
     return l;
   }, [list, filterStage, search, user.id, timeFilter, timeCustom, dateFilter, filterOwner, filterSite, ciSortBy, ciSortDir]);
+  // 🆕 fix277: 分页计算
+  var ciTotalPages = Math.max(1, Math.ceil(filtered.length / ciSize));
+  var ciCur = Math.min(ciPage, ciTotalPages);
+  var ciPaged = filtered.slice((ciCur - 1) * ciSize, ciCur * ciSize);
+  var ciPager = window.EventsPager ? /*#__PURE__*/React.createElement(window.EventsPager, { page: ciCur, totalPages: ciTotalPages, total: filtered.length, pageSize: ciSize, onPage: setCiPage, onPageSize: function (n) { setCiSize(n); setCiPage(1); } }) : null;
   var ciSites = useMemo(function () {
     return _toConsumableArray(new Set(list.map(function (c) {
       return c.site;
@@ -7305,7 +7314,10 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref43) {
       padding: '6px 14px',
       fontSize: 12
     }
-  }, "+ \u65B0\u589E\u5B9A\u5236\u54A8\u8BE2")), /*#__PURE__*/React.createElement("div", {
+  }, "+ \u65B0\u589E\u5B9A\u5236\u54A8\u8BE2"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { return setCiShowTrash(true); },
+    style: { padding: '6px 14px', fontSize: 12, marginLeft: 8, border: '1px solid var(--line)', borderRadius: 8, background: '#fff', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit' }
+  }, "\uD83D\uDDD1\uFE0F \u56DE\u6536\u7AD9")), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
       display: 'flex',
@@ -7521,9 +7533,9 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref43) {
       textAlign: 'center',
       color: 'var(--ink-3)'
     }
-  }, "\u6682\u65E0\u5B9A\u5236\u54A8\u8BE2") : /*#__PURE__*/React.createElement("div", {
+  }, "\u6682\u65E0\u5B9A\u5236\u54A8\u8BE2") : /*#__PURE__*/React.createElement(React.Fragment, null, ciPager, /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
-  }, filtered.map(function (c) {
+  }, ciPaged.map(function (c) {
     return /*#__PURE__*/React.createElement(CustomInquiryCard, {
       key: c.id,
       item: c,
@@ -7537,7 +7549,7 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref43) {
       onReload: load,
       toast: toast
     });
-  })), editing && /*#__PURE__*/React.createElement(CustomInquiryEditor, {
+  })), ciPager), editing && /*#__PURE__*/React.createElement(CustomInquiryEditor, {
     item: editing === 'new' ? null : editing,
     user: user,
     onClose: function onClose() {
@@ -7548,7 +7560,7 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref43) {
       load();
     },
     toast: toast
-  }));
+  }), ciShowTrash && /*#__PURE__*/React.createElement(RecordTrashView, { tableName: 'custom_inquiries', title: '定制询盘回收站', toast: toast, onReload: load, onClose: function () { return setCiShowTrash(false); }, columns: [{ label: '客户/订单', fmt: function (r) { return r.customer || r.order_ref || r.customer_name || ''; } }, { label: '内容', wrap: true, fmt: function (r) { return r.product_name || r.description || r.note || r.detail || ''; } }, { key: 'site', label: '店铺' }, { label: '阶段', fmt: function (r) { return r.stage || r.status || ''; } }, { key: 'created_by_name', label: '录入人' }] }));
 };
 var CustomInquiryCard = function CustomInquiryCard(_ref46) {
   var item = _ref46.item,
@@ -8680,6 +8692,10 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref52) {
       return _ref54.apply(this, arguments);
     };
   }();
+  // 🆕 fix277: 分页 + 回收站
+  var _pvpg = useState(1), pvPage = _pvpg[0], setPvPage = _pvpg[1];
+  var _pvps = useState(50), pvSize = _pvps[0], setPvSize = _pvps[1];
+  var _pvtr = useState(false), pvShowTrash = _pvtr[0], setPvShowTrash = _pvtr[1];
   var filtered = useMemo(function () {
     var l = list;
     if (filterStatus === 'active') l = l.filter(function (p) {
@@ -8735,6 +8751,11 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref52) {
     });
     return l;
   }, [list, filterStatus, search, timeFilter, timeCustom, dateFilter, filterOwner, pvSortBy, pvSortDir]);
+  // 🆕 fix277: 分页计算
+  var pvTotalPages = Math.max(1, Math.ceil(filtered.length / pvSize));
+  var pvCur = Math.min(pvPage, pvTotalPages);
+  var pvPaged = filtered.slice((pvCur - 1) * pvSize, pvCur * pvSize);
+  var pvPager = window.EventsPager ? /*#__PURE__*/React.createElement(window.EventsPager, { page: pvCur, totalPages: pvTotalPages, total: filtered.length, pageSize: pvSize, onPage: setPvPage, onPageSize: function (n) { setPvSize(n); setPvPage(1); } }) : null;
   return /*#__PURE__*/React.createElement("div", {
     className: "space-y-3"
   }, /*#__PURE__*/React.createElement("div", {
@@ -8768,7 +8789,10 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref52) {
       padding: '6px 14px',
       fontSize: 12
     }
-  }, "+ \u65B0\u589E\u6838\u5B9E")), /*#__PURE__*/React.createElement("div", {
+  }, "+ \u65B0\u589E\u6838\u5B9E"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { return setPvShowTrash(true); },
+    style: { padding: '6px 14px', fontSize: 12, marginLeft: 8, border: '1px solid var(--line)', borderRadius: 8, background: '#fff', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit' }
+  }, "\uD83D\uDDD1\uFE0F \u56DE\u6536\u7AD9")), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
       display: 'flex',
@@ -8951,9 +8975,9 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref52) {
       textAlign: 'center',
       color: 'var(--ink-3)'
     }
-  }, "\u6682\u65E0\u5B9E\u62CD\u6838\u5B9E") : /*#__PURE__*/React.createElement("div", {
+  }, "\u6682\u65E0\u5B9E\u62CD\u6838\u5B9E") : /*#__PURE__*/React.createElement(React.Fragment, null, pvPager, /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
-  }, filtered.map(function (p) {
+  }, pvPaged.map(function (p) {
     return /*#__PURE__*/React.createElement(PhotoVerificationCard, {
       key: p.id,
       item: p,
@@ -8967,7 +8991,7 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref52) {
       onReload: load,
       toast: toast
     });
-  })), editing && /*#__PURE__*/React.createElement(PhotoVerificationEditor, {
+  })), pvPager), editing && /*#__PURE__*/React.createElement(PhotoVerificationEditor, {
     item: editing === 'new' ? null : editing,
     user: user,
     onClose: function onClose() {
@@ -8978,7 +9002,7 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref52) {
       load();
     },
     toast: toast
-  }));
+  }), pvShowTrash && /*#__PURE__*/React.createElement(RecordTrashView, { tableName: 'photo_verifications', title: '实拍核实回收站', toast: toast, onReload: load, onClose: function () { return setPvShowTrash(false); }, columns: [{ label: '客户/订单', fmt: function (r) { return r.customer || r.order_ref || r.customer_name || ''; } }, { label: '内容', wrap: true, fmt: function (r) { return r.product_name || r.note || r.description || r.detail || ''; } }, { key: 'site', label: '店铺' }, { label: '状态', fmt: function (r) { return r.status || r.stage || ''; } }, { key: 'created_by_name', label: '录入人' }] }));
 };
 var PhotoVerificationCard = function PhotoVerificationCard(_ref55) {
   var item = _ref55.item,

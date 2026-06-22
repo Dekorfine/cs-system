@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix276
+// 版本 2026.06.05-fix277
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -14905,16 +14905,22 @@ function OpsModule(props) {
 
   // 🆕 fix274: 工作内容记忆 —— 从「该客服自己的历史记录」算常用度 + 上次选择(无需新存储)
   var myWcStats = useMemo(function () {
-    var cnt = {}, lastWC = null, lastT = '';
+    // 🆕 fix277: 最近高频加权 —— 每次使用按距今天数做指数衰减(半衰期14天),最近用得多的排最前;cnt 仍存原始次数用于显示
+    var cnt = {}, score = {}, lastWC = null, lastT = '';
+    var HALF = 14, nowMs = Date.now();
     rows.forEach(function (r) {
       if (r.staff_id !== user.id && r.staff_name !== user.name) return;
       var w = r.work_content; if (!w) return;
       cnt[w] = (cnt[w] || 0) + 1;
+      var d = r.work_date || (r.ops_updated || r.ops_created || '').slice(0, 10);
+      var days = 9999;
+      if (d) { var dm = new Date(d).getTime(); if (!isNaN(dm)) days = Math.max(0, (nowMs - dm) / 86400000); }
+      score[w] = (score[w] || 0) + Math.pow(0.5, days / HALF);
       var t = r.ops_updated || r.ops_created || r.work_date || '';
       if (t >= lastT) { lastT = t; lastWC = w; }
     });
-    var ordered = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; });
-    return { cnt: cnt, ordered: ordered, lastWC: lastWC };
+    var ordered = Object.keys(score).sort(function (a, b) { return score[b] - score[a]; });
+    return { cnt: cnt, score: score, ordered: ordered, lastWC: lastWC };
   }, [rows, user.id, user.name]);
   // 默认选上次用的(仅首次、非编辑态)
   var didInitWC = useRef(false);
@@ -15005,7 +15011,7 @@ function OpsModule(props) {
     var usedSet = {}; used.forEach(function (w) { usedSet[w] = 1; });
     var rest = all.filter(function (w) { return !usedSet[w]; });
     return [
-      h('optgroup', { key: '_used', label: '⭐ 常用(按使用次数)' }, used.map(function (w) { return h('option', { key: 'u_' + w, value: w }, w + '（' + myWcStats.cnt[w] + '次）'); })),
+      h('optgroup', { key: '_used', label: '⭐ 常用(最近高频优先)' }, used.map(function (w) { return h('option', { key: 'u_' + w, value: w }, w + '（' + myWcStats.cnt[w] + '次）'); })),
       h('optgroup', { key: '_all', label: '全部工作内容' }, rest.map(function (w) { return h('option', { key: 'a_' + w, value: w }, w); }))
     ];
   }
