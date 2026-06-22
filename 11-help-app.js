@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix265
+// 版本 2026.06.05-fix266
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix265
+// 版本 2026.06.05-fix266
 // 预编译切片
 //
 
@@ -3096,6 +3096,36 @@ var App = function App() {
     }
   }, [activeTab]);
 
+  // 🆕 fix266:iframe 工具页统一单滚动 —— 按整页实际溢出量修正当前 iframe 高度,
+  //   消除"外层页面 + iframe 内部"的双重滚动(有拒付横幅时尤其明显)。
+  //   纯几何(新高=当前高−溢出),收敛、不震荡、无内容反馈,不会无限延长。
+  useEffect(function () {
+    var iframeTabs = ['inventory', 'qty_confirm', 'freight_calc', 'kpi_scorer', 'express_invoice'];
+    if (iframeTabs.indexOf(activeTab) < 0) return;
+    function fit() {
+      var els = document.querySelectorAll('iframe');
+      var el = null, maxH = 0;
+      for (var i = 0; i < els.length; i++) {
+        var rh = els[i].getBoundingClientRect().height;
+        if (rh > maxH) { maxH = rh; el = els[i]; }
+      }
+      if (!el) return;
+      var over = document.documentElement.scrollHeight - window.innerHeight;
+      if (Math.abs(over) <= 1) return;
+      var hh = el.getBoundingClientRect().height;
+      el.style.height = Math.max(360, Math.round(hh - over)) + 'px';
+    }
+    var t1 = setTimeout(fit, 120), t2 = setTimeout(fit, 500), t3 = setTimeout(fit, 1100);
+    window.addEventListener('resize', fit);
+    var ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
+    if (ro) ro.observe(document.body);
+    return function () {
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3);
+      window.removeEventListener('resize', fit);
+      if (ro) ro.disconnect();
+    };
+  }, [activeTab]);
+
   // Toast
   var _useToast = useToast(),
     _useToast2 = _slicedToArray(_useToast, 2),
@@ -5318,7 +5348,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix265';
+var APP_VERSION = '2026.06.05-fix266';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
