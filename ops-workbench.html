@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>操作客服工作台 · JANEDECOR</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#f7f7f4;--card:#fff;--border:#e7e5e0;--text:#1c1a17;--sec:#6b6660;--ter:#9c9690;
+        --accent:#2563eb;--ok:#16a34a;--warn:#f59e0b;--danger:#dc2626;--doing:#7c3aed;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);padding:14px;font-size:14px;}
+  .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  h1{font-size:17px;}
+  .sub{font-size:11px;color:var(--ter);}
+  .me{font-size:12px;color:var(--accent);font-weight:600;}
+  .btn{padding:6px 12px;font-size:12px;border:1px solid var(--border);border-radius:9px;background:var(--card);color:var(--text);cursor:pointer;}
+  .btn:hover{border-color:var(--accent);}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .btn.ghost{background:var(--bg);}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;}
+  .card h2{font-size:13px;color:var(--sec);margin-bottom:10px;font-weight:600;}
+
+  /* 录入表单 */
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+  label.fl{display:block;font-size:11px;color:var(--sec);margin-bottom:3px;font-weight:600;}
+  input,select,textarea{width:100%;padding:7px 10px;font:inherit;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);}
+  textarea{resize:vertical;min-height:38px;}
+  .timer-row{display:flex;gap:6px;align-items:center;}
+  .timer-row input{flex:1;}
+  .tbtn{padding:7px 10px;font-size:12px;border:none;border-radius:8px;cursor:pointer;color:#fff;white-space:nowrap;}
+  .tbtn.start{background:var(--ok);} .tbtn.stop{background:var(--danger);}
+  .comp-seg{display:flex;gap:6px;}
+  .comp-seg button{flex:1;padding:7px 0;font-size:12px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--sec);cursor:pointer;font-family:inherit;}
+  .comp-seg button.sel[data-c=done]{background:var(--ok);border-color:var(--ok);color:#fff;}
+  .comp-seg button.sel[data-c=doing]{background:var(--doing);border-color:var(--doing);color:#fff;}
+  .comp-seg button.sel[data-c=undone]{background:var(--danger);border-color:var(--danger);color:#fff;}
+  .form-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;}
+
+  /* 筛选 */
+  .filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  .filters input[type=text]{min-width:150px;border-radius:16px;}
+
+  /* 统计 */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:8px;}
+  .stat{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 11px;}
+  .stat .n{font-size:19px;font-weight:700;}
+  .stat .l{font-size:11px;color:var(--sec);}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);}
+  th{color:var(--ter);font-weight:600;font-size:11px;}
+  .by-content td:nth-child(2),.by-content td:nth-child(3),.by-content td:nth-child(4){text-align:right;font-variant-numeric:tabular-nums;}
+
+  /* 记录列表 */
+  .rec{display:grid;grid-template-columns:120px 1fr 80px 90px 110px 60px;gap:10px;align-items:center;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--card);margin-bottom:7px;}
+  .rec .wc{font-weight:600;}
+  .rec .wc .shop{display:block;font-size:10.5px;color:var(--ter);font-weight:500;}
+  .rec .nt{font-size:12px;color:var(--sec);overflow:hidden;}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:9px;}
+  .pill.done{color:var(--ok);background:rgba(22,163,74,.12);}
+  .pill.doing{color:var(--doing);background:rgba(124,58,237,.12);}
+  .pill.undone{color:var(--danger);background:rgba(220,38,38,.12);}
+  .rec .act{display:flex;gap:6px;justify-content:flex-end;}
+  .ico{cursor:pointer;font-size:13px;opacity:.65;} .ico:hover{opacity:1;}
+  .empty{padding:34px;text-align:center;color:var(--ter);}
+  .daterow{font-size:13px;font-weight:700;color:var(--sec);margin:14px 0 6px;}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1c1a17;color:#fff;padding:9px 16px;border-radius:10px;font-size:13px;z-index:90;opacity:0;transition:.25s;max-width:90%;}
+  #toast.show{opacity:1;} #toast.err{background:#b91c1c;} #toast.ok{background:#15803d;}
+  @media(max-width:680px){ .rec{grid-template-columns:1fr;gap:5px;} }
+</style>
+</head>
+<body>
+  <div class="top">
+    <h1>🛠️ 操作客服工作台</h1>
+    <span class="me" id="meLabel"></span>
+    <span class="sub" id="info"></span>
+    <span style="flex:1"></span>
+    <button class="btn" onclick="load()">↻ 刷新</button>
+  </div>
+
+  <!-- 录入 -->
+  <div class="card">
+    <h2 id="formTitle">➕ 记录一项工作</h2>
+    <div class="form-grid">
+      <div><label class="fl">工作内容 *</label><select id="fWC"></select></div>
+      <div><label class="fl">店铺(打单填,如 VK/DC/DF)</label><input type="text" id="fShop" placeholder="可空"></div>
+      <div><label class="fl">工作数量(如打单 90)</label><input type="number" id="fQty" min="0" placeholder="可空"></div>
+      <div><label class="fl">日期</label><input type="date" id="fDate"></div>
+      <div><label class="fl">开始 / 结束(可手填或计时)</label>
+        <div class="timer-row">
+          <input type="time" id="fStart"><span class="sub">→</span><input type="time" id="fEnd">
+          <button class="tbtn start" id="timerBtn" onclick="toggleTimer()">▶ 计时</button>
+        </div>
+      </div>
+      <div><label class="fl">完成情况 *</label>
+        <div class="comp-seg" id="fComp">
+          <button data-c="done" onclick="pickComp('done')">已完成</button>
+          <button data-c="doing" onclick="pickComp('doing')">进行中</button>
+          <button data-c="undone" onclick="pickComp('undone')">未完成</button>
+        </div>
+      </div>
+      <div id="reasonWrap" style="display:none"><label class="fl">未完成原因</label><input type="text" id="fReason" placeholder="为什么没完成"></div>
+      <div><label class="fl">次日跟进(日期)</label><input type="date" id="fFollow"></div>
+      <div><label class="fl">⏰ 需提醒(日期)</label><input type="date" id="fRemind"></div>
+    </div>
+    <div style="margin-top:10px"><label class="fl">备注 / 说明</label><textarea id="fNote" placeholder="一句话说明本项工作"></textarea></div>
+    <div class="form-foot">
+      <span class="sub" id="formMsg"></span>
+      <div><button class="btn ghost" id="cancelEdit" style="display:none" onclick="resetForm()">取消编辑</button>
+        <button class="btn primary" id="saveBtn" onclick="saveEntry()">添加记录</button></div>
+    </div>
+  </div>
+
+  <!-- 统计 -->
+  <div class="card">
+    <h2>📊 操作客服统计(按当前筛选)</h2>
+    <div class="stats" id="statCards"></div>
+    <table class="by-content"><thead><tr><th>工作内容</th><th>条数</th><th>数量合计</th><th>时长(分)</th></tr></thead><tbody id="byContent"></tbody></table>
+  </div>
+
+  <!-- 筛选 + 记录 -->
+  <div class="card">
+    <h2>📋 工作记录</h2>
+    <div class="filters">
+      <input type="text" id="q" placeholder="🔍 备注 / 店铺">
+      <select id="filWC"><option value="">全部工作内容</option></select>
+      <select id="filPerson"><option value="">全部记录人</option></select>
+      <select id="filComp"><option value="">全部状态</option><option value="done">已完成</option><option value="doing">进行中</option><option value="undone">未完成</option></select>
+      <input type="date" id="filFrom" title="起"><span class="sub">~</span><input type="date" id="filTo" title="止">
+      <button class="btn" onclick="setMine()">只看我的</button>
+    </div>
+    <div id="list"><div class="empty">加载中…</div></div>
+  </div>
+  <div id="toast"></div>
+
+<script>
+/* ===== 连接 CLOUD(客服库)===== */
+const SB = supabase.createClient('https://kwrajryhwyytkjkkidor.supabase.co','sb_publishable_6j-rSrv1V95FROe-iX6Yew_unE_Y6n9');
+const qp = new URLSearchParams(location.search);
+const ME = qp.get('me') || '';
+const ME_ID = qp.get('id') || '';
+
+/* 工作内容类目(来自岗位职责梳理;打单按店铺用上面的"店铺"字段) */
+const WORK_CONTENTS = ['打单','录尺寸','跟进发货·填已发','核实订单(拍照·催促)','处理退回件','发渠道管理·算运费','对接快递群·发票·转单号','补发配件·催单','退款处理','产品评价','物料采购入库','清未齐订单·集中出货','改单贴单','质检打印安装说明','线下单','每日收尾','其他'];
+const COMP = {done:{l:'已完成',c:'done'},doing:{l:'进行中',c:'doing'},undone:{l:'未完成',c:'undone'}};
+
+let ALL=[], editingId=null, comp='done', timer=null;
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const hhmm=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+function minutesBetween(s,e){ if(!s||!e)return null; const[a,b]=s.split(':').map(Number),[c,d]=e.split(':').map(Number); let m=(c*60+d)-(a*60+b); if(m<0)m+=1440; return m; }
+function toast(msg,k){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(k?' '+k:'');clearTimeout(t._t);t._t=setTimeout(()=>t.className='',k==='err'?4000:2200);}
+
+/* 初始化下拉 */
+document.getElementById('meLabel').textContent = ME ? ('记录人:'+ME) : '(未识别登录人,请从工作台打开)';
+WORK_CONTENTS.forEach(w=>{ document.getElementById('fWC').insertAdjacentHTML('beforeend','<option>'+esc(w)+'</option>'); document.getElementById('filWC').insertAdjacentHTML('beforeend','<option>'+esc(w)+'</option>'); });
+document.getElementById('fDate').value=todayStr();
+pickComp('done');
+['q','filWC','filPerson','filComp','filFrom','filTo'].forEach(id=>document.getElementById(id).addEventListener('input',render));
+
+function pickComp(c){ comp=c; document.querySelectorAll('#fComp button').forEach(b=>b.classList.toggle('sel',b.dataset.c===c)); document.getElementById('reasonWrap').style.display = c==='undone'?'block':'none'; }
+
+/* 计时 */
+function toggleTimer(){
+  const btn=document.getElementById('timerBtn');
+  if(!timer){ document.getElementById('fStart').value=hhmm(); document.getElementById('fEnd').value=''; timer=Date.now(); btn.textContent='■ 停止'; btn.className='tbtn stop'; }
+  else { document.getElementById('fEnd').value=hhmm(); timer=null; btn.textContent='▶ 计时'; btn.className='tbtn start'; }
+}
+
+/* ===== 加载(只取 ops 记录)===== */
+async function load(){
+  try{
+    let all=[],from=0;
+    for(let i=0;i<10;i++){
+      const {data,error}=await SB.from('workspace_records').select('*').eq('record_kind','ops_task').order('work_date',{ascending:false}).range(from,from+999);
+      if(error) throw error;
+      all=all.concat(data||[]); if(!data||data.length<1000)break; from+=1000;
+    }
+    ALL=(all||[]).filter(r=>!r.deleted);
+    // 记录人下拉
+    const persons=[...new Set(ALL.map(r=>r.staff_name).filter(Boolean))].sort();
+    const sel=document.getElementById('filPerson'); const cur=sel.value;
+    sel.innerHTML='<option value="">全部记录人</option>'+persons.map(p=>'<option>'+esc(p)+'</option>').join(''); sel.value=cur;
+    document.getElementById('info').textContent='共 '+ALL.length+' 条 · '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+    render();
+  }catch(e){ document.getElementById('list').innerHTML='<div class="empty">加载失败:'+esc(e.message||e)+'<br><span class="sub">确认已跑 ops 列 SQL,且 workspace_records 对 anon 放开读写</span></div>'; }
+}
+
+function passFilter(r){
+  const q=document.getElementById('q').value.trim().toLowerCase();
+  const wc=document.getElementById('filWC').value, pe=document.getElementById('filPerson').value, cp=document.getElementById('filComp').value;
+  const f=document.getElementById('filFrom').value, t=document.getElementById('filTo').value;
+  if(wc && r.work_content!==wc) return false;
+  if(pe && r.staff_name!==pe) return false;
+  if(cp && r.completion!==cp) return false;
+  if(f && (r.work_date||'')<f) return false;
+  if(t && (r.work_date||'')>t) return false;
+  if(q){ const hit=(r.ops_note||'').toLowerCase().includes(q)||(r.work_shop||'').toLowerCase().includes(q); if(!hit)return false; }
+  return true;
+}
+
+function render(){
+  const list=ALL.filter(passFilter);
+  // 统计
+  const total=list.length, done=list.filter(r=>r.completion==='done').length;
+  const sumQty=list.reduce((s,r)=>s+(Number(r.work_qty)||0),0);
+  const sumMin=list.reduce((s,r)=>s+(Number(r.ops_minutes)||0),0);
+  const rate= total? Math.round(done/total*100):0;
+  document.getElementById('statCards').innerHTML=[
+    ['条数',total],['已完成',done],['完成率',rate+'%'],['数量合计',sumQty],['时长合计',(sumMin/60).toFixed(1)+' h']
+  ].map(x=>'<div class="stat"><div class="n">'+x[1]+'</div><div class="l">'+x[0]+'</div></div>').join('');
+  const byC={};
+  list.forEach(r=>{ const k=r.work_content||'(空)'; byC[k]=byC[k]||{n:0,q:0,m:0}; byC[k].n++; byC[k].q+=Number(r.work_qty)||0; byC[k].m+=Number(r.ops_minutes)||0; });
+  document.getElementById('byContent').innerHTML=Object.keys(byC).sort((a,b)=>byC[b].n-byC[a].n).map(k=>'<tr><td>'+esc(k)+'</td><td>'+byC[k].n+'</td><td>'+byC[k].q+'</td><td>'+byC[k].m+'</td></tr>').join('')||'<tr><td colspan="4" class="sub">无</td></tr>';
+
+  // 列表(按日期分组)
+  const el=document.getElementById('list');
+  if(!list.length){ el.innerHTML='<div class="empty">没有匹配的记录</div>'; return; }
+  const byDate={}; list.forEach(r=>{ (byDate[r.work_date||'(无日期)']=byDate[r.work_date||'(无日期)']||[]).push(r); });
+  const dates=Object.keys(byDate).sort().reverse();
+  let html='';
+  dates.forEach(d=>{
+    html+='<div class="daterow">📅 '+esc(d)+' · '+byDate[d].length+' 项</div>';
+    byDate[d].forEach(r=>{
+      const cc=COMP[r.completion]||COMP.done;
+      html+='<div class="rec">'+
+        '<div class="wc">'+esc(r.work_content||'—')+(r.work_shop?'<span class="shop">'+esc(r.work_shop)+'</span>':'')+'</div>'+
+        '<div class="nt">'+esc(r.ops_note||'')+(r.completion==='undone'&&r.incomplete_reason?' <span style="color:var(--danger)">· '+esc(r.incomplete_reason)+'</span>':'')+'</div>'+
+        '<div class="sub">'+(r.work_qty!=null&&r.work_qty!==''?('×'+r.work_qty):'')+'</div>'+
+        '<div class="sub">'+(r.ops_start||'')+(r.ops_end?('–'+r.ops_end):'')+(r.ops_minutes?(' ('+r.ops_minutes+'分)'):'')+'</div>'+
+        '<div><span class="pill '+cc.c+'">'+cc.l+'</span><div class="sub" style="margin-top:2px">👤 '+esc(r.staff_name||'')+'</div></div>'+
+        '<div class="act"><span class="ico" title="编辑" onclick="editRec(\''+r.id+'\')">✏️</span><span class="ico" title="删除" onclick="delRec(\''+r.id+'\')">🗑️</span></div>'+
+      '</div>';
+    });
+  });
+  el.innerHTML=html;
+}
+
+function setMine(){ document.getElementById('filPerson').value=ME; render(); }
+
+/* ===== 保存 / 编辑 / 删除 ===== */
+async function saveEntry(){
+  const wc=document.getElementById('fWC').value;
+  const note=document.getElementById('fNote').value.trim();
+  if(!wc){ document.getElementById('formMsg').textContent='请选工作内容'; return; }
+  const start=document.getElementById('fStart').value, end=document.getElementById('fEnd').value;
+  const qtyRaw=document.getElementById('fQty').value;
+  const rec={
+    record_kind:'ops_task', staff_type:'ops', status:'resolved', deleted:false,
+    owner:ME_ID||null, staff_name:ME||null,
+    work_date:document.getElementById('fDate').value||todayStr(),
+    work_content:wc,
+    work_shop:document.getElementById('fShop').value.trim()||null,
+    work_qty:qtyRaw===''?null:parseInt(qtyRaw,10),
+    ops_start:start||null, ops_end:end||null, ops_minutes:minutesBetween(start,end),
+    ops_note:note||null,
+    completion:comp,
+    incomplete_reason:comp==='undone'?(document.getElementById('fReason').value.trim()||null):null,
+    ops_followup:document.getElementById('fFollow').value||null,
+    ops_remind:document.getElementById('fRemind').value||null,
+    ops_updated:new Date().toISOString()
+  };
+  const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='保存中…';
+  try{
+    if(editingId){
+      const {error}=await SB.from('workspace_records').update(rec).eq('id',editingId); if(error)throw error;
+    }else{
+      rec.id='ops_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      rec.ops_created=new Date().toISOString();
+      const {error}=await SB.from('workspace_records').insert(rec); if(error)throw error;
+    }
+    resetForm(); toast('✓ 已保存','ok'); load();
+  }catch(e){ document.getElementById('formMsg').textContent='保存失败:'+(e.message||e); }
+  finally{ btn.disabled=false; btn.textContent=editingId?'保存修改':'添加记录'; }
+}
+function editRec(id){
+  const r=ALL.find(x=>x.id===id); if(!r)return; editingId=id;
+  document.getElementById('formTitle').textContent='✏️ 编辑记录';
+  document.getElementById('saveBtn').textContent='保存修改';
+  document.getElementById('cancelEdit').style.display='inline-block';
+  document.getElementById('fWC').value=r.work_content||'';
+  document.getElementById('fShop').value=r.work_shop||'';
+  document.getElementById('fQty').value=r.work_qty==null?'':r.work_qty;
+  document.getElementById('fDate').value=r.work_date||todayStr();
+  document.getElementById('fStart').value=r.ops_start||'';
+  document.getElementById('fEnd').value=r.ops_end||'';
+  document.getElementById('fNote').value=r.ops_note||'';
+  document.getElementById('fReason').value=r.incomplete_reason||'';
+  document.getElementById('fFollow').value=r.ops_followup||'';
+  document.getElementById('fRemind').value=r.ops_remind||'';
+  pickComp(r.completion||'done');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function resetForm(){
+  editingId=null;
+  document.getElementById('formTitle').textContent='➕ 记录一项工作';
+  document.getElementById('saveBtn').textContent='添加记录';
+  document.getElementById('cancelEdit').style.display='none';
+  document.getElementById('formMsg').textContent='';
+  ['fShop','fQty','fStart','fEnd','fNote','fReason','fFollow','fRemind'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fDate').value=todayStr();
+  document.getElementById('fWC').selectedIndex=0; pickComp('done');
+  if(timer){timer=null;const b=document.getElementById('timerBtn');b.textContent='▶ 计时';b.className='tbtn start';}
+}
+async function delRec(id){
+  if(!confirm('删除这条记录?'))return;
+  try{ const {error}=await SB.from('workspace_records').update({deleted:true,ops_updated:new Date().toISOString()}).eq('id',id); if(error)throw error; toast('已删除','ok'); load(); }
+  catch(e){ toast('删除失败:'+(e.message||e),'err'); }
+}
+
+load();
+setInterval(()=>{ if(!editingId && !timer) load(); }, 120000);
+</script>
+</body>
+</html>

@@ -3849,6 +3849,134 @@ var QtyConfirmModule = function QtyConfirmModule(_ref24b) {
   }));
 };
 
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix256: 🛠️ 操作客服工作台(iframe 嵌入 ops-workbench.html)
+// 操作客服(非"支持客服名单"成员)记录任务型日常工作:工作内容/数量/计时/完成情况。
+// 数据写 CLOUD 库 workspace_records,record_kind='ops_task'(与支持工单同表、被支持视图过滤)。
+// ops-workbench.html 须与 index.html 同目录部署。带 ?me=&id= 识别登录人。
+// ════════════════════════════════════════════════════════════════════
+var OpsWorkbenchModule = function OpsWorkbenchModule(_ref24c) {
+  var user = _ref24c.user,
+    toast = _ref24c.toast;
+  var _meOW = encodeURIComponent(user && (user.name || user.username) || '');
+  var _idOW = encodeURIComponent(user && user.id || '');
+  var _owUrl = function _owUrl() {
+    return "ops-workbench.html?me=" + _meOW + "&id=" + _idOW + "&t=" + Date.now().toString(36);
+  };
+  var _useStateOW = useState(_owUrl),
+    _useStateOW2 = _slicedToArray(_useStateOW, 2),
+    iframeUrl = _useStateOW2[0],
+    setIframeUrl = _useStateOW2[1];
+  var _useStateOW3 = useState('loading'),
+    _useStateOW4 = _slicedToArray(_useStateOW3, 2),
+    loadStatus = _useStateOW4[0],
+    setLoadStatus = _useStateOW4[1];
+  useEffect(function () {
+    var timer = setTimeout(function () {
+      return setLoadStatus(function (s) {
+        return s === 'loading' ? 'timeout' : s;
+      });
+    }, 8000);
+    return function () {
+      return clearTimeout(timer);
+    };
+  }, [iframeUrl]);
+  var reload = function reload() {
+    setLoadStatus('loading');
+    setIframeUrl(_owUrl());
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "paper rounded-2xl",
+    style: {
+      padding: '14px',
+      overflow: 'hidden'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: 10,
+      padding: '0 4px',
+      flexWrap: 'wrap'
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "font-display",
+    style: {
+      fontSize: 20,
+      fontWeight: 600,
+      letterSpacing: '-.022em',
+      flex: 1,
+      minWidth: 180
+    }
+  }, "\uD83D\uDEE0\uFE0F \u64CD\u4F5C\u5BA2\u670D\u5DE5\u4F5C\u53F0", /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      fontWeight: 400,
+      color: 'var(--ink-3)',
+      marginLeft: 8
+    }
+  }, "\u6253\u5355 / \u5F55\u5C3A\u5BF8 / \u8DDF\u8FDB\u53D1\u8D27 \u7B49\u4EFB\u52A1\u578B\u65E5\u5E38\u8BB0\u5F55 \xB7 \u4E0E\u652F\u6301\u5BA2\u670D\u5206\u5F00\u7EDF\u8BA1")), /*#__PURE__*/React.createElement("button", {
+    onClick: reload,
+    className: "btn-sec",
+    style: {
+      padding: '5px 12px',
+      fontSize: 12
+    }
+  }, "\uD83D\uDD04 \u91CD\u8F7D"), /*#__PURE__*/React.createElement("a", {
+    href: iframeUrl,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    className: "btn-sec",
+    style: {
+      padding: '5px 12px',
+      fontSize: 12,
+      textDecoration: 'none',
+      display: 'inline-block'
+    }
+  }, "\u2197 \u65B0\u7A97\u53E3\u6253\u5F00")), loadStatus === 'timeout' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: '#fef3c7',
+      border: '1px solid #f59e0b',
+      borderRadius: 10,
+      padding: '12px 14px',
+      marginBottom: 10,
+      fontSize: 13,
+      color: '#92400e',
+      lineHeight: 1.6
+    }
+  }, "\u26A0 ", /*#__PURE__*/React.createElement("strong", null, "\u9875\u9762\u52A0\u8F7D\u8D85\u65F6"), "\u3002\u8BF7\u786E\u8BA4 GitHub Pages \u4ED3\u5E93\u6839\u76EE\u5F55\u6709 ops-workbench.html \u8FD9\u4E2A\u6587\u4EF6\u3002", /*#__PURE__*/React.createElement("button", {
+    onClick: reload,
+    style: {
+      marginLeft: 8,
+      padding: '4px 10px',
+      fontSize: 12,
+      background: '#f59e0b',
+      color: 'white',
+      border: 'none',
+      borderRadius: 6,
+      cursor: 'pointer',
+      fontFamily: 'inherit'
+    }
+  }, "\u91CD\u8BD5")), /*#__PURE__*/React.createElement("iframe", {
+    key: iframeUrl,
+    src: iframeUrl,
+    title: "\u64CD\u4F5C\u5BA2\u670D\u5DE5\u4F5C\u53F0",
+    onLoad: function onLoad() {
+      return setLoadStatus('loaded');
+    },
+    style: {
+      width: '100%',
+      height: 'calc(100vh - 220px)',
+      minHeight: 560,
+      border: 'none',
+      borderRadius: 12,
+      background: '#fafafa',
+      display: 'block'
+    }
+  }));
+};
+
 // 🆕 fix63 根因修复:彻底放弃"iframe 高度自适应内容"模式!
 // 之前 bug:iframe 内有 min-h-screen(=100vh),父根据内容高度反向设 iframe 高度
 //   → iframe 视口变高 → 100vh 元素跟着变高 → body 更高 → 上报更大 → 父再设更高
