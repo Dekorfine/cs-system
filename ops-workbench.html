@@ -244,39 +244,65 @@ function render(){
 function setMine(){ document.getElementById('filPerson').value=ME; render(); }
 
 /* ===== 保存 / 编辑 / 删除 ===== */
+const nowISO=()=>new Date().toISOString();
+// 复刻 App 的 CLOUD.upsert:遇到"未知列"自动删掉该列重试,直到成功或遇到真错误
+async function writeWithRetry(mode, payload, id){
+  let p=Object.assign({},payload);
+  for(let i=0;i<25;i++){
+    let res;
+    if(mode==='insert') res=await SB.from('workspace_records').insert(p).select();
+    else res=await SB.from('workspace_records').update(p).eq('id',id).select();
+    if(!res.error) return {ok:true};
+    const msg=String((res.error&&(res.error.message||res.error.details))||'');
+    // 仅"列不存在"才删列重试;NOT NULL 等真约束错误直接抛出
+    const m = msg.match(/Could not find the '([^']+)' column/i)
+           || msg.match(/'([A-Za-z_0-9]+)' column of '[^']+' in the schema cache/i)
+           || (/(does not exist|schema cache)/i.test(msg) && msg.match(/column "?([A-Za-z_0-9]+)"?/i));
+    if(m && m[1] && Object.prototype.hasOwnProperty.call(p,m[1])){ delete p[m[1]]; continue; }
+    return {ok:false, error:res.error};
+  }
+  return {ok:false, error:{message:'重试次数过多(列名持续不匹配)'}};
+}
 async function saveEntry(){
   const wc=document.getElementById('fWC').value;
   const note=document.getElementById('fNote').value.trim();
   if(!wc){ document.getElementById('formMsg').textContent='请选工作内容'; return; }
   const start=document.getElementById('fStart').value, end=document.getElementById('fEnd').value;
   const qtyRaw=document.getElementById('fQty').value;
+  const shop=document.getElementById('fShop').value.trim();
+  const workDate=document.getElementById('fDate').value||todayStr();
+  const followup=document.getElementById('fFollow').value;
+  const minutes=minutesBetween(start,end);
+  const iso=nowISO();
+  const me=ME||ME_ID||'ops';
   const rec={
-    record_kind:'ops_task', staff_type:'ops', status:'resolved', deleted:false,
-    staff_id:ME_ID||null, staff_name:ME||null,
-    work_date:document.getElementById('fDate').value||todayStr(),
-    work_content:wc,
-    work_shop:document.getElementById('fShop').value.trim()||null,
+    /* —— 支持记录核心字段:满足 workspace_records 的 NOT NULL 约束(ownerId 等);
+          表里没有的列由 writeWithRetry 自动丢弃 —— */
+    ownerId: ME_ID||me, date: workDate, createdAt: iso, updatedAt: iso, status: 'resolved',
+    customer: '', site: shop||'', startTime: start||'', endTime: end||'', durationMin: minutes||0,
+    difficulty: '', diffSuggested: false, category: wc, orderRef: '',
+    note: note||'', nextFollowUp: followup||'',
+    isFeedback: false, feedbackNote: '', feedbackShots: [],
+    isProductOpt: false, productOptNote: '', productOptShots: [],
+    screenshots: [], followUps: [], deleted: false,
+    /* —— 操作客服专属列(页面读这些)—— */
+    record_kind:'ops_task', staff_type:'ops', staff_id:ME_ID||null, staff_name:ME||null,
+    work_date:workDate, work_content:wc, work_shop:shop||null,
     work_qty:qtyRaw===''?null:parseInt(qtyRaw,10),
-    ops_start:start||null, ops_end:end||null, ops_minutes:minutesBetween(start,end),
-    ops_note:note||null,
-    completion:comp,
+    ops_start:start||null, ops_end:end||null, ops_minutes:minutes,
+    ops_note:note||null, completion:comp,
     incomplete_reason:comp==='undone'?(document.getElementById('fReason').value.trim()||null):null,
-    ops_followup:document.getElementById('fFollow').value||null,
-    ops_remind:document.getElementById('fRemind').value||null,
-    ops_updated:new Date().toISOString()
+    ops_followup:followup||null, ops_remind:document.getElementById('fRemind').value||null,
+    ops_updated:iso
   };
   const btn=document.getElementById('saveBtn'); btn.disabled=true; btn.textContent='保存中…';
-  try{
-    if(editingId){
-      const {error}=await SB.from('workspace_records').update(rec).eq('id',editingId); if(error)throw error;
-    }else{
-      rec.id='ops_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-      rec.ops_created=new Date().toISOString();
-      const {error}=await SB.from('workspace_records').insert(rec); if(error)throw error;
-    }
-    resetForm(); toast('✓ 已保存','ok'); load();
-  }catch(e){ document.getElementById('formMsg').textContent='保存失败:'+(e.message||e); }
-  finally{ btn.disabled=false; btn.textContent=editingId?'保存修改':'添加记录'; }
+  document.getElementById('formMsg').textContent='';
+  let r;
+  if(editingId){ r=await writeWithRetry('update', rec, editingId); }
+  else { rec.id='ops_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); rec.ops_created=iso; r=await writeWithRetry('insert', rec); }
+  if(r.ok){ resetForm(); toast('✓ 已保存','ok'); load(); }
+  else { document.getElementById('formMsg').textContent='保存失败:'+((r.error&&(r.error.message||r.error.details))||'未知'); }
+  btn.disabled=false; btn.textContent=editingId?'保存修改':'添加记录';
 }
 function editRec(id){
   const r=ALL.find(x=>x.id===id); if(!r)return; editingId=id;
