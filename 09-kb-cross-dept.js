@@ -3860,6 +3860,30 @@ var OpsWorkbenchModule = function OpsWorkbenchModule(_ref24c) {
     toast = _ref24c.toast;
   var _meOW = encodeURIComponent(user && (user.name || user.username) || '');
   var _idOW = encodeURIComponent(user && user.id || '');
+  var owRef = React.useRef(null);
+  // 🆕 fix261:按 iframe 在视口中的"位置"撑到视口底部(不是按内容高度)——
+  //   外层页面正好占满、不再多出一条滚动条;只剩 iframe 内部单一滚动。
+  //   纯几何计算、无 postMessage 内容反馈,数学上不可能无限延长。
+  React.useEffect(function () {
+    function fit() {
+      var el = owRef.current;
+      if (!el) return;
+      var top = el.getBoundingClientRect().top;
+      var h = Math.max(420, Math.round(window.innerHeight - top - 14));
+      var cur = parseInt(el.style.height, 10) || 0;
+      if (Math.abs(cur - h) > 2) el.style.height = h + 'px';
+    }
+    fit();
+    window.addEventListener('resize', fit);
+    var ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
+    if (ro) ro.observe(document.body);
+    var t = setTimeout(fit, 300);
+    return function () {
+      window.removeEventListener('resize', fit);
+      if (ro) ro.disconnect();
+      clearTimeout(t);
+    };
+  });
   var _owUrl = function _owUrl() {
     return "ops-workbench.html?me=" + _meOW + "&id=" + _idOW + "&t=" + Date.now().toString(36);
   };
@@ -3960,6 +3984,7 @@ var OpsWorkbenchModule = function OpsWorkbenchModule(_ref24c) {
     }
   }, "\u91CD\u8BD5")), /*#__PURE__*/React.createElement("iframe", {
     key: iframeUrl,
+    ref: owRef,
     src: iframeUrl,
     title: "\u64CD\u4F5C\u5BA2\u670D\u5DE5\u4F5C\u53F0",
     onLoad: function onLoad() {
@@ -3968,7 +3993,7 @@ var OpsWorkbenchModule = function OpsWorkbenchModule(_ref24c) {
     style: {
       width: '100%',
       height: 'calc(100vh - 220px)',
-      minHeight: 560,
+      minHeight: 360,
       border: 'none',
       borderRadius: 12,
       background: '#fafafa',
