@@ -4906,6 +4906,148 @@ var LoginScreen = function LoginScreen(_ref0) {
 };
 
 // ============================================================
+// 🆕 fix255:强制改密 —— 默认/弱密码的客服必须改成 字母+数字(≥8位)才能进工作台
+// ============================================================
+var WEAK_DEFAULT_PWDS = ['123456', '1234567', '12345678', '123456789', '123123', '12345', '000000', '111111', '666666', '888888', 'admin123', 'password', 'abc123', 'qwerty', 'aa123456'];
+function pwdPolicyError(pwd) {
+  pwd = String(pwd || '');
+  if (pwd.length < 8) return '密码至少 8 位';
+  if (!/[a-zA-Z]/.test(pwd)) return '必须包含字母';
+  if (!/[0-9]/.test(pwd)) return '必须包含数字';
+  return '';
+}
+function needsPwdChange(user) {
+  if (!user) return false;
+  var p = String(user.password || '');
+  if (WEAK_DEFAULT_PWDS.indexOf(p.toLowerCase()) >= 0) return true; // 已知默认/弱密码
+  if (pwdPolicyError(p)) return true; // 不满足 字母+数字+≥8位
+  return false;
+}
+var ForcePwdChangeScreen = function ForcePwdChangeScreen(_refFP) {
+  var user = _refFP.user,
+    onSubmit = _refFP.onSubmit,
+    onLogout = _refFP.onLogout;
+  var _fp1 = useState(''),
+    _fp1b = _slicedToArray(_fp1, 2),
+    pwd1 = _fp1b[0],
+    setPwd1 = _fp1b[1];
+  var _fp2 = useState(''),
+    _fp2b = _slicedToArray(_fp2, 2),
+    pwd2 = _fp2b[0],
+    setPwd2 = _fp2b[1];
+  var _fpe = useState(''),
+    _fpeb = _slicedToArray(_fpe, 2),
+    err = _fpeb[0],
+    setErr = _fpeb[1];
+  var _inputStyle = {
+    width: '100%',
+    padding: '11px 13px',
+    fontSize: 15,
+    border: '1px solid var(--line)',
+    borderRadius: 10,
+    marginBottom: 12,
+    fontFamily: 'inherit',
+    boxSizing: 'border-box'
+  };
+  var submit = function submit() {
+    var e1 = pwdPolicyError(pwd1);
+    if (e1) {
+      setErr(e1);
+      return;
+    }
+    if (pwd1 !== pwd2) {
+      setErr('两次输入不一致');
+      return;
+    }
+    if (WEAK_DEFAULT_PWDS.indexOf(pwd1.toLowerCase()) >= 0) {
+      setErr('不能用常见弱密码,请换一个');
+      return;
+    }
+    if (pwd1 === String(user && user.password || '')) {
+      setErr('新密码不能和原密码相同');
+      return;
+    }
+    onSubmit(pwd1);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    className: "login-bg",
+    "data-login-screen": true
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "login-card fade-in",
+    style: {
+      maxWidth: 420
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 22,
+      fontWeight: 700,
+      marginBottom: 6
+    }
+  }, "\uD83D\uDD12 \u9996\u6B21\u767B\u5F55\u8BF7\u8BBE\u7F6E\u65B0\u5BC6\u7801"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: 'var(--ink-3)',
+      marginBottom: 16,
+      lineHeight: 1.6
+    }
+  }, "\u8D26\u53F7 ", /*#__PURE__*/React.createElement("b", null, user && user.name || ''), " \u4ECD\u5728\u7528\u9ED8\u8BA4 / \u7B80\u5355\u5BC6\u7801\u3002\u4E3A\u4E86\u5B89\u5168\uFF0C\u8BF7\u5148\u6539\u6210\u542B ", /*#__PURE__*/React.createElement("b", null, "\u5B57\u6BCD + \u6570\u5B57\u3001\u81F3\u5C11 8 \u4F4D"), " \u7684\u65B0\u5BC6\u7801\uFF0C\u624D\u80FD\u8FDB\u5165\u5DE5\u4F5C\u53F0\u3002"), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    value: pwd1,
+    autoFocus: true,
+    onChange: function onChange(e) {
+      setPwd1(e.target.value);
+      setErr('');
+    },
+    placeholder: "\u65B0\u5BC6\u7801\uFF08\u5B57\u6BCD + \u6570\u5B57\uFF0C\u22658 \u4F4D\uFF09",
+    style: _inputStyle
+  }), /*#__PURE__*/React.createElement("input", {
+    type: "password",
+    value: pwd2,
+    onChange: function onChange(e) {
+      setPwd2(e.target.value);
+      setErr('');
+    },
+    onKeyDown: function onKeyDown(e) {
+      if (e.key === 'Enter') submit();
+    },
+    placeholder: "\u518D\u8F93\u5165\u4E00\u6B21\u65B0\u5BC6\u7801",
+    style: _inputStyle
+  }), err && /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: '#dc2626',
+      fontSize: 13,
+      marginBottom: 10
+    }
+  }, err), /*#__PURE__*/React.createElement("button", {
+    onClick: submit,
+    style: {
+      width: '100%',
+      padding: '11px',
+      fontSize: 15,
+      borderRadius: 10,
+      marginBottom: 12,
+      background: '#2563eb',
+      color: '#fff',
+      border: 'none',
+      cursor: 'pointer',
+      fontWeight: 600,
+      fontFamily: 'inherit'
+    }
+  }, "\u4FDD\u5B58\u5E76\u8FDB\u5165\u5DE5\u4F5C\u53F0"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: 'center'
+    }
+  }, /*#__PURE__*/React.createElement("a", {
+    onClick: onLogout,
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-4)',
+      cursor: 'pointer'
+    }
+  }, "\u9000\u51FA\u767B\u5F55"))));
+};
+
+// ============================================================
 // 顶部导航
 // ============================================================
 var TopNav = function TopNav(_ref1) {

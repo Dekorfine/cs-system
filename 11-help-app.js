@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix254
+// 版本 2026.06.05-fix255
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix254
+// 版本 2026.06.05-fix255
 // 预编译切片
 //
 
@@ -4180,6 +4180,25 @@ var App = function App() {
     toast("\u2713 \u6B22\u8FCE\u56DE\u6765, ".concat(emp.name));
     // 登录后若用户尚未做选择，温和地引导一次（不强弹，由用户主动点）
   };
+  // 🆕 fix255:强制改密提交 —— 同步 employees + 云端 cs_accounts + 当前 user(闸随之解除)
+  var doForcePwdChange = function doForcePwdChange(newPwd) {
+    if (!user) return;
+    var updated = _objectSpread(_objectSpread({}, user), {}, {
+      password: newPwd
+    });
+    setEmployees(function (prev) {
+      return prev.map(function (e) {
+        return e.id === user.id ? _objectSpread(_objectSpread({}, e), {}, {
+          password: newPwd
+        }) : e;
+      });
+    });
+    try {
+      saveCloudAccount(updated);
+    } catch (e) {}
+    setUser(updated);
+    toast('\u2713 \u5BC6\u7801\u5DF2\u66F4\u65B0');
+  };
 
   // 🆕 fix45: 登录后注册"返回拦截器",防止误触浏览器返回退出工作台
   useEffect(function () {
@@ -4618,6 +4637,14 @@ var App = function App() {
     return /*#__PURE__*/React.createElement(LoginScreen, {
       employees: employees,
       onLogin: onLogin
+    });
+  }
+  // 🆕 fix255:登录后若仍是默认/弱密码 → 强制先改成 字母+数字(≥8位),改完才放行进工作台
+  if (needsPwdChange(user)) {
+    return /*#__PURE__*/React.createElement(ForcePwdChangeScreen, {
+      user: user,
+      onSubmit: doForcePwdChange,
+      onLogout: onLogout
     });
   }
   return /*#__PURE__*/React.createElement(SitesContext.Provider, {
@@ -5265,7 +5292,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix254';
+var APP_VERSION = '2026.06.05-fix255';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
