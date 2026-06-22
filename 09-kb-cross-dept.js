@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix267
+// 版本 2026.06.05-fix268
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix267
+// 版本 2026.06.05-fix268
 // 预编译切片
 //
 
@@ -15157,7 +15157,7 @@ function InventoryModuleInline(props) {
     return h('div', { key: p.id, style: { border: '1px solid ' + C.line, borderRadius: 12, overflow: 'hidden', background: '#fff', display: 'flex', flexDirection: 'column' } },
       h('div', { style: { position: 'relative', aspectRatio: '1/1', background: '#faf9f7', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
         p.image_url
-          ? h('img', { src: p.image_url, loading: 'lazy', onClick: function () { setLb({ url: p.image_url, cap: (p.name_cn || '') + ' ' + (p.sku || '') }); }, style: { width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in', display: 'block' } })
+          ? h('img', { src: (window.__imgThumb ? window.__imgThumb(p.image_url, 300, 58) : p.image_url), 'data-full': p.image_url, loading: 'lazy', onClick: function () { setLb({ url: p.image_url, cap: (p.name_cn || '') + ' ' + (p.sku || '') }); }, style: { width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in', display: 'block' } })
           : h('span', { style: { fontSize: 30, color: '#9c9690' } }, '📦'),
         h('span', { style: { position: 'absolute', top: 6, left: 6, background: col, color: '#fff', fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600 } }, txt + ' ' + s)),
       h('div', { style: { padding: '8px 10px 10px' } },
@@ -15194,7 +15194,7 @@ function InventoryModuleInline(props) {
         : h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 12 } }, paged.map(card))),
     pager('bottom'),
     lb ? h('div', { onClick: function () { setLb(null); }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 2147483647, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', padding: 24, cursor: 'zoom-out' } },
-      h('img', { src: lb.url, onClick: function (e) { e.stopPropagation(); }, style: { maxWidth: '92vw', maxHeight: '82vh', objectFit: 'contain', borderRadius: 8 } }),
+      h('img', { src: (window.__imgFull ? window.__imgFull(lb.url) : lb.url), onClick: function (e) { e.stopPropagation(); }, style: { maxWidth: '92vw', maxHeight: '82vh', objectFit: 'contain', borderRadius: 8 } }),
       h('div', { style: { color: '#fff', fontSize: 13, marginTop: 12 } }, lb.cap || ''),
       h('div', { style: { color: '#bbb', fontSize: 12, marginTop: 4 } }, '点击任意处关闭')) : null);
 }

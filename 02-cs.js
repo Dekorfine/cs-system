@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix264
+// 版本 2026.06.05-fix268
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix264
+// 版本 2026.06.05-fix268
 // 预编译切片
 //
 
@@ -249,7 +249,8 @@ var CSGridCard = function CSGridCard(_ref) {
   }, shots.slice(0, 4).map(function (s, i) {
     return /*#__PURE__*/React.createElement("img", {
       key: s.id || i,
-      src: imgDisplaySrc(s),
+      src: window.__imgThumb ? window.__imgThumb(imgDisplaySrc(s), 96, 52) : imgDisplaySrc(s),
+      "data-full": imgDisplaySrc(s),
       alt: s.name || '',
       className: "img-thumb",
       loading: "lazy",
@@ -5456,7 +5457,8 @@ var CSModule = function CSModule(_ref7) {
     }).slice(0, 8).map(function (s, i) {
       return /*#__PURE__*/React.createElement("img", {
         key: s.id || i,
-        src: imgDisplaySrc(s),
+        src: window.__imgThumb ? window.__imgThumb(imgDisplaySrc(s), 96, 52) : imgDisplaySrc(s),
+        "data-full": imgDisplaySrc(s),
         alt: s.name || '',
         className: "img-thumb",
         onClick: function onClick() {
@@ -5941,7 +5943,7 @@ var CSModule = function CSModule(_ref7) {
       cursor: 'zoom-out'
     }
   }, /*#__PURE__*/React.createElement("img", {
-    src: lightboxImg,
+    src: window.__imgFull ? window.__imgFull(lightboxImg) : lightboxImg,
     alt: "",
     onClick: function onClick(e) {
       return e.stopPropagation();
@@ -12216,7 +12218,8 @@ var FollowUpModal = function FollowUpModal(_ref43) {
       key: s.id,
       className: "relative group"
     }, /*#__PURE__*/React.createElement("img", {
-      src: imgDisplaySrc(s),
+      src: window.__imgThumb ? window.__imgThumb(imgDisplaySrc(s), 96, 52) : imgDisplaySrc(s),
+      "data-full": imgDisplaySrc(s),
       alt: s.name,
       className: "thumb",
       onClick: function onClick() {
@@ -12322,7 +12325,8 @@ var FollowUpModal = function FollowUpModal(_ref43) {
       key: s.id,
       className: "relative group"
     }, /*#__PURE__*/React.createElement("img", {
-      src: imgDisplaySrc(s),
+      src: window.__imgThumb ? window.__imgThumb(imgDisplaySrc(s), 96, 52) : imgDisplaySrc(s),
+      "data-full": imgDisplaySrc(s),
       alt: s.name,
       className: "thumb",
       onClick: function onClick() {
@@ -12429,7 +12433,8 @@ var FollowUpModal = function FollowUpModal(_ref43) {
       key: s.id,
       className: "relative group"
     }, /*#__PURE__*/React.createElement("img", {
-      src: imgDisplaySrc(s),
+      src: window.__imgThumb ? window.__imgThumb(imgDisplaySrc(s), 96, 52) : imgDisplaySrc(s),
+      "data-full": imgDisplaySrc(s),
       alt: s.name,
       className: "thumb",
       onClick: function onClick() {

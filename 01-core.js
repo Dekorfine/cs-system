@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix268
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -27,7 +27,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix268
 // 预编译切片
 //
 
@@ -2208,6 +2208,33 @@ try {
   window.attMimeKind = attMimeKind;
 } catch (e) {}
 
+// 🆕 fix268: 图片秒开 —— 列表缩略图 / 灯箱统一走图片 CDN(wsrv.nl)按需压缩+缩放+webp。
+//   任意公开图 URL(Supabase 存储 / Shopify / 其它)经代理返回小体积 webp,全球 CDN 缓存 → 重复查看秒开。
+//   base64/blob/相对路径无法代理则原样返回(裂图由 onError 兜底)。
+//   缩略图带 data-full=原图;放大时用 __imgFull 取"中等清晰"图,既快又看得清(不再加载原图)。
+function __imgProxy(url, opt) {
+  opt = opt || {};
+  if (!url || typeof url !== 'string') return url || '';
+  var u = url.trim();
+  if (!u) return '';
+  if (u.indexOf('data:') === 0 || u.indexOf('blob:') === 0) return u; // 本地/base64 不代理
+  if (u.indexOf('http') !== 0) return u; // 相对路径不动
+  if (/\/\/(?:wsrv\.nl|images\.weserv\.nl)\//.test(u)) return u; // 已代理
+  var p = 'https://wsrv.nl/?url=' + encodeURIComponent(u);
+  if (opt.w) p += '&w=' + opt.w;
+  if (opt.h) p += '&h=' + opt.h;
+  p += '&q=' + (opt.q || 55) + '&output=' + (opt.output || 'webp') + '&we'; // we=不放大超过原图
+  if (opt.fit) p += '&fit=' + opt.fit;
+  return p;
+}
+function __imgThumb(url, w, q) { return __imgProxy(imgDisplaySrc(url), { w: w || 100, q: q || 50, fit: 'cover' }); }
+function __imgFull(url, w, q) { return __imgProxy(imgDisplaySrc(url), { w: w || 1400, q: q || 72, fit: 'inside' }); }
+try {
+  window.__imgProxy = __imgProxy;
+  window.__imgThumb = __imgThumb;
+  window.__imgFull = __imgFull;
+} catch (e) {}
+
 // 缩略图行:image/* 铺 48×48,其它显 📄 文件名。点击 onPreview(全屏看大图),stopPropagation 防触发卡片点击。
 var AttachThumbs = function AttachThumbs(_ref4) {
   var files = _ref4.files,
@@ -2234,7 +2261,8 @@ var AttachThumbs = function AttachThumbs(_ref4) {
       var src = imgDisplaySrc(a);
       return /*#__PURE__*/React.createElement("img", {
         key: i,
-        src: src,
+        src: __imgThumb(src, (size || 48) * 2, 52),
+        "data-full": src,
         alt: "",
         loading: "lazy",
         onClick: function onClick(e) {
@@ -2327,7 +2355,7 @@ var ImgPreviewModal = function ImgPreviewModal(_ref5) {
       padding: 24
     }
   }, /*#__PURE__*/React.createElement("img", {
-    src: src,
+    src: __imgFull(src),
     alt: "",
     onClick: function onClick(e) {
       return e.stopPropagation();

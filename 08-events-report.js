@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix263
+// 版本 2026.06.05-fix268
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -29,7 +29,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix263
+// 版本 2026.06.05-fix268
 // 预编译切片
 //
 
@@ -1346,7 +1346,8 @@ var OrderProductThumb = function OrderProductThumb(_ref10) {
       color: 'var(--ink-4)'
     }
   }, "\u62C9\u53D6\u4E2D\u2026") : show ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("img", {
-    src: show.image_url,
+    src: window.__imgThumb ? window.__imgThumb(show.image_url, 80, 55) : show.image_url,
+    "data-full": show.image_url,
     alt: "",
     title: show.title || '',
     onClick: function onClick() {
@@ -2692,7 +2693,8 @@ var AftersalesTable = function AftersalesTable(_ref18) {
           gap: 4
         }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
-        src: u0,
+        src: window.__imgThumb ? window.__imgThumb(u0, 80, 52) : u0,
+        "data-full": u0,
         alt: "",
         style: {
           width: 40,
@@ -2918,13 +2920,13 @@ var RefillsTable = function RefillsTable(_ref20) {
     }
   }, "\u8BA2\u5355\u53F7"), /*#__PURE__*/React.createElement("th", {
     style: {
-      width: '100px'
-    }
-  }, "\u4F9B\u5E94\u5546"), /*#__PURE__*/React.createElement("th", null, "\u8865\u4EF6\u6E05\u5355"), /*#__PURE__*/React.createElement("th", {
-    style: {
       width: '80px'
     }
   }, "\u56FE\u7247"), /*#__PURE__*/React.createElement("th", {
+    style: {
+      width: '100px'
+    }
+  }, "\u4F9B\u5E94\u5546"), /*#__PURE__*/React.createElement("th", null, "\u8865\u4EF6\u6E05\u5355"), /*#__PURE__*/React.createElement("th", {
     style: {
       width: '90px'
     }
@@ -2984,16 +2986,7 @@ var RefillsTable = function RefillsTable(_ref20) {
         border: '1px solid #fed7aa',
         whiteSpace: 'nowrap'
       }
-    }, "\u552E\u540E\u8F6C\u5165")), /*#__PURE__*/React.createElement("td", {
-      style: {
-        fontSize: 12
-      }
-    }, e.supplier_name || '-'), /*#__PURE__*/React.createElement("td", {
-      style: {
-        fontSize: 12,
-        lineHeight: 1.4
-      }
-    }, itemsList || '-'), /*#__PURE__*/React.createElement("td", null, e.attachments && e.attachments.length > 0 ? function () {
+    }, "\u552E\u540E\u8F6C\u5165")), /*#__PURE__*/React.createElement("td", null, e.attachments && e.attachments.length > 0 ? function () {
       var a0 = e.attachments[0] || {};
       var u0 = a0.url || a0.dataUrl || a0.data || '';
       return /*#__PURE__*/React.createElement("div", {
@@ -3003,7 +2996,8 @@ var RefillsTable = function RefillsTable(_ref20) {
           gap: 4
         }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
-        src: u0,
+        src: window.__imgThumb ? window.__imgThumb(u0, 80, 52) : u0,
+        "data-full": u0,
         alt: "",
         style: {
           width: 40,
@@ -3030,7 +3024,16 @@ var RefillsTable = function RefillsTable(_ref20) {
           fontFamily: 'inherit'
         }
       }, "\uD83D\uDCF7 ", e.attachments.length));
-    }() : '-'), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(OrderProductThumb, {
+    }() : '-'), /*#__PURE__*/React.createElement("td", {
+      style: {
+        fontSize: 12
+      }
+    }, e.supplier_name || '-'), /*#__PURE__*/React.createElement("td", {
+      style: {
+        fontSize: 12,
+        lineHeight: 1.4
+      }
+    }, itemsList || '-'), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(OrderProductThumb, {
       orderNo: e.order_ref,
       onPreview: setProdPreview
     })), /*#__PURE__*/React.createElement("td", {
@@ -3429,7 +3432,8 @@ var RefundsTable = function RefundsTable(_ref22) {
           gap: 4
         }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
-        src: u0,
+        src: window.__imgThumb ? window.__imgThumb(u0, 80, 52) : u0,
+        "data-full": u0,
         alt: "",
         style: {
           width: 40,
@@ -3893,7 +3897,8 @@ var ImageGalleryModal = function ImageGalleryModal(_ref24) {
       fontSize: 20
     }
   }, "\u2039"), /*#__PURE__*/React.createElement("img", {
-    src: current.url,
+    src: window.__imgFull ? window.__imgFull(current.url) : current.url,
+    "data-full": current.url,
     style: {
       maxWidth: '100%',
       maxHeight: '80vh',
@@ -3927,7 +3932,8 @@ var ImageGalleryModal = function ImageGalleryModal(_ref24) {
   }, imgs.map(function (im, i) {
     return /*#__PURE__*/React.createElement("img", {
       key: i,
-      src: im.url,
+      src: window.__imgThumb ? window.__imgThumb(im.url, 100, 50) : im.url,
+      "data-full": im.url,
       onClick: function onClick() {
         return setActiveIdx(i);
       },

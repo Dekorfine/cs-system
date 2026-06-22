@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix267
+// 版本 2026.06.05-fix268
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -24,7 +24,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix267
+// 版本 2026.06.05-fix268
 // 预编译切片
 //
 
@@ -1138,13 +1138,13 @@ var App = function App() {
       var t = e.target;
       if (!t || t.tagName !== 'IMG') return;
       if (t.closest('#__img_lightbox__') || t.closest('button') || t.closest('[data-no-zoom]')) return;
-      var src = t.currentSrc || t.src;
-      if (!src || src.startsWith('data:image/svg')) return;
+      var full = t.getAttribute('data-full') || t.currentSrc || t.src;
+      if (!full || full.startsWith('data:image/svg')) return;
       var rect = t.getBoundingClientRect();
       if (rect.width && rect.width < 30) return; // 极小图标/头像跳过
       e.preventDefault();
       e.stopPropagation();
-      imgEl.src = src;
+      imgEl.src = window.__imgFull ? window.__imgFull(full) : full;
       overlay.style.display = 'flex';
     };
     document.addEventListener('click', onClick, true); // 捕获阶段,先于组件自身/超链接
@@ -1152,14 +1152,34 @@ var App = function App() {
     var onLBMsg = function onLBMsg(e) {
       var d = e && e.data;
       if (d && d.__lightbox && d.__lightbox.url) {
-        imgEl.src = d.__lightbox.url;
+        imgEl.src = window.__imgFull ? window.__imgFull(d.__lightbox.url) : d.__lightbox.url;
         overlay.style.display = 'flex';
       }
     };
     window.addEventListener('message', onLBMsg);
+    // 🆕 fix268: 代理图(wsrv.nl)偶发失败 → 自动回退原图(全局一处兜底所有 img,防裂图)
+    var onImgErr = function onImgErr(e) {
+      var t = e.target;
+      if (!t || t.tagName !== 'IMG') return;
+      var s = t.src || '';
+      if (s.indexOf('wsrv.nl') < 0 && s.indexOf('weserv.nl') < 0) return;
+      if (t.getAttribute('data-fb') === '1') return; // 已回退,防循环
+      t.setAttribute('data-fb', '1');
+      var full = t.getAttribute('data-full');
+      if (full) {
+        t.src = full;
+        return;
+      }
+      try {
+        var m = s.match(/[?&]url=([^&]+)/);
+        if (m) t.src = decodeURIComponent(m[1]);
+      } catch (_e) {}
+    };
+    document.addEventListener('error', onImgErr, true);
     return function () {
       document.removeEventListener('click', onClick, true);
       window.removeEventListener('message', onLBMsg);
+      document.removeEventListener('error', onImgErr, true);
     };
   }, []);
   var loadCustomSites = useCallback(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
@@ -5348,7 +5368,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix267';
+var APP_VERSION = '2026.06.05-fix268';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
