@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix268
+// 版本 2026.06.05-fix270
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,7 +25,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix268
+// 版本 2026.06.05-fix270
 // 预编译切片
 //
 
@@ -189,6 +189,13 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
       return _ref3.apply(this, arguments);
     };
   }();
+  // 🆕 fix270: 分页
+  var _cbpg = useState(1),
+    cbPage = _cbpg[0],
+    setCbPage = _cbpg[1];
+  var _cbps = useState(50),
+    cbSize = _cbps[0],
+    setCbSize = _cbps[1];
   var filtered = useMemo(function () {
     var l = list;
     if (filterStatus === 'active') l = l.filter(function (c) {
@@ -256,6 +263,21 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
     });
     return l;
   }, [list, filterStatus, search, user.id, timeFilter, timeCustom, dateFilter, filterOwner, cbSortBy, cbSortDir]);
+  // 🆕 fix270: 分页计算 + 复用 EventsPager(08 暴露的全局)
+  var cbTotalPages = Math.max(1, Math.ceil(filtered.length / cbSize));
+  var cbCur = Math.min(cbPage, cbTotalPages);
+  var cbPaged = filtered.slice((cbCur - 1) * cbSize, cbCur * cbSize);
+  var cbPager = window.EventsPager ? /*#__PURE__*/React.createElement(window.EventsPager, {
+    page: cbCur,
+    totalPages: cbTotalPages,
+    total: filtered.length,
+    pageSize: cbSize,
+    onPage: setCbPage,
+    onPageSize: function onPageSize(n) {
+      setCbSize(n);
+      setCbPage(1);
+    }
+  }) : null;
   // 🆕 fix249:重复拒付检测 —— 同一订单号被录入多条(常见于两人同时处理、重复录入)。
   //   按规范化订单号(去 # / 去空格 / 大写)分组,≥2 条即判重。基于已过滤 deleted 的 list,删除后自动解除。
   var dupKeyOf = function dupKeyOf(c) {
@@ -643,14 +665,14 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
       textAlign: 'center',
       color: 'var(--ink-3)'
     }
-  }, "\uD83C\uDF89 \u6682\u65E0\u62D2\u4ED8 ", filterStatus !== 'all' ? '(当前筛选下)' : '') : /*#__PURE__*/React.createElement("div", {
+  }, "\uD83C\uDF89 \u6682\u65E0\u62D2\u4ED8 ", filterStatus !== 'all' ? '(当前筛选下)' : '') : /*#__PURE__*/React.createElement(React.Fragment, null, cbPager, /*#__PURE__*/React.createElement("div", {
     className: cbViewMode === 'grid' ? '' : 'space-y-2',
     style: cbViewMode === 'grid' ? {
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fill,minmax(360px,1fr))',
       gap: 12
     } : undefined
-  }, filtered.map(function (cb) {
+  }, cbPaged.map(function (cb) {
     var _dupGrp = dupByOrder[dupKeyOf(cb)] || [];
     return /*#__PURE__*/React.createElement(ChargebackCard, {
       key: cb.id,
@@ -668,7 +690,7 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
       onReload: load,
       toast: toast
     });
-  })), editing && /*#__PURE__*/React.createElement(ChargebackEditor, {
+  })), cbPager), editing && /*#__PURE__*/React.createElement(ChargebackEditor, {
     cb: editing === 'new' ? null : editing,
     user: user,
     employees: employees,
@@ -3227,6 +3249,13 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       return _ref25.apply(this, arguments);
     };
   }();
+  // 🆕 fix270: 分页
+  var _oopg = useState(1),
+    ooPage = _oopg[0],
+    setOoPage = _oopg[1];
+  var _oops = useState(50),
+    ooSize = _oops[0],
+    setOoSize = _oops[1];
   var filtered = useMemo(function () {
     var l = list;
     if (filterStatus === 'active') l = l.filter(function (o) {
@@ -3290,6 +3319,21 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     });
     return l;
   }, [list, filterStatus, filterSite, search, user.id, timeFilter, timeCustom, dateFilter, filterOwner, ooSortBy, ooSortDir]);
+  // 🆕 fix270: 分页计算 + 复用 EventsPager
+  var ooTotalPages = Math.max(1, Math.ceil(filtered.length / ooSize));
+  var ooCur = Math.min(ooPage, ooTotalPages);
+  var ooPaged = filtered.slice((ooCur - 1) * ooSize, ooCur * ooSize);
+  var ooPager = window.EventsPager ? /*#__PURE__*/React.createElement(window.EventsPager, {
+    page: ooCur,
+    totalPages: ooTotalPages,
+    total: filtered.length,
+    pageSize: ooSize,
+    onPage: setOoPage,
+    onPageSize: function onPageSize(n) {
+      setOoSize(n);
+      setOoPage(1);
+    }
+  }) : null;
   var stats = useMemo(function () {
     var totalAmount = list.filter(function (o) {
       return ['paid', 'dispatched', 'completed'].includes(o.status);
@@ -3632,9 +3676,9 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       textAlign: 'center',
       color: 'var(--ink-3)'
     }
-  }, "\uD83D\uDCCB \u6682\u65E0\u7EBF\u4E0B\u5355") : /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCCB \u6682\u65E0\u7EBF\u4E0B\u5355") : /*#__PURE__*/React.createElement(React.Fragment, null, ooPager, /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
-  }, filtered.map(function (o) {
+  }, ooPaged.map(function (o) {
     return /*#__PURE__*/React.createElement(OfflineOrderCard, {
       key: o.id,
       order: o,
@@ -3649,7 +3693,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       onReload: load,
       toast: toast
     });
-  })), editing && /*#__PURE__*/React.createElement(OfflineOrderEditor, {
+  })), ooPager), editing && /*#__PURE__*/React.createElement(OfflineOrderEditor, {
     order: editing === 'new' ? null : editing,
     user: user,
     employees: employees,

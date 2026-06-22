@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix269
+// 版本 2026.06.05-fix270
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -29,7 +29,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix269
+// 版本 2026.06.05-fix270
 // 预编译切片
 //
 
@@ -2712,6 +2712,11 @@ var EventsPager = function EventsPager(_pgp) {
     }, n + " \u6761/\u9875");
   })), mkBtn("\xAB \u9996\u9875", 1, page <= 1, 'first'), mkBtn("\u2039 \u4E0A\u4E00\u9875", page - 1, page <= 1, 'prev'), mkBtn("\u4E0B\u4E00\u9875 \u203A", page + 1, page >= totalPages, 'next'), mkBtn("\u672B\u9875 \xBB", totalPages, page >= totalPages, 'last'));
 };
+// 🆕 fix270: 暴露为全局,供 06(拒付/离线订单)等其它切片复用
+if (typeof window !== 'undefined') {
+  window.EventsPager = EventsPager;
+  window.EVENTS_PAGE_SIZES = EVENTS_PAGE_SIZES;
+}
 var AftersalesTable = function AftersalesTable(_ref18) {
   var items = _ref18.items,
     employees = _ref18.employees,
