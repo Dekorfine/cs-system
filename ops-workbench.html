@@ -313,6 +313,19 @@ async function delRec(id){
   catch(e){ toast('删除失败:'+(e.message||e),'err'); }
 }
 
+/* 防浏览器自动填充 / 密码保存(iframe 内,父页规则触达不到,这里自带一份) */
+(function(){
+  function suppress(){
+    document.querySelectorAll('input, textarea').forEach(function(el){
+      if(el.getAttribute('autocomplete')!=='new-password') el.setAttribute('autocomplete','new-password');
+      if(!el.hasAttribute('spellcheck')) el.setAttribute('spellcheck','false');
+      if(!el.dataset.lpignore){ el.setAttribute('data-lpignore','true'); el.setAttribute('data-1p-ignore','true'); }
+    });
+  }
+  suppress();
+  try{ new MutationObserver(function(ms){ if(ms.some(function(x){return x.addedNodes.length;})) suppress(); }).observe(document.body,{childList:true,subtree:true}); }catch(_){}
+})();
+
 load();
 setInterval(()=>{ if(!editingId && !timer) load(); }, 120000);
 </script>

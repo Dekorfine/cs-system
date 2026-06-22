@@ -4970,8 +4970,7 @@ var ForcePwdChangeScreen = function ForcePwdChangeScreen(_refFP) {
     onSubmit(pwd1);
   };
   return /*#__PURE__*/React.createElement("div", {
-    className: "login-bg",
-    "data-login-screen": true
+    className: "login-bg"
   }, /*#__PURE__*/React.createElement("div", {
     className: "login-card fade-in",
     style: {
@@ -4992,6 +4991,11 @@ var ForcePwdChangeScreen = function ForcePwdChangeScreen(_refFP) {
     }
   }, "\u8D26\u53F7 ", /*#__PURE__*/React.createElement("b", null, user && user.name || ''), " \u4ECD\u5728\u7528\u9ED8\u8BA4 / \u7B80\u5355\u5BC6\u7801\u3002\u4E3A\u4E86\u5B89\u5168\uFF0C\u8BF7\u5148\u6539\u6210\u542B ", /*#__PURE__*/React.createElement("b", null, "\u5B57\u6BCD + \u6570\u5B57\u3001\u81F3\u5C11 8 \u4F4D"), " \u7684\u65B0\u5BC6\u7801\uFF0C\u624D\u80FD\u8FDB\u5165\u5DE5\u4F5C\u53F0\u3002"), /*#__PURE__*/React.createElement("input", {
     type: "password",
+    autoComplete: "new-password",
+    name: "np_set_1",
+    spellCheck: false,
+    "data-lpignore": "true",
+    "data-1p-ignore": "true",
     value: pwd1,
     autoFocus: true,
     onChange: function onChange(e) {
@@ -5002,6 +5006,11 @@ var ForcePwdChangeScreen = function ForcePwdChangeScreen(_refFP) {
     style: _inputStyle
   }), /*#__PURE__*/React.createElement("input", {
     type: "password",
+    autoComplete: "new-password",
+    name: "np_set_2",
+    spellCheck: false,
+    "data-lpignore": "true",
+    "data-1p-ignore": "true",
     value: pwd2,
     onChange: function onChange(e) {
       setPwd2(e.target.value);
