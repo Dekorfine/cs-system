@@ -1095,6 +1095,39 @@ var HelpSectionPhilosophy = function HelpSectionPhilosophy() {
 // ============================================================
 // 主 App (Shell + 路由)
 // ============================================================
+// 🆕 fix276: 全局错误边界 —— 任何模块崩溃只显示该块"出错了",不再整站白屏。
+// 用 tab prop + componentDidUpdate 在切换标签时复位错误(不用 key,避免 quote/kb 等常驻模块被强制重挂载)。
+function CSErrorBoundary(props) {
+  React.Component.call(this, props);
+  this.state = { hasError: false, err: null };
+}
+CSErrorBoundary.prototype = Object.create(React.Component.prototype);
+CSErrorBoundary.prototype.constructor = CSErrorBoundary;
+CSErrorBoundary.getDerivedStateFromError = function (err) {
+  return { hasError: true, err: err };
+};
+CSErrorBoundary.prototype.componentDidCatch = function (err, info) {
+  try { console.error('[模块崩溃,已被错误边界拦截]', err, info); } catch (e) {}
+};
+CSErrorBoundary.prototype.componentDidUpdate = function (prev) {
+  if (this.state.hasError && prev.tab !== this.props.tab) {
+    this.setState({ hasError: false, err: null });
+  }
+};
+CSErrorBoundary.prototype.render = function () {
+  if (this.state.hasError) {
+    var self = this;
+    return /*#__PURE__*/React.createElement("div", { className: "paper rounded-2xl", style: { padding: 28, margin: 16, textAlign: 'center' } },
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 34, marginBottom: 8 } }, "\u26A0\uFE0F"),
+      /*#__PURE__*/React.createElement("div", { style: { fontWeight: 600, fontSize: 16, marginBottom: 6 } }, "\u8FD9\u4E2A\u6A21\u5757\u51FA\u9519\u4E86"),
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, color: 'var(--ink-3)', marginBottom: 14 } }, "\u5176\u5B83\u529F\u80FD\u4ECD\u53EF\u6B63\u5E38\u4F7F\u7528\u3002\u53EF\u4EE5\u70B9\u4E0B\u9762\u91CD\u8BD5\uFF0C\u6216\u5207\u6362\u5230\u522B\u7684\u6807\u7B7E\u9875\u3002"),
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--ink-4)', marginBottom: 16, fontFamily: 'monospace', wordBreak: 'break-all', maxWidth: 560, margin: '0 auto 16px' } }, String((this.state.err && this.state.err.message) || this.state.err || '')),
+      /*#__PURE__*/React.createElement("button", { onClick: function () { self.setState({ hasError: false, err: null }); }, style: { padding: '8px 18px', border: 'none', borderRadius: 8, background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontFamily: 'inherit', marginRight: 8 } }, "\uD83D\uDD04 \u91CD\u8BD5"),
+      /*#__PURE__*/React.createElement("button", { onClick: function () { try { location.reload(); } catch (e) {} }, style: { padding: '8px 18px', border: '1px solid var(--line)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' } }, "\u5237\u65B0\u9875\u9762"));
+  }
+  return this.props.children;
+};
+
 var App = function App() {
   // 🆕 fix22: 联动 1+3 — 全局加载产品主表 + 自定义网站,Context 注入到所有模块
   var _useState3 = useState([]),
@@ -5183,7 +5216,7 @@ var App = function App() {
     onJumpTo: function onJumpTo(cb) {
       return goFocus('chargebacks', cb && cb.id);
     }
-  }), activeTab === 'cs' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(CSModule, {
+  }), /*#__PURE__*/React.createElement(CSErrorBoundary, { tab: activeTab }, activeTab === 'cs' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(CSModule, {
     user: user,
     employees: employees,
     records: records,
@@ -5339,7 +5372,7 @@ var App = function App() {
         return v + 1;
       });
     }
-  })))), /*#__PURE__*/React.createElement("footer", {
+  }))))), /*#__PURE__*/React.createElement("footer", {
     style: {
       textAlign: 'center',
       padding: '40px 20px',
@@ -5368,7 +5401,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix275';
+var APP_VERSION = '2026.06.05-fix276';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
