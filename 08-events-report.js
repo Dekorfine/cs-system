@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix268
+// 版本 2026.06.05-fix269
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -29,7 +29,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix268
+// 版本 2026.06.05-fix269
 // 预编译切片
 //
 
@@ -238,6 +238,19 @@ var EventsModule = function EventsModule(_ref) {
     _useState34 = _slicedToArray(_useState33, 2),
     search = _useState34[0],
     setSearch = _useState34[1];
+  // 🆕 fix269: 日期快筛(今天/昨天/本周/本月/本季度/本年/全部/自定义),容器层 → 售后/补件/退款三 tab 共享
+  var _useStateDP = useState('month'),
+    _useStateDP2 = _slicedToArray(_useStateDP, 2),
+    datePreset = _useStateDP2[0],
+    setDatePreset = _useStateDP2[1];
+  var _useStateCS = useState(''),
+    _useStateCS2 = _slicedToArray(_useStateCS, 2),
+    customStart = _useStateCS2[0],
+    setCustomStart = _useStateCS2[1];
+  var _useStateCE = useState(''),
+    _useStateCE2 = _slicedToArray(_useStateCE, 2),
+    customEnd = _useStateCE2[0],
+    setCustomEnd = _useStateCE2[1];
 
   // 月份范围
   var monthRange = useMemo(function () {
@@ -257,12 +270,72 @@ var EventsModule = function EventsModule(_ref) {
       end: end
     };
   }, [filterMonth]);
+  // 🆕 fix269: 实际生效的日期范围(由快筛预设决定;'month' 沿用月份选择器)
+  var dateRange = useMemo(function () {
+    var now = new Date();
+    var pad = function pad(n) {
+      return String(n).padStart(2, '0');
+    };
+    var ymd = function ymd(d) {
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    };
+    if (datePreset === 'all') return {
+      start: null,
+      end: null
+    };
+    if (datePreset === 'today') {
+      var t = ymd(now);
+      return {
+        start: t,
+        end: t
+      };
+    }
+    if (datePreset === 'yesterday') {
+      var y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      var s = ymd(y);
+      return {
+        start: s,
+        end: s
+      };
+    }
+    if (datePreset === 'week') {
+      var w = new Date(now);
+      var dow = (w.getDay() + 6) % 7;
+      w.setDate(w.getDate() - dow);
+      return {
+        start: ymd(w),
+        end: ymd(now)
+      };
+    }
+    if (datePreset === 'quarter') {
+      var q = Math.floor(now.getMonth() / 3);
+      return {
+        start: ymd(new Date(now.getFullYear(), q * 3, 1)),
+        end: ymd(new Date(now.getFullYear(), q * 3 + 3, 0))
+      };
+    }
+    if (datePreset === 'year') {
+      return {
+        start: now.getFullYear() + '-01-01',
+        end: now.getFullYear() + '-12-31'
+      };
+    }
+    if (datePreset === 'custom') {
+      return {
+        start: customStart || null,
+        end: customEnd || null
+      };
+    }
+    return monthRange; // 'month' → 沿用月份选择器
+  }, [datePreset, customStart, customEnd, monthRange]);
 
   // 过滤函数（共用）
-  var inMonth = function inMonth(e) {
-    if (!monthRange.start) return true;
+  var inRange = function inRange(e) {
     var created = (e.created_at || '').slice(0, 10);
-    return created >= monthRange.start && created <= monthRange.end;
+    if (dateRange.start && created < dateRange.start) return false;
+    if (dateRange.end && created > dateRange.end) return false;
+    return true;
   };
   var matchSupplier = function matchSupplier(e) {
     return !filterSupplier || e.supplier_id === parseInt(filterSupplier);
@@ -277,9 +350,9 @@ var EventsModule = function EventsModule(_ref) {
   };
   var filteredAftersales = useMemo(function () {
     return aftersales.filter(function (e) {
-      return inMonth(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus) && (filterIssue === 'all' || e.issue_type === filterIssue);
+      return inRange(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus) && (filterIssue === 'all' || e.issue_type === filterIssue);
     });
-  }, [aftersales, filterMonth, filterSupplier, filterStatus, filterIssue, filterOwner, search]);
+  }, [aftersales, dateRange, filterSupplier, filterStatus, filterIssue, filterOwner, search]);
 
   // 🆕 fix197(方案A):把「需要补件」的售后记录,映射成补件行,合并进补件追踪 —— 不用另建补件单
   var asRefillRows = useMemo(function () {
@@ -299,22 +372,22 @@ var EventsModule = function EventsModule(_ref) {
   }, [aftersales]);
   var filteredRefills = useMemo(function () {
     var pass = function pass(e) {
-      return inMonth(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus);
+      return inRange(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus);
     };
     return [].concat(_toConsumableArray(refills.filter(pass)), _toConsumableArray(asRefillRows.filter(pass))).sort(function (a, b) {
       return (b.created_at || '').localeCompare(a.created_at || '');
     });
-  }, [refills, asRefillRows, filterMonth, filterSupplier, filterStatus, filterOwner, search]);
+  }, [refills, asRefillRows, dateRange, filterSupplier, filterStatus, filterOwner, search]);
   var filteredRefunds = useMemo(function () {
     return refunds.filter(function (e) {
-      return inMonth(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus) && (filterRefundType === 'all' || e.refund_type === filterRefundType) && (showArchivedRefunds ? !!e.archived : !e.archived);
+      return inRange(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus) && (filterRefundType === 'all' || e.refund_type === filterRefundType) && (showArchivedRefunds ? !!e.archived : !e.archived);
     });
-  }, [refunds, filterMonth, filterSupplier, filterStatus, filterRefundType, filterOwner, search, showArchivedRefunds]);
+  }, [refunds, dateRange, filterSupplier, filterStatus, filterRefundType, filterOwner, search, showArchivedRefunds]);
 
   // 月度统计
   var monthlyStats = useMemo(function () {
     // 售后
-    var asInMonth = aftersales.filter(inMonth);
+    var asInMonth = aftersales.filter(inRange);
     var asBySupplier = {};
     var asByIssue = {};
     asInMonth.forEach(function (e) {
@@ -328,7 +401,7 @@ var EventsModule = function EventsModule(_ref) {
     });
 
     // 退款（已完成的算金额）
-    var rdInMonth = refunds.filter(inMonth);
+    var rdInMonth = refunds.filter(inRange);
     var rdCompleted = rdInMonth.filter(function (r) {
       return r.status === 'completed' || r.status === 'approved';
     });
@@ -348,7 +421,7 @@ var EventsModule = function EventsModule(_ref) {
     });
 
     // 补件
-    var rfInMonth = refills.filter(inMonth);
+    var rfInMonth = refills.filter(inRange);
     return {
       aftersales: {
         total: asInMonth.length,
@@ -373,7 +446,7 @@ var EventsModule = function EventsModule(_ref) {
         }, {})
       }
     };
-  }, [aftersales, refunds, refills, monthRange]);
+  }, [aftersales, refunds, refills, dateRange]);
 
   // 售后状态更新
   var updateAftersaleStatus = /*#__PURE__*/function () {
@@ -782,7 +855,26 @@ var EventsModule = function EventsModule(_ref) {
       gap: 8,
       alignItems: 'center'
     }
-  }, /*#__PURE__*/React.createElement("input", {
+  }, /*#__PURE__*/React.createElement(React.Fragment, null, [['today', '\u4ECA\u5929'], ['yesterday', '\u6628\u5929'], ['week', '\u672C\u5468'], ['month', '\u672C\u6708'], ['quarter', '\u672C\u5B63\u5EA6'], ['year', '\u672C\u5E74'], ['all', '\u5168\u90E8'], ['custom', '\u81EA\u5B9A\u4E49']].map(function (dp) {
+    var on = datePreset === dp[0];
+    return /*#__PURE__*/React.createElement("button", {
+      key: dp[0],
+      onClick: function onClick() {
+        return setDatePreset(dp[0]);
+      },
+      style: {
+        padding: '5px 10px',
+        fontSize: 12,
+        border: '1px solid ' + (on ? 'var(--accent)' : 'var(--line)'),
+        background: on ? 'var(--accent)' : '#fff',
+        color: on ? '#fff' : 'var(--ink-2)',
+        borderRadius: 6,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        fontWeight: on ? 600 : 400
+      }
+    }, dp[1]);
+  }), datePreset === 'month' && /*#__PURE__*/React.createElement("input", {
     type: "month",
     value: filterMonth,
     onChange: function onChange(e) {
@@ -794,7 +886,36 @@ var EventsModule = function EventsModule(_ref) {
       borderRadius: 6,
       fontSize: 12
     }
-  }), /*#__PURE__*/React.createElement(SearchableSupplierSelect, {
+  }), datePreset === 'custom' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: customStart,
+    onChange: function onChange(e) {
+      return setCustomStart(e.target.value);
+    },
+    style: {
+      padding: '5px 10px',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontSize: 12
+    }
+  }), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-3)'
+    }
+  }, "\u81F3"), /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: customEnd,
+    onChange: function onChange(e) {
+      return setCustomEnd(e.target.value);
+    },
+    style: {
+      padding: '5px 10px',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontSize: 12
+    }
+  }))), /*#__PURE__*/React.createElement(SearchableSupplierSelect, {
     value: filterSupplier,
     onChange: setFilterSupplier,
     suppliers: suppliers,
@@ -1346,7 +1467,7 @@ var OrderProductThumb = function OrderProductThumb(_ref10) {
       color: 'var(--ink-4)'
     }
   }, "\u62C9\u53D6\u4E2D\u2026") : show ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("img", {
-    src: window.__imgThumb ? window.__imgThumb(show.image_url, 80, 55) : show.image_url,
+    src: window.__imgThumb ? window.__imgThumb(show.image_url, 128, 58) : show.image_url,
     "data-full": show.image_url,
     alt: "",
     title: show.title || '',
@@ -1354,8 +1475,8 @@ var OrderProductThumb = function OrderProductThumb(_ref10) {
       return onPreview && onPreview(show.image_url);
     },
     style: {
-      width: 40,
-      height: 40,
+      width: 64,
+      height: 64,
       objectFit: 'cover',
       borderRadius: 5,
       border: '1px solid ' + (show.manual ? '#86efac' : '#c7d2fe'),
@@ -2528,6 +2649,69 @@ var AseToOrdersModal = function AseToOrdersModal(_ref12) {
     }
   })));
 };
+// 🆕 fix269: 复用分页组件(售后/补件/退款三表共用)。顶部+底部各放一个,首页/上一页/下一页/末页 + 每页条数。
+var EVENTS_PAGE_SIZES = [20, 50, 100, 200];
+var EventsPager = function EventsPager(_pgp) {
+  var page = _pgp.page,
+    totalPages = _pgp.totalPages,
+    total = _pgp.total,
+    pageSize = _pgp.pageSize,
+    onPage = _pgp.onPage,
+    onPageSize = _pgp.onPageSize;
+  if (!total) return null;
+  var mkBtn = function mkBtn(label, target, disabled, key) {
+    return /*#__PURE__*/React.createElement("button", {
+      key: key,
+      onClick: function onClick() {
+        if (!disabled) onPage(target);
+      },
+      disabled: disabled,
+      style: {
+        padding: '4px 10px',
+        fontSize: 12,
+        border: '1px solid var(--line)',
+        borderRadius: 6,
+        background: disabled ? '#f5f5f4' : '#fff',
+        color: disabled ? '#bbb' : 'var(--ink-1)',
+        cursor: disabled ? 'default' : 'pointer',
+        fontFamily: 'inherit'
+      }
+    }, label);
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
+      padding: '8px 4px',
+      justifyContent: 'flex-end'
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12,
+      color: 'var(--ink-3)',
+      marginRight: 'auto'
+    }
+  }, "\u5171 " + total + " \u6761 \xB7 \u7B2C " + page + "/" + totalPages + " \u9875"), /*#__PURE__*/React.createElement("select", {
+    value: pageSize,
+    onChange: function onChange(e) {
+      return onPageSize(parseInt(e.target.value, 10));
+    },
+    style: {
+      padding: '4px 8px',
+      fontSize: 12,
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontFamily: 'inherit'
+    }
+  }, EVENTS_PAGE_SIZES.map(function (n) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: n,
+      value: n
+    }, n + " \u6761/\u9875");
+  })), mkBtn("\xAB \u9996\u9875", 1, page <= 1, 'first'), mkBtn("\u2039 \u4E0A\u4E00\u9875", page - 1, page <= 1, 'prev'), mkBtn("\u4E0B\u4E00\u9875 \u203A", page + 1, page >= totalPages, 'next'), mkBtn("\u672B\u9875 \xBB", totalPages, page >= totalPages, 'last'));
+};
 var AftersalesTable = function AftersalesTable(_ref18) {
   var items = _ref18.items,
     employees = _ref18.employees,
@@ -2549,6 +2733,27 @@ var AftersalesTable = function AftersalesTable(_ref18) {
     _useState62 = _slicedToArray(_useState61, 2),
     aseToOrders = _useState62[0],
     setAseToOrders = _useState62[1];
+  // 🆕 fix269: 分页
+  var _aspg = useState(1),
+    asPage = _aspg[0],
+    setAsPage = _aspg[1];
+  var _asps = useState(50),
+    asSize = _asps[0],
+    setAsSize = _asps[1];
+  var asTotalPages = Math.max(1, Math.ceil(items.length / asSize));
+  var asCur = Math.min(asPage, asTotalPages);
+  var pagedAs = items.slice((asCur - 1) * asSize, asCur * asSize);
+  var asPager = /*#__PURE__*/React.createElement(EventsPager, {
+    page: asCur,
+    totalPages: asTotalPages,
+    total: items.length,
+    pageSize: asSize,
+    onPage: setAsPage,
+    onPageSize: function onPageSize(n) {
+      setAsSize(n);
+      setAsPage(1);
+    }
+  });
   if (items.length === 0) return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-12 fade-in",
     style: {
@@ -2557,7 +2762,7 @@ var AftersalesTable = function AftersalesTable(_ref18) {
       fontSize: 13
     }
   }, "\uD83C\uDF89 \u6682\u65E0\u7B26\u5408\u6761\u4EF6\u7684\u552E\u540E\u8BB0\u5F55");
-  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(React.Fragment, null, asPager, /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl overflow-hidden fade-in"
   }, /*#__PURE__*/React.createElement("div", {
     className: "overflow-x-auto"
@@ -2605,7 +2810,7 @@ var AftersalesTable = function AftersalesTable(_ref18) {
     style: {
       width: '80px'
     }
-  }, "\u64CD\u4F5C"))), /*#__PURE__*/React.createElement("tbody", null, items.map(function (e, idx) {
+  }, "\u64CD\u4F5C"))), /*#__PURE__*/React.createElement("tbody", null, pagedAs.map(function (e, idx) {
     var issue = ISSUE_TYPES.find(function (i) {
       return i.key === e.issue_type;
     });
@@ -2620,7 +2825,7 @@ var AftersalesTable = function AftersalesTable(_ref18) {
     var returnDate = e.return_date ? "".concat(e.return_date.slice(5).replace('-', '.'), "\u5DF2\u56DE") : '';
     return /*#__PURE__*/React.createElement("tr", {
       key: e.id
-    }, /*#__PURE__*/React.createElement("td", null, idx + 1), /*#__PURE__*/React.createElement("td", {
+    }, /*#__PURE__*/React.createElement("td", null, (asCur - 1) * asSize + idx + 1), /*#__PURE__*/React.createElement("td", {
       style: {
         fontSize: 12
       }
@@ -2693,12 +2898,12 @@ var AftersalesTable = function AftersalesTable(_ref18) {
           gap: 4
         }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
-        src: window.__imgThumb ? window.__imgThumb(u0, 80, 52) : u0,
+        src: window.__imgThumb ? window.__imgThumb(u0, 128, 55) : u0,
         "data-full": u0,
         alt: "",
         style: {
-          width: 40,
-          height: 40,
+          width: 64,
+          height: 64,
           objectFit: 'cover',
           borderRadius: 5,
           border: '1px solid var(--line)',
@@ -2823,7 +3028,7 @@ var AftersalesTable = function AftersalesTable(_ref18) {
       },
       title: "\u5220\u9664"
     }, "\uD83D\uDDD1"))));
-  }))))), openImageId && /*#__PURE__*/React.createElement(ImageGalleryModal, {
+  }))))), asPager, openImageId && /*#__PURE__*/React.createElement(ImageGalleryModal, {
     event: items.find(function (e) {
       return e.id === openImageId;
     }),
@@ -2890,6 +3095,27 @@ var RefillsTable = function RefillsTable(_ref20) {
     _useState66 = _slicedToArray(_useState65, 2),
     prodPreview = _useState66[0],
     setProdPreview = _useState66[1];
+  // 🆕 fix269: 分页
+  var _rfpg = useState(1),
+    rfPage = _rfpg[0],
+    setRfPage = _rfpg[1];
+  var _rfps = useState(50),
+    rfSize = _rfps[0],
+    setRfSize = _rfps[1];
+  var rfTotalPages = Math.max(1, Math.ceil(items.length / rfSize));
+  var rfCur = Math.min(rfPage, rfTotalPages);
+  var pagedRf = items.slice((rfCur - 1) * rfSize, rfCur * rfSize);
+  var rfPager = /*#__PURE__*/React.createElement(EventsPager, {
+    page: rfCur,
+    totalPages: rfTotalPages,
+    total: items.length,
+    pageSize: rfSize,
+    onPage: setRfPage,
+    onPageSize: function onPageSize(n) {
+      setRfSize(n);
+      setRfPage(1);
+    }
+  });
   if (items.length === 0) return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl p-12 fade-in",
     style: {
@@ -2898,7 +3124,7 @@ var RefillsTable = function RefillsTable(_ref20) {
       fontSize: 13
     }
   }, "\uD83D\uDCE6 \u6682\u65E0\u7B26\u5408\u6761\u4EF6\u7684\u8865\u4EF6\u8BB0\u5F55");
-  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  return /*#__PURE__*/React.createElement(React.Fragment, null, rfPager, /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl overflow-hidden fade-in"
   }, /*#__PURE__*/React.createElement("div", {
     className: "overflow-x-auto"
@@ -2950,7 +3176,7 @@ var RefillsTable = function RefillsTable(_ref20) {
     style: {
       width: '80px'
     }
-  }, "\u64CD\u4F5C"))), /*#__PURE__*/React.createElement("tbody", null, items.map(function (e, idx) {
+  }, "\u64CD\u4F5C"))), /*#__PURE__*/React.createElement("tbody", null, pagedRf.map(function (e, idx) {
     var status = REFILL_STATUSES.find(function (s) {
       return s.key === e.status;
     });
@@ -2963,7 +3189,7 @@ var RefillsTable = function RefillsTable(_ref20) {
     }).join('，');
     return /*#__PURE__*/React.createElement("tr", {
       key: e.id
-    }, /*#__PURE__*/React.createElement("td", null, idx + 1), /*#__PURE__*/React.createElement("td", {
+    }, /*#__PURE__*/React.createElement("td", null, (rfCur - 1) * rfSize + idx + 1), /*#__PURE__*/React.createElement("td", {
       style: {
         fontSize: 12
       }
@@ -2996,12 +3222,12 @@ var RefillsTable = function RefillsTable(_ref20) {
           gap: 4
         }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
-        src: window.__imgThumb ? window.__imgThumb(u0, 80, 52) : u0,
+        src: window.__imgThumb ? window.__imgThumb(u0, 128, 55) : u0,
         "data-full": u0,
         alt: "",
         style: {
-          width: 40,
-          height: 40,
+          width: 64,
+          height: 64,
           objectFit: 'cover',
           borderRadius: 5,
           border: '1px solid var(--line)',
@@ -3124,7 +3350,7 @@ var RefillsTable = function RefillsTable(_ref20) {
         color: 'var(--bad)'
       }
     }, "\uD83D\uDDD1"))));
-  }))))), openImageId && /*#__PURE__*/React.createElement(ImageGalleryModal, {
+  }))))), rfPager, openImageId && /*#__PURE__*/React.createElement(ImageGalleryModal, {
     event: items.find(function (e) {
       return e.id === openImageId;
     }),
@@ -3150,6 +3376,12 @@ var RefundsTable = function RefundsTable(_ref22) {
     onArchive = _ref22.onArchive,
     showArchived = _ref22.showArchived,
     onToggleArchived = _ref22.onToggleArchived;
+  var _rdpg = useState(1),
+    rdPage = _rdpg[0],
+    setRdPage = _rdpg[1];
+  var _rdps = useState(50),
+    rdSize = _rdps[0],
+    setRdSize = _rdps[1];
   var _useState67 = useState(null),
     _useState68 = _slicedToArray(_useState67, 2),
     openImageId = _useState68[0],
@@ -3180,6 +3412,21 @@ var RefundsTable = function RefundsTable(_ref22) {
       totalCompleted: totalCompleted
     };
   }, [items]);
+  // 🆕 fix269: 分页(默认50)
+  var rdTotalPages = Math.max(1, Math.ceil(items.length / rdSize));
+  var rdCur = Math.min(rdPage, rdTotalPages);
+  var pagedItems = items.slice((rdCur - 1) * rdSize, rdCur * rdSize);
+  var rdPager = /*#__PURE__*/React.createElement(EventsPager, {
+    page: rdCur,
+    totalPages: rdTotalPages,
+    total: items.length,
+    pageSize: rdSize,
+    onPage: setRdPage,
+    onPageSize: function onPageSize(n) {
+      setRdSize(n);
+      setRdPage(1);
+    }
+  });
 
   // 🆕 fix180: 存档开关(默认看未存档;切到"已存档"看归档的)
   var archiveToggle = onToggleArchived ? /*#__PURE__*/React.createElement("div", {
@@ -3295,7 +3542,7 @@ var RefundsTable = function RefundsTable(_ref22) {
       fontWeight: 700,
       color: '#991b1b'
     }
-  }, summary.byStatus.rejected || 0))), /*#__PURE__*/React.createElement("div", {
+  }, summary.byStatus.rejected || 0))), rdPager, /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl overflow-hidden fade-in"
   }, /*#__PURE__*/React.createElement("div", {
     className: "overflow-x-auto"
@@ -3347,7 +3594,7 @@ var RefundsTable = function RefundsTable(_ref22) {
     style: {
       width: '110px'
     }
-  }, "\u64CD\u4F5C"))), /*#__PURE__*/React.createElement("tbody", null, items.map(function (r, idx) {
+  }, "\u64CD\u4F5C"))), /*#__PURE__*/React.createElement("tbody", null, pagedItems.map(function (r, idx) {
     var type = REFUND_TYPES.find(function (t) {
       return t.key === r.refund_type;
     });
@@ -3363,7 +3610,7 @@ var RefundsTable = function RefundsTable(_ref22) {
     var dispDate = (r.created_at || '').slice(5, 10).replace('-', '.');
     return /*#__PURE__*/React.createElement("tr", {
       key: r.id
-    }, /*#__PURE__*/React.createElement("td", null, idx + 1), /*#__PURE__*/React.createElement("td", {
+    }, /*#__PURE__*/React.createElement("td", null, (rdCur - 1) * rdSize + idx + 1), /*#__PURE__*/React.createElement("td", {
       style: {
         fontSize: 12
       }
@@ -3432,12 +3679,12 @@ var RefundsTable = function RefundsTable(_ref22) {
           gap: 4
         }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
-        src: window.__imgThumb ? window.__imgThumb(u0, 80, 52) : u0,
+        src: window.__imgThumb ? window.__imgThumb(u0, 128, 55) : u0,
         "data-full": u0,
         alt: "",
         style: {
-          width: 40,
-          height: 40,
+          width: 64,
+          height: 64,
           objectFit: 'cover',
           borderRadius: 5,
           border: '1px solid var(--line)',
@@ -3530,7 +3777,7 @@ var RefundsTable = function RefundsTable(_ref22) {
         color: 'var(--bad)'
       }
     }, "\uD83D\uDDD1"))));
-  }))))), openImageId && /*#__PURE__*/React.createElement(ImageGalleryModal, {
+  }))))), rdPager, openImageId && /*#__PURE__*/React.createElement(ImageGalleryModal, {
     event: items.find(function (e) {
       return e.id === openImageId;
     }),
@@ -6786,6 +7033,126 @@ var ExportPanel = function ExportPanel(_ref47) {
     };
   }();
 
+  // 🆕 fix269: Excel 含图分析导出(ExcelJS)。汇总分析(原因/产品/供应商排行)+ 明细(嵌缩略图)。
+  function exportExcelImages() {
+    if (exporting) return;
+    setExporting(true);
+    var loadLib = window.ExcelJS ? Promise.resolve() : new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error('ExcelJS 加载失败,请检查网络')); };
+      document.head.appendChild(s);
+    });
+    // 取首图 → {base64, extension} 供 ExcelJS 嵌入;走 wsrv 压成小 jpg,base64 直接用
+    var fetchImg = function fetchImg(att) {
+      var full = window.imgDisplaySrc ? window.imgDisplaySrc(att) : att && att.url;
+      if (!full) return Promise.resolve(null);
+      if (full.indexOf('data:') === 0) {
+        return Promise.resolve({ base64: full, extension: full.indexOf('image/png') >= 0 ? 'png' : 'jpeg' });
+      }
+      var proxied = window.__imgProxy ? window.__imgProxy(full, { w: 160, q: 62, output: 'jpg', fit: 'cover' }) : full;
+      return fetch(proxied).then(function (r) { return r.ok ? r.blob() : null; }).then(function (blob) {
+        if (!blob) return null;
+        return new Promise(function (res) {
+          var fr = new FileReader();
+          fr.onload = function () { res({ base64: fr.result, extension: 'jpeg' }); };
+          fr.onerror = function () { res(null); };
+          fr.readAsDataURL(blob);
+        });
+      }).catch(function () { return null; });
+    };
+    var ds = exportType === 'aftersales' ? { kind: 'as', rows: aftersales, label: '售后' } : exportType === 'refills' ? { kind: 'rf', rows: refills, label: '补件' } : { kind: 'rd', rows: refunds, label: '退款' };
+    var rows = ds.rows || [];
+    var lbl = function lbl(arr, val) { var f = (arr || []).find(function (x) { return x.key === val; }); return f ? f.label : val || '(未填)'; };
+    var wb;
+    loadLib.then(function () {
+      wb = new window.ExcelJS.Workbook();
+      // ===== Sheet1 汇总分析 =====
+      var sum = wb.addWorksheet('汇总分析');
+      sum.columns = [{ width: 30 }, { width: 10 }, { width: 16 }];
+      var rankBy = function rankBy(getKey) {
+        var m = {};
+        rows.forEach(function (r) {
+          var k = getKey(r) || '(未填)';
+          if (!m[k]) m[k] = { n: 0, amt: 0 };
+          m[k].n++;
+          m[k].amt += parseFloat(r.amount || 0) || 0;
+        });
+        return Object.keys(m).map(function (k) { return { k: k, n: m[k].n, amt: m[k].amt }; }).sort(function (a, b) { return b.n - a.n; });
+      };
+      var reasonRank = ds.kind === 'rd' ? rankBy(function (r) { return lbl(REFUND_TYPES, r.refund_type); }) : ds.kind === 'as' ? rankBy(function (r) { return lbl(ISSUE_TYPES, r.issue_type); }) : rankBy(function (r) { return r.status; });
+      var productRank = rankBy(function (r) { return r.product_name; });
+      var supplierRank = rankBy(function (r) { return r.supplier_name; });
+      var withAmt = ds.kind === 'rd';
+      var titleRow = sum.addRow([ds.label + '分析 · ' + (filterMonth || '全部时段') + ' · 共 ' + rows.length + ' 条']);
+      titleRow.font = { bold: true, size: 15 };
+      sum.addRow([]);
+      var addRankBlock = function addRankBlock(title, data) {
+        var hr = sum.addRow([title]);
+        hr.font = { bold: true, size: 13 };
+        var head = sum.addRow(['项目', '笔数', withAmt ? '金额合计' : '']);
+        head.font = { bold: true };
+        head.eachCell(function (c) { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; });
+        data.forEach(function (d) { sum.addRow([d.k, d.n, withAmt ? Number(d.amt.toFixed(2)) : '']); });
+        sum.addRow([]);
+      };
+      addRankBlock(ds.kind === 'rd' ? '按退款原因(笔数排序)' : ds.kind === 'as' ? '按问题类型(笔数排序)' : '按状态', reasonRank);
+      addRankBlock('按产品(退款最多排序)', productRank);
+      addRankBlock('按供应商', supplierRank);
+      // ===== Sheet2 明细(含图)=====
+      var det = wb.addWorksheet('明细');
+      var cols = ds.kind === 'rd' ? [['日期', 14], ['订单号', 16], ['客户', 16], ['产品', 24], ['退款原因', 14], ['原因说明', 30], ['金额', 10], ['货币', 8], ['状态', 12], ['供应商', 16], ['录入人', 12], ['图片', 16]] : ds.kind === 'as' ? [['日期', 14], ['订单号', 16], ['客户', 16], ['产品', 24], ['问题类型', 14], ['详细描述', 30], ['损坏部位', 14], ['状态', 12], ['供应商', 16], ['录入人', 12], ['图片', 16]] : [['日期', 14], ['订单号', 16], ['客户', 16], ['补件清单', 30], ['供应商', 16], ['预计发货', 14], ['实际发货', 14], ['状态', 12], ['录入人', 12], ['图片', 16]];
+      det.columns = cols.map(function (c) { return { header: c[0], width: c[1] }; });
+      var hRow = det.getRow(1);
+      hRow.font = { bold: true };
+      hRow.eachCell(function (c) { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; });
+      var imgCol0 = cols.length - 1; // 0-based 图片列
+      var tasks = [];
+      var cap = 600; // 嵌图上限,防超大集合卡死
+      rows.forEach(function (r, ri) {
+        var vals;
+        if (ds.kind === 'rd') vals = [(r.created_at || '').slice(0, 10), r.order_ref || '', r.customer || '', r.product_name || '', lbl(REFUND_TYPES, r.refund_type), r.refund_reason || '', Number(parseFloat(r.amount || 0).toFixed(2)), r.currency || '', lbl(REFUND_STATUSES, r.status), r.supplier_name || '', r.created_by_name || '', ''];else if (ds.kind === 'as') vals = [(r.created_at || '').slice(0, 10), r.order_ref || '', r.customer || '', r.product_name || '', lbl(ISSUE_TYPES, r.issue_type), r.issue_detail || '', r.damaged_part || '', lbl(AFTERSALE_STATUSES, r.status), r.supplier_name || '', r.created_by_name || '', ''];else vals = [(r.created_at || '').slice(0, 10), r.order_ref || '', r.customer || '', (r.items || []).map(function (it) { return (it.item || '?') + '×' + (it.qty || 1); }).join('，'), r.supplier_name || '', r.expected_ship_date || '', r.actual_ship_date || '', lbl(REFILL_STATUSES, r.status), r.created_by_name || '', ''];
+        var row = det.addRow(vals);
+        row.alignment = { vertical: 'middle', wrapText: true };
+        if (includeImages && ri < cap) {
+          var att = (r.attachments || [])[0];
+          if (att) {
+            row.height = 60;
+            (function (rowNum) {
+              tasks.push(fetchImg(att).then(function (img) {
+                if (!img) return;
+                try {
+                  var id = wb.addImage({ base64: img.base64, extension: img.extension });
+                  det.addImage(id, { tl: { col: imgCol0 + 0.15, row: rowNum - 1 + 0.1 }, ext: { width: 76, height: 76 } });
+                } catch (e) {}
+              }));
+            })(row.number);
+          }
+        }
+      });
+      return Promise.all(tasks);
+    }).then(function () {
+      return wb.xlsx.writeBuffer();
+    }).then(function (buf) {
+      var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = ds.label + '分析_' + (filterMonth || '全部') + '_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+      toast('✓ Excel(含图+排行)已下载');
+      setExporting(false);
+      setTimeout(onClose, 600);
+    }).catch(function (e) {
+      toast('导出失败:' + (e && e.message || e));
+      setExporting(false);
+    });
+  }
+
+
   // PDF 导出 (含图片) - 用 window.print + HTML 模板
   var exportPDF = function exportPDF() {
     setExporting(true);
@@ -7012,7 +7379,7 @@ var ExportPanel = function ExportPanel(_ref47) {
       marginTop: 2,
       fontWeight: 400
     }
-  }, "\u542B\u56FE\u7247\u94FE\u63A5")), /*#__PURE__*/React.createElement("button", {
+  }, "\u542B\u56FE\u5206\u6790+\u6392\u884C")), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setFormat('pdf');
     },
@@ -7035,7 +7402,7 @@ var ExportPanel = function ExportPanel(_ref47) {
       marginTop: 2,
       fontWeight: 400
     }
-  }, "\u5D4C\u5165\u56FE\u7247")))), format === 'pdf' && /*#__PURE__*/React.createElement("label", {
+  }, "\u5D4C\u5165\u56FE\u7247")))), (format === 'pdf' || format === 'excel') && /*#__PURE__*/React.createElement("label", {
     style: {
       display: 'flex',
       alignItems: 'center',
@@ -7072,7 +7439,7 @@ var ExportPanel = function ExportPanel(_ref47) {
       padding: '8px 16px'
     }
   }, "\u53D6\u6D88"), /*#__PURE__*/React.createElement("button", {
-    onClick: format === 'excel' ? exportExcel : exportPDF,
+    onClick: format === 'excel' ? includeImages ? exportExcelImages : exportExcel : exportPDF,
     disabled: exporting,
     style: {
       padding: '8px 20px',
