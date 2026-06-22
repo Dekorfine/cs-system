@@ -22,19 +22,21 @@
   .card h2{font-size:13px;color:var(--sec);margin-bottom:10px;font-weight:600;}
 
   /* 录入表单 */
-  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:13px 14px;align-items:end;}
   label.fl{display:block;font-size:11px;color:var(--sec);margin-bottom:3px;font-weight:600;}
   input,select,textarea{width:100%;padding:7px 10px;font:inherit;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);}
   textarea{resize:vertical;min-height:38px;}
-  .timer-row{display:flex;gap:6px;align-items:center;}
-  .timer-row input{flex:1;}
-  .tbtn{padding:7px 10px;font-size:12px;border:none;border-radius:8px;cursor:pointer;color:#fff;white-space:nowrap;}
+  .timer-row{display:flex;gap:5px;align-items:center;}
+  .timer-row input[type=time]{flex:1 1 64px;min-width:64px;}
+  .tbtn{padding:7px 9px;font-size:13px;border:none;border-radius:8px;cursor:pointer;color:#fff;white-space:nowrap;flex:none;line-height:1;}
   .tbtn.start{background:var(--ok);} .tbtn.stop{background:var(--danger);}
-  .comp-seg{display:flex;gap:6px;}
-  .comp-seg button{flex:1;padding:7px 0;font-size:12px;border:1.5px solid var(--border);border-radius:8px;background:var(--card);color:var(--sec);cursor:pointer;font-family:inherit;}
-  .comp-seg button.sel[data-c=done]{background:var(--ok);border-color:var(--ok);color:#fff;}
-  .comp-seg button.sel[data-c=doing]{background:var(--doing);border-color:var(--doing);color:#fff;}
-  .comp-seg button.sel[data-c=undone]{background:var(--danger);border-color:var(--danger);color:#fff;}
+  /* 大厂风格统一分段控件:单容器、等分、无间隙、不溢出 */
+  .comp-seg{display:flex;width:100%;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--card);}
+  .comp-seg button{flex:1;padding:8px 2px;font-size:12px;border:none;border-right:1px solid var(--border);background:transparent;color:var(--sec);cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .12s,color .12s;}
+  .comp-seg button:last-child{border-right:none;}
+  .comp-seg button.sel[data-c=done]{background:var(--ok);color:#fff;}
+  .comp-seg button.sel[data-c=doing]{background:var(--doing);color:#fff;}
+  .comp-seg button.sel[data-c=undone]{background:var(--danger);color:#fff;}
   .form-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;}
 
   /* 筛选 */
@@ -86,10 +88,10 @@
       <div><label class="fl">店铺(打单填,如 VK/DC/DF)</label><input type="text" id="fShop" placeholder="可空"></div>
       <div><label class="fl">工作数量(如打单 90)</label><input type="number" id="fQty" min="0" placeholder="可空"></div>
       <div><label class="fl">日期</label><input type="date" id="fDate"></div>
-      <div><label class="fl">开始 / 结束(可手填或计时)</label>
+      <div style="grid-column:span 2"><label class="fl">开始 / 结束(可手填或计时)</label>
         <div class="timer-row">
           <input type="time" id="fStart"><span class="sub">→</span><input type="time" id="fEnd">
-          <button class="tbtn start" id="timerBtn" onclick="toggleTimer()">▶ 计时</button>
+          <button class="tbtn start" id="timerBtn" onclick="toggleTimer()" title="开始/停止计时">▶</button>
         </div>
       </div>
       <div><label class="fl">完成情况 *</label>
@@ -144,7 +146,7 @@ const ME_ID = qp.get('id') || '';
 const WORK_CONTENTS = ['打单','录尺寸','跟进发货·填已发','核实订单(拍照·催促)','处理退回件','发渠道管理·算运费','对接快递群·发票·转单号','补发配件·催单','退款处理','产品评价','物料采购入库','清未齐订单·集中出货','改单贴单','质检打印安装说明','线下单','每日收尾','其他'];
 const COMP = {done:{l:'已完成',c:'done'},doing:{l:'进行中',c:'doing'},undone:{l:'未完成',c:'undone'}};
 
-let ALL=[], editingId=null, comp='done', timer=null;
+let ALL=[], editingId=null, comp='done', timer=null, ACCOUNTS=[];
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 const hhmm=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
@@ -163,8 +165,8 @@ function pickComp(c){ comp=c; document.querySelectorAll('#fComp button').forEach
 /* 计时 */
 function toggleTimer(){
   const btn=document.getElementById('timerBtn');
-  if(!timer){ document.getElementById('fStart').value=hhmm(); document.getElementById('fEnd').value=''; timer=Date.now(); btn.textContent='■ 停止'; btn.className='tbtn stop'; }
-  else { document.getElementById('fEnd').value=hhmm(); timer=null; btn.textContent='▶ 计时'; btn.className='tbtn start'; }
+  if(!timer){ document.getElementById('fStart').value=hhmm(); document.getElementById('fEnd').value=''; timer=Date.now(); btn.textContent='■'; btn.className='tbtn stop'; }
+  else { document.getElementById('fEnd').value=hhmm(); timer=null; btn.textContent='▶'; btn.className='tbtn start'; }
 }
 
 /* ===== 加载(只取 ops 记录)===== */
@@ -177,8 +179,11 @@ async function load(){
       all=all.concat(data||[]); if(!data||data.length<1000)break; from+=1000;
     }
     ALL=(all||[]).filter(r=>!r.deleted);
-    // 记录人下拉
-    const persons=[...new Set(ALL.map(r=>r.staff_name).filter(Boolean))].sort();
+    // 记录人下拉:并入全体员工(cs_accounts),不只是已有记录的人
+    if(!ACCOUNTS.length){
+      try{ const {data:accs}=await SB.from('cs_accounts').select('name'); ACCOUNTS=[...new Set((accs||[]).map(a=>a.name).filter(Boolean))]; }catch(_){}
+    }
+    const persons=[...new Set([].concat(ACCOUNTS, ALL.map(r=>r.staff_name).filter(Boolean)))].sort((a,b)=>a.localeCompare(b,'zh'));
     const sel=document.getElementById('filPerson'); const cur=sel.value;
     sel.innerHTML='<option value="">全部记录人</option>'+persons.map(p=>'<option>'+esc(p)+'</option>').join(''); sel.value=cur;
     document.getElementById('info').textContent='共 '+ALL.length+' 条 · '+new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
@@ -247,7 +252,7 @@ async function saveEntry(){
   const qtyRaw=document.getElementById('fQty').value;
   const rec={
     record_kind:'ops_task', staff_type:'ops', status:'resolved', deleted:false,
-    owner:ME_ID||null, staff_name:ME||null,
+    staff_id:ME_ID||null, staff_name:ME||null,
     work_date:document.getElementById('fDate').value||todayStr(),
     work_content:wc,
     work_shop:document.getElementById('fShop').value.trim()||null,
@@ -300,7 +305,7 @@ function resetForm(){
   ['fShop','fQty','fStart','fEnd','fNote','fReason','fFollow','fRemind'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fDate').value=todayStr();
   document.getElementById('fWC').selectedIndex=0; pickComp('done');
-  if(timer){timer=null;const b=document.getElementById('timerBtn');b.textContent='▶ 计时';b.className='tbtn start';}
+  if(timer){timer=null;const b=document.getElementById('timerBtn');b.textContent='▶';b.className='tbtn start';}
 }
 async function delRec(id){
   if(!confirm('删除这条记录?'))return;

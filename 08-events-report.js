@@ -4012,7 +4012,8 @@ var AmountSummaryWidget = function AmountSummaryWidget(_ref25) {
   var byWebsite = useMemo(function () {
     var m = {};
     filtered.forEach(function (it) {
-      var site = (getSite ? getSite(it) : it.site) || '(未填)';
+      // 🆕 fix258:站点未填时,用订单号前缀(VK/DC/DF/MJ…)自动识别
+      var site = (getSite ? getSite(it) : it.site) || typeof window !== 'undefined' && window.__siteFromOrderRef && window.__siteFromOrderRef(it.order_no || it.orderRef || it.order_number || it.orderNo || it.order) || '(未填)';
       var amt = parseFloat(it[amountKey] || 0) || 0;
       var cur = (it.currency || 'USD').toUpperCase();
       if (!m[site]) m[site] = {
