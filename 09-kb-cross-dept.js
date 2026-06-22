@@ -3865,23 +3865,32 @@ var OpsWorkbenchModule = function OpsWorkbenchModule(_ref24c) {
   //   外层页面正好占满、不再多出一条滚动条;只剩 iframe 内部单一滚动。
   //   纯几何计算、无 postMessage 内容反馈,数学上不可能无限延长。
   React.useEffect(function () {
+    // 单一不变式:iframe 新高度 = 当前高度 − 整页溢出量。
+    //   溢出(外层会滚)→ 缩;留白(底部空白)→ 涨;正好 → 不动。
+    //   一步收敛到"整页正好一屏",外层零滚动、只剩 iframe 内部一条滚动。
+    //   纯几何、无内容反馈,不会震荡、不会无限延长。
     function fit() {
       var el = owRef.current;
       if (!el) return;
-      var top = el.getBoundingClientRect().top;
-      var h = Math.max(420, Math.round(window.innerHeight - top - 14));
-      var cur = parseInt(el.style.height, 10) || 0;
-      if (Math.abs(cur - h) > 2) el.style.height = h + 'px';
+      var over = document.documentElement.scrollHeight - window.innerHeight;
+      if (Math.abs(over) <= 1) return;
+      var h = el.getBoundingClientRect().height;
+      var target = Math.max(360, Math.round(h - over));
+      if (Math.abs(Math.round(h) - target) > 1) el.style.height = target + 'px';
     }
     fit();
     window.addEventListener('resize', fit);
     var ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
     if (ro) ro.observe(document.body);
-    var t = setTimeout(fit, 300);
+    var t1 = setTimeout(fit, 200);
+    var t2 = setTimeout(fit, 600);
+    var t3 = setTimeout(fit, 1200);
     return function () {
       window.removeEventListener('resize', fit);
       if (ro) ro.disconnect();
-      clearTimeout(t);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
     };
   });
   var _owUrl = function _owUrl() {
