@@ -3674,6 +3674,10 @@ async function ghAPI(path, method, body) {
   return null;
 }
 let cloudRecords = [];
+// 🆕 fix130: 报价单列表分页(回收站已存在)
+let quotePage = 1;
+let quotePageSize = 50;
+let _lastQuoteFilterSig = '';
 let selectedCloudItem = null;
 let cloudViewMode = 'mine';        // 'mine' | 'all'
 let currentLoadedPath = null;       // track currently-loaded record
@@ -3997,6 +4001,41 @@ function loadCloudRecordByPath(path) {
 function parseCloudFile(f, user) {
   return rowToCloudRecord(f);
 }
+// 🆕 fix130: 报价单列表分页控件(顶+底各一个)
+function buildQuotePager(total, totalPages, page, size) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:6px 2px;border-bottom:1px solid #eef1f4;margin-bottom:4px;';
+  const left = document.createElement('div');
+  left.style.cssText = 'font-size:11.5px;color:#64748b;display:flex;align-items:center;gap:6px;';
+  const startN = total === 0 ? 0 : (page - 1) * size + 1;
+  const endN = Math.min(page * size, total);
+  const cnt = document.createElement('span');
+  cnt.textContent = `${startN}\u2013${endN} / ${total} \u6761`;
+  left.appendChild(cnt);
+  const sel = document.createElement('select');
+  sel.style.cssText = 'font-size:11px;padding:2px 4px;border:1px solid #cbd5e1;border-radius:6px;font-family:inherit;cursor:pointer;';
+  [20, 50, 100, 200].forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n + '/\u9875'; if (n === size) o.selected = true; sel.appendChild(o); });
+  sel.onchange = () => { quotePageSize = parseInt(sel.value, 10) || 50; quotePage = 1; renderCloudList(); };
+  left.appendChild(sel);
+  const right = document.createElement('div');
+  right.style.cssText = 'display:flex;align-items:center;gap:4px;';
+  const mkBtn = (label, targetPage, disabled) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.disabled = !!disabled;
+    b.style.cssText = 'font-size:11.5px;padding:3px 9px;border:1px solid #cbd5e1;border-radius:6px;background:' + (disabled ? '#f1f5f9' : '#fff') + ';color:' + (disabled ? '#cbd5e1' : '#334155') + ';cursor:' + (disabled ? 'default' : 'pointer') + ';font-family:inherit;font-weight:600;';
+    if (!disabled) b.onclick = () => { quotePage = targetPage; renderCloudList(); const l = $('cloud-list'); if (l) l.scrollTop = 0; };
+    return b;
+  };
+  right.appendChild(mkBtn('\u2039 \u4E0A\u4E00\u9875', page - 1, page <= 1));
+  const info = document.createElement('span');
+  info.style.cssText = 'font-size:11.5px;color:#475569;font-weight:600;padding:0 4px;';
+  info.textContent = `${page} / ${totalPages}`;
+  right.appendChild(info);
+  right.appendChild(mkBtn('\u4E0B\u4E00\u9875 \u203A', page + 1, page >= totalPages));
+  wrap.appendChild(left); wrap.appendChild(right);
+  return wrap;
+}
 function renderCloudList() {
   const searchRaw = ($('cloud-search')?.value || '').trim();
   const uf = $('cloud-user-filter')?.value || '';
@@ -4080,7 +4119,17 @@ function renderCloudList() {
     return;
   }
 
+  // 🆕 fix130: 分页 —— 筛选条件变化时自动回第 1 页
+  const _qSig = [cloudViewMode, uf, dateFilter, statusFilter, followupOnly, searchRaw].join('|');
+  if (_qSig !== _lastQuoteFilterSig) { _lastQuoteFilterSig = _qSig; quotePage = 1; }
+  const _qTotal = filtered.length;
+  const _qTotalPages = Math.max(1, Math.ceil(_qTotal / quotePageSize));
+  if (quotePage > _qTotalPages) quotePage = _qTotalPages;
+  if (quotePage < 1) quotePage = 1;
+  const pageRecords = filtered.slice((quotePage - 1) * quotePageSize, quotePage * quotePageSize);
+
   list.innerHTML = '';
+  if (_qTotalPages > 1) list.appendChild(buildQuotePager(_qTotal, _qTotalPages, quotePage, quotePageSize));
   // 🆕 智能筛选:成员 chip(带数量,一键筛;团队视图显示)
   const chipBox = $('cloud-member-chips');
   if (chipBox) {
@@ -4109,7 +4158,7 @@ function renderCloudList() {
     if (diff <= 0) return '📅 今天'; if (diff === 1) return '昨天'; if (diff < 7) return '本周'; if (diff < 31) return '本月'; return '🗂 更早';
   };
   let _curBucket = null;
-  filtered.forEach(r => {
+  pageRecords.forEach(r => {
     const bk = bucketOf(r);
     if (bk !== _curBucket) {
       _curBucket = bk;
@@ -4153,6 +4202,7 @@ function renderCloudList() {
     });
     list.appendChild(div);
   });
+  if (_qTotalPages > 1) list.appendChild(buildQuotePager(_qTotal, _qTotalPages, quotePage, quotePageSize));
 }
 
 function escapeHTML(s) {
