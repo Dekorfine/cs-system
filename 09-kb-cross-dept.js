@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix251
+// 版本 2026.06.05-fix265
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -26,7 +26,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix251
+// 版本 2026.06.05-fix265
 // 预编译切片
 //
 
@@ -14881,3 +14881,320 @@ var PhotoRequestBatchModal = function PhotoRequestBatchModal(_ref89) {
 // 📌 任务分派模块 (fix19) — 临时任务派给某人,主管看是否处理
 // 工作流: 创建者 → 派给 X → X 接手/标处理中 → 完成 · 主管全局可见 · Realtime 推送
 // ════════════════════════════════════════════════════════════════════
+
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix265: 🛠️ 操作客服工作台(内联模块,取代独立 iframe 页)
+//   与客服跟进同套逻辑:CLOUD.upsert 保存(自动剥离缺失列)、内联渲染(单一滚动)。
+//   标准清单全内置:智能搜索 / 分类筛选 / 列排序 / 顶底分页 / 单一滚动 / 主管自定义工作内容。
+//   数据:workspace_records 里 record_kind='ops_task';与支持记录共表但互不污染。
+// ════════════════════════════════════════════════════════════════════
+var OPS_BASE_WC = ['昌晖对数据', '昌晖做发票', '昌晖填转单号', '明扬对数据', '明扬填转单号', '正石对数据', '正石填转单号', '做报关资料', '云鼎对数据', '云鼎做发票', '云鼎群里的派送通知和签收通知·发邮件给客户', '填已发', '打单', '宏杉对数据', '宏杉填转单号', '河池对数据', '河池做发票', '河池填转单号', '信源对数据', '信源做发票', '信源填转单号', '亿俐缇对数据', '亿俐缇做发票', '速联达对数据', '速联达下单·备注运费细节到订单', '速联达填转单号', '改单·改件数', '汇智通对数据', '汇智通做发票', '汇智通填转单号', '做评价', '空运发货算运费·讲价', '退款·记录', '处理各对接群的反馈问题', '催单·跟进各网站订单', '检查是否漏发渠道·漏填转单号', '清货', '检查', '处理快递公司退回的包裹', '收藏艺彩实拍图', '处理并跟进补发配件', '打印安装说明书', '跟进各快递公司的渠道更改', '做备货清单', '下单工厂物料', '发各网站渠道'];
+var OPS_OTHER_WC = '其他';
+var OPS_COMP = { done: '已完成', doing: '进行中', undone: '未完成' };
+function _opsToday() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function _opsHHMM() { var d = new Date(); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+function _opsMinutes(s, e) { if (!s || !e) return null; var a = s.split(':').map(Number), b = e.split(':').map(Number); var m = (b[0] * 60 + b[1]) - (a[0] * 60 + a[1]); if (m < 0) m += 1440; return m; }
+
+function OpsModule(props) {
+  var user = props.user, toast = props.toast;
+  var isSup = !!(user && (user.role === 'admin' || user.role === 'super_admin'));
+  var h = React.createElement;
+
+  var s_rows = useState([]); var rows = s_rows[0], setRows = s_rows[1];
+  var s_loading = useState(true); var loading = s_loading[0], setLoading = s_loading[1];
+  var s_custom = useState([]); var customWC = s_custom[0], setCustomWC = s_custom[1];
+  // 表单
+  var s_wc = useState(OPS_BASE_WC[0]); var fWC = s_wc[0], setFWC = s_wc[1];
+  var s_shop = useState(''); var fShop = s_shop[0], setFShop = s_shop[1];
+  var s_qty = useState(''); var fQty = s_qty[0], setFQty = s_qty[1];
+  var s_date = useState(_opsToday()); var fDate = s_date[0], setFDate = s_date[1];
+  var s_start = useState(''); var fStart = s_start[0], setFStart = s_start[1];
+  var s_end = useState(''); var fEnd = s_end[0], setFEnd = s_end[1];
+  var s_comp = useState('done'); var comp = s_comp[0], setComp = s_comp[1];
+  var s_reason = useState(''); var fReason = s_reason[0], setFReason = s_reason[1];
+  var s_follow = useState(''); var fFollow = s_follow[0], setFFollow = s_follow[1];
+  var s_remind = useState(''); var fRemind = s_remind[0], setFRemind = s_remind[1];
+  var s_note = useState(''); var fNote = s_note[0], setFNote = s_note[1];
+  var s_editing = useState(null); var editingId = s_editing[0], setEditingId = s_editing[1];
+  var s_timer = useState(false); var timing = s_timer[0], setTiming = s_timer[1];
+  var s_saving = useState(false); var saving = s_saving[0], setSaving = s_saving[1];
+  var s_wcnew = useState(''); var wcNew = s_wcnew[0], setWcNew = s_wcnew[1];
+  // 列表控件
+  var s_q = useState(''); var q = s_q[0], setQ = s_q[1];
+  var s_fp = useState(''); var filPerson = s_fp[0], setFilPerson = s_fp[1];
+  var s_fwc = useState(''); var filWC = s_fwc[0], setFilWC = s_fwc[1];
+  var s_fc = useState(''); var filComp = s_fc[0], setFilComp = s_fc[1];
+  var s_ff = useState(''); var filFrom = s_ff[0], setFilFrom = s_ff[1];
+  var s_ft = useState(''); var filTo = s_ft[0], setFilTo = s_ft[1];
+  var s_sk = useState('work_date'); var sortKey = s_sk[0], setSortKey = s_sk[1];
+  var s_sd = useState('desc'); var sortDir = s_sd[0], setSortDir = s_sd[1];
+  var s_pg = useState(1); var page = s_pg[0], setPage = s_pg[1];
+  var s_ps = useState(20); var pageSize = s_ps[0], setPageSize = s_ps[1];
+
+  function load() {
+    setLoading(true);
+    CLOUD.client.from('workspace_records').select('*').eq('record_kind', 'ops_task').order('work_date', { ascending: false }).limit(5000).then(function (res) {
+      var data = (res && res.data) || [];
+      setRows(data.filter(function (r) { return r && !r.deleted; }));
+      setLoading(false);
+    });
+  }
+  function loadCustom() {
+    CLOUD.client.from('app_config').select('value').eq('key', 'ops_work_contents').maybeSingle().then(function (res) {
+      var v = res && res.data && res.data.value;
+      setCustomWC(Array.isArray(v) ? v.filter(Boolean) : []);
+    });
+  }
+  useEffect(function () { load(); loadCustom(); }, []);
+
+  function wcAll() { return OPS_BASE_WC.concat(customWC, [OPS_OTHER_WC]); }
+
+  function saveCustom(next) {
+    return CLOUD.client.from('app_config').upsert({ key: 'ops_work_contents', value: next }).then(function (res) {
+      if (res && res.error) { toast('保存失败:' + res.error.message); return false; }
+      return true;
+    });
+  }
+  function addCustom() {
+    var v = (wcNew || '').trim();
+    if (!v) return;
+    if (OPS_BASE_WC.indexOf(v) >= 0 || customWC.indexOf(v) >= 0 || v === OPS_OTHER_WC) { toast('已存在该工作内容'); return; }
+    var next = customWC.concat([v]);
+    saveCustom(next).then(function (ok) { if (ok) { setCustomWC(next); setWcNew(''); toast('✓ 已添加并同步全员'); } });
+  }
+  function removeCustom(i) {
+    var next = customWC.slice(); next.splice(i, 1);
+    saveCustom(next).then(function (ok) { if (ok) { setCustomWC(next); toast('已删除并同步'); } });
+  }
+
+  function resetForm() {
+    setEditingId(null); setFWC(OPS_BASE_WC[0]); setFShop(''); setFQty(''); setFDate(_opsToday());
+    setFStart(''); setFEnd(''); setComp('done'); setFReason(''); setFFollow(''); setFRemind(''); setFNote(''); setTiming(false);
+  }
+  function toggleTimer() {
+    if (!timing) { setFStart(_opsHHMM()); setFEnd(''); setTiming(true); }
+    else { setFEnd(_opsHHMM()); setTiming(false); }
+  }
+
+  function save() {
+    if (!fWC) { toast('请选工作内容'); return; }
+    setSaving(true);
+    var iso = new Date().toISOString();
+    var workDate = fDate || _opsToday();
+    var minutes = _opsMinutes(fStart, fEnd);
+    var orig = editingId ? rows.find(function (r) { return r.id === editingId; }) : null;
+    var rec = {
+      id: editingId || ('ops_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+      ownerId: user.id, date: workDate,
+      createdAt: orig ? (orig.createdAt || iso) : iso, updatedAt: iso,
+      status: 'resolved', customer: '', site: fShop.trim() || '',
+      startTime: fStart || '', endTime: fEnd || '', durationMin: minutes || 0,
+      difficulty: '', category: fWC, orderRef: '', note: fNote.trim() || '',
+      nextFollowUp: fFollow || null, deleted: false,
+      record_kind: 'ops_task', staff_type: 'ops', staff_id: user.id, staff_name: user.name || '',
+      work_date: workDate, work_content: fWC, work_shop: fShop.trim() || null,
+      work_qty: fQty === '' ? null : parseInt(fQty, 10),
+      ops_start: fStart || null, ops_end: fEnd || null, ops_minutes: minutes,
+      ops_note: fNote.trim() || null, completion: comp,
+      incomplete_reason: comp === 'undone' ? (fReason.trim() || null) : null,
+      ops_followup: fFollow || null, ops_remind: fRemind || null,
+      ops_created: orig ? (orig.ops_created || iso) : iso, ops_updated: iso
+    };
+    CLOUD.upsert('workspace_records', rec).then(function (ok) {
+      setSaving(false);
+      if (ok === null) { toast('保存失败:' + ((CLOUD._lastError && CLOUD._lastError.message) || '未知')); return; }
+      toast('✓ 已保存'); resetForm(); load();
+    });
+  }
+  function editRow(r) {
+    setEditingId(r.id); setFWC(r.work_content || OPS_BASE_WC[0]); setFShop(r.work_shop || '');
+    setFQty(r.work_qty == null ? '' : String(r.work_qty)); setFDate(r.work_date || _opsToday());
+    setFStart(r.ops_start || ''); setFEnd(r.ops_end || ''); setComp(r.completion || 'done');
+    setFReason(r.incomplete_reason || ''); setFFollow(r.ops_followup || ''); setFRemind(r.ops_remind || '');
+    setFNote(r.ops_note || ''); setTiming(false);
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function delRow(r) {
+    CLOUD.upsert('workspace_records', { id: r.id, deleted: true, ops_updated: new Date().toISOString() }).then(function (ok) {
+      if (ok === null) { toast('删除失败'); return; }
+      toast('已删除'); load();
+    });
+  }
+
+  var persons = useMemo(function () { var s = {}; rows.forEach(function (r) { if (r.staff_name) s[r.staff_name] = 1; }); return Object.keys(s).sort(); }, [rows]);
+
+  var filtered = useMemo(function () {
+    var qq = q.trim().toLowerCase();
+    return rows.filter(function (r) {
+      if (filPerson && r.staff_name !== filPerson) return false;
+      if (filWC && r.work_content !== filWC) return false;
+      if (filComp && r.completion !== filComp) return false;
+      if (filFrom && (r.work_date || '') < filFrom) return false;
+      if (filTo && (r.work_date || '') > filTo) return false;
+      if (qq) {
+        var hay = ((r.work_content || '') + ' ' + (r.work_shop || '') + ' ' + (r.staff_name || '') + ' ' + (r.ops_note || '')).toLowerCase();
+        if (hay.indexOf(qq) < 0) return false;
+      }
+      return true;
+    });
+  }, [rows, q, filPerson, filWC, filComp, filFrom, filTo]);
+
+  var sorted = useMemo(function () {
+    var arr = filtered.slice();
+    arr.sort(function (a, b) {
+      var av = (a[sortKey] == null ? '' : a[sortKey]) + '', bv = (b[sortKey] == null ? '' : b[sortKey]) + '';
+      if (sortKey === 'work_qty' || sortKey === 'ops_minutes') { var na = parseFloat(av) || 0, nb = parseFloat(bv) || 0; return sortDir === 'asc' ? na - nb : nb - na; }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1;
+      if (av > bv) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return arr;
+  }, [filtered, sortKey, sortDir]);
+
+  var stats = useMemo(function () {
+    var cnt = filtered.length, done = 0, qty = 0, mins = 0, byC = {};
+    filtered.forEach(function (r) {
+      if (r.completion === 'done') done++;
+      qty += parseInt(r.work_qty, 10) || 0;
+      mins += parseInt(r.ops_minutes, 10) || 0;
+      var k = r.work_content || '其他';
+      if (!byC[k]) byC[k] = { cnt: 0, qty: 0, mins: 0 };
+      byC[k].cnt++; byC[k].qty += parseInt(r.work_qty, 10) || 0; byC[k].mins += parseInt(r.ops_minutes, 10) || 0;
+    });
+    var byArr = Object.keys(byC).map(function (k) { return { wc: k, cnt: byC[k].cnt, qty: byC[k].qty, mins: byC[k].mins }; }).sort(function (a, b) { return b.cnt - a.cnt; });
+    return { cnt: cnt, done: done, rate: cnt ? Math.round(done / cnt * 100) : 0, qty: qty, mins: mins, byArr: byArr };
+  }, [filtered]);
+
+  var totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  var curPage = Math.min(page, totalPages);
+  var paged = sorted.slice((curPage - 1) * pageSize, curPage * pageSize);
+
+  function toggleSort(k) { if (sortKey === k) setSortDir(sortDir === 'asc' ? 'desc' : 'asc'); else { setSortKey(k); setSortDir('asc'); } setPage(1); }
+  function clearFilters() { setQ(''); setFilPerson(''); setFilWC(''); setFilComp(''); setFilFrom(''); setFilTo(''); setPage(1); }
+
+  var C = { ink: 'var(--ink-1,#1c1a17)', sec: 'var(--ink-3,#6b6660)', line: 'var(--line,#e7e5e0)', accent: 'var(--accent,#2563eb)', ok: '#16a34a', danger: '#dc2626', doing: '#7c3aed' };
+  function inp() { return { padding: '7px 10px', fontSize: 13, border: '1px solid ' + C.line, borderRadius: 8, background: '#fff', color: C.ink, fontFamily: 'inherit', width: '100%' }; }
+  function fl(t) { return h('label', { style: { display: 'block', fontSize: 11, color: C.sec, marginBottom: 3, fontWeight: 600 } }, t); }
+  function pgBtn(d) { return { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: d ? '#f5f5f4' : '#fff', color: d ? '#bbb' : C.ink, cursor: d ? 'default' : 'pointer', fontFamily: 'inherit' }; }
+  function pager(key) {
+    return h('div', { key: key, style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 0', justifyContent: 'flex-end' } },
+      h('span', { style: { fontSize: 12, color: C.sec, marginRight: 'auto' } }, '共 ' + sorted.length + ' 条 · 第 ' + curPage + '/' + totalPages + ' 页'),
+      h('select', { value: pageSize, onChange: function (e) { setPageSize(parseInt(e.target.value, 10)); setPage(1); }, style: { padding: '6px 8px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit' } }, [10, 20, 50, 100].map(function (n) { return h('option', { key: n, value: n }, n + ' 条/页'); })),
+      h('button', { onClick: function () { setPage(1); }, disabled: curPage <= 1, style: pgBtn(curPage <= 1) }, '«'),
+      h('button', { onClick: function () { setPage(Math.max(1, curPage - 1)); }, disabled: curPage <= 1, style: pgBtn(curPage <= 1) }, '‹ 上一页'),
+      h('button', { onClick: function () { setPage(Math.min(totalPages, curPage + 1)); }, disabled: curPage >= totalPages, style: pgBtn(curPage >= totalPages) }, '下一页 ›'),
+      h('button', { onClick: function () { setPage(totalPages); }, disabled: curPage >= totalPages, style: pgBtn(curPage >= totalPages) }, '»'));
+  }
+  function th(label, key) {
+    var active = sortKey === key;
+    return h('th', { onClick: function () { toggleSort(key); }, style: { padding: '8px 10px', textAlign: 'left', fontSize: 12, color: active ? C.accent : C.sec, cursor: 'pointer', whiteSpace: 'nowrap', borderBottom: '2px solid ' + C.line, userSelect: 'none' } }, label, active ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '');
+  }
+  function compSeg() {
+    return h('div', { style: { display: 'flex', width: '100%', border: '1px solid ' + C.line, borderRadius: 9, overflow: 'hidden' } },
+      ['done', 'doing', 'undone'].map(function (k, i) {
+        var on = comp === k; var bg = on ? (k === 'done' ? C.ok : k === 'doing' ? C.doing : C.danger) : '#fff';
+        return h('button', { key: k, onClick: function () { setComp(k); }, style: { flex: 1, padding: '8px 2px', fontSize: 12, border: 'none', borderRight: i < 2 ? '1px solid ' + C.line : 'none', background: bg, color: on ? '#fff' : C.sec, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' } }, OPS_COMP[k]);
+      }));
+  }
+  function wcOptions() { return wcAll().map(function (w) { return h('option', { key: w, value: w }, w); }); }
+
+  return h('div', { className: 'paper rounded-2xl', style: { padding: '16px 18px' } },
+    // 标题
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 4 } },
+      h('div', { className: 'font-display', style: { fontSize: 20, fontWeight: 600, flex: 1, minWidth: 200 } }, '🛠️ 操作客服工作台',
+        h('span', { style: { fontSize: 12, fontWeight: 400, color: C.sec, marginLeft: 8 } }, '打单 / 录尺寸 / 跟进发货 等任务型日常记录 · 与支持客服分开统计')),
+      h('span', { style: { fontSize: 12, color: C.accent, fontWeight: 600 } }, '记录人:' + (user.name || '')),
+      h('button', { onClick: load, style: { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' } }, '🔄 刷新')),
+    // 录入表单
+    h('div', { style: { border: '1px solid ' + C.line, borderRadius: 12, padding: 14, marginTop: 12, marginBottom: 12 } },
+      h('div', { style: { fontWeight: 600, marginBottom: 10 } }, editingId ? '✏️ 编辑记录' : '➕ 记录一项工作'),
+      h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '13px 14px', alignItems: 'end' } },
+        h('div', null, fl('工作内容 *'), h('select', { value: fWC, onChange: function (e) { setFWC(e.target.value); }, style: inp() }, wcOptions())),
+        h('div', null, fl('店铺(打单填,如 VK/DC/DF)'), h('input', { type: 'text', value: fShop, onChange: function (e) { setFShop(e.target.value); }, placeholder: '可空', style: inp() })),
+        h('div', null, fl('工作数量(如打单 90)'), h('input', { type: 'number', min: '0', value: fQty, onChange: function (e) { setFQty(e.target.value); }, placeholder: '可空', style: inp() })),
+        h('div', null, fl('日期'), h('input', { type: 'date', value: fDate, onChange: function (e) { setFDate(e.target.value); }, style: inp() })),
+        h('div', { style: { gridColumn: 'span 2' } }, fl('开始 / 结束(可手填或计时)'),
+          h('div', { style: { display: 'flex', gap: 5, alignItems: 'center' } },
+            h('input', { type: 'time', value: fStart, onChange: function (e) { setFStart(e.target.value); }, style: Object.assign(inp(), { flex: '1 1 64px', minWidth: 64 }) }),
+            h('span', { style: { color: C.sec } }, '→'),
+            h('input', { type: 'time', value: fEnd, onChange: function (e) { setFEnd(e.target.value); }, style: Object.assign(inp(), { flex: '1 1 64px', minWidth: 64 }) }),
+            h('button', { onClick: toggleTimer, title: '开始/停止计时', style: { padding: '7px 9px', fontSize: 13, border: 'none', borderRadius: 8, cursor: 'pointer', color: '#fff', background: timing ? C.danger : C.ok, flex: 'none' } }, timing ? '■' : '▶'))),
+        h('div', null, fl('完成情况 *'), compSeg()),
+        h('div', null, fl('次日跟进(日期)'), h('input', { type: 'date', value: fFollow, onChange: function (e) { setFFollow(e.target.value); }, style: inp() })),
+        h('div', null, fl('⏰ 需提醒(日期)'), h('input', { type: 'date', value: fRemind, onChange: function (e) { setFRemind(e.target.value); }, style: inp() })),
+        comp === 'undone' ? h('div', null, fl('未完成原因'), h('input', { type: 'text', value: fReason, onChange: function (e) { setFReason(e.target.value); }, placeholder: '为什么没完成', style: inp() })) : null),
+      h('div', { style: { marginTop: 10 } }, fl('备注 / 说明'), h('textarea', { value: fNote, onChange: function (e) { setFNote(e.target.value); }, placeholder: '一句话说明本项工作', style: Object.assign(inp(), { minHeight: 38, resize: 'vertical' }) })),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 } },
+        editingId ? h('button', { onClick: resetForm, style: { padding: '7px 14px', fontSize: 13, border: '1px solid ' + C.line, borderRadius: 8, background: '#fafafa', cursor: 'pointer', fontFamily: 'inherit' } }, '取消编辑') : null,
+        h('button', { onClick: save, disabled: saving, style: { padding: '7px 18px', fontSize: 13, border: 'none', borderRadius: 8, background: C.accent, color: '#fff', cursor: saving ? 'default' : 'pointer', fontFamily: 'inherit', opacity: saving ? 0.6 : 1 } }, saving ? '保存中…' : (editingId ? '保存修改' : '添加记录')))),
+    // 主管:自定义工作内容
+    isSup ? h('div', { style: { border: '1px solid ' + C.line, borderRadius: 12, padding: 14, marginBottom: 12 } },
+      h('div', { style: { fontWeight: 600, marginBottom: 10 } }, '⚙ 工作内容管理 ', h('span', { style: { fontSize: 12, fontWeight: 400, color: C.sec } }, '· 仅主管可见 · 添加后所有客服同步')),
+      h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 } },
+        h('input', { type: 'text', value: wcNew, onChange: function (e) { setWcNew(e.target.value); }, onKeyDown: function (e) { if (e.key === 'Enter') addCustom(); }, placeholder: '输入新工作内容,回车或点添加', style: Object.assign(inp(), { flex: 1, minWidth: 240 }) }),
+        h('button', { onClick: addCustom, style: { padding: '7px 16px', fontSize: 13, border: 'none', borderRadius: 8, background: C.accent, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' } }, '+ 添加')),
+      h('div', { style: { fontSize: 12, lineHeight: 1.9 } }, customWC.length === 0
+        ? h('span', { style: { color: C.sec } }, '暂无自定义项 · 基础清单已有 ' + OPS_BASE_WC.length + ' 项。')
+        : customWC.map(function (w, i) { return h('span', { key: i, style: { display: 'inline-block', background: '#f1f5f9', border: '1px solid ' + C.line, borderRadius: 14, padding: '3px 6px 3px 10px', margin: 3, fontSize: 12 } }, w, ' ', h('a', { onClick: function () { removeCustom(i); }, style: { color: '#ef4444', cursor: 'pointer', fontWeight: 700 } }, '✕')); }))) : null,
+    // 统计
+    h('div', { style: { border: '1px solid ' + C.line, borderRadius: 12, padding: 14, marginBottom: 12 } },
+      h('div', { style: { fontWeight: 600, marginBottom: 10 } }, '📊 操作客服统计(按当前筛选)'),
+      h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 10, marginBottom: 10 } },
+        [['条数', stats.cnt], ['已完成', stats.done], ['完成率', stats.rate + '%'], ['数量合计', stats.qty], ['时长合计', (stats.mins / 60).toFixed(1) + ' h']].map(function (it, i) {
+          return h('div', { key: i, style: { border: '1px solid ' + C.line, borderRadius: 10, padding: '10px 12px' } }, h('div', { style: { fontSize: 22, fontWeight: 700 } }, it[1]), h('div', { style: { fontSize: 11, color: C.sec } }, it[0]));
+        })),
+      stats.byArr.length ? h('div', { style: { overflowX: 'auto' } }, h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 460 } },
+        h('thead', null, h('tr', { style: { background: '#fafafa' } }, ['工作内容', '条数', '数量合计', '时长(分)'].map(function (t, i) { return h('th', { key: i, style: { padding: '6px 10px', textAlign: i ? 'right' : 'left', fontSize: 12, color: C.sec, borderBottom: '1px solid ' + C.line } }, t); }))),
+        h('tbody', null, stats.byArr.map(function (b, i) {
+          return h('tr', { key: i, style: { borderBottom: '1px solid ' + C.line } },
+            h('td', { style: { padding: '6px 10px' } }, b.wc),
+            h('td', { style: { padding: '6px 10px', textAlign: 'right' } }, b.cnt),
+            h('td', { style: { padding: '6px 10px', textAlign: 'right' } }, b.qty || '—'),
+            h('td', { style: { padding: '6px 10px', textAlign: 'right' } }, b.mins || '—'));
+        })))) : null),
+    // 列表
+    h('div', { style: { border: '1px solid ' + C.line, borderRadius: 12, padding: 14 } },
+      h('div', { style: { fontWeight: 600, marginBottom: 10 } }, '📋 记录列表'),
+      h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 } },
+        h('input', { type: 'text', value: q, onChange: function (e) { setQ(e.target.value); setPage(1); }, placeholder: '🔍 搜 工作内容 / 店铺 / 录入人 / 备注', style: Object.assign(inp(), { flex: 1, minWidth: 200, borderRadius: 16, width: 'auto' }) }),
+        h('select', { value: filPerson, onChange: function (e) { setFilPerson(e.target.value); setPage(1); }, style: { padding: '7px 10px', fontSize: 13, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit' } }, [h('option', { key: '', value: '' }, '全部录入人')].concat(persons.map(function (p) { return h('option', { key: p, value: p }, p); }))),
+        h('select', { value: filWC, onChange: function (e) { setFilWC(e.target.value); setPage(1); }, style: { padding: '7px 10px', fontSize: 13, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit', maxWidth: 180 } }, [h('option', { key: '', value: '' }, '全部工作内容')].concat(wcAll().map(function (w) { return h('option', { key: w, value: w }, w); }))),
+        h('select', { value: filComp, onChange: function (e) { setFilComp(e.target.value); setPage(1); }, style: { padding: '7px 10px', fontSize: 13, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit' } }, [h('option', { key: '', value: '' }, '全部状态'), h('option', { value: 'done' }, '已完成'), h('option', { value: 'doing' }, '进行中'), h('option', { value: 'undone' }, '未完成')]),
+        h('input', { type: 'date', value: filFrom, onChange: function (e) { setFilFrom(e.target.value); setPage(1); }, style: { padding: '6px 8px', fontSize: 13, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit' } }),
+        h('span', { style: { color: C.sec } }, '~'),
+        h('input', { type: 'date', value: filTo, onChange: function (e) { setFilTo(e.target.value); setPage(1); }, style: { padding: '6px 8px', fontSize: 13, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit' } }),
+        h('button', { onClick: clearFilters, style: { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: '#fafafa', cursor: 'pointer', fontFamily: 'inherit' } }, '清空筛选')),
+      pager('top'),
+      h('div', { style: { overflowX: 'auto', border: '1px solid ' + C.line, borderRadius: 10 } },
+        h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 880 } },
+          h('thead', null, h('tr', { style: { background: '#fafafa' } },
+            th('日期', 'work_date'), th('工作内容', 'work_content'), th('店铺', 'work_shop'), th('数量', 'work_qty'),
+            h('th', { style: { padding: '8px 10px', textAlign: 'left', fontSize: 12, color: C.sec, borderBottom: '2px solid ' + C.line } }, '时段'),
+            th('时长', 'ops_minutes'), th('状态', 'completion'), th('录入人', 'staff_name'),
+            h('th', { style: { padding: '8px 10px', textAlign: 'left', fontSize: 12, color: C.sec, borderBottom: '2px solid ' + C.line } }, '备注'),
+            h('th', { style: { padding: '8px 10px', textAlign: 'center', fontSize: 12, color: C.sec, borderBottom: '2px solid ' + C.line } }, '操作'))),
+          h('tbody', null, loading
+            ? h('tr', null, h('td', { colSpan: 10, style: { padding: 24, textAlign: 'center', color: C.sec } }, '加载中…'))
+            : (paged.length === 0
+              ? h('tr', null, h('td', { colSpan: 10, style: { padding: 24, textAlign: 'center', color: C.sec } }, '没有匹配的记录'))
+              : paged.map(function (r) {
+                var cc = r.completion === 'done' ? C.ok : r.completion === 'doing' ? C.doing : C.danger;
+                return h('tr', { key: r.id, style: { borderBottom: '1px solid ' + C.line } },
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap', color: C.sec } }, r.work_date || '—'),
+                  h('td', { style: { padding: '8px 10px', fontWeight: 600 } }, r.work_content || '—'),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap' } }, r.work_shop || '—'),
+                  h('td', { style: { padding: '8px 10px', textAlign: 'right' } }, r.work_qty == null ? '—' : r.work_qty),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap', color: C.sec } }, (r.ops_start || '--:--') + ' ~ ' + (r.ops_end || '--:--')),
+                  h('td', { style: { padding: '8px 10px', textAlign: 'right' } }, r.ops_minutes == null ? '—' : r.ops_minutes),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap' } }, h('span', { style: { fontSize: 11, padding: '2px 8px', borderRadius: 10, background: cc, color: '#fff' } }, OPS_COMP[r.completion] || r.completion || '—')),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap' } }, r.staff_name || '—'),
+                  h('td', { style: { padding: '8px 10px', color: C.sec, maxWidth: 220 } }, r.ops_note || '—'),
+                  h('td', { style: { padding: '8px 10px', whiteSpace: 'nowrap', textAlign: 'center' } },
+                    h('button', { onClick: function () { editRow(r); }, style: { padding: '4px 9px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 7, background: '#fff', cursor: 'pointer', marginRight: 5, fontFamily: 'inherit' } }, '编辑'),
+                    h('button', { onClick: function () { delRow(r); }, style: { padding: '4px 9px', fontSize: 12, border: '1px solid #fca5a5', borderRadius: 7, background: '#fff', color: C.danger, cursor: 'pointer', fontFamily: 'inherit' } }, '删除')));
+              })))
+        )),
+      pager('bottom'))
+  );
+}
