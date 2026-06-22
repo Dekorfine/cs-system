@@ -1,5 +1,5 @@
 // ====== cs-system — 04-admin-finance ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix267
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -23,7 +23,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 04-admin-finance ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix267
 // 预编译切片
 //
 
@@ -365,138 +365,64 @@ var TabPermModal = function TabPermModal(_refTP) {
   var emp = _refTP.emp,
     onClose = _refTP.onClose,
     onSave = _refTP.onSave;
-  var _tp = useState(Array.isArray(emp.allowedTabs) ? emp.allowedTabs.slice() : []),
-    _tp2 = _slicedToArray(_tp, 2),
-    sel = _tp2[0],
-    setSel = _tp2[1];
+  var allEmployees = _refTP.allEmployees || [];
+  var h = React.createElement;
+  var _tp = useState(Array.isArray(emp.allowedTabs) ? emp.allowedTabs.slice() : []);
+  var sel = _tp[0], setSel = _tp[1];
+  var _ta = useState([]);
+  var alsoIds = _ta[0], setAlsoIds = _ta[1];
   var toggle = function toggle(k) {
     setSel(function (prev) {
-      return prev.indexOf(k) >= 0 ? prev.filter(function (x) {
-        return x !== k;
-      }) : prev.concat([k]);
+      return prev.indexOf(k) >= 0 ? prev.filter(function (x) { return x !== k; }) : prev.concat([k]);
     });
   };
-  return /*#__PURE__*/React.createElement("div", {
+  var toggleAlso = function toggleAlso(id) {
+    setAlsoIds(function (prev) {
+      return prev.indexOf(id) >= 0 ? prev.filter(function (x) { return x !== id; }) : prev.concat([id]);
+    });
+  };
+  var others = allEmployees.filter(function (e) { return e && e.id !== emp.id; });
+  return h("div", {
     onClick: onClose,
-    style: {
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,.45)',
-      zIndex: 100000,
-      display: 'flex',
-      alignItems: 'flex-start',
-      justifyContent: 'center',
-      padding: '4vh 16px',
-      overflowY: 'auto'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    onClick: function onClick(e) {
-      return e.stopPropagation();
-    },
-    style: {
-      background: 'white',
-      borderRadius: 14,
-      maxWidth: 640,
-      width: '100%',
-      maxHeight: '92vh',
-      display: 'flex',
-      flexDirection: 'column'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: '16px 20px',
-      borderBottom: '1px solid var(--line)'
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 17,
-      fontWeight: 700
-    }
-  }, "\uD83D\uDD10 \u6743\u9650\u8BBE\u7F6E \xB7 ", emp.name, emp.alias ? ' (' + emp.alias + ')' : ''), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      color: 'var(--ink-3)',
-      marginTop: 4,
-      lineHeight: 1.6
-    }
-  }, "\u4E0D\u52FE\u4EFB\u4F55 = \u6CBF\u7528\u89D2\u8272\u9ED8\u8BA4(\u770B\u5230\u8BE5\u89D2\u8272\u5168\u90E8\u9ED8\u8BA4\u9875)\u3002\u52FE\u9009\u540E\uFF0C\u8BE5\u5458\u5DE5\u53EA\u80FD\u770B\u5230\u52FE\u9009\u7684\u529F\u80FD\u9875 + \u4F7F\u7528\u624B\u518C\u3002\u4E3B\u7BA1/\u603B\u7BA1\u4E0D\u53D7\u9650\u3002")), /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: '14px 20px',
-      overflowY: 'auto',
-      flex: 1,
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))',
-      gap: 8
-    }
-  }, ASSIGNABLE_TABS.map(function (t) {
-    var on = sel.indexOf(t[0]) >= 0;
-    return /*#__PURE__*/React.createElement("label", {
-      key: t[0],
-      style: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '8px 10px',
-        border: '1px solid ' + (on ? 'var(--accent)' : 'var(--line)'),
-        background: on ? 'rgba(37,99,235,.06)' : 'white',
-        borderRadius: 9,
-        cursor: 'pointer',
-        fontSize: 13
-      }
-    }, /*#__PURE__*/React.createElement("input", {
-      type: "checkbox",
-      checked: on,
-      onChange: function onChange() {
-        return toggle(t[0]);
-      }
-    }), t[1]);
-  })), /*#__PURE__*/React.createElement("div", {
-    style: {
-      padding: '12px 20px',
-      borderTop: '1px solid var(--line)',
-      display: 'flex',
-      gap: 8,
-      alignItems: 'center'
-    }
-  }, /*#__PURE__*/React.createElement("button", {
-    className: "btn-ghost",
-    onClick: function onClick() {
-      return setSel([]);
-    },
-    style: {
-      fontSize: 12
-    }
-  }, "\u6E05\u7A7A(=\u9ED8\u8BA4)"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-ghost",
-    onClick: function onClick() {
-      return setSel(ASSIGNABLE_TABS.map(function (x) {
-        return x[0];
-      }));
-    },
-    style: {
-      fontSize: 12
-    }
-  }, "\u5168\u9009"), /*#__PURE__*/React.createElement("span", {
-    style: {
-      flex: 1,
-      fontSize: 12,
-      color: 'var(--ink-4)'
-    }
-  }, sel.length ? '已选 ' + sel.length + ' 项' : '未勾选 = 角色默认'), /*#__PURE__*/React.createElement("button", {
-    className: "btn-sec",
-    onClick: onClose,
-    style: {
-      padding: '6px 14px'
-    }
-  }, "\u53D6\u6D88"), /*#__PURE__*/React.createElement("button", {
-    className: "btn-primary",
-    onClick: function onClick() {
-      return onSave(sel);
-    },
-    style: {
-      padding: '6px 16px'
-    }
-  }, "\u4FDD\u5B58"))));
+    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 100000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '4vh 16px', overflowY: 'auto' }
+  }, h("div", {
+    onClick: function onClick(e) { return e.stopPropagation(); },
+    style: { background: 'white', borderRadius: 14, maxWidth: 640, width: '100%', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }
+  },
+    h("div", { style: { padding: '16px 20px', borderBottom: '1px solid var(--line)' } },
+      h("div", { style: { fontSize: 17, fontWeight: 700 } }, "\uD83D\uDD10 \u6743\u9650\u8BBE\u7F6E \xB7 ", emp.name, emp.alias ? ' (' + emp.alias + ')' : ''),
+      h("div", { style: { fontSize: 12, color: 'var(--ink-3)', marginTop: 4, lineHeight: 1.6 } }, "\u4E0D\u52FE\u4EFB\u4F55 = \u6CBF\u7528\u89D2\u8272\u9ED8\u8BA4(\u770B\u5230\u8BE5\u89D2\u8272\u5168\u90E8\u9ED8\u8BA4\u9875)\u3002\u52FE\u9009\u540E\uFF0C\u8BE5\u5458\u5DE5\u53EA\u80FD\u770B\u5230\u52FE\u9009\u7684\u529F\u80FD\u9875 + \u4F7F\u7528\u624B\u518C\u3002\u4E3B\u7BA1/\u603B\u7BA1\u4E0D\u53D7\u9650\u3002")),
+    h("div", { style: { padding: '14px 20px', overflowY: 'auto', flex: 1 } },
+      h("div", { style: { fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', marginBottom: 8 } }, "\u53EF\u89C1\u529F\u80FD\u9875"),
+      h("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 8 } },
+        ASSIGNABLE_TABS.map(function (t) {
+          var on = sel.indexOf(t[0]) >= 0;
+          return h("label", {
+            key: t[0],
+            style: { display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid ' + (on ? 'var(--accent)' : 'var(--line)'), background: on ? 'rgba(37,99,235,.06)' : 'white', borderRadius: 9, cursor: 'pointer', fontSize: 13 }
+          }, h("input", { type: "checkbox", checked: on, onChange: function onChange() { return toggle(t[0]); } }), t[1]);
+        })),
+      others.length ? h("div", { style: { marginTop: 16, borderTop: '1px dashed var(--line)', paddingTop: 14 } },
+        h("div", { style: { fontSize: 12, fontWeight: 700, color: 'var(--ink-3)', marginBottom: 4 } }, "\uD83D\uDCCB \u540C\u65F6\u5957\u7528\u8FD9\u5957\u6743\u9650\u7ED9\u5176\u4ED6\u5BA2\u670D\uFF08\u6743\u9650\u6A21\u677F\uFF09"),
+        h("div", { style: { fontSize: 11, color: 'var(--ink-4)', marginBottom: 8 } }, "\u52FE\u9009\u540E\uFF0C\u4FDD\u5B58\u65F6\u4F1A\u628A\u4E0A\u9762\u8FD9\u5957\u53EF\u89C1\u9875\u4E00\u5E76\u5199\u7ED9\u8FD9\u4E9B\u5BA2\u670D\uFF0C\u7701\u53BB\u9010\u4E2A\u8BBE\u7F6E\u3002"),
+        h("div", { style: { display: 'flex', gap: 8, marginBottom: 8 } },
+          h("button", { className: "btn-ghost", onClick: function onClick() { return setAlsoIds(others.map(function (e) { return e.id; })); }, style: { fontSize: 12 } }, "\u5168\u9009"),
+          h("button", { className: "btn-ghost", onClick: function onClick() { return setAlsoIds([]); }, style: { fontSize: 12 } }, "\u6E05\u7A7A")),
+        h("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 6 } },
+          others.map(function (e) {
+            var on = alsoIds.indexOf(e.id) >= 0;
+            var isAdmin = e.role === 'admin' || e.role === 'super_admin';
+            return h("label", {
+              key: e.id,
+              style: { display: 'flex', alignItems: 'center', gap: 6, padding: '6px 9px', border: '1px solid ' + (on ? 'var(--accent)' : 'var(--line)'), background: on ? 'rgba(37,99,235,.06)' : 'white', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, opacity: isAdmin ? 0.55 : 1 }
+            }, h("input", { type: "checkbox", checked: on, onChange: function onChange() { return toggleAlso(e.id); } }), e.name + (isAdmin ? ' (\u4E3B\u7BA1\xB7\u4E0D\u53D7\u9650)' : ''));
+          }))) : null),
+    h("div", { style: { padding: '12px 20px', borderTop: '1px solid var(--line)', display: 'flex', gap: 8, alignItems: 'center' } },
+      h("button", { className: "btn-ghost", onClick: function onClick() { return setSel([]); }, style: { fontSize: 12 } }, "\u6E05\u7A7A(=\u9ED8\u8BA4)"),
+      h("button", { className: "btn-ghost", onClick: function onClick() { return setSel(ASSIGNABLE_TABS.map(function (x) { return x[0]; })); }, style: { fontSize: 12 } }, "\u5168\u9009"),
+      h("span", { style: { flex: 1, fontSize: 12, color: 'var(--ink-4)' } }, (sel.length ? '\u5DF2\u9009 ' + sel.length + ' \u9879' : '\u672A\u52FE\u9009 = \u89D2\u8272\u9ED8\u8BA4') + (alsoIds.length ? ' \xB7 \u540C\u65F6\u5957\u7528\u7ED9 ' + alsoIds.length + ' \u4EBA' : '')),
+      h("button", { className: "btn-sec", onClick: onClose, style: { padding: '6px 14px' } }, "\u53D6\u6D88"),
+      h("button", { className: "btn-primary", onClick: function onClick() { return onSave(sel, alsoIds); }, style: { padding: '6px 16px' } }, "\u4FDD\u5B58"))));
 };
 var AdminModule = function AdminModule(_ref5) {
   var user = _ref5.user,
@@ -1444,15 +1370,22 @@ var AdminModule = function AdminModule(_ref5) {
       title: "\u8BBE\u7F6E\u8BE5\u5458\u5DE5\u53EF\u89C1\u7684\u529F\u80FD\u9875"
     }, "\uD83D\uDD10 \u6743\u9650"), permEmp && permEmp.id === e.id && /*#__PURE__*/React.createElement(TabPermModal, {
       emp: permEmp,
+      allEmployees: employees,
       onClose: function onClose() {
         return setPermEmp(null);
       },
-      onSave: function onSave(tabs) {
+      onSave: function onSave(tabs, alsoIds) {
         updateEmp(permEmp.id, {
           allowedTabs: tabs
         });
+        var extra = Array.isArray(alsoIds) ? alsoIds : [];
+        extra.forEach(function (id) {
+          updateEmp(id, {
+            allowedTabs: tabs
+          });
+        });
         setPermEmp(null);
-        toast('\u2713 \u6743\u9650\u5DF2\u4FDD\u5B58 \xB7 ' + e.name);
+        toast('\u2713 \u6743\u9650\u5DF2\u4FDD\u5B58 \xB7 ' + e.name + (extra.length ? ' \u7B49 ' + (extra.length + 1) + ' \u4EBA' : ''));
       }
     }), e.id !== user.id && /*#__PURE__*/React.createElement("button", {
       className: "btn-danger",
