@@ -4334,6 +4334,11 @@ var REFUND_TYPES = [{
   color: '#ea580c',
   bg: '#fff7ed'
 }, {
+  key: 'discount',
+  label: '退折扣',
+  color: '#0d9488',
+  bg: '#ccfbf1'
+}, {
   key: 'other',
   label: '其他',
   color: '#7c3aed',

@@ -8517,6 +8517,12 @@ var EventEditorModal = function EventEditorModal(_ref38) {
             if (v) {
               if (!(customer || '').trim() && (v.email || v.customerName)) setCustomer(v.email || v.customerName);
               if (!(country || '').trim() && v.country) setCountry(v.country);
+              // 🆕 fix253:退折扣类型 → 按抓取的订单金额自动算退款额(默认/当前比例)
+              if (refundType === 'discount' && v.total) {
+                var _dt = parseFloat(v.total);
+                if (_dt && !isNaN(_dt)) setAmount((_dt * (discountPct || 10) / 100).toFixed(2));
+                if (v.currency) setCurrency(v.currency);
+              }
             }
             _context13.n = 5;
             break;
@@ -8639,6 +8645,21 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     _useState188 = _slicedToArray(_useState187, 2),
     refundTypeCustom = _useState188[0],
     setRefundTypeCustom = _useState188[1];
+  // 🆕 fix253:退折扣 —— 默认 10%,可快选 10/15/20%,按抓取的订单金额自动算退款额
+  var _dpState = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.discount_pct) || 10),
+    _dpState2 = _slicedToArray(_dpState, 2),
+    discountPct = _dpState2[0],
+    setDiscountPct = _dpState2[1];
+  var _orderTotalNum = function _orderTotalNum() {
+    var m = orderPull && orderPull.meta;
+    var t = m && parseFloat(m.total);
+    return t && !isNaN(t) ? t : 0;
+  };
+  var _applyDiscount = function _applyDiscount(pct) {
+    setDiscountPct(pct);
+    var tot = _orderTotalNum();
+    if (tot > 0) setAmount((tot * pct / 100).toFixed(2));
+  };
   var _useState189 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.amount) || ''),
     _useState190 = _slicedToArray(_useState189, 2),
     amount = _useState190[0],
@@ -8801,6 +8822,7 @@ var EventEditorModal = function EventEditorModal(_ref38) {
               product_name: productName.trim() || null,
               refund_type: refundType,
               refund_type_custom: refundType === 'other' ? refundTypeCustom.trim() : null,
+              discount_pct: refundType === 'discount' ? discountPct : null,
               amount: amt,
               currency: currency,
               payment_method: paymentMethod,
@@ -10003,7 +10025,8 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     return /*#__PURE__*/React.createElement("button", {
       key: t.key,
       onClick: function onClick() {
-        return setRefundType(t.key);
+        setRefundType(t.key);
+        if (t.key === 'discount') _applyDiscount(discountPct || 10);
       },
       style: {
         padding: '5px 12px',
@@ -10047,7 +10070,54 @@ var EventEditorModal = function EventEditorModal(_ref38) {
       fontSize: 13,
       background: 'white'
     }
-  }))), /*#__PURE__*/React.createElement("div", {
+  })), refundType === 'discount' && /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 8,
+      padding: 10,
+      background: '#f0fdfa',
+      border: '1px solid #99f6e4',
+      borderRadius: 8
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: '#0f766e',
+      display: 'block',
+      marginBottom: 6
+    }
+  }, "\uD83D\uDCB8 \u9000\u6298\u6263\u6BD4\u4F8B\uFF08\u6309\u8BA2\u5355\u91D1\u989D\u81EA\u52A8\u8BA1\u7B97\uFF09 *"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: 'flex',
+      gap: 8,
+      marginBottom: 8
+    }
+  }, [10, 15, 20].map(function (p) {
+    return /*#__PURE__*/React.createElement("button", {
+      key: p,
+      onClick: function onClick() {
+        return _applyDiscount(p);
+      },
+      style: {
+        flex: 1,
+        padding: '7px 0',
+        borderRadius: 8,
+        fontSize: 13,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        border: '1.5px solid ' + (discountPct === p ? '#0d9488' : 'var(--line)'),
+        background: discountPct === p ? '#0d9488' : 'white',
+        color: discountPct === p ? 'white' : 'var(--ink-2)',
+        fontWeight: discountPct === p ? 700 : 500
+      }
+    }, p + '%');
+  })), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 11,
+      color: '#0f766e',
+      lineHeight: 1.5
+    }
+  }, _orderTotalNum() > 0 ? "\u8BA2\u5355\u91D1\u989D " + (orderPull.meta && orderPull.meta.currency || currency || 'USD') + " " + _orderTotalNum().toFixed(2) + " \u00D7 " + discountPct + "% = \u9000\u6B3E " + (_orderTotalNum() * discountPct / 100).toFixed(2) : "\u672A\u6293\u53D6\u5230\u8BA2\u5355\u91D1\u989D\uFF0C\u8BF7\u5148\u70B9\u300E\u62C9\u53D6\u8BA2\u5355\u300F\uFF1B\u6216\u76F4\u63A5\u5728\u4E0B\u65B9\u624B\u586B\u9000\u6B3E\u91D1\u989D\u3002"))), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: '1fr 1fr',
