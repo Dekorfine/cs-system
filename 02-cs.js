@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix268
+// 版本 2026.06.05-fix278
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -5458,6 +5458,7 @@ var CSModule = function CSModule(_ref7) {
       return /*#__PURE__*/React.createElement("img", {
         key: s.id || i,
         src: window.__imgThumb ? window.__imgThumb(imgDisplaySrc(s), 96, 52) : imgDisplaySrc(s),
+        onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
         "data-full": imgDisplaySrc(s),
         alt: s.name || '',
         className: "img-thumb",
@@ -5944,6 +5945,7 @@ var CSModule = function CSModule(_ref7) {
     }
   }, /*#__PURE__*/React.createElement("img", {
     src: window.__imgFull ? window.__imgFull(lightboxImg) : lightboxImg,
+    onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
     alt: "",
     onClick: function onClick(e) {
       return e.stopPropagation();
@@ -12219,6 +12221,7 @@ var FollowUpModal = function FollowUpModal(_ref43) {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("img", {
       src: window.__imgThumb ? window.__imgThumb(imgDisplaySrc(s), 96, 52) : imgDisplaySrc(s),
+      onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
       "data-full": imgDisplaySrc(s),
       alt: s.name,
       className: "thumb",
@@ -12326,6 +12329,7 @@ var FollowUpModal = function FollowUpModal(_ref43) {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("img", {
       src: window.__imgThumb ? window.__imgThumb(imgDisplaySrc(s), 96, 52) : imgDisplaySrc(s),
+      onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
       "data-full": imgDisplaySrc(s),
       alt: s.name,
       className: "thumb",
@@ -12434,6 +12438,7 @@ var FollowUpModal = function FollowUpModal(_ref43) {
       className: "relative group"
     }, /*#__PURE__*/React.createElement("img", {
       src: window.__imgThumb ? window.__imgThumb(imgDisplaySrc(s), 96, 52) : imgDisplaySrc(s),
+      onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
       "data-full": imgDisplaySrc(s),
       alt: s.name,
       className: "thumb",

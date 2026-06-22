@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix276
+// 版本 2026.06.05-fix278
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1468,6 +1468,7 @@ var OrderProductThumb = function OrderProductThumb(_ref10) {
     }
   }, "\u62C9\u53D6\u4E2D\u2026") : show ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("img", {
     src: window.__imgThumb ? window.__imgThumb(show.image_url, 128, 58) : show.image_url,
+    onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
     "data-full": show.image_url,
     alt: "",
     title: show.title || '',
@@ -2904,6 +2905,7 @@ var AftersalesTable = function AftersalesTable(_ref18) {
         }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
         src: window.__imgThumb ? window.__imgThumb(u0, 128, 55) : u0,
+        onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
         "data-full": u0,
         alt: "",
         style: {
@@ -3228,6 +3230,7 @@ var RefillsTable = function RefillsTable(_ref20) {
         }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
         src: window.__imgThumb ? window.__imgThumb(u0, 128, 55) : u0,
+        onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
         "data-full": u0,
         alt: "",
         style: {
@@ -3685,6 +3688,7 @@ var RefundsTable = function RefundsTable(_ref22) {
         }
       }, u0 ? /*#__PURE__*/React.createElement("img", {
         src: window.__imgThumb ? window.__imgThumb(u0, 128, 55) : u0,
+        onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
         "data-full": u0,
         alt: "",
         style: {
@@ -4150,6 +4154,7 @@ var ImageGalleryModal = function ImageGalleryModal(_ref24) {
     }
   }, "\u2039"), /*#__PURE__*/React.createElement("img", {
     src: window.__imgFull ? window.__imgFull(current.url) : current.url,
+    onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
     "data-full": current.url,
     style: {
       maxWidth: '100%',
@@ -4185,6 +4190,7 @@ var ImageGalleryModal = function ImageGalleryModal(_ref24) {
     return /*#__PURE__*/React.createElement("img", {
       key: i,
       src: window.__imgThumb ? window.__imgThumb(im.url, 100, 50) : im.url,
+      onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
       "data-full": im.url,
       onClick: function onClick() {
         return setActiveIdx(i);

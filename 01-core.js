@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix268
+// 版本 2026.06.05-fix278
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -2229,10 +2229,37 @@ function __imgProxy(url, opt) {
 }
 function __imgThumb(url, w, q) { return __imgProxy(imgDisplaySrc(url), { w: w || 100, q: q || 50, fit: 'cover' }); }
 function __imgFull(url, w, q) { return __imgProxy(imgDisplaySrc(url), { w: w || 1400, q: q || 72, fit: 'inside' }); }
+// 🆕 fix278: 远程图三级兜底 —— 代理失败 → 原始直链 → 占位块。所有走代理的 <img> 都接 onError: window.__imgOnError
+var __IMG_PH = 'data:image/svg+xml,' + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='#f1f3f5'/><g stroke='#ced4da' stroke-width='2.5' fill='none'><rect x='22' y='26' width='36' height='28' rx='3'/><circle cx='33' cy='36' r='3.5'/><path d='M24 52 L38 40 L46 48 L52 43 L56 52'/></g><text x='40' y='71' font-size='10' text-anchor='middle' fill='#868e96' font-family='sans-serif'>\u56FE\u88C2\u4E86</text></svg>");
+function __imgDirectFromProxy(src) {
+  try { var m = /[?&]url=([^&]+)/.exec(src || ''); return m ? decodeURIComponent(m[1]) : ''; } catch (e) { return ''; }
+}
+function __imgOnError(e, directUrl) {
+  var img = e && (e.currentTarget || e.target); if (!img) return;
+  var stage = img.getAttribute('data-errstage') || '0';
+  if (stage === '0') {
+    // 第一级:代理失败 → 试原始直链(绕过 wsrv)
+    var direct = directUrl || img.getAttribute('data-full') || __imgDirectFromProxy(img.getAttribute('src') || img.src);
+    var cur = img.getAttribute('src') || img.src || '';
+    if (direct && /^https?:/.test(direct) && direct.indexOf('wsrv.nl') === -1 && direct !== cur) {
+      img.setAttribute('data-errstage', '1');
+      img.src = direct;
+      return;
+    }
+  }
+  // 第二级:直链也失败(或本就没法绕)→ 干净占位块,不再露浏览器默认裂图标
+  img.setAttribute('data-errstage', '2');
+  img.onerror = null;
+  img.src = __IMG_PH;
+  img.style.objectFit = 'contain';
+  img.style.background = '#f1f3f5';
+  try { img.title = '\u56FE\u7247\u65E0\u6CD5\u52A0\u8F7D \xB7 \u53EF\u70B9\u300C\u6362\u56FE\u300D\u91CD\u4F20'; img.style.cursor = 'default'; } catch (e2) {}
+}
 try {
   window.__imgProxy = __imgProxy;
   window.__imgThumb = __imgThumb;
   window.__imgFull = __imgFull;
+  window.__imgOnError = __imgOnError;
 } catch (e) {}
 
 // 缩略图行:image/* 铺 48×48,其它显 📄 文件名。点击 onPreview(全屏看大图),stopPropagation 防触发卡片点击。
@@ -2356,6 +2383,7 @@ var ImgPreviewModal = function ImgPreviewModal(_ref5) {
     }
   }, /*#__PURE__*/React.createElement("img", {
     src: __imgFull(src),
+    onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
     alt: "",
     onClick: function onClick(e) {
       return e.stopPropagation();

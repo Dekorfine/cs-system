@@ -1,5 +1,5 @@
 // ====== cs-system — 07-photos-reviews ======
-// 版本 2026.06.05-fix268
+// 版本 2026.06.05-fix278
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -656,6 +656,7 @@ var ReviewTaskCard = function ReviewTaskCard(_ref6) {
     }
   }, review.product_image && /*#__PURE__*/React.createElement("img", {
     src: window.__imgThumb ? window.__imgThumb(review.product_image, 108, 55) : review.product_image,
+    onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
     "data-full": review.product_image,
     alt: "",
     onClick: function onClick() {
@@ -991,6 +992,7 @@ var ReviewTaskCard = function ReviewTaskCard(_ref6) {
     return info.kind === 'image' ? /*#__PURE__*/React.createElement("img", {
       key: a.id,
       src: window.__imgThumb ? window.__imgThumb(a.url, 200, 55) : a.url,
+      onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
       "data-full": a.url,
       onClick: function onClick() {
         return setPreviewFile(a);

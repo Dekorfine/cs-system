@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix277
+// 版本 2026.06.05-fix278
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -5010,6 +5010,7 @@ var ProductImageSlot = function ProductImageSlot(_ref31) {
     }
   }, /*#__PURE__*/React.createElement("img", {
     src: window.__imgFull ? window.__imgFull(value) : value,
+    onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
     alt: productName,
     style: {
       maxWidth: '100%',
