@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix272
+// 版本 2026.06.05-fix273
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -25,9 +25,82 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix272
+// 版本 2026.06.05-fix273
 // 预编译切片
 //
+
+// 🆕 fix273: 通用回收站弹层 —— 任意带 deleted 列的表都能用(拒付/离线订单等)。
+//   弹层式,纯新增不动现有列表/删除逻辑。恢复=.update(deleted:false);彻底删除=.delete()。
+function RecordTrashView(props) {
+  var h = React.createElement;
+  var tableName = props.tableName, columns = props.columns, onClose = props.onClose, onReload = props.onReload, toast = props.toast, title = props.title;
+  var s_rows = useState([]); var rows = s_rows[0], setRows = s_rows[1];
+  var s_loading = useState(true); var loading = s_loading[0], setLoading = s_loading[1];
+  var C = { ink: 'var(--ink-1,#1c1a17)', sec: 'var(--ink-3,#6b6660)', line: 'var(--line,#e7e5e0)', ok: '#16a34a', danger: '#dc2626' };
+  function load() {
+    setLoading(true);
+    CLOUD.client.from(tableName).select('*').eq('deleted', true).order('updated_at', { ascending: false }).limit(2000).then(function (res) {
+      setRows((res && res.data) || []); setLoading(false);
+    });
+  }
+  useEffect(function () { load(); }, []);
+  function restore(r) {
+    CLOUD.client.from(tableName).update({ deleted: false, updated_at: new Date().toISOString() }).eq('id', r.id).then(function (res) {
+      if (res && res.error) { toast('恢复失败:' + res.error.message); return; }
+      toast('✓ 已恢复'); load(); if (onReload) onReload();
+    });
+  }
+  function purge(r) {
+    wsConfirm('彻底删除这条记录?删除后不可恢复。').then(function (ok) {
+      if (!ok) return;
+      CLOUD.client.from(tableName)['delete']().eq('id', r.id).then(function (res) {
+        if (res && res.error) { toast('删除失败:' + res.error.message); return; }
+        toast('已彻底删除'); load();
+      });
+    });
+  }
+  function purgeAll() {
+    if (!rows.length) return;
+    wsConfirm('清空回收站?将彻底删除 ' + rows.length + ' 条记录,不可恢复。').then(function (ok) {
+      if (!ok) return;
+      var ids = rows.map(function (r) { return r.id; });
+      CLOUD.client.from(tableName)['delete']().in('id', ids).then(function (res) {
+        if (res && res.error) { toast('清空失败:' + res.error.message); return; }
+        toast('✓ 回收站已清空'); load();
+      });
+    });
+  }
+  return h('div', { onClick: onClose, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 } },
+    h('div', { onClick: function (e) { e.stopPropagation(); }, style: { background: '#fff', borderRadius: 14, padding: 18, width: 'min(920px,96vw)', maxHeight: '88vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,.3)' } },
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' } },
+        h('div', { style: { fontWeight: 700, fontSize: 16 } }, '🗑️ ' + (title || '回收站') + ' (' + rows.length + ')'),
+        h('span', { style: { fontSize: 12, color: C.sec, marginRight: 'auto' } }, '删除的记录在这里 · 可恢复;彻底删除后不可找回'),
+        rows.length > 0 ? h('button', { onClick: purgeAll, style: { padding: '6px 12px', fontSize: 12, border: '1px solid #fca5a5', borderRadius: 8, background: '#fff', color: C.danger, cursor: 'pointer', fontFamily: 'inherit' } }, '清空回收站') : null,
+        h('button', { onClick: onClose, style: { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' } }, '关闭')),
+      loading
+        ? h('div', { style: { padding: 30, textAlign: 'center', color: C.sec } }, '加载中…')
+        : rows.length === 0
+          ? h('div', { style: { padding: 30, textAlign: 'center', color: C.sec } }, '回收站是空的')
+          : h('div', { style: { overflowX: 'auto', border: '1px solid ' + C.line, borderRadius: 10 } },
+            h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 } },
+              h('thead', null, h('tr', { style: { background: '#fafafa' } },
+                columns.map(function (col, i) { return h('th', { key: i, style: { padding: '8px 10px', textAlign: 'left', fontSize: 12, color: C.sec, borderBottom: '2px solid ' + C.line, whiteSpace: 'nowrap' } }, col.label); })
+                  .concat([h('th', { key: '_del', style: { padding: '8px 10px', textAlign: 'left', fontSize: 12, color: C.sec, borderBottom: '2px solid ' + C.line, whiteSpace: 'nowrap' } }, '删除时间'),
+                  h('th', { key: '_act', style: { padding: '8px 10px', textAlign: 'center', fontSize: 12, color: C.sec, borderBottom: '2px solid ' + C.line, whiteSpace: 'nowrap' } }, '操作')]))),
+              h('tbody', null, rows.map(function (r) {
+                return h('tr', { key: r.id, style: { borderBottom: '1px solid ' + C.line } },
+                  columns.map(function (col, i) {
+                    var v = col.fmt ? col.fmt(r) : r[col.key];
+                    return h('td', { key: i, style: { padding: '8px 10px', whiteSpace: col.wrap ? 'normal' : 'nowrap', maxWidth: col.wrap ? 240 : undefined } }, v == null || v === '' ? '—' : v);
+                  }).concat([
+                    h('td', { key: '_del', style: { padding: '8px 10px', whiteSpace: 'nowrap', color: C.sec } }, (r.updated_at || '').slice(0, 16).replace('T', ' ') || '—'),
+                    h('td', { key: '_act', style: { padding: '8px 10px', whiteSpace: 'nowrap', textAlign: 'center' } },
+                      h('button', { onClick: function () { restore(r); }, style: { padding: '4px 9px', fontSize: 12, border: '1px solid ' + C.ok, borderRadius: 7, background: '#fff', color: C.ok, cursor: 'pointer', marginRight: 5, fontFamily: 'inherit' } }, '↩️ 恢复'),
+                      h('button', { onClick: function () { purge(r); }, style: { padding: '4px 9px', fontSize: 12, border: '1px solid #fca5a5', borderRadius: 7, background: '#fff', color: C.danger, cursor: 'pointer', fontFamily: 'inherit' } }, '彻底删除'))]));
+              })))))
+  );
+}
+if (typeof window !== 'undefined') window.RecordTrashView = RecordTrashView;
 
 var ChargebacksModule = function ChargebacksModule(_ref) {
   var user = _ref.user,
@@ -196,6 +269,10 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
   var _cbps = useState(50),
     cbSize = _cbps[0],
     setCbSize = _cbps[1];
+  // 🆕 fix273: 回收站
+  var _cbtr = useState(false),
+    cbShowTrash = _cbtr[0],
+    setCbShowTrash = _cbtr[1];
   var filtered = useMemo(function () {
     var l = list;
     if (filterStatus === 'active') l = l.filter(function (c) {
@@ -372,7 +449,22 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
       padding: '6px 14px',
       fontSize: 12
     }
-  }, "+ \u65B0\u589E\u62D2\u4ED8")), /*#__PURE__*/React.createElement("div", {
+  }, "+ \u65B0\u589E\u62D2\u4ED8"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setCbShowTrash(true);
+    },
+    style: {
+      padding: '6px 14px',
+      fontSize: 12,
+      marginLeft: 8,
+      border: '1px solid var(--line)',
+      borderRadius: 8,
+      background: '#fff',
+      color: 'var(--ink-2)',
+      cursor: 'pointer',
+      fontFamily: 'inherit'
+    }
+  }, "\uD83D\uDDD1\uFE0F \u56DE\u6536\u7AD9")), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
       display: 'flex',
@@ -711,7 +803,16 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
       setCbListModal(null);
       setEditing(cb);
     }
-  })));
+  })), cbShowTrash && /*#__PURE__*/React.createElement(RecordTrashView, {
+    tableName: 'chargebacks',
+    title: '拒付回收站',
+    toast: toast,
+    onReload: load,
+    onClose: function onClose() {
+      return setCbShowTrash(false);
+    },
+    columns: [{ key: 'order_no', label: '订单号' }, { label: '客户', fmt: function (r) { return r.customer_email || r.customer_name || r.customer || ''; } }, { label: '金额', fmt: function (r) { return (r.currency || 'USD') + ' ' + (r.amount || 0); } }, { key: 'status', label: '状态' }, { key: 'created_by_name', label: '录入人' }]
+  }));
 };
 var ChargebackCard = function ChargebackCard(_ref5) {
   var cb = _ref5.cb,
@@ -3256,6 +3357,10 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   var _oops = useState(50),
     ooSize = _oops[0],
     setOoSize = _oops[1];
+  // 🆕 fix273: 回收站
+  var _ootr = useState(false),
+    ooShowTrash = _ootr[0],
+    setOoShowTrash = _ootr[1];
   var filtered = useMemo(function () {
     var l = list;
     if (filterStatus === 'active') l = l.filter(function (o) {
@@ -3445,7 +3550,22 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       padding: '6px 14px',
       fontSize: 12
     }
-  }, "+ \u65B0\u5EFA\u7EBF\u4E0B\u5355"))), /*#__PURE__*/React.createElement("div", {
+  }, "+ \u65B0\u5EFA\u7EBF\u4E0B\u5355"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setOoShowTrash(true);
+    },
+    style: {
+      padding: '6px 14px',
+      fontSize: 12,
+      marginLeft: 8,
+      border: '1px solid var(--line)',
+      borderRadius: 8,
+      background: '#fff',
+      color: 'var(--ink-2)',
+      cursor: 'pointer',
+      fontFamily: 'inherit'
+    }
+  }, "\uD83D\uDDD1\uFE0F \u56DE\u6536\u7AD9"))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
       display: 'flex',
@@ -3705,6 +3825,15 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       load();
     },
     toast: toast
+  }), ooShowTrash && /*#__PURE__*/React.createElement(RecordTrashView, {
+    tableName: 'offline_orders',
+    title: '线下单回收站',
+    toast: toast,
+    onReload: load,
+    onClose: function onClose() {
+      return setOoShowTrash(false);
+    },
+    columns: [{ label: '订单号', fmt: function (r) { return r.order_ref || r.order_no || r.order_number || ''; } }, { label: '客户', fmt: function (r) { return r.customer || r.customer_name || ''; } }, { key: 'site', label: '店铺' }, { label: '金额', fmt: function (r) { return r.refund_amount != null && r.refund_amount !== '' ? '退款 ' + r.refund_amount : r.amount || ''; } }, { key: 'status', label: '状态' }, { key: 'created_by_name', label: '录入人' }]
   }));
 };
 
