@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix288
+// 版本 2026.06.05-fix291
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -358,6 +358,29 @@ var EventsModule = function EventsModule(_ref) {
     return [e.order_ref, e.customer, e.product_name, e.notes, e.damaged_part, e.refund_reason, e.supplier_name, e.created_by_name, e.refund_note, e.issue_detail, itemsText].filter(Boolean).join(' ').toLowerCase().includes(q);
   };
   var _flagOnlySt = useState(false), flagOnly = _flagOnlySt[0], setFlagOnly = _flagOnlySt[1];
+  var _plOpenSt = useState(false), prodLookup = _plOpenSt[0], setProdLookup = _plOpenSt[1];
+  var _plQSt = useState(''), plQuery = _plQSt[0], setPlQuery = _plQSt[1];
+  var prodResults = useMemo(function () {
+    var q = (plQuery || '').trim().toLowerCase();
+    if (!q) return [];
+    var kws = q.split(/\s+/).filter(Boolean);
+    var hay = function hay(parts) { return parts.filter(Boolean).join(' ').toLowerCase(); };
+    var rows = [];
+    (aftersales || []).forEach(function (e) {
+      if (e.deleted) return;
+      rows.push({ t: 'aftersale', label: '\u552E\u540E', color: '#ea580c', e: e, hay: hay([e.product_name, e.issue_type, e.issue_detail, e.damaged_part, e.notes, e.order_ref, e.created_by_name]), issue: e.issue_detail || e.damaged_part || e.notes || '' });
+    });
+    (refills || []).forEach(function (e) {
+      if (e.deleted) return;
+      var items = Array.isArray(e.items) ? e.items.map(function (it) { return it ? [it.product, it.item, it.name, it.note].filter(Boolean).join(' ') : ''; }).join(' ') : '';
+      rows.push({ t: 'refill', label: '\u8865\u4EF6', color: '#0369a1', e: e, hay: hay([e.product_name, items, e.notes, e.order_ref, e.created_by_name]), issue: items || e.notes || '' });
+    });
+    (refunds || []).forEach(function (e) {
+      if (e.deleted) return;
+      rows.push({ t: 'refund', label: '\u9000\u6B3E', color: '#dc2626', e: e, hay: hay([e.product_name, e.refund_reason, e.refund_type, e.notes, e.order_ref, e.created_by_name]), issue: e.refund_reason || e.notes || '' });
+    });
+    return rows.filter(function (r) { return kws.every(function (k) { return r.hay.indexOf(k) >= 0; }); }).sort(function (a, b) { return (b.e.created_at || '').localeCompare(a.e.created_at || ''); });
+  }, [plQuery, aftersales, refills, refunds]);
   var filteredAftersales = useMemo(function () {
     return aftersales.filter(function (e) {
       return inRange(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus) && (filterIssue === 'all' || e.issue_type === filterIssue) && (!flagOnly || e.flagged);
@@ -884,6 +907,10 @@ var EventsModule = function EventsModule(_ref) {
       gap: 6
     }
   }, /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { return setProdLookup(true); },
+    className: "btn-sec",
+    style: { padding: '5px 12px', fontSize: 12 }
+  }, "\uD83D\uDD0E \u4EA7\u54C1\u901F\u67E5"), /*#__PURE__*/React.createElement("button", {
     onClick: loadAll,
     className: "btn-sec",
     style: {
@@ -1375,7 +1402,33 @@ var EventsModule = function EventsModule(_ref) {
     subTab: subTab,
     filterMonth: filterMonth,
     toast: toast
-  }), eventListModal && /*#__PURE__*/React.createElement(EventListModal, _extends({}, eventListModal, {
+  }), prodLookup && /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick(e) { if (e.target === e.currentTarget) { setProdLookup(false); } },
+    style: { position: 'fixed', inset: 0, zIndex: 2147483200, background: 'rgba(15,15,20,.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: 24, overflow: 'auto' }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { background: '#fff', width: '100%', maxWidth: 760, borderRadius: 14, boxShadow: '0 16px 50px rgba(0,0,0,.3)', overflow: 'hidden', margin: 'auto' }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#0f172a', color: '#fff' }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontSize: 15, fontWeight: 600 } }, "\uD83D\uDD0E \u4EA7\u54C1\u95EE\u9898\u901F\u67E5 \u00B7 \u8DE8\u552E\u540E/\u8865\u4EF6/\u9000\u6B3E"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { return setProdLookup(false); },
+    style: { background: 'rgba(255,255,255,.18)', border: 'none', color: '#fff', width: 28, height: 28, borderRadius: 7, cursor: 'pointer', fontSize: 16 }
+  }, "\u00D7")), /*#__PURE__*/React.createElement("div", { style: { padding: 16 } }, /*#__PURE__*/React.createElement("input", {
+    value: plQuery,
+    autoFocus: true,
+    onChange: function onChange(e) { return setPlQuery(e.target.value); },
+    placeholder: "\u8F93\u5165\u4EA7\u54C1\u540D/\u5173\u952E\u8BCD\uFF08\u5982 Levels Pendant / \u706F\u7F69 / \u578B\u53F7\uFF09",
+    style: { width: '100%', boxSizing: 'border-box', padding: '9px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, marginBottom: 10 }
+  }), /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: '#6b7280', marginBottom: 8 } }, plQuery.trim() ? ('\u5171 ' + prodResults.length + ' \u6761\u76F8\u5173\u95EE\u9898') : '\u8F93\u5165\u4EA7\u54C1\u5173\u952E\u8BCD\uFF0C\u4E00\u6B21\u770B\u5B83\u5728\u552E\u540E/\u8865\u4EF6/\u9000\u6B3E\u91CC\u7684\u6240\u6709\u95EE\u9898'), prodResults.slice(0, 200).map(function (r, i) {
+    return /*#__PURE__*/React.createElement("div", {
+      key: r.t + '_' + (r.e.id || i),
+      onClick: function onClick() {
+        setSubTab(r.t === 'aftersale' ? 'aftersales' : r.t === 'refill' ? 'refills' : 'refunds');
+        setSearch(r.e.order_ref || '');
+        setProdLookup(false);
+      },
+      style: { padding: '9px 11px', border: '1px solid #eee', borderRadius: 8, marginBottom: 6, cursor: 'pointer', background: '#fafafa' }
+    }, /*#__PURE__*/React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' } }, /*#__PURE__*/React.createElement("span", { style: { padding: '1px 7px', borderRadius: 10, fontSize: 11, fontWeight: 600, color: '#fff', background: r.color } }, r.label), /*#__PURE__*/React.createElement("b", { style: { fontSize: 13 } }, r.e.order_ref || '(\u65E0\u5355\u53F7)'), r.e.product_name && /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, color: '#374151' } }, '\u00B7 ' + r.e.product_name)), r.issue && /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: '#4b5563', lineHeight: 1.5 } }, ('' + r.issue).slice(0, 120)), /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: '#9ca3af', marginTop: 2 } }, (r.e.created_by_name || '?') + ' \u00B7 ' + (r.e.created_at || '').slice(0, 10) + ' \u00B7 \u70B9\u51FB\u5728\u8BE5\u6A21\u5757\u67E5\u770B'));
+  }), plQuery.trim() && prodResults.length === 0 && /*#__PURE__*/React.createElement("div", { style: { textAlign: 'center', color: '#9ca3af', padding: 24, fontSize: 13 } }, "\u65E0\u5339\u914D\u8BB0\u5F55")))), eventListModal && /*#__PURE__*/React.createElement(EventListModal, _extends({}, eventListModal, {
     employees: employees,
     suppliers: suppliers,
     onClose: function onClose() {
