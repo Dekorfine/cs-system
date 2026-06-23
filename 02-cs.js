@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix282
+// 版本 2026.06.05-fix283
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -8681,6 +8681,7 @@ var EventEditorModal = function EventEditorModal(_ref38) {
 
   // 补件专属
   var _useState179 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.items) || [{
+      product: '',
       item: '',
       qty: 1,
       unit: '套',
@@ -9896,7 +9897,26 @@ var EventEditorModal = function EventEditorModal(_ref38) {
         border: '1px solid var(--line)',
         borderRadius: 8
       }
-    }, /*#__PURE__*/React.createElement("div", {
+    }, /*#__PURE__*/React.createElement("input", {
+      value: it.product || '',
+      onChange: function onChange(e) {
+        var next = _toConsumableArray(refillItems);
+        next[idx] = _objectSpread(_objectSpread({}, next[idx]), {}, {
+          product: e.target.value
+        });
+        setRefillItems(next);
+      },
+      placeholder: "\u4EA7\u54C1\u540D\uFF08\u5982\uFF1ATense \u540A\u706F / \u706F\u5177\u578B\u53F7\uFF09",
+      style: {
+        width: '100%',
+        boxSizing: 'border-box',
+        padding: '6px 10px',
+        border: '1px solid var(--line)',
+        borderRadius: 6,
+        fontSize: 13,
+        marginBottom: 8
+      }
+    }), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         gap: 6,
@@ -10007,6 +10027,7 @@ var EventEditorModal = function EventEditorModal(_ref38) {
   }), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setRefillItems([].concat(_toConsumableArray(refillItems), [{
+        product: '',
         item: '',
         qty: 1,
         unit: '套',

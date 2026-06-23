@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix282
+// 版本 2026.06.05-fix283
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -760,6 +760,31 @@ var EventsModule = function EventsModule(_ref) {
       return _ref7.apply(this, arguments);
     };
   }();
+  // 🆕 fix283: 补件删除 = 直接软删到回收站,不走老板审批(Promise 链,不碰 03 状态机)
+  var _refillTrash = useState(false),
+    showRefillTrash = _refillTrash[0],
+    setShowRefillTrash = _refillTrash[1];
+  var trashRefill = function trashRefill(id) {
+    var rec = (refills || []).find(function (r) { return r.id === id; });
+    if (!rec) { toast('未找到记录'); return; }
+    var summary = (rec.order_ref || '?') + ' · ' + (rec.customer || '?');
+    Promise.resolve(wsConfirm('🗑️ 移入回收站\n\n' + summary + '\n\n确认?(可在补件「回收站」里恢复)')).then(function (ok) {
+      if (!ok) return;
+      var done = function done() {
+        setRefills(function (prev) { return prev.filter(function (r) { return r.id !== id; }); });
+        toast('✓ 已移入回收站');
+      };
+      return Promise.resolve(CLOUD.upsert('refills', _objectSpread(_objectSpread({}, rec), {}, {
+        deleted: true,
+        updated_at: new Date().toISOString()
+      }))).then(function (res) {
+        var savedRow = Array.isArray(res) ? res[0] : res;
+        if (res && savedRow && savedRow.deleted === true) { done(); return; }
+        if (!res) { toast('删除失败,请重试'); return; }
+        done();
+      })['catch'](function (e) { toast('删除失败: ' + (e && e.message || e)); });
+    });
+  };
   if (loading) return /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 40,
@@ -1097,7 +1122,12 @@ var EventsModule = function EventsModule(_ref) {
       return deleteEvent('aftersale', id);
     },
     onUpdateStatus: updateAftersaleStatus
-  })), subTab === 'refills' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(CompletionStatsBanner, {
+  })), subTab === 'refills' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+    style: { textAlign: 'right', marginBottom: 6 }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { return setShowRefillTrash(true); },
+    style: { padding: '5px 12px', fontSize: 12, border: '1px solid var(--line)', borderRadius: 8, background: '#fff', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit' }
+  }, "\uD83D\uDDD1\uFE0F \u56DE\u6536\u7AD9")), /*#__PURE__*/React.createElement(CompletionStatsBanner, {
     items: refills,
     title: "\u8865\u4EF6\u5B8C\u6210\u7EDF\u8BA1",
     icon: "\uD83D\uDCE6",
@@ -1165,9 +1195,16 @@ var EventsModule = function EventsModule(_ref) {
         }))();
         return;
       }
-      deleteEvent('refill', id);
+      trashRefill(id);
     },
     onUpdateStatus: updateRefillStatus
+  }), showRefillTrash && window.RecordTrashView && /*#__PURE__*/React.createElement(window.RecordTrashView, {
+    tableName: 'refills',
+    title: '\u8865\u4EF6\u56DE\u6536\u7AD9',
+    toast: toast,
+    onReload: loadAll,
+    onClose: function onClose() { return setShowRefillTrash(false); },
+    columns: [{ label: '\u8BA2\u5355', fmt: function (r) { return r.order_ref || ''; } }, { label: '\u5BA2\u6237', fmt: function (r) { return r.customer || ''; } }, { label: '\u8865\u4EF6\u6E05\u5355', wrap: true, fmt: function (r) { return Array.isArray(r.items) ? r.items.map(function (it) { return (it.product ? it.product + ' ' : '') + (it.item || it.name || '') + ' \xD7' + (it.qty || it.quantity || 1); }).join('; ') : r.product_name || r.note || ''; } }, { key: 'supplier_name', label: '\u4F9B\u5E94\u5546' }, { label: '\u72B6\u6001', fmt: function (r) { return r.status || ''; } }, { key: 'created_by_name', label: '\u5F55\u5165\u4EBA' }]
   })), subTab === 'refunds' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(AmountSummaryWidget, {
     title: "\u9000\u6B3E\u91D1\u989D\u6C47\u603B",
     icon: "\uD83D\uDCB0",
@@ -3181,7 +3218,7 @@ var RefillsTable = function RefillsTable(_ref20) {
     });
     var dispDate = (e.created_at || '').slice(5, 10).replace('-', '.');
     var itemsList = (e.items || []).map(function (it) {
-      return "".concat(it.item || '?', " \xD7 ").concat(it.qty || 1).concat(it.unit || '');
+      return "".concat(it.product ? it.product + ' - ' : '').concat(it.item || '?', " \xD7 ").concat(it.qty || 1).concat(it.unit || '');
     }).join('，');
     return /*#__PURE__*/React.createElement("tr", {
       key: e.id
