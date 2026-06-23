@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix295
+// 版本 2026.06.05-fix298
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -7089,6 +7089,7 @@ var MultiFileUploader = function MultiFileUploader(_ref28) {
     accept = _ref28$accept === void 0 ? '*' : _ref28$accept;
   var fileInputRef = React.useRef(null);
   var dropRef = React.useRef(null);
+  var dropHoverRef = React.useRef(false);
   var _useState107 = useState(false),
     _useState108 = _slicedToArray(_useState107, 2),
     uploading = _useState108[0],
@@ -7208,11 +7209,10 @@ var MultiFileUploader = function MultiFileUploader(_ref28) {
         _iterator4.f();
       }
     };
-    var el = dropRef.current;
-    if (!el) return;
-    el.addEventListener('paste', handler);
+    var guarded = function guarded(e) { if (dropHoverRef.current) handler(e); };
+    document.addEventListener('paste', guarded);
     return function () {
-      return el.removeEventListener('paste', handler);
+      return document.removeEventListener('paste', guarded);
     };
   }, [files]);
   var removeFile = /*#__PURE__*/function () {
@@ -7250,6 +7250,8 @@ var MultiFileUploader = function MultiFileUploader(_ref28) {
   }();
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     ref: dropRef,
+    onMouseEnter: function onMouseEnter() { dropHoverRef.current = true; },
+    onMouseLeave: function onMouseLeave() { dropHoverRef.current = false; },
     tabIndex: 0,
     onClick: function onClick() {
       var _fileInputRef$current;
@@ -7785,6 +7787,7 @@ var MultiImageUploader = function MultiImageUploader(_ref34) {
     videoMaxSize = _ref34$videoMaxSize === void 0 ? 100 : _ref34$videoMaxSize;
   var fileInputRef = React.useRef(null);
   var dropRef = React.useRef(null);
+  var dropHoverRef = React.useRef(false);
   var _useState113 = useState(false),
     _useState114 = _slicedToArray(_useState113, 2),
     uploading = _useState114[0],
@@ -7938,11 +7941,10 @@ var MultiImageUploader = function MultiImageUploader(_ref34) {
         _iterator5.f();
       }
     };
-    var el = dropRef.current;
-    if (!el) return;
-    el.addEventListener('paste', handler);
+    var guarded = function guarded(e) { if (dropHoverRef.current) handler(e); };
+    document.addEventListener('paste', guarded);
     return function () {
-      return el.removeEventListener('paste', handler);
+      return document.removeEventListener('paste', guarded);
     };
   }, [attachments, acceptVideo]);
   var handleFiles = function handleFiles(files) {
@@ -7993,6 +7995,8 @@ var MultiImageUploader = function MultiImageUploader(_ref34) {
   };
   return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     ref: dropRef,
+    onMouseEnter: function onMouseEnter() { dropHoverRef.current = true; },
+    onMouseLeave: function onMouseLeave() { dropHoverRef.current = false; },
     tabIndex: 0,
     onClick: function onClick() {
       var _fileInputRef$current2;
@@ -8332,9 +8336,11 @@ var SupplierSelect = function SupplierSelect(_ref37) {
       return (s.name || '').toLowerCase().includes(q) || (s.contact_person || '').toLowerCase().includes(q);
     }).slice(0, 100);
   }, [suppliers, query]);
-  var selected = suppliers.find(function (s) {
-    return s.id === value || s.id === parseInt(value);
-  });
+  var vals = Array.isArray(value) ? value : (value != null && value !== '' ? [value] : []);
+  var valStrs = vals.map(String);
+  var selectedObjs = vals.map(function (v) {
+    return suppliers.find(function (s) { return String(s.id) === String(v); });
+  }).filter(Boolean);
   // 🆕 fix257:任何人可自定义新增供应商 —— 输入了名称且库里无同名时,下拉显示「+ 新建」
   var _q = query.trim();
   var canAdd = !!onAddSupplier && !!_q && !suppliers.some(function (s) {
@@ -8344,7 +8350,7 @@ var SupplierSelect = function SupplierSelect(_ref37) {
     if (!canAdd || adding) return;
     setAdding(true);
     Promise.resolve(onAddSupplier(_q)).then(function (ns) {
-      if (ns && ns.id != null) onChange(ns.id);
+      if (ns && ns.id != null) onChange(vals.concat([ns.id]));
       setOpen(false);
       setQuery('');
     })["catch"](function (e) {
@@ -8358,10 +8364,20 @@ var SupplierSelect = function SupplierSelect(_ref37) {
     style: {
       position: 'relative'
     }
-  }, /*#__PURE__*/React.createElement("input", {
+  }, selectedObjs.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 5 }
+  }, selectedObjs.map(function (s) {
+    return /*#__PURE__*/React.createElement("span", {
+      key: s.id,
+      style: { display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: 'var(--accent-soft)', color: 'var(--accent)', borderRadius: 12, fontSize: 12, fontWeight: 600 }
+    }, s.name, /*#__PURE__*/React.createElement("span", {
+      onClick: function onClick(e) { e.stopPropagation(); onChange(vals.filter(function (v) { return String(v) !== String(s.id); })); },
+      style: { cursor: 'pointer', fontWeight: 700 }
+    }, "\xD7"));
+  })), /*#__PURE__*/React.createElement("input", {
     type: "text",
-    placeholder: placeholder,
-    value: open ? query : selected ? selected.name + (selected.contact_person ? ' · ' + selected.contact_person : '') : '',
+    placeholder: selectedObjs.length ? '\u7EE7\u7EED\u6DFB\u52A0\u4F9B\u5E94\u5546\u2026' : placeholder,
+    value: query,
     onChange: function onChange(e) {
       setQuery(e.target.value);
       setOpen(true);
@@ -8378,22 +8394,7 @@ var SupplierSelect = function SupplierSelect(_ref37) {
       fontSize: 13,
       background: 'white'
     }
-  }), selected && !open && /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick() {
-      return onChange(null);
-    },
-    style: {
-      position: 'absolute',
-      right: 6,
-      top: '50%',
-      transform: 'translateY(-50%)',
-      background: 'transparent',
-      border: 'none',
-      color: 'var(--ink-4)',
-      cursor: 'pointer',
-      fontSize: 14
-    }
-  }, "\xD7"), open && /*#__PURE__*/React.createElement("div", {
+  }), open && /*#__PURE__*/React.createElement("div", {
     style: {
       position: 'absolute',
       top: '100%',
@@ -8433,8 +8434,7 @@ var SupplierSelect = function SupplierSelect(_ref37) {
     return /*#__PURE__*/React.createElement("div", {
       key: s.id,
       onClick: function onClick() {
-        onChange(s.id);
-        setOpen(false);
+        onChange(valStrs.indexOf(String(s.id)) >= 0 ? vals : vals.concat([s.id]));
         setQuery('');
       },
       style: {
@@ -8508,10 +8508,14 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     _useState126 = _slicedToArray(_useState125, 2),
     customer = _useState126[0],
     setCustomer = _useState126[1];
-  var _useState127 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.supplier_id) || null),
+  var _useState127 = useState((function () {
+    var ee = existingEvent || {};
+    if (ee.supplier_ids) return String(ee.supplier_ids).split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    return ee.supplier_id != null ? [ee.supplier_id] : [];
+  })()),
     _useState128 = _slicedToArray(_useState127, 2),
-    supplierId = _useState128[0],
-    setSupplierId = _useState128[1];
+    supplierIds = _useState128[0],
+    setSupplierIds = _useState128[1];
   var _useState129 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.attachments) || []),
     _useState130 = _slicedToArray(_useState129, 2),
     attachments = _useState130[0],
@@ -8798,9 +8802,9 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     _useState198 = _slicedToArray(_useState197, 2),
     refundReason = _useState198[0],
     setRefundReason = _useState198[1];
-  var supplier = suppliers.find(function (s) {
-    return s.id === supplierId;
-  });
+  var supplierObjs = (supplierIds || []).map(function (id) {
+    return suppliers.find(function (s) { return String(s.id) === String(id); });
+  }).filter(Boolean);
 
   // 提交
   var handleSubmit = /*#__PURE__*/function () {
@@ -8822,8 +8826,10 @@ var EventEditorModal = function EventEditorModal(_ref38) {
               record_id: (record === null || record === void 0 ? void 0 : record.id) || null,
               order_ref: orderRef.trim(),
               customer: customer.trim() || null,
-              supplier_id: supplierId,
-              supplier_name: (supplier === null || supplier === void 0 ? void 0 : supplier.name) || null,
+              supplier_id: supplierIds[0] != null ? supplierIds[0] : null,
+              supplier_name: (supplierObjs[0] && supplierObjs[0].name) || null,
+              supplier_ids: (supplierIds || []).join(',') || null,
+              supplier_names: supplierObjs.map(function (s) { return s.name; }).join(', ') || null,
               attachments: attachments,
               notes: notes.trim() || null,
               created_by: user.id,
@@ -10498,8 +10504,8 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     }
   }, "\uFF08\u5171 ", suppliers.length, " \u5BB6\u53EF\u9009\uFF09")), /*#__PURE__*/React.createElement(SupplierSelect, {
     suppliers: suppliers,
-    value: supplierId,
-    onChange: setSupplierId,
+    value: supplierIds,
+    onChange: setSupplierIds,
     onAddSupplier: onAddSupplier
   })), /*#__PURE__*/React.createElement("div", {
     style: {
