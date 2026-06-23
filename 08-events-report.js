@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix287
+// 版本 2026.06.05-fix288
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -357,11 +357,12 @@ var EventsModule = function EventsModule(_ref) {
     }).join(' ') : '';
     return [e.order_ref, e.customer, e.product_name, e.notes, e.damaged_part, e.refund_reason, e.supplier_name, e.created_by_name, e.refund_note, e.issue_detail, itemsText].filter(Boolean).join(' ').toLowerCase().includes(q);
   };
+  var _flagOnlySt = useState(false), flagOnly = _flagOnlySt[0], setFlagOnly = _flagOnlySt[1];
   var filteredAftersales = useMemo(function () {
     return aftersales.filter(function (e) {
-      return inRange(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus) && (filterIssue === 'all' || e.issue_type === filterIssue);
+      return inRange(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus) && (filterIssue === 'all' || e.issue_type === filterIssue) && (!flagOnly || e.flagged);
     });
-  }, [aftersales, dateRange, filterSupplier, filterStatus, filterIssue, filterOwner, search]);
+  }, [aftersales, dateRange, filterSupplier, filterStatus, filterIssue, filterOwner, search, flagOnly]);
 
   // 🆕 fix197(方案A):把「需要补件」的售后记录,映射成补件行,合并进补件追踪 —— 不用另建补件单
   var asRefillRows = useMemo(function () {
@@ -381,17 +382,34 @@ var EventsModule = function EventsModule(_ref) {
   }, [aftersales]);
   var filteredRefills = useMemo(function () {
     var pass = function pass(e) {
-      return inRange(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus);
+      return inRange(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus) && (!flagOnly || e.flagged);
     };
     return [].concat(_toConsumableArray(refills.filter(pass)), _toConsumableArray(asRefillRows.filter(pass))).sort(function (a, b) {
       return (b.created_at || '').localeCompare(a.created_at || '');
     });
-  }, [refills, asRefillRows, dateRange, filterSupplier, filterStatus, filterOwner, search]);
+  }, [refills, asRefillRows, dateRange, filterSupplier, filterStatus, filterOwner, search, flagOnly]);
   var filteredRefunds = useMemo(function () {
     return refunds.filter(function (e) {
-      return inRange(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus) && (filterRefundType === 'all' || e.refund_type === filterRefundType) && (showArchivedRefunds ? !!e.archived : !e.archived);
+      return inRange(e) && matchSupplier(e) && matchOwner(e) && matchSearch(e) && (filterStatus === 'all' || e.status === filterStatus) && (filterRefundType === 'all' || e.refund_type === filterRefundType) && (showArchivedRefunds ? !!e.archived : !e.archived) && (!flagOnly || e.flagged);
     });
-  }, [refunds, dateRange, filterSupplier, filterStatus, filterRefundType, filterOwner, search, showArchivedRefunds]);
+  }, [refunds, dateRange, filterSupplier, filterStatus, filterRefundType, filterOwner, search, showArchivedRefunds, flagOnly]);
+  var toggleFlag = function toggleFlag(kind, row) {
+    if (!row || !row.id) return;
+    var fromAS = kind === 'refill' && row._fromAftersale;
+    var table = (kind === 'aftersale' || fromAS) ? 'aftersales' : kind === 'refund' ? 'refunds' : 'refills';
+    var setter = (kind === 'aftersale' || fromAS) ? setAftersales : kind === 'refund' ? setRefunds : setRefills;
+    var nv = !row.flagged;
+    setter(function (prev) {
+      return (prev || []).map(function (x) {
+        return x.id === row.id ? _objectSpread(_objectSpread({}, x), {}, { flagged: nv }) : x;
+      });
+    });
+    if (CLOUD && CLOUD.client) {
+      CLOUD.client.from(table).update({ flagged: nv }).eq('id', row.id).then(function (res) {
+        if (res && res.error && window._toast) window._toast('\u6807\u8BB0\u4FDD\u5B58\u5931\u8D25:' + res.error.message, 'error');
+      });
+    }
+  };
 
   // 月度统计
   var monthlyStats = useMemo(function () {
@@ -1078,7 +1096,23 @@ var EventsModule = function EventsModule(_ref) {
       borderRadius: 6,
       fontSize: 12
     }
-  }), (filterSupplier || filterStatus !== 'all' || filterIssue !== 'all' || filterRefundType !== 'all' || filterOwner !== 'all' || search) && /*#__PURE__*/React.createElement("button", {
+  }), isAdmin && /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setFlagOnly(!flagOnly);
+    },
+    style: {
+      padding: '5px 10px',
+      border: '1px solid ' + (flagOnly ? '#dc2626' : 'var(--line)'),
+      borderRadius: 6,
+      fontSize: 12,
+      background: flagOnly ? '#fef2f2' : '#fff',
+      color: flagOnly ? '#dc2626' : 'var(--ink-2)',
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      whiteSpace: 'nowrap'
+    },
+    title: "\u53EA\u770B\u4E3B\u7BA1\u6807\u8BB0\u7684\uFF08\u5F00\u4F1A\u7528\uFF09"
+  }, flagOnly ? "\uD83D\uDEA9 \u53EA\u770B\u6807\u8BB0" : "\uD83C\uDFF3\uFE0F \u53EA\u770B\u6807\u8BB0"), (filterSupplier || filterStatus !== 'all' || filterIssue !== 'all' || filterRefundType !== 'all' || filterOwner !== 'all' || search) && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       setFilterSupplier('');
       setFilterStatus('all');
@@ -1124,7 +1158,10 @@ var EventsModule = function EventsModule(_ref) {
     onDelete: function onDelete(id) {
       return deleteEvent('aftersale', id);
     },
-    onUpdateStatus: updateAftersaleStatus
+    onUpdateStatus: updateAftersaleStatus,
+    onToggleFlag: function onToggleFlag(e) {
+      return toggleFlag('aftersale', e);
+    }
   })), subTab === 'refills' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: { textAlign: 'right', marginBottom: 6 }
   }, /*#__PURE__*/React.createElement("button", {
@@ -1148,6 +1185,9 @@ var EventsModule = function EventsModule(_ref) {
       });
     }
   }), /*#__PURE__*/React.createElement(RefillsTable, {
+    onToggleFlag: function onToggleFlag(e) {
+      return toggleFlag('refill', e);
+    },
     items: filteredRefills,
     employees: employees,
     suppliers: suppliers,
@@ -1250,6 +1290,10 @@ var EventsModule = function EventsModule(_ref) {
       });
     }
   }), /*#__PURE__*/React.createElement(RefundsTable, {
+    onToggleFlag: function onToggleFlag(r) {
+      return toggleFlag('refund', r);
+    },
+    isAdmin: isAdmin,
     items: filteredRefunds,
     employees: employees,
     suppliers: suppliers,
@@ -2771,6 +2815,7 @@ var AftersalesTable = function AftersalesTable(_ref18) {
     user = _ref18.user,
     isAdmin = _ref18.isAdmin,
     onEdit = _ref18.onEdit,
+    onToggleFlag = _ref18.onToggleFlag,
     onDelete = _ref18.onDelete,
     onUpdateStatus = _ref18.onUpdateStatus;
   var _useState57 = useState(null),
@@ -3041,7 +3086,18 @@ var AftersalesTable = function AftersalesTable(_ref18) {
         color: '#c2410c'
       },
       title: "\u8DDF\u5355\u534F\u4F5C(\u8F6C\u5355 / \u770B\u8DDF\u5355\u8FDB\u5C55 / \u786E\u8BA4\u5B8C\u6210)"
-    }, "\uD83D\uDD01"), /*#__PURE__*/React.createElement("button", {
+    }, "\uD83D\uDD01"), isAdmin && /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return onToggleFlag && onToggleFlag(e);
+      },
+      className: "btn-ghost",
+      style: {
+        padding: '3px 6px',
+        fontSize: 11,
+        color: e.flagged ? '#dc2626' : '#cbd5e1'
+      },
+      title: "\u4E3B\u7BA1\u6807\u8BB0\u91CD\u70B9\uFF08\u5F00\u4F1A\u7B5B\u9009\uFF09"
+    }, "\uD83D\uDEA9"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return onEdit(e);
       },
@@ -3121,6 +3177,7 @@ var RefillsTable = function RefillsTable(_ref20) {
     user = _ref20.user,
     isAdmin = _ref20.isAdmin,
     onEdit = _ref20.onEdit,
+    onToggleFlag = _ref20.onToggleFlag,
     onDelete = _ref20.onDelete,
     onUpdateStatus = _ref20.onUpdateStatus;
   var _useState63 = useState(null),
@@ -3349,7 +3406,18 @@ var RefillsTable = function RefillsTable(_ref20) {
         color: '#16a34a'
       },
       title: "\u6807\u8BB0\u5DF2\u53D1\u8D27\xB7\u5B8C\u6210"
-    }, "\u2713"), /*#__PURE__*/React.createElement("button", {
+    }, "\u2713"), isAdmin && /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return onToggleFlag && onToggleFlag(e);
+      },
+      className: "btn-ghost",
+      style: {
+        padding: '3px 6px',
+        fontSize: 11,
+        color: e.flagged ? '#dc2626' : '#cbd5e1'
+      },
+      title: "\u4E3B\u7BA1\u6807\u8BB0\u91CD\u70B9\uFF08\u5F00\u4F1A\u7B5B\u9009\uFF09"
+    }, "\uD83D\uDEA9"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return onEdit(e);
       },
@@ -3390,6 +3458,8 @@ var RefundsTable = function RefundsTable(_ref22) {
     isFinance = _ref22.isFinance,
     canRefundReview = _ref22.canRefundReview,
     onEdit = _ref22.onEdit,
+    onToggleFlag = _ref22.onToggleFlag,
+    isAdmin = _ref22.isAdmin,
     onDelete = _ref22.onDelete,
     onReview = _ref22.onReview,
     onArchive = _ref22.onArchive,
@@ -3748,7 +3818,18 @@ var RefundsTable = function RefundsTable(_ref22) {
         background: '#16a34a'
       },
       title: "\u6807\u8BB0\u5DF2\u5B8C\u6210"
-    }, "\u2713 \u5B8C\u6210"), /*#__PURE__*/React.createElement("button", {
+    }, "\u2713 \u5B8C\u6210"), isAdmin && /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return onToggleFlag && onToggleFlag(r);
+      },
+      className: "btn-ghost",
+      style: {
+        padding: '3px 6px',
+        fontSize: 11,
+        color: r.flagged ? '#dc2626' : '#cbd5e1'
+      },
+      title: "\u4E3B\u7BA1\u6807\u8BB0\u91CD\u70B9\uFF08\u5F00\u4F1A\u7B5B\u9009\uFF09"
+    }, "\uD83D\uDEA9"), /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
         return onEdit(r);
       },

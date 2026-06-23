@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix286
+// 版本 2026.06.05-fix288
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -8494,6 +8494,25 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     _useState132 = _slicedToArray(_useState131, 2),
     notes = _useState132[0],
     setNotes = _useState132[1];
+  // fix288: 补件编辑器自动同步该订单的售后记录(只读参考)
+  var _asSyncSt = useState([]),
+    asSyncRows = _asSyncSt[0],
+    setAsSyncRows = _asSyncSt[1];
+  useEffect(function () {
+    if (kind !== 'refill') return;
+    var ref = (orderRef || '').trim();
+    if (!ref) { setAsSyncRows([]); return; }
+    var alive = true;
+    var t = setTimeout(function () {
+      if (!CLOUD || !CLOUD.client) return;
+      CLOUD.client.from('aftersales').select('id,order_ref,product_name,issue_type,issue_type_custom,issue_detail,damaged_part,notes,created_by_name,created_at,deleted').ilike('order_ref', ref).then(function (res) {
+        if (!alive) return;
+        var rows = ((res && res.data) || []).filter(function (a) { return a && !a.deleted; });
+        setAsSyncRows(rows);
+      });
+    }, 350);
+    return function () { alive = false; clearTimeout(t); };
+  }, [kind, orderRef]);
 
   // 售后专属
   var _useState133 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_type) || 'transport_damage'),
@@ -9905,7 +9924,12 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     }
   }, /*#__PURE__*/React.createElement("b", null, "\u26A0\uFE0F \u53EF\u80FD\u91CD\u590D:"), " \u8BA2\u5355 ", /*#__PURE__*/React.createElement("b", null, orderRef.trim()), " \u5DF2\u767B\u8BB0\u8FC7 ", dupRefills.length, " \u6761\u8865\u53D1\uFF08\u5F55\u5165\u4EBA:", dupRefills.map(function (d) {
     return d.created_by_name || '?';
-  }).join('\u3001'), "\uFF09\u3002\u8BF7\u5148\u5230\u300C\uD83D\uDCE6 \u8865\u53D1\u67E5\u8BE2\u300D\u6838\u5BF9\uFF0C\u907F\u514D\u91CD\u590D\u767B\u8BB0\u6216\u6F0F\u53D1\u3002"), /*#__PURE__*/React.createElement("div", {
+  }).join('\u3001'), "\uFF09\u3002\u8BF7\u5148\u5230\u300C\uD83D\uDCE6 \u8865\u53D1\u67E5\u8BE2\u300D\u6838\u5BF9\uFF0C\u907F\u514D\u91CD\u590D\u767B\u8BB0\u6216\u6F0F\u53D1\u3002"), asSyncRows.length > 0 && /*#__PURE__*/React.createElement("div", {
+    style: { background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 12px', marginBottom: 14, fontSize: 12.5, color: '#1e3a8a', lineHeight: 1.6 }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 600, marginBottom: 6 } }, "\uD83D\uDCCB \u8BE5\u8BA2\u5355\u7684\u552E\u540E\u8BB0\u5F55\uFF08\u8865\u4EF6\u53C2\u8003\uFF09"), asSyncRows.map(function (a) {
+    var lbl = ({ transport_damage: '\u8FD0\u8F93\u7834\u635F', product_quality: '\u4EA7\u54C1\u8D28\u91CF', quality_issue: '\u4EA7\u54C1\u8D28\u91CF', wrong_item: '\u53D1\u9519\u8D27', missing_parts: '\u7F3A\u4EF6', size_mismatch: '\u5C3A\u5BF8\u4E0D\u9002', color_mismatch: '\u989C\u8272\u4E0D\u7B26', logistics: '\u7269\u6D41\u95EE\u9898' })[a.issue_type] || a.issue_type_custom || a.issue_type || '\u552E\u540E';
+    return /*#__PURE__*/React.createElement("div", { key: a.id, style: { padding: '6px 0', borderTop: '1px dashed #bfdbfe' } }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("b", null, lbl), a.product_name ? ' \xB7 ' + a.product_name : '', a.damaged_part ? ' \xB7 \u635F\u574F:' + a.damaged_part : ''), (a.issue_detail || a.notes) && /*#__PURE__*/React.createElement("div", { style: { color: '#1e40af', marginTop: 2 } }, a.issue_detail || a.notes), /*#__PURE__*/React.createElement("div", { style: { color: '#60a5fa', fontSize: 11, marginTop: 2 } }, (a.created_by_name || '?') + ' \xB7 ' + (a.created_at || '').slice(0, 10)));
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 14
     }
