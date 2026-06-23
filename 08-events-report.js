@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix283
+// 版本 2026.06.05-fix287
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -352,7 +352,10 @@ var EventsModule = function EventsModule(_ref) {
   var matchSearch = function matchSearch(e) {
     if (!search) return true;
     var q = search.toLowerCase();
-    return [e.order_ref, e.customer, e.product_name, e.notes, e.damaged_part, e.refund_reason, e.supplier_name].filter(Boolean).join(' ').toLowerCase().includes(q);
+    var itemsText = Array.isArray(e.items) ? e.items.map(function (it) {
+      return it ? [it.product, it.item, it.name, it.note, it.qty, it.unit].filter(Boolean).join(' ') : '';
+    }).join(' ') : '';
+    return [e.order_ref, e.customer, e.product_name, e.notes, e.damaged_part, e.refund_reason, e.supplier_name, e.created_by_name, e.refund_note, e.issue_detail, itemsText].filter(Boolean).join(' ').toLowerCase().includes(q);
   };
   var filteredAftersales = useMemo(function () {
     return aftersales.filter(function (e) {
@@ -4711,7 +4714,10 @@ var EventListModal = function EventListModal(_ref34) {
   var filtered = (events || []).filter(function (e) {
     if (!search.trim()) return true;
     var q = search.trim().toLowerCase();
-    return (e.order_ref || e.order_no || '').toLowerCase().includes(q) || (e.customer || e.customer_name || '').toLowerCase().includes(q) || (e.product_name || '').toLowerCase().includes(q) || (e.notes || '').toLowerCase().includes(q) || (e.supplier_name || '').toLowerCase().includes(q) || (e.created_by_name || '').toLowerCase().includes(q);
+    var itemsText = Array.isArray(e.items) ? e.items.map(function (it) {
+      return it ? [it.product, it.item, it.name, it.note, it.qty, it.unit].filter(Boolean).join(' ') : '';
+    }).join(' ') : '';
+    return [e.order_ref, e.order_no, e.customer, e.customer_name, e.product_name, e.notes, e.supplier_name, e.created_by_name, e.refund_reason, e.damaged_part, itemsText].filter(Boolean).join(' ').toLowerCase().includes(q);
   });
   var STATUS_LABELS = {
     // 售后
