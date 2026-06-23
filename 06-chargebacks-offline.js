@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix298
+// 版本 2026.06.05-fix299
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3243,7 +3243,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     _useState70 = _slicedToArray(_useState69, 2),
     filterStatus = _useState70[0],
     setFilterStatus = _useState70[1];
-  var _useState71 = useState('list'),
+  var _useState71 = useState('board'),
     _useState72 = _slicedToArray(_useState71, 2),
     view = _useState72[0],
     setView = _useState72[1]; // 🆕 fix229: list | commission(主管)
@@ -4366,7 +4366,20 @@ var OfflineOrderCard = function OfflineOrderCard(_ref29) {
     return s.key === order.status;
   }) || OFFLINE_ORDER_STATUSES[0];
   var products = order.products || [];
-  var attachments = order.attachments || [];
+  var _attLazySt = useState(Array.isArray(order.attachments) ? order.attachments : null),
+    _attLazyA = _slicedToArray(_attLazySt, 2),
+    attLazy = _attLazyA[0],
+    setAttLazy = _attLazyA[1];
+  useEffect(function () {
+    if (Array.isArray(order.attachments)) return; // 列表已带就不再拉
+    if (!order.id || !CLOUD.client) return;
+    CLOUD.client.from('offline_orders').select('attachments').eq('id', order.id).single().then(function (r) {
+      setAttLazy(r && r.data && r.data.attachments || []);
+    }, function () {
+      setAttLazy([]);
+    });
+  }, [order.id, order.updated_at]);
+  var attachments = attLazy || [];
   var setStatus = /*#__PURE__*/function () {
     var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(newStatus) {
       var patch;
