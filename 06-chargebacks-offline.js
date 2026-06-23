@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix302
+// 版本 2026.06.05-fix303
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4346,6 +4346,7 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
   var _bNoSt = useState(order.ship_no || ''), shipNo = _bNoSt[0], setShipNo = _bNoSt[1];
   var _bCarSt = useState(order.ship_carrier || ''), shipCarrier = _bCarSt[0], setShipCarrier = _bCarSt[1];
   var _bBusySt = useState(false), shipBusy = _bBusySt[0], setShipBusy = _bBusySt[1];
+  var _bTransSt = useState(false), showTransfer = _bTransSt[0], setShowTransfer = _bTransSt[1];
   var status = OFFLINE_ORDER_STATUSES.find(function (s) { return s.key === order.status; }) || OFFLINE_ORDER_STATUSES[0];
   var prodCount = (order.products || []).length;
   var doShip = function doShip() {
@@ -4401,8 +4402,10 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       order.status === 'shipped'
         ? React.createElement("span", { title: '转单号 ' + (order.ship_no || ''), style: _objectSpread({ fontSize: 11, fontWeight: 700, color: '#059669', background: '#d1fae5', borderRadius: 6, padding: '4px 9px', maxWidth: 160 }, ell) }, "✓ 已发货 " + (order.ship_no || ''))
         : (order.transferred_to_po
-            ? React.createElement("button", { onClick: function onClick() { setShipNo(order.ship_no || ''); setShipCarrier(order.ship_carrier || ''); setShowShip(true); }, style: { padding: '4px 12px', fontSize: 11, border: 'none', background: '#059669', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }, title: "填转单号 → 置已发货并通知跟单" }, "📦 发货")
-            : React.createElement("span", { style: { fontSize: 10, color: 'var(--ink-3)' } }, "待转跟单"))
+          ? React.createElement("button", { onClick: function onClick() { setShipNo(order.ship_no || ''); setShipCarrier(order.ship_carrier || ''); setShowShip(true); }, style: { padding: '4px 12px', fontSize: 11, border: 'none', background: '#059669', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }, title: "填转单号 → 置已发货并通知跟单" }, "📦 发货")
+          : (order.status === 'paid' || order.status === 'dispatched')
+            ? React.createElement("button", { onClick: function onClick() { setShowTransfer(true); }, style: { padding: '4px 11px', fontSize: 11, border: 'none', background: '#1e40af', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }, title: "转给跟单部 · 自动创建跨部门工单" }, "📤 转跟单")
+            : React.createElement("span", { style: { fontSize: 10, color: 'var(--ink-3)' } }, order.status === 'pending_payment' ? "待付款" : (status.label || "—")))
     ),
     showShip && React.createElement("div", {
       onClick: function onClick(e) { if (e.target === e.currentTarget) setShowShip(false); },
@@ -4420,7 +4423,13 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
         React.createElement("button", { onClick: function onClick() { return setShowShip(false); }, style: { padding: '7px 14px', border: '1px solid #d1d5db', background: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' } }, "取消"),
         React.createElement("button", { onClick: doShip, disabled: shipBusy, style: { padding: '7px 16px', border: 'none', background: shipBusy ? '#9ca3af' : '#059669', color: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' } }, shipBusy ? "发货中…" : "确认发货")
       )
-    ))
+    )),
+    showTransfer && React.createElement(TransferToPoModal, {
+      order: order, user: user,
+      onClose: function onClose() { return setShowTransfer(false); },
+      onTransferred: function onTransferred() { setShowTransfer(false); onReload && onReload(); },
+      toast: toast
+    })
   );
 };
 var OfflineOrderCard = function OfflineOrderCard(_ref29) {
