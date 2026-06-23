@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix288
+// 版本 2026.06.05-fix295
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -2455,6 +2455,32 @@ var CSModule = function CSModule(_ref7) {
       refunds: refunds.filter(function (e) {
         return e.record_id === recordId;
       })
+    };
+  };
+
+  // 🆕 同单关联问题:按 订单号 + 客户邮箱 匹配(并保留本记录 id 关联),让处理者一眼看全这个单的所有问题
+  var getOrderEvents = function getOrderEvents(recordId, orderRef, email) {
+    var on = ((orderRef || '') + '').trim().toLowerCase();
+    var onTokens = on ? on.split(/[\s,;、；，]+/).filter(Boolean) : [];
+    var em = '';
+    var emM = ((email || '') + '').match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/);
+    if (emM) em = emM[0].toLowerCase();
+    var match = function match(e) {
+      if (recordId && e.record_id === recordId) return true;
+      if (onTokens.length && e.order_ref) {
+        var et = ('' + e.order_ref).toLowerCase().split(/[\s,;、；，]+/);
+        if (onTokens.some(function (t) { return et.indexOf(t) >= 0; })) return true;
+      }
+      if (em) {
+        var c = ('' + (e.customer || '') + ' ' + (e.email || '')).toLowerCase();
+        if (c.indexOf(em) >= 0) return true;
+      }
+      return false;
+    };
+    return {
+      aftersales: aftersales.filter(match),
+      refills: refills.filter(match),
+      refunds: refunds.filter(match)
     };
   };
 
@@ -5849,7 +5875,7 @@ var CSModule = function CSModule(_ref7) {
     // 不是影响绩效的原始指标(邮件量/难度/时长——那些只在列表行里改,仍受历史只读保护)。
     // 因此跟进窗对所有人、任何日期都可编辑,解决"逾期跟进点不了已处理 / 旧记录改不了状态"。
     var modalEditable = true;
-    var recordEvents = getRecordEvents(r.id);
+    var recordEvents = getOrderEvents(r.id, r.orderRef || r.order_ref, r.email || r.customer);
     return /*#__PURE__*/React.createElement(FollowUpModal, {
       record: r,
       user: user,
@@ -11619,7 +11645,7 @@ var FollowUpModal = function FollowUpModal(_ref43) {
       fontWeight: 600,
       color: 'var(--ink)'
     }
-  }, "\uD83D\uDCCB \u5173\u8054\u5DE5\u4F5C\u4E8B\u4EF6 (", recordEvents.aftersales.length + recordEvents.refills.length + recordEvents.refunds.length, ")"), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCCB \u540C\u5355\u5173\u8054\u95EE\u9898 (", recordEvents.aftersales.length + recordEvents.refills.length + recordEvents.refunds.length, ")"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: 'var(--ink-3)'
@@ -11830,7 +11856,7 @@ var FollowUpModal = function FollowUpModal(_ref43) {
       textAlign: 'center',
       padding: '8px 0'
     }
-  }, "\u6682\u65E0\u4E8B\u4EF6 \xB7 \u70B9\u4E0A\u65B9\u6309\u94AE\u6DFB\u52A0\u552E\u540E / \u8865\u4EF6 / \u9000\u6B3E") : /*#__PURE__*/React.createElement("div", {
+  }, "\u672C\u5355\u6682\u65E0 \u552E\u540E/\u8865\u4EF6/\u9000\u6B3E \u8BB0\u5F55 \u00B7 \u53EF\u70B9\u4E0A\u65B9\u6309\u94AE\u65B0\u589E") : /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
       flexDirection: 'column',
