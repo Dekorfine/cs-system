@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix285
+// 版本 2026.06.05-fix286
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -9062,7 +9062,33 @@ var EventEditorModal = function EventEditorModal(_ref38) {
       gap: 6,
       alignItems: 'center'
     }
-  }, user && user.role !== 'super_admin' && /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      if (window.__openCsAiAssistant) window.__openCsAiAssistant({
+        kind: kind,
+        orderRef: orderRef,
+        customer: customer,
+        productName: productName,
+        issueType: kind === 'refund' ? refundType : issueType,
+        amount: amount,
+        currency: currency,
+        reason: kind === 'refund' ? refundReason : (damagedPart || ''),
+        notes: notes
+      });
+    },
+    style: {
+      padding: '5px 11px',
+      background: '#eef2ff',
+      color: '#4f46e5',
+      border: '1px solid #c7d2fe',
+      borderRadius: 6,
+      cursor: 'pointer',
+      fontSize: 12,
+      fontWeight: 600,
+      fontFamily: 'inherit'
+    },
+    title: "AI \u5206\u6790\u5BA2\u6237\u90AE\u4EF6\u5E76\u8D77\u8349\u4E2D\u82F1\u65B9\u6848"
+  }, "\uD83E\uDD16 AI \u90AE\u4EF6\u52A9\u624B"), user && user.role !== 'super_admin' && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       var _window$__requestSupe, _window;
       return (_window$__requestSupe = (_window = window).__requestSupervisorAssistance) === null || _window$__requestSupe === void 0 ? void 0 : _window$__requestSupe.call(_window, {
