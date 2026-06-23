@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix291
+// 版本 2026.06.05-fix292
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -429,7 +429,16 @@ var EventsModule = function EventsModule(_ref) {
     });
     if (CLOUD && CLOUD.client) {
       CLOUD.client.from(table).update({ flagged: nv }).eq('id', row.id).then(function (res) {
-        if (res && res.error && window._toast) window._toast('\u6807\u8BB0\u4FDD\u5B58\u5931\u8D25:' + res.error.message, 'error');
+        if (res && res.error) {
+          setter(function (prev) {
+            return (prev || []).map(function (x) {
+              return x.id === row.id ? _objectSpread(_objectSpread({}, x), {}, { flagged: !nv }) : x;
+            });
+          });
+          var em = res.error.message || '';
+          var msg = /flagged|column|does not exist|schema cache/i.test(em) ? '\u6807\u8BB0\u5931\u8D25\uFF1A\u6570\u636E\u5E93\u8FD8\u6CA1\u52A0 flagged \u5217\uFF0C\u8BF7\u5148\u5728 CLOUD \u9879\u76EE SQL \u8DD1 ALTER \u52A0\u5217' : '\u6807\u8BB0\u4FDD\u5B58\u5931\u8D25\uFF1A' + em;
+          if (typeof toast === 'function') toast(msg, 'error');
+        }
       });
     }
   };
