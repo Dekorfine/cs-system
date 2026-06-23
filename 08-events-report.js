@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix292
+// 版本 2026.06.05-fix294
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3156,7 +3156,11 @@ var AftersalesTable = function AftersalesTable(_ref18) {
       style: {
         padding: '3px 6px',
         fontSize: 11,
-        color: e.flagged ? '#dc2626' : '#cbd5e1'
+        color: e.flagged ? '#dc2626' : '#cbd5e1',
+        borderRadius: 6,
+        border: e.flagged ? '1px solid #dc2626' : '1px solid transparent',
+        background: e.flagged ? '#fee2e2' : 'transparent',
+        opacity: e.flagged ? 1 : 0.4
       },
       title: "\u4E3B\u7BA1\u6807\u8BB0\u91CD\u70B9\uFF08\u5F00\u4F1A\u7B5B\u9009\uFF09"
     }, "\uD83D\uDEA9"), /*#__PURE__*/React.createElement("button", {
@@ -3476,7 +3480,11 @@ var RefillsTable = function RefillsTable(_ref20) {
       style: {
         padding: '3px 6px',
         fontSize: 11,
-        color: e.flagged ? '#dc2626' : '#cbd5e1'
+        color: e.flagged ? '#dc2626' : '#cbd5e1',
+        borderRadius: 6,
+        border: e.flagged ? '1px solid #dc2626' : '1px solid transparent',
+        background: e.flagged ? '#fee2e2' : 'transparent',
+        opacity: e.flagged ? 1 : 0.4
       },
       title: "\u4E3B\u7BA1\u6807\u8BB0\u91CD\u70B9\uFF08\u5F00\u4F1A\u7B5B\u9009\uFF09"
     }, "\uD83D\uDEA9"), /*#__PURE__*/React.createElement("button", {
@@ -3888,7 +3896,11 @@ var RefundsTable = function RefundsTable(_ref22) {
       style: {
         padding: '3px 6px',
         fontSize: 11,
-        color: r.flagged ? '#dc2626' : '#cbd5e1'
+        color: r.flagged ? '#dc2626' : '#cbd5e1',
+        borderRadius: 6,
+        border: r.flagged ? '1px solid #dc2626' : '1px solid transparent',
+        background: r.flagged ? '#fee2e2' : 'transparent',
+        opacity: r.flagged ? 1 : 0.4
       },
       title: "\u4E3B\u7BA1\u6807\u8BB0\u91CD\u70B9\uFF08\u5F00\u4F1A\u7B5B\u9009\uFF09"
     }, "\uD83D\uDEA9"), /*#__PURE__*/React.createElement("button", {

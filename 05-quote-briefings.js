@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix294
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3477,7 +3477,8 @@ var generateOrderNo = /*#__PURE__*/function () {
           _context0.n = 11;
           break;
         case 16:
-          // 3. 生成新编号
+          // 3. 生成新编号（放弃历史扫描，只认 site_order_sequences.current_no）
+          maxNo = seq.current_no || 0;
           newNo = maxNo + 1;
           padded = String(newNo).padStart(padding, '0');
           orderNo = prefix + separator + padded; // 4. 更新 sequence(预览模式不更新)
