@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix301
+// 版本 2026.06.05-fix302
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3827,11 +3827,13 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     }
   }, "\uD83D\uDCCB \u6682\u65E0\u7EBF\u4E0B\u5355") : view === 'board' ? /*#__PURE__*/React.createElement("div", {
     style: { display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }
-  }, OFFLINE_ORDER_STATUSES.filter(function (st) { return st.key !== 'completed'; }).map(function (st) {
+  }, OFFLINE_ORDER_STATUSES.filter(function (st) {
+    return ['draft', 'pending_payment', 'paid', 'dispatched', 'shipped'].indexOf(st.key) >= 0 || filtered.some(function (o) { return (o.status || 'draft') === st.key; });
+  }).map(function (st) {
     var col = filtered.filter(function (o) { return (o.status || 'draft') === st.key; });
     return /*#__PURE__*/React.createElement("div", {
       key: st.key,
-      style: { flex: '0 0 330px', width: 330, background: 'var(--bg)', borderRadius: 12, padding: 10 }
+      style: { flex: '1 1 0', minWidth: 210, background: 'var(--bg)', borderRadius: 12, padding: 10 }
     }, /*#__PURE__*/React.createElement("div", {
       style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '6px 10px', borderRadius: 8, background: st.bg }
     }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: st.color } }, st.label), /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: st.color, background: '#fff', borderRadius: 10, padding: '1px 9px' } }, col.length)), /*#__PURE__*/React.createElement("div", {
