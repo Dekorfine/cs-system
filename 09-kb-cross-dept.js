@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix277
+// 版本 2026.06.05-fix290
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -5893,6 +5893,7 @@ var CrossDeptModule = function CrossDeptModule(_ref38) {
     if (tab === 'overdue') return messages.filter(function (m) {
       return canSee(m) && isOverdue(m, cdmTimeoutConfig);
     });
+    if (tab === 'all') return messages;
     // sent
     return messages.filter(function (m) {
       return m.from_user_id === user.id && m.from_system === MY_SYSTEM;
@@ -6270,6 +6271,10 @@ var CrossDeptModule = function CrossDeptModule(_ref38) {
     count: messages.filter(function (m) {
       return m.from_user_id === user.id && m.from_system === MY_SYSTEM;
     }).length
+  }, {
+    key: 'all',
+    label: '\uD83C\uDF10 \u5168\u90E8',
+    count: messages.length
   }].map(function (t) {
     var active = tab === t.key;
     var bgColor = active ? t.danger ? '#dc2626' : '#0071e3' : 'white';
@@ -6444,7 +6449,7 @@ var CrossDeptModule = function CrossDeptModule(_ref38) {
       textAlign: 'center',
       color: 'var(--ink-3)'
     }
-  }, "\uD83C\uDF89 ", tab === 'inbox' ? '收件箱' : '发件箱', "\u6682\u65E0\u6D88\u606F", (dateFilter === null || dateFilter === void 0 ? void 0 : dateFilter.kind) !== 'all' || search.trim() || filterStatus !== 'all' || filterCategory !== 'all' || filterPriority !== 'all' || filterFrom !== 'all' ? '(当前筛选下)' : '') : /*#__PURE__*/React.createElement("div", {
+  }, "\uD83C\uDF89 ", tab === 'inbox' ? '收件箱' : tab === 'all' ? '全部' : '发件箱', "\u6682\u65E0\u6D88\u606F", (dateFilter === null || dateFilter === void 0 ? void 0 : dateFilter.kind) !== 'all' || search.trim() || filterStatus !== 'all' || filterCategory !== 'all' || filterPriority !== 'all' || filterFrom !== 'all' ? '(当前筛选下)' : '') : /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, pageItems.map(function (m) {
     return /*#__PURE__*/React.createElement(CdmMessageCard, {
