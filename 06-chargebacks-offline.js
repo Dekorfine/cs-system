@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix278
+// 版本 2026.06.05-fix289
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3989,7 +3989,7 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
             setSending(true);
             _context14.p = 4;
             userName = user.name + (user.alias ? ' ' + user.alias : '');
-            body = ['📦 客服已转单 · 此订单客户已付款,请安排下单', '', "\u8BA2\u5355\u53F7: ".concat(order.order_no), "\u7F51\u7AD9: ".concat(order.site || '?'), "\u5BA2\u6237: ".concat(order.customer_name || order.customer_email || '?').concat(order.customer_email ? ' · ' + order.customer_email : ''), "\u4ED8\u6B3E: ".concat(order.payment_method || '?', " \xB7 ").concat(order.payment_currency || 'USD', " ").concat(order.payment_amount || 0).concat(order.received_amount ? ' (实收 ' + order.received_amount + ')' : ''), "\u4ED8\u6B3E\u65F6\u95F4: ".concat(order.paid_at || '未填'), '', '📍 收货地址:', order.ship_to_name || '', order.ship_to_address || '', [order.ship_to_city, order.ship_to_state, order.ship_to_zip].filter(Boolean).join(', '), order.ship_to_country || '', order.ship_to_phone ? '📞 ' + order.ship_to_phone : '', '', "\uD83D\uDECD\uFE0F \u4EA7\u54C1 (".concat(products.length, " \u4EF6):")].concat(_toConsumableArray(products.map(function (p) {
+            body = ['📦 客服已转单 · 此订单客户已付款,请安排下单', '', "\u8BA2\u5355\u53F7: ".concat(order.order_no), order.invoice_no ? "\u53D1\u7968\u53F7: " + order.invoice_no : '', "\u7F51\u7AD9: ".concat(order.site || '?'), "\u5BA2\u6237: ".concat(order.customer_name || order.customer_email || '?').concat(order.customer_email ? ' · ' + order.customer_email : ''), "\u4ED8\u6B3E: ".concat(order.payment_method || '?', " \xB7 ").concat(order.payment_currency || 'USD', " ").concat(order.payment_amount || 0).concat(order.received_amount ? ' (实收 ' + order.received_amount + ')' : ''), "\u4ED8\u6B3E\u65F6\u95F4: ".concat(order.paid_at || '未填'), '', '📍 收货地址:', order.ship_to_name || '', order.ship_to_address || '', order.ship_to_address2 || '', [order.ship_to_city, order.ship_to_state, order.ship_to_zip].filter(Boolean).join(', '), order.ship_to_country || '', order.ship_to_phone ? '📞 ' + order.ship_to_phone : '', '', "\uD83D\uDECD\uFE0F \u4EA7\u54C1 (".concat(products.length, " \u4EF6):")].concat(_toConsumableArray(products.map(function (p) {
               return "  - ".concat(p.sku || '', " ").concat(p.name || '', " \xD7 ").concat(p.qty || 1).concat(p.unit_price ? ' @ ' + p.unit_price : '');
             })), ['', extraNote.trim() ? '📝 备注: ' + extraNote.trim() : '', '', '─────────────', '📋 下单指令:', dispatchText]).filter(Boolean).join('\n'); // 附件:订单原始附件(付款凭证等)
             attachments = order.attachments || [];
@@ -4586,7 +4586,7 @@ var OfflineOrderCard = function OfflineOrderCard(_ref29) {
       fontSize: 12,
       lineHeight: 1.5
     }
-  }, order.ship_to_name && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, order.ship_to_name)), order.ship_to_address && /*#__PURE__*/React.createElement("div", null, order.ship_to_address), (order.ship_to_city || order.ship_to_state) && /*#__PURE__*/React.createElement("div", null, [order.ship_to_city, order.ship_to_state, order.ship_to_zip].filter(Boolean).join(', ')), order.ship_to_country && /*#__PURE__*/React.createElement("div", null, order.ship_to_country), order.ship_to_phone && /*#__PURE__*/React.createElement("div", null, "\uD83D\uDCDE ", order.ship_to_phone))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+  }, order.ship_to_name && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("strong", null, order.ship_to_name)), order.ship_to_address && /*#__PURE__*/React.createElement("div", null, order.ship_to_address), order.ship_to_address2 && /*#__PURE__*/React.createElement("div", null, order.ship_to_address2), (order.ship_to_city || order.ship_to_state) && /*#__PURE__*/React.createElement("div", null, [order.ship_to_city, order.ship_to_state, order.ship_to_zip].filter(Boolean).join(', ')), order.ship_to_country && /*#__PURE__*/React.createElement("div", null, order.ship_to_country), order.ship_to_phone && /*#__PURE__*/React.createElement("div", null, "\uD83D\uDCDE ", order.ship_to_phone))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: 'var(--ink-3)',
@@ -5285,6 +5285,13 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
     _useState142 = _slicedToArray(_useState141, 2),
     shipToPhone = _useState142[0],
     setShipToPhone = _useState142[1];
+  // fix289: 地址第2行 + 发票号
+  var _addr2St = useState((order === null || order === void 0 ? void 0 : order.ship_to_address2) || ''),
+    shipToAddress2 = _addr2St[0],
+    setShipToAddress2 = _addr2St[1];
+  var _invNoSt = useState((order === null || order === void 0 ? void 0 : order.invoice_no) || ''),
+    invoiceNo = _invNoSt[0],
+    setInvoiceNo = _invNoSt[1];
   // 🆕 fix16: 智能地址粘贴
   var _useState143 = useState(''),
     _useState144 = _slicedToArray(_useState143, 2),
@@ -5636,6 +5643,8 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
               ship_to_zip: shipToZip.trim() || null,
               ship_to_country: shipToCountry.trim() || null,
               ship_to_phone: shipToPhone.trim() || null,
+              ship_to_address2: shipToAddress2.trim() || null,
+              invoice_no: invoiceNo.trim() || null,
               payment_method: paymentMethod,
               payment_amount: parseFloat(paymentAmount) || null,
               payment_currency: paymentCurrency,
@@ -6171,6 +6180,11 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
       fontSize: 13,
       marginBottom: 8
     }
+  }), /*#__PURE__*/React.createElement("input", {
+    value: shipToAddress2,
+    onChange: function onChange(e) { return setShipToAddress2(e.target.value); },
+    placeholder: "\u5730\u5740\u7B2C2\u884C\uFF08\u516C\u5BD3/\u5355\u5143 Apt, Suite \u00B7 \u53EF\u9009\uFF09",
+    style: { width: '100%', boxSizing: 'border-box', padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, fontSize: 13, marginBottom: 8 }
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
@@ -6322,6 +6336,15 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
       fontSize: 13
     }
   }))), /*#__PURE__*/React.createElement("div", {
+    style: { marginBottom: 14 }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: { fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 4 }
+  }, "\u53D1\u7968\u53F7"), /*#__PURE__*/React.createElement("input", {
+    value: invoiceNo,
+    onChange: function onChange(e) { return setInvoiceNo(e.target.value); },
+    placeholder: "\u53D1\u7968\u53F7\uFF08\u53EF\u9009\uFF09",
+    style: { width: '100%', boxSizing: 'border-box', padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, fontSize: 13 }
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 12,
       background: '#fafafa',
