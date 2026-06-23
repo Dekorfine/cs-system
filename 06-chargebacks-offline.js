@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix294
+// 版本 2026.06.05-fix296
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -2558,7 +2558,7 @@ var COMMISSION_DEFAULTS = {
   // true=直接用 fixedRate;false=按"实际≥7→7,否则6.5"规则
   refundRate: 0.003,
   // 退款追回默认比例
-  shippedStatuses: ['dispatched', 'completed'] // 视为"已出货"的状态
+  shippedStatuses: ['dispatched', 'shipped', 'completed'] // 视为"已出货"的状态
 };
 var fmtRMB = function fmtRMB(n) {
   return '¥' + (Math.round((n || 0) * 100) / 100).toLocaleString('en-US', {
@@ -4309,6 +4309,41 @@ var OfflineOrderCard = function OfflineOrderCard(_ref29) {
     _useState108 = _slicedToArray(_useState107, 2),
     showTransfer = _useState108[0],
     setShowTransfer = _useState108[1]; // 🆕 fix18
+  var _shipOpenSt = useState(false), showShip = _shipOpenSt[0], setShowShip = _shipOpenSt[1];
+  var _shipNoSt = useState(order.ship_no || ''), shipNo = _shipNoSt[0], setShipNo = _shipNoSt[1];
+  var _shipCarSt = useState(order.ship_carrier || ''), shipCarrier = _shipCarSt[0], setShipCarrier = _shipCarSt[1];
+  var _shipBusySt = useState(false), shipBusy = _shipBusySt[0], setShipBusy = _shipBusySt[1];
+  var doShip = function doShip() {
+    var no = (shipNo || '').trim();
+    if (!no) { toast('\u8BF7\u586B\u8F6C\u5355\u53F7(\u7269\u6D41\u5355\u53F7)', 'error'); return; }
+    setShipBusy(true);
+    var nowIso = new Date().toISOString();
+    CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, order), {}, {
+      status: 'shipped', ship_no: no, ship_carrier: (shipCarrier || '').trim() || null, shipped_at: nowIso, updated_at: nowIso
+    })).then(function () {
+      try {
+        var cdm = (typeof getCdmClient === 'function') ? getCdmClient() : null;
+        if (cdm) {
+          cdm.from('cross_dept_messages').insert({
+            from_system: (typeof MY_SYSTEM !== 'undefined' ? MY_SYSTEM : 'cs'),
+            from_user_id: (user && user.id) || null,
+            from_user_name: (user && (user.name || user.alias)) || '\u5BA2\u670D',
+            to_system: 'po', related_shop: order.site || null, category: 'general', priority: 'normal',
+            title: '[\u5BA2\u670D\u5DF2\u53D1\u8D27] ' + (order.order_no || ''),
+            body: '\u8F6C\u5355\u53F7: ' + no + ((shipCarrier || '').trim() ? ' \u00B7 ' + shipCarrier.trim() : '') + '\n\u8BA2\u5355: ' + (order.order_no || '') + ' \u00B7 ' + (order.site || ''),
+            attachments: [], related_type: 'offline_shipped', related_ref: order.order_no || '',
+            status: 'unread', thread: [], read_by: [(user && user.id) || ''],
+            created_at_ms: Date.now(), updated_at: nowIso
+          }).then(function () {}, function () {});
+        }
+      } catch (e) {}
+      setShipBusy(false); setShowShip(false);
+      toast('\u2713 \u5DF2\u53D1\u8D27 \u00B7 \u8F6C\u5355\u53F7 ' + no + ' \u00B7 \u5DF2\u901A\u77E5\u8DDF\u5355');
+      onReload();
+    }, function (err) {
+      setShipBusy(false); toast('\u53D1\u8D27\u5931\u8D25: ' + ((err && err.message) || err), 'error');
+    });
+  };
   var status = OFFLINE_ORDER_STATUSES.find(function (s) {
     return s.key === order.status;
   }) || OFFLINE_ORDER_STATUSES[0];
@@ -4460,7 +4495,14 @@ var OfflineOrderCard = function OfflineOrderCard(_ref29) {
       fontWeight: 600
     },
     title: "\u5DF2\u8F6C\u7ED9 ".concat(order.transferred_to_name || '跟单部', " @ ").concat((order.transferred_at || '').slice(0, 16).replace('T', ' '))
-  }, "\u2713 \u5DF2\u8F6C ", order.transferred_to_name || '跟单'), order.status === 'paid' && /*#__PURE__*/React.createElement("button", {
+  }, "\u2713 \u5DF2\u8F6C ", order.transferred_to_name || '跟单'), order.transferred_to_po && order.status !== 'shipped' && /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { setShipNo(order.ship_no || ''); setShipCarrier(order.ship_carrier || ''); setShowShip(true); },
+    style: { padding: '5px 12px', background: '#059669', color: 'white', border: 'none', borderRadius: 5, cursor: 'pointer', fontSize: 11, fontWeight: 600 },
+    title: "\u586B\u8F6C\u5355\u53F7\u53D1\u8D27 \u00B7 \u7EBF\u4E0B\u5355\u5B8C\u7ED3"
+  }, "\uD83D\uDCE6 \u53D1\u8D27"), order.status === 'shipped' && /*#__PURE__*/React.createElement("span", {
+    style: { padding: '5px 10px', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: 5, fontSize: 11, fontWeight: 600 },
+    title: "\u5DF2\u53D1\u8D27 " + ((order.shipped_at || '').slice(0, 16).replace('T', ' '))
+  }, "\uD83D\uDCE6 \u5DF2\u53D1\u8D27 \u00B7 " + (order.ship_no || '')), order.status === 'paid' && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setStatus('dispatched');
     },
@@ -4736,7 +4778,12 @@ var OfflineOrderCard = function OfflineOrderCard(_ref29) {
     onClose: function onClose() {
       return setPreviewFile(null);
     }
-  }), showTransfer && /*#__PURE__*/React.createElement(TransferToPoModal, {
+  }), showShip && /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick(e) { if (e.target === e.currentTarget) setShowShip(false); },
+    style: { position: 'fixed', inset: 0, zIndex: 2147483400, background: 'rgba(15,15,20,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { background: '#fff', width: '100%', maxWidth: 420, borderRadius: 12, padding: 18, boxShadow: '0 16px 50px rgba(0,0,0,.3)' }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontSize: 15, fontWeight: 600, marginBottom: 4 } }, "\uD83D\uDCE6 \u53D1\u8D27 \u00B7 \u586B\u8F6C\u5355\u53F7"), /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: '#6b7280', marginBottom: 12 } }, "\u8BA2\u5355 " + (order.order_no || '') + " \u00B7 \u586B\u5199\u540E\u7F6E\u4E3A\u300C\u5DF2\u53D1\u8D27\u300D\u5E76\u901A\u77E5\u8DDF\u5355,\u7EBF\u4E0B\u5355\u5B8C\u7ED3"), /*#__PURE__*/React.createElement("label", { style: { fontSize: 12, color: '#374151', display: 'block', marginBottom: 4 } }, "\u8F6C\u5355\u53F7 / \u7269\u6D41\u5355\u53F7 *"), /*#__PURE__*/React.createElement("input", { value: shipNo, autoFocus: true, onChange: function onChange(e) { return setShipNo(e.target.value); }, placeholder: "\u5982 SF1234567890 / 1Z...", style: { width: '100%', boxSizing: 'border-box', padding: '8px 11px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, marginBottom: 10 } }), /*#__PURE__*/React.createElement("label", { style: { fontSize: 12, color: '#374151', display: 'block', marginBottom: 4 } }, "\u5FEB\u9012\u516C\u53F8(\u9009\u586B)"), /*#__PURE__*/React.createElement("input", { value: shipCarrier, onChange: function onChange(e) { return setShipCarrier(e.target.value); }, placeholder: "\u5982 \u987A\u4E30 / DHL / USPS", style: { width: '100%', boxSizing: 'border-box', padding: '8px 11px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, marginBottom: 14 } }), /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } }, /*#__PURE__*/React.createElement("button", { onClick: function onClick() { return setShowShip(false); }, style: { padding: '7px 14px', border: '1px solid #d1d5db', background: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: 13 } }, "\u53D6\u6D88"), /*#__PURE__*/React.createElement("button", { onClick: doShip, disabled: shipBusy, style: { padding: '7px 16px', border: 'none', background: shipBusy ? '#9ca3af' : '#059669', color: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 } }, shipBusy ? "\u53D1\u8D27\u4E2D\u2026" : "\u786E\u8BA4\u53D1\u8D27")))), showTransfer && /*#__PURE__*/React.createElement(TransferToPoModal, {
     order: order,
     user: user,
     onClose: function onClose() {
