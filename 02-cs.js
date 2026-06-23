@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix284
+// 版本 2026.06.05-fix285
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -8043,6 +8043,7 @@ var MultiImageUploader = function MultiImageUploader(_ref34) {
         background: 'white'
       }
     }, /*#__PURE__*/React.createElement("div", {
+      "data-no-zoom": "1",
       style: {
         height: 100,
         position: 'relative',
@@ -8051,7 +8052,11 @@ var MultiImageUploader = function MultiImageUploader(_ref34) {
         cursor: 'pointer'
       },
       onClick: function onClick() {
-        return setPreviewIdx(idx);
+        // 🆕 fix285: 视频走内联可播放面板;图片走全屏轮播(同组连续翻看)
+        if (vid) { setPreviewIdx(idx); return; }
+        var _imgUrls = attachments.filter(function (a) { return !isVideo(a); }).map(function (a) { return a.url; });
+        var _ii = _imgUrls.indexOf(att.url);
+        if (window.__setPreviewImg && _imgUrls.length) { window.__setPreviewImg(_imgUrls, _ii < 0 ? 0 : _ii); } else { setPreviewIdx(idx); }
       }
     }, vid ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("video", {
       src: att.url,
