@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix283
+// 版本 2026.06.05-fix284
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -256,7 +256,8 @@ var CSGridCard = function CSGridCard(_ref) {
       loading: "lazy",
       onClick: function onClick(e) {
         e.stopPropagation();
-        (window.__setPreviewImg || onViewImg || function () {})(s);
+        var _srcs = shots.map(function (x) { return imgDisplaySrc(x); });
+        (window.__setPreviewImg || onViewImg || function () {})(_srcs, i);
       },
       onError: function onError(e) {
         e.currentTarget.style.display = 'none';
@@ -8097,7 +8098,9 @@ var MultiImageUploader = function MultiImageUploader(_ref34) {
         fontWeight: 600
       }
     }, "\u89C6\u9891")) : /*#__PURE__*/React.createElement("img", {
-      src: att.url,
+      src: window.__imgThumb ? window.__imgThumb(att.url, 200, 55) : att.url,
+      onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
+      "data-full": att.url,
       alt: "",
       style: {
         width: '100%',
@@ -8246,7 +8249,9 @@ var MultiImageUploader = function MultiImageUploader(_ref34) {
       borderRadius: 6
     }
   }) : /*#__PURE__*/React.createElement("img", {
-    src: attachments[previewIdx].url,
+    src: window.__imgProxy ? window.__imgProxy(window.imgDisplaySrc ? window.imgDisplaySrc(attachments[previewIdx].url) : attachments[previewIdx].url, { w: 1000, q: 55, output: 'webp', fit: 'inside' }) : attachments[previewIdx].url,
+    onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
+    "data-full": attachments[previewIdx].url,
     alt: "",
     style: {
       maxWidth: '100%',

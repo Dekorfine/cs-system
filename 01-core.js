@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix282
+// 版本 2026.06.05-fix284
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -2275,6 +2275,8 @@ var AttachThumbs = function AttachThumbs(_ref4) {
   var show = max > 0 ? list.slice(0, max) : list;
   var more = max > 0 ? Math.max(0, list.length - max) : 0;
   var preview = onPreview || typeof window !== 'undefined' && window.__setPreviewImg || function () {};
+  // 🆕 fix284: 整组图片(供轮播),点哪张从哪张开始连续翻看
+  var imgList = list.filter(function (a) { return attMimeKind(a) === 'image'; }).map(function (a) { return imgDisplaySrc(a); });
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'flex',
@@ -2294,7 +2296,7 @@ var AttachThumbs = function AttachThumbs(_ref4) {
         loading: "lazy",
         onClick: function onClick(e) {
           e.stopPropagation();
-          preview(a);
+          preview(imgList.length ? imgList : [src], imgList.length ? imgList.indexOf(src) : 0);
         },
         onError: function onError(e) {
           e.currentTarget.style.display = 'none';
@@ -2363,94 +2365,69 @@ try {
 var ImgPreviewModal = function ImgPreviewModal(_ref5) {
   var img = _ref5.img,
     onClose = _ref5.onClose;
-  // 🆕 fix282: 默认服务器端压缩快览(1000px),「看高清」按钮再切 1400px,「原图」开新标签
+  // 🆕 fix282 压缩快览 + fix284 多图轮播(可连续翻看同组图,不用关掉再点下一张)
   var _hdState = useState(false),
     hd = _hdState[0],
     setHd = _hdState[1];
-  if (!img) return null;
-  var src = imgDisplaySrc(img);
+  var _curState = useState(0),
+    cur = _curState[0],
+    setCur = _curState[1];
+  // 归一化:img 可为 单值(字符串/附件) 或 { list:[...], idx:N }
+  var _list = img && typeof img === 'object' && Array.isArray(img.list) ? img.list : img != null ? [img] : [];
+  var _startIdx = img && typeof img === 'object' && typeof img.idx === 'number' ? img.idx : 0;
+  useEffect(function () { setCur(_startIdx); setHd(false); }, [img]);
+  useEffect(function () {
+    if (_list.length < 2) return;
+    var onKey = function onKey(e) {
+      if (e.key === 'ArrowLeft') { setHd(false); setCur(function (c) { return (c - 1 + _list.length) % _list.length; }); } else if (e.key === 'ArrowRight') { setHd(false); setCur(function (c) { return (c + 1) % _list.length; }); } else if (e.key === 'Escape') { if (onClose) onClose(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return function () { window.removeEventListener('keydown', onKey); };
+  }, [img, _list.length]);
+  useEffect(function () {
+    if (_list.length < 2 || !window.__imgProxy) return;
+    [cur - 1, cur + 1].forEach(function (k) {
+      var j = (k + _list.length) % _list.length, u = _list[j];
+      if (u) { var _pre = new Image(); _pre.src = window.__imgProxy(imgDisplaySrc(u), { w: 1000, q: 55, output: 'webp', fit: 'inside' }); }
+    });
+  }, [cur, img]);
+  if (!_list.length) return null;
+  var activeIdx = cur < 0 ? 0 : cur >= _list.length ? _list.length - 1 : cur;
+  var multi = _list.length > 1;
+  var src = imgDisplaySrc(_list[activeIdx]);
   var pvSrc = window.__imgProxy ? window.__imgProxy(src, { w: 1000, q: 55, output: 'webp', fit: 'inside' }) : __imgFull(src);
-  // 🆕 fix192:portal 到 document.body —— 之前渲染在 app 树内,被有 transform 的祖先困在低层叠上下文,
-  //   再高的 z-index 也压不过 createPortal 到 body 的弹窗(售后/拒付等),导致"大图在表单后面"。
-  //   portal 到 body 后与那些弹窗同级,z-index 才真正生效,永远在最上层。
-  return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
+  var go = function go(delta) { setHd(false); setCur((activeIdx + delta + _list.length) % _list.length); };
+  var navStyle = function navStyle(side) {
+    var s = { position: 'fixed', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,.18)', color: '#fff', border: 'none', width: 48, height: 48, borderRadius: '50%', cursor: 'pointer', fontSize: 26, lineHeight: '48px', zIndex: 1, fontFamily: 'inherit' };
+    s[side] = 20; return s;
+  };
+  return ReactDOM.createPortal( /*#__PURE__*/React.createElement("div", {
     onClick: onClose,
-    style: {
-      position: 'fixed',
-      inset: 0,
-      zIndex: 2147483600,
-      background: 'rgba(0,0,0,0.82)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      cursor: 'zoom-out',
-      padding: 24
-    }
-  }, /*#__PURE__*/React.createElement("img", {
+    style: { position: 'fixed', inset: 0, zIndex: 2147483600, background: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: 24 }
+  }, multi && /*#__PURE__*/React.createElement("button", { onClick: function (e) { e.stopPropagation(); go(-1); }, style: navStyle('left'), title: '\u4E0A\u4E00\u5F20 (\u2190)' }, "\u2039"), /*#__PURE__*/React.createElement("img", {
     src: hd ? __imgFull(src) : pvSrc,
     onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
     alt: "",
-    onClick: function onClick(e) {
-      return e.stopPropagation();
-    },
-    style: {
-      maxWidth: '94vw',
-      maxHeight: '90vh',
-      objectFit: 'contain',
-      borderRadius: 8,
-      boxShadow: '0 12px 48px rgba(0,0,0,0.5)'
-    }
-  }), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick(e) { return e.stopPropagation(); },
+    style: { maxWidth: '90vw', maxHeight: multi ? '78vh' : '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }
+  }), multi && /*#__PURE__*/React.createElement("button", { onClick: function (e) { e.stopPropagation(); go(1); }, style: navStyle('right'), title: '\u4E0B\u4E00\u5F20 (\u2192)' }, "\u203A"), /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
-    style: {
-      position: 'fixed',
-      top: 16,
-      right: 20,
-      background: 'rgba(255,255,255,0.92)',
-      border: 'none',
-      borderRadius: 20,
-      width: 40,
-      height: 40,
-      fontSize: 20,
-      cursor: 'pointer',
-      lineHeight: '40px'
-    }
+    style: { position: 'fixed', top: 16, right: 20, background: 'rgba(255,255,255,0.92)', border: 'none', borderRadius: 20, width: 40, height: 40, fontSize: 20, cursor: 'pointer', lineHeight: '40px' }
   }, "\u2715"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick(e) {
-      e.stopPropagation();
-      setHd(!hd);
-    },
+    onClick: function onClick(e) { e.stopPropagation(); setHd(!hd); },
     title: hd ? '\u5F53\u524D\u9AD8\u6E05 \xB7 \u70B9\u51FB\u6362\u56DE\u538B\u7F29\u5FEB\u89C8' : '\u5F53\u524D\u538B\u7F29\u5FEB\u89C8(\u9ED8\u8BA4) \xB7 \u70B9\u51FB\u770B\u9AD8\u6E05',
-    style: {
-      position: 'fixed',
-      bottom: 18,
-      right: 150,
-      background: hd ? '#111' : 'rgba(255,255,255,0.92)',
-      color: hd ? '#fff' : '#111',
-      border: 'none',
-      borderRadius: 8,
-      padding: '7px 14px',
-      fontSize: 12,
-      fontWeight: 600,
-      cursor: 'pointer'
-    }
+    style: { position: 'fixed', bottom: 18, right: 150, background: hd ? '#111' : 'rgba(255,255,255,0.92)', color: hd ? '#fff' : '#111', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }
   }, hd ? "\u26A1 \u5FEB\u89C8" : "\uD83D\uDD0D \u770B\u9AD8\u6E05"), /*#__PURE__*/React.createElement("button", {
-    onClick: function onClick(e) {
-      e.stopPropagation();
-      wsOpenImg(src);
-    },
-    style: {
-      position: 'fixed',
-      bottom: 18,
-      right: 20,
-      background: 'rgba(255,255,255,0.92)',
-      border: 'none',
-      borderRadius: 8,
-      padding: '7px 14px',
-      fontSize: 12,
-      cursor: 'pointer'
-    }
-  }, "\u2197 \u539F\u56FE\u65B0\u6807\u7B7E")), document.body);
+    onClick: function onClick(e) { e.stopPropagation(); wsOpenImg(src); },
+    style: { position: 'fixed', bottom: 18, right: 20, background: 'rgba(255,255,255,0.92)', border: 'none', borderRadius: 8, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }
+  }, "\u2197 \u539F\u56FE\u65B0\u6807\u7B7E"), multi && /*#__PURE__*/React.createElement("div", {
+    style: { position: 'fixed', top: 18, left: '50%', transform: 'translateX(-50%)', color: '#fff', fontSize: 13, fontWeight: 600, background: 'rgba(0,0,0,.4)', padding: '4px 12px', borderRadius: 999 }
+  }, activeIdx + 1, " / ", _list.length), multi && /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick(e) { return e.stopPropagation(); },
+    style: { position: 'fixed', bottom: 14, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, alignItems: 'center', maxWidth: '64vw', overflowX: 'auto', padding: '6px 10px', background: 'rgba(0,0,0,.35)', borderRadius: 10 }
+  }, _list.map(function (u, i) {
+    return /*#__PURE__*/React.createElement("img", { key: i, src: window.__imgThumb ? window.__imgThumb(u, 80, 50) : imgDisplaySrc(u), onError: function (e) { window.__imgOnError && window.__imgOnError(e); }, onClick: function (e) { e.stopPropagation(); setHd(false); setCur(i); }, style: { width: 44, height: 44, objectFit: 'cover', borderRadius: 4, cursor: 'pointer', border: i === activeIdx ? '2px solid #fff' : '2px solid transparent', opacity: i === activeIdx ? 1 : 0.55, flex: '0 0 auto' } });
+  }))), document.body);
 };
 try {
   window.ImgPreviewModal = ImgPreviewModal;

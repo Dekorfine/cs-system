@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix282
+// 版本 2026.06.05-fix284
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1144,9 +1144,19 @@ var App = function App() {
     previewImg = _useState8[0],
     setPreviewImg = _useState8[1];
   useEffect(function () {
-    window.__setPreviewImg = setPreviewImg;
+    // 🆕 fix284: 支持单图 或 多图轮播 —— __setPreviewImg(url) 或 __setPreviewImg([urls], startIdx)
+    window.__setPreviewImg = function (imgOrList, startIdx) {
+      if (imgOrList == null) { setPreviewImg(null); return; }
+      if (Array.isArray(imgOrList)) {
+        var urls = imgOrList.map(function (x) { return typeof x === 'string' ? x : x && (x.url || x.dataUrl || x.data) || ''; }).filter(Boolean);
+        if (!urls.length) { setPreviewImg(null); return; }
+        setPreviewImg({ list: urls, idx: typeof startIdx === 'number' ? startIdx : 0 });
+      } else {
+        setPreviewImg(imgOrList);
+      }
+    };
     return function () {
-      if (window.__setPreviewImg === setPreviewImg) window.__setPreviewImg = null;
+      if (window.__setPreviewImg) window.__setPreviewImg = null;
     };
   }, []);
 
@@ -5432,7 +5442,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix283';
+var APP_VERSION = '2026.06.05-fix284';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
