@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix298
+// 版本 2026.06.05-fix300
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -7209,7 +7209,7 @@ var MultiFileUploader = function MultiFileUploader(_ref28) {
         _iterator4.f();
       }
     };
-    var guarded = function guarded(e) { if (dropHoverRef.current) handler(e); };
+    var guarded = function guarded(e) { if (e.__csPasteHandled) return; if (!(dropRef.current && dropRef.current.offsetParent !== null)) return; e.__csPasteHandled = true; handler(e); };
     document.addEventListener('paste', guarded);
     return function () {
       return document.removeEventListener('paste', guarded);
@@ -7941,7 +7941,7 @@ var MultiImageUploader = function MultiImageUploader(_ref34) {
         _iterator5.f();
       }
     };
-    var guarded = function guarded(e) { if (dropHoverRef.current) handler(e); };
+    var guarded = function guarded(e) { if (e.__csPasteHandled) return; if (!(dropRef.current && dropRef.current.offsetParent !== null)) return; e.__csPasteHandled = true; handler(e); };
     document.addEventListener('paste', guarded);
     return function () {
       return document.removeEventListener('paste', guarded);

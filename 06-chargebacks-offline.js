@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix299
+// 版本 2026.06.05-fix300
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3328,6 +3328,22 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   useEffect(function () {
     load();
   }, []);
+  // 🆕 fix300: 实时监听 offline_orders 变更 → 自动刷新(不用切模块)
+  useEffect(function () {
+    if (!CLOUD || !CLOUD.client) return;
+    var ch = null;
+    try {
+      ch = CLOUD.client.channel('offline_orders_rt_cs').on('postgres_changes', {
+        event: '*', schema: 'public', table: 'offline_orders'
+      }, function () { load(); }).subscribe();
+    } catch (e) {}
+    var onVis = function onVis() { if (!document.hidden) load(); };
+    document.addEventListener('visibilitychange', onVis);
+    return function () {
+      try { if (ch) CLOUD.client.removeChannel(ch); } catch (e) {}
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, []);
   var handleDelete = /*#__PURE__*/function () {
     var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(o) {
       var summary;
@@ -3536,6 +3552,11 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       gap: 8
     }
   }, /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { load(); toast('\u5DF2\u5237\u65B0'); },
+    className: "btn-sec",
+    style: { padding: '6px 12px', fontSize: 12, fontWeight: 600 },
+    title: "\u91CD\u65B0\u52A0\u8F7D\u6700\u65B0\u7EBF\u4E0B\u5355"
+  }, "\uD83D\uDD04 \u5237\u65B0"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() { return setView(view === 'board' ? 'list' : 'board'); },
     className: "btn-sec",
     style: { padding: '6px 14px', fontSize: 12, fontWeight: 600 }

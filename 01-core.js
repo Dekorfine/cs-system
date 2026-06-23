@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix299
+// 版本 2026.06.05-fix300
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -3999,7 +3999,7 @@ var AdvancedDateFilter = function AdvancedDateFilter(_ref8) {
     style: {
       position: 'absolute',
       top: 'calc(100% + 6px)',
-      left: 0,
+      right: 0,
       zIndex: 1000,
       background: 'white',
       border: '1px solid var(--line)',
