@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix296
+// 版本 2026.06.05-fix298
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3535,7 +3535,11 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       display: 'flex',
       gap: 8
     }
-  }, isAdmin && /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { return setView(view === 'board' ? 'list' : 'board'); },
+    className: "btn-sec",
+    style: { padding: '6px 14px', fontSize: 12, fontWeight: 600 }
+  }, view === 'board' ? "\uD83D\uDCD1 \u5217\u8868" : "\uD83D\uDCCB \u770B\u677F"), isAdmin && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setView('commission');
     },
@@ -3800,7 +3804,21 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       textAlign: 'center',
       color: 'var(--ink-3)'
     }
-  }, "\uD83D\uDCCB \u6682\u65E0\u7EBF\u4E0B\u5355") : /*#__PURE__*/React.createElement(React.Fragment, null, ooPager, /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDCCB \u6682\u65E0\u7EBF\u4E0B\u5355") : view === 'board' ? /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }
+  }, OFFLINE_ORDER_STATUSES.filter(function (st) { return st.key !== 'completed'; }).map(function (st) {
+    var col = filtered.filter(function (o) { return (o.status || 'draft') === st.key; });
+    return /*#__PURE__*/React.createElement("div", {
+      key: st.key,
+      style: { flex: '0 0 330px', width: 330, background: 'var(--bg)', borderRadius: 12, padding: 10 }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '6px 10px', borderRadius: 8, background: st.bg }
+    }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: st.color } }, st.label), /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: st.color, background: '#fff', borderRadius: 10, padding: '1px 9px' } }, col.length)), /*#__PURE__*/React.createElement("div", {
+      style: { display: 'flex', flexDirection: 'column', gap: 10 }
+    }, col.length === 0 ? /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', padding: 20 } }, "\u7A7A") : col.map(function (o) {
+      return /*#__PURE__*/React.createElement(OfflineOrderCard, { key: o.id, order: o, user: user, isAdmin: isAdmin, onEdit: function onEdit() { return setEditing(o); }, onDelete: function onDelete() { return handleDelete(o); }, onReload: load, toast: toast });
+    })));
+  })) : /*#__PURE__*/React.createElement(React.Fragment, null, ooPager, /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, ooPaged.map(function (o) {
     return /*#__PURE__*/React.createElement(OfflineOrderCard, {
