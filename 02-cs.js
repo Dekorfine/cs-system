@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix310
+// 版本 2026.06.05-fix311
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -6032,17 +6032,17 @@ var CSModule = function CSModule(_ref7) {
     existingRefills: refills,
     suppliers: suppliers,
     onAddSupplier: function onAddSupplier(name) {
-      // 🆕 fix257:任何人可在表单里自定义新增供应商(写 CLOUD suppliers 表 + 更新本地列表)
-      return CLOUD.client.from('suppliers').insert({
-        name: name
-      }).select().then(function (res) {
-        if (res.error) throw res.error;
-        var ns = res.data && res.data[0] || null;
-        if (ns) setSuppliers(function (prev) {
-          return [ns].concat(prev || []);
-        });
-        return ns;
-      });
+      // 🆕 fix311:入库尽力、失败则本地兜底 —— 任何供应商名都能填上保存(不再因 suppliers 表 insert 失败而"只能选不能填")
+      var local = { id: 'sup_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: name };
+      var useLocal = function useLocal() { setSuppliers(function (prev) { return [local].concat(prev || []); }); return local; };
+      return CLOUD.client.from('suppliers').insert({ name: name }).select().then(function (res) {
+        if (res && !res.error && res.data && res.data[0]) {
+          var ns = res.data[0];
+          setSuppliers(function (prev) { return [ns].concat(prev || []); });
+          return ns;
+        }
+        return useLocal();
+      })["catch"](function () { return useLocal(); });
     },
     user: user,
     onClose: function onClose() {
@@ -8329,7 +8329,7 @@ var SupplierSelect = function SupplierSelect(_ref37) {
     onChange = _ref37.onChange,
     onAddSupplier = _ref37.onAddSupplier,
     _ref37$placeholder = _ref37.placeholder,
-    placeholder = _ref37$placeholder === void 0 ? '选择供应商...' : _ref37$placeholder;
+    placeholder = _ref37$placeholder === void 0 ? '搜索现有 / 直接输入新供应商名…' : _ref37$placeholder;
   var _useState117 = useState(''),
     _useState118 = _slicedToArray(_useState117, 2),
     query = _useState118[0],
