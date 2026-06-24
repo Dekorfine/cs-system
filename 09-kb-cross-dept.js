@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix290
+// 版本 2026.06.05-fix308
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -14783,6 +14783,10 @@ function OpsModule(props) {
     setLoading(true);
     CLOUD.client.from('workspace_records').select('*').eq('record_kind', 'ops_task').order('work_date', { ascending: false }).limit(5000).then(function (res) {
       var data = (res && res.data) || [];
+      // 🆕 fix308:非管理员只看自己的记录(管理人/主管看全部)
+      if (!isSup) {
+        data = data.filter(function (r) { return r && (r.staff_id === user.id || r.ownerId === user.id); });
+      }
       setRows(data.filter(function (r) { return r && !r.deleted; }));
       setTrashRows(data.filter(function (r) { return r && r.deleted; })); // 🆕 fix272
       setLoading(false);
