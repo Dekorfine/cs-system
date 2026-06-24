@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix320
+// 版本 2026.06.05-fix322
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3222,6 +3222,56 @@ var OfflineCommissionView = function OfflineCommissionView(_ref13) {
 // ============================================================
 // 💳 线下单模块
 // ============================================================
+// ☆ fix322: 看板每列分页(每页 PAGE 张,顶+底 compact 翻页器 ‹ n/m ›;列内不做嵌套滚动,整页单一滚动)
+var OFFLINE_BOARD_PAGE_SIZE = 8;
+var OfflineBoardColumn = function OfflineBoardColumn(_refobc) {
+  var st = _refobc.st,
+    col = _refobc.col,
+    user = _refobc.user,
+    isAdmin = _refobc.isAdmin,
+    onEditOrder = _refobc.onEditOrder,
+    onDeleteOrder = _refobc.onDeleteOrder,
+    onReload = _refobc.onReload,
+    toast = _refobc.toast;
+  var _useStateOBC = useState(0),
+    _useStateOBC2 = _slicedToArray(_useStateOBC, 2),
+    page = _useStateOBC2[0],
+    setPage = _useStateOBC2[1];
+  var PAGE = OFFLINE_BOARD_PAGE_SIZE;
+  var totalPages = Math.max(1, Math.ceil(col.length / PAGE));
+  var safePage = page >= totalPages ? totalPages - 1 : page < 0 ? 0 : page;
+  var start = safePage * PAGE;
+  var pageCards = col.slice(start, start + PAGE);
+  var pagerBtn = function pagerBtn(disabled) {
+    return { width: 24, height: 22, borderRadius: 6, border: '1px solid var(--line)', background: disabled ? 'var(--bg)' : '#fff', color: disabled ? 'var(--ink-3)' : 'var(--ink-1)', cursor: disabled ? 'default' : 'pointer', fontSize: 13, lineHeight: '20px', padding: 0, fontFamily: 'inherit' };
+  };
+  var makePager = function makePager() {
+    if (totalPages <= 1) return null;
+    return /*#__PURE__*/React.createElement("div", {
+      style: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '2px 0' }
+    }, /*#__PURE__*/React.createElement("button", {
+      disabled: safePage <= 0,
+      onClick: function onClick() { setPage(Math.max(0, safePage - 1)); },
+      style: pagerBtn(safePage <= 0)
+    }, "\u2039"), /*#__PURE__*/React.createElement("span", {
+      style: { fontSize: 11, color: 'var(--ink-2)', fontWeight: 600, minWidth: 46, textAlign: 'center' }
+    }, safePage + 1, " / ", totalPages), /*#__PURE__*/React.createElement("button", {
+      disabled: safePage >= totalPages - 1,
+      onClick: function onClick() { setPage(Math.min(totalPages - 1, safePage + 1)); },
+      style: pagerBtn(safePage >= totalPages - 1)
+    }, "\u203A"));
+  };
+  return /*#__PURE__*/React.createElement("div", {
+    style: { flex: '1 1 0', minWidth: 210, background: 'var(--bg)', borderRadius: 12, padding: 10 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, padding: '6px 10px', borderRadius: 8, background: st.bg }
+  }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: st.color } }, st.label), /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: st.color, background: '#fff', borderRadius: 10, padding: '1px 9px' } }, col.length)), makePager(), /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', flexDirection: 'column', gap: 10, marginTop: totalPages > 1 ? 6 : 0 }
+  }, col.length === 0 ? /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', padding: 20 } }, "\u7A7A") : pageCards.map(function (o) {
+    return /*#__PURE__*/React.createElement(OfflineBoardCard, { key: o.id, order: o, user: user, isAdmin: isAdmin, onEdit: function onEdit() { return onEditOrder(o); }, onDelete: function onDelete() { return onDeleteOrder(o); }, onReload: onReload, toast: toast });
+  })), totalPages > 1 ? /*#__PURE__*/React.createElement("div", { style: { marginTop: 8 } }, makePager()) : null);
+};
+
 var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   var user = _ref23.user,
     employees = _ref23.employees,
@@ -3882,16 +3932,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     return ['draft', 'pending_payment', 'paid', 'dispatched', 'shipped'].indexOf(st.key) >= 0 || filtered.some(function (o) { return (o.status || 'draft') === st.key; });
   }).map(function (st) {
     var col = filtered.filter(function (o) { return (o.status || 'draft') === st.key; });
-    return /*#__PURE__*/React.createElement("div", {
-      key: st.key,
-      style: { flex: '1 1 0', minWidth: 210, background: 'var(--bg)', borderRadius: 12, padding: 10 }
-    }, /*#__PURE__*/React.createElement("div", {
-      style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, padding: '6px 10px', borderRadius: 8, background: st.bg }
-    }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: st.color } }, st.label), /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: st.color, background: '#fff', borderRadius: 10, padding: '1px 9px' } }, col.length)), /*#__PURE__*/React.createElement("div", {
-      style: { display: 'flex', flexDirection: 'column', gap: 10 }
-    }, col.length === 0 ? /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', padding: 20 } }, "\u7A7A") : col.map(function (o) {
-      return /*#__PURE__*/React.createElement(OfflineBoardCard, { key: o.id, order: o, user: user, isAdmin: isAdmin, onEdit: function onEdit() { return setEditing(o); }, onDelete: function onDelete() { return handleDelete(o); }, onReload: load, toast: toast });
-    })));
+    return /*#__PURE__*/React.createElement(OfflineBoardColumn, { key: st.key, st: st, col: col, user: user, isAdmin: isAdmin, onEditOrder: setEditing, onDeleteOrder: handleDelete, onReload: load, toast: toast });
   })) : /*#__PURE__*/React.createElement(React.Fragment, null, ooPager, /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, ooPaged.map(function (o) {
