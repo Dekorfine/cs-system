@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix304
+// 版本 2026.06.05-fix305
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -5589,6 +5589,20 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
     _useState162 = _slicedToArray(_useState161, 2),
     attachments = _useState162[0],
     setAttachments = _useState162[1];
+  // 🆕 fix305: 附件懒加载 — 列表查询已剔除 attachments(加速),编辑打开时按 id 单独拉回;
+  // attLoadedRef 保护:未加载完/拉取失败时不写 attachments 字段,杜绝空数组覆盖已有文件
+  var attLoadedRef = React.useRef(!(order && order.id));
+  useEffect(function () {
+    if (!order || !order.id) return;
+    if (Array.isArray(order.attachments)) { attLoadedRef.current = true; return; }
+    var alive = true;
+    CLOUD.client.from('offline_orders').select('attachments').eq('id', order.id).single().then(function (r) {
+      if (!alive) return;
+      setAttachments(r && r.data && r.data.attachments || []);
+      attLoadedRef.current = true;
+    }, function () {/* 拉取失败:保持 attLoadedRef=false,保存时不写 attachments,保护原文件 */});
+    return function () { alive = false; };
+  }, [order && order.id]);
   var _useState163 = useState((order === null || order === void 0 ? void 0 : order.notes) || ''),
     _useState164 = _slicedToArray(_useState163, 2),
     notes = _useState164[0],
@@ -5747,6 +5761,15 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
       return _regenerator().w(function (_context21) {
         while (1) switch (_context21.p = _context21.n) {
           case 0:
+            // 🆕 fix305: 未付款(草稿/待付款)不强制订单号,改为必填发票号;订单号客户付款后才有
+            if (status === 'draft' || status === 'pending_payment') {
+              if (!invoiceNo.trim()) {
+                alert('未付款订单(草稿/待付款)请填写发票号');
+                return _context21.a(2);
+              }
+              _context21.n = 1;
+              break;
+            }
             if (orderNo.trim()) {
               _context21.n = 1;
               break;
@@ -5761,7 +5784,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
             alert('请选择网站');
             return _context21.a(2);
           case 2:
-            if (isEdit) {
+            if (isEdit || !orderNo.trim()) {
               _context21.n = 8;
               break;
             }
@@ -5842,7 +5865,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
               ship_to_phone: shipToPhone
             }, products);
             payload = _objectSpread(_objectSpread({}, order || {}), {}, {
-              order_no: orderNo.trim(),
+              order_no: orderNo.trim() || null,
               site: site,
               customer_name: customerName.trim() || null,
               customer_email: customerEmail.trim() || null,
@@ -5863,7 +5886,6 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
               paid_at: paidAt || null,
               products: products,
               quote_no: quoteNo.trim() || null,
-              attachments: attachments,
               notes: notes.trim() || null,
               status: status,
               follow_dispatch_text: dispatchText,
@@ -5872,6 +5894,8 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
               created_by: (order === null || order === void 0 ? void 0 : order.created_by) || user.id,
               created_by_name: (order === null || order === void 0 ? void 0 : order.created_by_name) || userName
             });
+            // 🆕 fix305: 仅在附件已加载完成时才写 attachments,否则不动该列(保护已有文件)
+            if (attLoadedRef.current) { payload.attachments = attachments; }
             _context21.n = 14;
             return CLOUD.upsert('offline_orders', payload);
           case 14:
@@ -6103,7 +6127,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
       fontSize: 10,
       color: '#854d0e'
     }
-  }, "\u270F \u4F60\u5DF2\u624B\u52A8\u4FEE\u6539\u8BA2\u5355\u7F16\u53F7(\u4FDD\u5B58\u65F6\u5C06\u4F7F\u7528\u6B64\u7F16\u53F7)")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }, "\u270F \u4F60\u5DF2\u624B\u52A8\u4FEE\u6539\u8BA2\u5355\u7F16\u53F7(\u4FDD\u5B58\u65F6\u5C06\u4F7F\u7528\u6B64\u7F16\u53F7)"), /*#__PURE__*/React.createElement("div", { style: { marginTop: 8 } }, /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 4 } }, "\u53D1\u7968\u53F7", (status === 'draft' || status === 'pending_payment') ? /*#__PURE__*/React.createElement("span", { style: { marginLeft: 6, color: '#b45309', fontWeight: 700 } }, " *\u672A\u4ED8\u6B3E\u5FC5\u586B") : /*#__PURE__*/React.createElement("span", { style: { marginLeft: 6, color: 'var(--ink-3)', fontWeight: 400 } }, " (\u53EF\u9009)")), /*#__PURE__*/React.createElement("input", { value: invoiceNo, onChange: function onChange(e) { return setInvoiceNo(e.target.value); }, placeholder: "\u5982 VKA-0913 / \u5F62\u5F0F\u53D1\u7968\u53F7", style: { width: '100%', boxSizing: 'border-box', padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, fontSize: 13, fontFamily: 'monospace', fontWeight: 600 } }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: {
       fontSize: 11,
       fontWeight: 600,
@@ -6547,15 +6571,6 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
       fontSize: 13
     }
   }))), /*#__PURE__*/React.createElement("div", {
-    style: { marginBottom: 14 }
-  }, /*#__PURE__*/React.createElement("label", {
-    style: { fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 4 }
-  }, "\u53D1\u7968\u53F7"), /*#__PURE__*/React.createElement("input", {
-    value: invoiceNo,
-    onChange: function onChange(e) { return setInvoiceNo(e.target.value); },
-    placeholder: "\u53D1\u7968\u53F7\uFF08\u53EF\u9009\uFF09",
-    style: { width: '100%', boxSizing: 'border-box', padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, fontSize: 13 }
-  })), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 12,
       background: '#fafafa',
