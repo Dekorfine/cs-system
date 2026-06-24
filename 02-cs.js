@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix300
+// 版本 2026.06.05-fix307
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -2286,6 +2286,18 @@ var CSModule = function CSModule(_ref7) {
       return clearInterval(iv);
     };
   }, [runningTimer]);
+  // 🆕 fix307(Abby 反馈):计时器持久化 —— 切到别的模块/页面再回来,组件重挂载也不丢"正在计时"。
+  //   runningTimer 存本地;重挂载时恢复(>12h 视为过期,清掉避免误显示巨大时长)。
+  useEffect(function () {
+    try {
+      var saved = STORE.get('cs_running_timer', null);
+      if (saved && saved.id && saved.startMs && Date.now() - saved.startMs < 12 * 3600 * 1000) {
+        setRunningTimer({ id: saved.id, startMs: saved.startMs });
+      } else if (saved) {
+        STORE.set('cs_running_timer', null);
+      }
+    } catch (e) {}
+  }, []);
   var nowHHMM = function nowHHMM() {
     var d = new Date();
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
@@ -2303,6 +2315,7 @@ var CSModule = function CSModule(_ref7) {
       if (_stopRow && _stopRow.status === 'pending') _stopPatch.status = 'resolved';
       updateRow(runningTimer.id, _stopPatch);
       setRunningTimer(null);
+      try { STORE.set('cs_running_timer', null); } catch (e) {}
     }
   };
   var startTimer = function startTimer(id) {
@@ -2313,10 +2326,12 @@ var CSModule = function CSModule(_ref7) {
       startTime: nowHHMM(),
       endTime: ''
     });
+    var _sMs = Date.now();
     setRunningTimer({
       id: id,
-      startMs: Date.now()
+      startMs: _sMs
     });
+    try { STORE.set('cs_running_timer', { id: id, startMs: _sMs }); } catch (e) {}
   };
   var toggleTimer = function toggleTimer(id) {
     if (runningTimer && runningTimer.id === id) stopTimer();else startTimer(id);
@@ -5002,28 +5017,36 @@ var CSModule = function CSModule(_ref7) {
         color: 'var(--bad)',
         marginLeft: 3
       }
-    }, "\xB7 \u672A\u586B")), /*#__PURE__*/React.createElement("select", {
-      disabled: !editable,
-      value: r.website,
-      onChange: function onChange(e) {
-        return updateRow(r.id, {
-          website: e.target.value
-        });
-      },
+    }, "\xB7 \u672A\u586B")), /*#__PURE__*/React.createElement("div", {
       style: {
-        width: '100%',
-        padding: '7px 10px',
-        fontSize: 13,
-        border: '1px solid ' + (!r.website ? 'var(--bad)' : 'var(--line)'),
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 4,
+        padding: !r.website ? '5px 6px' : '0',
+        border: !r.website ? '1px dashed var(--bad)' : 'none',
         borderRadius: 7,
-        background: !r.website ? '#fff5f5' : 'white'
+        background: !r.website ? '#fff5f5' : 'transparent'
       }
-    }, /*#__PURE__*/React.createElement("option", {
-      value: ""
-    }, "\u9009\u62E9\u7F51\u7AD9..."), allSites.map(function (s) {
-      return /*#__PURE__*/React.createElement("option", {
+    }, allSites.map(function (s) {
+      var _on = r.website === s;
+      return /*#__PURE__*/React.createElement("button", {
         key: s,
-        value: s
+        type: "button",
+        disabled: !editable,
+        onClick: function onClick() {
+          return updateRow(r.id, { website: _on ? '' : s });
+        },
+        style: {
+          padding: '4px 10px',
+          fontSize: 12,
+          fontWeight: 600,
+          borderRadius: 6,
+          cursor: editable ? 'pointer' : 'default',
+          border: '1px solid ' + (_on ? '#2563eb' : 'var(--line)'),
+          background: _on ? '#2563eb' : '#fff',
+          color: _on ? '#fff' : 'var(--ink-2)',
+          fontFamily: 'inherit'
+        }
       }, s);
     })), editable && !r.website && function () {
       var sug = window.__siteFromOrderRef && window.__siteFromOrderRef(r.orderRef) || '';
