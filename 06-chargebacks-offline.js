@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix309
+// 版本 2026.06.05-fix315
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3886,6 +3886,55 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
 // 🆕 fix18: 转单给跟单 modal — 一键把已付款的线下单转给跟单同事
 // 自动创建 cross_dept_messages,带订单号 / 收货 / 产品 / 付款凭证
 // ════════════════════════════════════════════════════════════════════
+// 🆕 fix315:自动转跟单 helper —— 状态推进到已付款/已下单时,若未转跟单则自动补发"已付款转单"消息(带去重,避免重复工单)
+function buildAutoTransferMsg(order, user) {
+  var products = order.products || [];
+  var dispatchText = order.follow_dispatch_text || (typeof generateDispatchText === 'function' ? generateDispatchText(order, products) : '');
+  var userName = user && user.name ? user.name + (user.alias ? ' ' + user.alias : '') : '客服';
+  var body = ['📦 已付款 · 自动转跟单,请安排下单', '', '订单号: ' + (order.order_no || ''), order.invoice_no ? '发票号: ' + order.invoice_no : '', '站点: ' + (order.site || '—'), '客户: ' + (order.customer_name || order.customer_email || '—') + (order.customer_email ? ' · ' + order.customer_email : ''), '付款: ' + (order.payment_method || '—') + ' · ' + (order.payment_currency || 'USD') + ' ' + (order.payment_amount || 0) + (order.received_amount ? ' (实收 ' + order.received_amount + ')' : ''), '付款时间: ' + (order.paid_at || '未填'), '', '📍 收货地址:', order.ship_to_name || '', order.ship_to_address || '', order.ship_to_address2 || '', [order.ship_to_city, order.ship_to_state, order.ship_to_zip].filter(Boolean).join(', '), order.ship_to_country || '', order.ship_to_phone ? '☎ ' + order.ship_to_phone : '', '', '🛒 商品 (' + products.length + ' 项):'].concat(products.map(function (p) {
+    return '  - ' + (p.sku || '') + ' ' + (p.name || '') + ' × ' + (p.qty || 1) + (p.unit_price ? ' @ ' + p.unit_price : '');
+  }), ['', '────────────', '📋 派单信息:', dispatchText]).filter(Boolean).join('\n');
+  return {
+    from_system: typeof MY_SYSTEM !== 'undefined' ? MY_SYSTEM : 'cs',
+    from_user_id: user && user.id || null,
+    from_user_name: userName,
+    to_system: 'po',
+    to_user_id: null,
+    to_user_name: null,
+    related_shop: order.site || null,
+    watchers: null,
+    category: 'general',
+    priority: 'normal',
+    title: '[已付款转单] ' + (order.order_no || '') + (order.site ? ' · ' + order.site : '') + ' · ' + (order.payment_currency || 'USD') + ' ' + (order.payment_amount || 0),
+    body: body,
+    attachments: order.attachments || [],
+    related_type: 'offline_transfer',
+    related_ref: order.order_no,
+    status: 'pending',
+    thread: [],
+    read_by: [user && user.id || ''],
+    created_at_ms: Date.now(),
+    updated_at: new Date().toISOString()
+  };
+}
+function autoTransferOfflineOrder(order, user) {
+  if (!order || order.transferred_to_po) return Promise.resolve(false);
+  var cdm = typeof getCdmClient === 'function' ? getCdmClient() : null;
+  if (!cdm) return Promise.resolve(false);
+  var ref = order.order_no || '';
+  var dedup = ref ? cdm.from('cross_dept_messages').select('id').eq('to_system', 'po').eq('related_type', 'offline_transfer').eq('related_ref', ref).limit(1) : Promise.resolve({
+    data: []
+  });
+  return Promise.resolve(dedup).then(function (ex) {
+    if (ex && ex.data && ex.data.length) return true; // 已有同单转单消息 → 视为已转,不重发
+    return Promise.resolve(cdm.from('cross_dept_messages').insert(buildAutoTransferMsg(order, user))).then(function (res) {
+      return !(res && res.error);
+    });
+  }).catch(function (e) {
+    console.warn('自动转跟单失败:', e);
+    return false;
+  });
+}
 var TransferToPoModal = function TransferToPoModal(_ref26) {
   var order = _ref26.order,
     user = _ref26.user,
@@ -4513,31 +4562,28 @@ var OfflineOrderCard = function OfflineOrderCard(_ref29) {
     });
   }, [order.id, order.updated_at]);
   var attachments = attLazy || [];
-  var setStatus = /*#__PURE__*/function () {
-    var _ref30 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(newStatus) {
-      var patch;
-      return _regenerator().w(function (_context15) {
-        while (1) switch (_context15.n) {
-          case 0:
-            patch = _objectSpread(_objectSpread({}, order), {}, {
-              status: newStatus,
-              updated_at: new Date().toISOString()
-            });
-            if (newStatus === 'dispatched' && !order.dispatched_at) patch.dispatched_at = new Date().toISOString(); // 🆕 fix231:出货盖时间戳,提成按月归集用
-            _context15.n = 1;
-            return CLOUD.upsert('offline_orders', patch);
-          case 1:
-            toast('✓ 已更新');
-            onReload();
-          case 2:
-            return _context15.a(2);
-        }
-      }, _callee15);
-    }));
-    return function setStatus(_x8) {
-      return _ref30.apply(this, arguments);
-    };
-  }();
+  var setStatus = function setStatus(newStatus) {
+    var now = new Date().toISOString();
+    var patch = _objectSpread(_objectSpread({}, order), {}, {
+      status: newStatus,
+      updated_at: now
+    });
+    if (newStatus === 'dispatched' && !order.dispatched_at) patch.dispatched_at = now; // 🆕 fix231:出货盖时间戳,提成按月归集用
+    // 🆕 fix315:推进到已付款/已下单且尚未转跟单 → 自动补发转跟单消息(去重)
+    var needTransfer = (newStatus === 'paid' || newStatus === 'dispatched') && !order.transferred_to_po;
+    var pre = needTransfer ? autoTransferOfflineOrder(order, user) : Promise.resolve(false);
+    return pre.then(function (ok) {
+      if (ok) {
+        patch.transferred_to_po = true;
+        patch.transferred_to_name = patch.transferred_to_name || '自动转单·待跟单认领';
+        patch.transferred_at = now;
+      }
+      return CLOUD.upsert('offline_orders', patch);
+    }).then(function () {
+      toast(needTransfer ? '✓ 已更新 · 已自动转跟单' : '✓ 已更新');
+      onReload();
+    });
+  };
   var copyDispatch = function copyDispatch() {
     var text = order.follow_dispatch_text || generateDispatchText(order, products);
     navigator.clipboard.writeText(text).then(function () {
@@ -5902,6 +5948,12 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
             res = _context21.v;
             if (res) {
               if (!isEdit) { try { localStorage.removeItem('cs_offline_draft_' + ((user && user.id) || 'anon')); } catch (e) {} }
+              // 🆕 fix315:编辑保存为已付款/已下单且原单未转跟单 → 自动转跟单(异步不阻塞;成功后回写标记)
+              if ((payload.status === 'paid' || payload.status === 'dispatched') && order && !order.transferred_to_po) {
+                autoTransferOfflineOrder(payload, user).then(function (ok) {
+                  if (ok && payload.id) CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, payload), {}, { transferred_to_po: true, transferred_to_name: '自动转单·待跟单认领', transferred_at: new Date().toISOString() }));
+                });
+              }
               toast(isEdit ? '✓ 已更新' : '✓ 已创建线下单');
               onSaved();
             } else {
