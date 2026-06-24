@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix317
+// 版本 2026.06.05-fix320
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -1594,6 +1594,23 @@ var getCdmClient = function getCdmClient() {
     return null;
   }
 };
+
+// 🆕 fix320:跟单库(po)client —— 线下单转单/发货消息写到这里,跟单 + 销售部都读这个库(pyfmuknvjqfwcqvbrsvw)
+var PO_DB_URL = "https://pyfmuknvjqfwcqvbrsvw.supabase.co";
+var PO_DB_KEY = "sb_publishable_dFjk1WN_Hc0Te6IhXZysZg_SXvKQU4C";
+var _poClient = null;
+var getPoClient = function getPoClient() {
+  if (_poClient) return _poClient;
+  if (typeof window === 'undefined' || !window.supabase) return null;
+  try {
+    _poClient = window.supabase.createClient(PO_DB_URL, PO_DB_KEY);
+    return _poClient;
+  } catch (e) {
+    console.error('[PO] 初始化跟单库 client 失败', e);
+    return null;
+  }
+};
+if (typeof window !== 'undefined') window.__getPoClient = getPoClient;
 
 // 🆕 产品评价任务存在【共享库 xyhbwqugbnowfjuhqhsj】的 product_reviews(worktrack/美工读这里,不是客服 CLOUD 库)
 function prReviewsList() {

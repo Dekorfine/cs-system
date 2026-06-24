@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix319
+// 版本 2026.06.05-fix320
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3942,6 +3942,19 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
 // 🆕 fix18: 转单给跟单 modal — 一键把已付款的线下单转给跟单同事
 // 自动创建 cross_dept_messages,带订单号 / 收货 / 产品 / 付款凭证
 // ════════════════════════════════════════════════════════════════════
+// 🆕 fix320:线下单消息统一走【跟单库 pyfmuknvjqfwcqvbrsvw】(跟单 + 销售都读它)。读/去重用跟单库;写时跟单库为准,旧总线(销售)留一份兼容
+function getMsgClient() {
+  return typeof getPoClient === 'function' && getPoClient() || typeof getCdmClient === 'function' && getCdmClient() || null;
+}
+function cdmInsert(msg) {
+  var po = typeof getPoClient === 'function' ? getPoClient() : null;
+  var legacy = typeof getCdmClient === 'function' ? getCdmClient() : null;
+  // 旧总线继续写一份(兼容当前销售视图),不阻塞、不影响返回
+  if (legacy && legacy !== po) { try { Promise.resolve(legacy.from('cross_dept_messages').insert(msg)).catch(function () {}); } catch (e) {} }
+  var primary = po || legacy;
+  if (!primary) return Promise.resolve({ error: { message: '无可用消息库连接' } });
+  return Promise.resolve(primary.from('cross_dept_messages').insert(msg));
+}
 // 🆕 fix315:自动转跟单 helper —— 状态推进到已付款/已下单时,若未转跟单则自动补发"已付款转单"消息(带去重,避免重复工单)
 function buildAutoTransferMsg(order, user) {
   var products = order.products || [];
@@ -3975,7 +3988,7 @@ function buildAutoTransferMsg(order, user) {
 }
 function autoTransferOfflineOrder(order, user) {
   if (!order || order.transferred_to_po) return Promise.resolve(false);
-  var cdm = typeof getCdmClient === 'function' ? getCdmClient() : null;
+  var cdm = getMsgClient();
   if (!cdm) return Promise.resolve(false);
   var ref = order.order_no || '';
   var dedup = ref ? cdm.from('cross_dept_messages').select('id').eq('to_system', 'po').eq('related_type', 'offline_transfer').eq('related_ref', ref).limit(1) : Promise.resolve({
@@ -3983,7 +3996,7 @@ function autoTransferOfflineOrder(order, user) {
   });
   return Promise.resolve(dedup).then(function (ex) {
     if (ex && ex.data && ex.data.length) return true; // 已有同单转单消息 → 视为已转,不重发
-    return Promise.resolve(cdm.from('cross_dept_messages').insert(buildAutoTransferMsg(order, user))).then(function (res) {
+    return Promise.resolve(cdmInsert(buildAutoTransferMsg(order, user))).then(function (res) {
       return !(res && res.error);
     });
   }).catch(function (e) {
@@ -4016,13 +4029,13 @@ function buildShippedMsg(order, user) {
   };
 }
 function resendShippedNotice(order, user) {
-  var cdm = typeof getCdmClient === 'function' ? getCdmClient() : null;
+  var cdm = getMsgClient();
   if (!cdm) return Promise.resolve(false);
   var ref = order.order_no || '';
   if (!ref) return Promise.resolve(false);
   return Promise.resolve(cdm.from('cross_dept_messages').select('id').eq('to_system', 'po').eq('related_type', 'offline_shipped').eq('related_ref', ref).limit(1)).then(function (ex) {
     if (ex && ex.data && ex.data.length) return true; // 已有发货通知,不重发
-    return Promise.resolve(cdm.from('cross_dept_messages').insert(buildShippedMsg(order, user))).then(function (res) {
+    return Promise.resolve(cdmInsert(buildShippedMsg(order, user))).then(function (res) {
       return !(res && res.error);
     });
   }).catch(function (e) {
@@ -4043,7 +4056,7 @@ function ShippedReconcileModal(props) {
     setBusy = _b[1];
   var loadStatus = function loadStatus() {
     setRows(null);
-    var cdm = typeof getCdmClient === 'function' ? getCdmClient() : null;
+    var cdm = getMsgClient();
     if (!cdm) {
       setRows(orders.map(function (o) { return { o: o, sent: false }; }));
       return;
@@ -4198,7 +4211,7 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
       return _regenerator().w(function (_context14) {
         while (1) switch (_context14.p = _context14.n) {
           case 0:
-            client = getCdmClient();
+            client = getMsgClient();
             if (client) {
               _context14.n = 1;
               break;
@@ -4250,7 +4263,7 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
               updated_at: new Date().toISOString()
             };
             _context14.n = 5;
-            return client.from('cross_dept_messages').insert(msg);
+            return cdmInsert(msg);
           case 5:
             _yield$client$from$in = _context14.v;
             error = _yield$client$from$in.error;
@@ -4550,9 +4563,9 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       status: 'shipped', ship_no: no, ship_carrier: (shipCarrier || '').trim() || null, shipped_at: nowIso, updated_at: nowIso
     })).then(function () {
       try {
-        var cdm = (typeof getCdmClient === 'function') ? getCdmClient() : null;
+        var cdm = getMsgClient();
         if (cdm) {
-          cdm.from('cross_dept_messages').insert({
+          cdmInsert({
             from_system: (typeof MY_SYSTEM !== 'undefined' ? MY_SYSTEM : 'cs'),
             from_user_id: (user && user.id) || null,
             from_user_name: (user && (user.name || user.alias)) || '客服',
@@ -4665,9 +4678,9 @@ var OfflineOrderCard = function OfflineOrderCard(_ref29) {
       status: 'shipped', ship_no: no, ship_carrier: (shipCarrier || '').trim() || null, shipped_at: nowIso, updated_at: nowIso
     })).then(function () {
       try {
-        var cdm = (typeof getCdmClient === 'function') ? getCdmClient() : null;
+        var cdm = getMsgClient();
         if (cdm) {
-          cdm.from('cross_dept_messages').insert({
+          cdmInsert({
             from_system: (typeof MY_SYSTEM !== 'undefined' ? MY_SYSTEM : 'cs'),
             from_user_id: (user && user.id) || null,
             from_user_name: (user && (user.name || user.alias)) || '\u5BA2\u670D',
