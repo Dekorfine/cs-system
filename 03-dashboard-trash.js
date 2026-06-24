@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix323
+// 版本 2026.06.05-fix324
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1013,18 +1013,37 @@ var Section360 = function Section360(_ref3) {
 // 4 层视图:概览卡 + 分布图 + 未解决清单 + 4 独立模块整合
 // ============================================================
 
-// ☆ fix323: 客服分组 —— 支持客服(回邮件)名单,其余=操作客服。主管 Miya 只看支持组、Nicole 只看操作组。
+// ☆ fix324: 客服分组 —— 支持客服(回邮件)名单,其余=操作客服;排除名单(非客服,仅协助)对两位主管都隐藏。
 var CS_SUPPORT_KEYS = (function () {
-  var arr = ['hazelle', 'sally', 'ling', 'aletta', 'qiang', 'tammy', 'lammy', 'yulia', 'ashley', 'abby', 'luna', 'hannah', '杨佳欢', '区栩灵', '谭燕灵', '冯恩桐', '刘强', '伍家家', '陶艳巧', '侯泳珊', '张宣霞', '杨甜', '聂诗误'];
+  var arr = ['hazelle', 'sally', 'ling', 'aletta', 'tammy', 'lammy', 'yulia', 'ashley', 'abby', 'luna', 'hannah', '杨佳欢', '区栩灵', '谭燕灵', '冯恩桐', '伍家家', '陶艳巧', '侯泳珊', '张宣霞', '杨甜', '聂诗误'];
   var set = {};
   arr.forEach(function (k) { set[String(k).toLowerCase()] = true; });
   return set;
 })();
+// 非客服(仅协助处理客服事务)—— 主管视图里两组都不显示,仅 super_admin 全量时可见
+var CS_EXCLUDE_KEYS = (function () {
+  var arr = ['qiang', '刘强'];
+  var set = {};
+  arr.forEach(function (k) { set[String(k).toLowerCase()] = true; });
+  return set;
+})();
+function __csKeys(e) {
+  if (!e) return ['', ''];
+  return [(e.alias || '').trim().toLowerCase(), (e.name || '').trim().toLowerCase()];
+}
+function __csIsExcluded(e) {
+  var k = __csKeys(e);
+  return !!(CS_EXCLUDE_KEYS[k[0]] || CS_EXCLUDE_KEYS[k[1]]);
+}
 function __csIsSupport(e) {
-  if (!e) return false;
-  var a = (e.alias || '').trim().toLowerCase();
-  var n = (e.name || '').trim().toLowerCase();
-  return !!(CS_SUPPORT_KEYS[a] || CS_SUPPORT_KEYS[n]);
+  var k = __csKeys(e);
+  return !!(CS_SUPPORT_KEYS[k[0]] || CS_SUPPORT_KEYS[k[1]]);
+}
+// 在某主管 scope 下该员工是否可见。scope: 'support'|'operation'|null(全部)
+function __csVisible(e, scope) {
+  if (!scope) return true;
+  if (__csIsExcluded(e)) return false;
+  return scope === 'support' ? __csIsSupport(e) : !__csIsSupport(e);
 }
 function __viewerCsScope(user) {
   if (!user) return null;
@@ -1044,8 +1063,7 @@ var DashboardModule = function DashboardModule(_ref4) {
   var visibleEmployees = useMemo(function () {
     if (!__csScope) return employees || [];
     return (employees || []).filter(function (e) {
-      var sup = __csIsSupport(e);
-      return __csScope === 'support' ? sup : !sup;
+      return __csVisible(e, __csScope);
     });
   }, [employees, __csScope]);
   var __visIds = useMemo(function () {
@@ -5545,8 +5563,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
     if (!__csScope) return null;
     var set = {};
     (employees || []).forEach(function (e) {
-      var sup = __csIsSupport(e);
-      if (__csScope === 'support' ? sup : !sup) {
+      if (__csVisible(e, __csScope)) {
         if (e.id != null) set[e.id] = true;
         if (e.name) set[e.name] = true;
         if (e.alias) set[e.alias] = true;
@@ -5554,7 +5571,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
     });
     return set;
   })();
-  var __empOk = function __empOk(em) { return !__csScope || (__csScope === 'support' ? __csIsSupport(em) : !__csIsSupport(em)); };
+  var __empOk = function __empOk(em) { return __csVisible(em, __csScope); };
   var filterByEmployee = function filterByEmployee(list) {
     var fields = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : ['created_by'];
     var l = (list || []).filter(inTime);
