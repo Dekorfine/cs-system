@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix325
+// 版本 2026.06.05-fix326
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1972,6 +1972,7 @@ var DashboardModule = function DashboardModule(_ref4) {
     filter: unresolvedFilter,
     setFilter: setUnresolvedFilter,
     employees: employees,
+    visibleEmployees: visibleEmployees,
     today: today,
     daysAgo: daysAgo,
     onClickRecord: setDetailRecord,
@@ -2511,6 +2512,7 @@ var UnresolvedList = function UnresolvedList(_ref11) {
     filter = _ref11.filter,
     setFilter = _ref11.setFilter,
     employees = _ref11.employees,
+    visibleEmployees = _ref11.visibleEmployees,
     today = _ref11.today,
     daysAgo = _ref11.daysAgo,
     onClickRecord = _ref11.onClickRecord,
@@ -2575,7 +2577,7 @@ var UnresolvedList = function UnresolvedList(_ref11) {
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: "all"
-  }, "\u5168\u90E8\u5BA2\u670D"), visibleEmployees.map(function (e) {
+  }, "\u5168\u90E8\u5BA2\u670D"), (visibleEmployees || employees || []).map(function (e) {
     return /*#__PURE__*/React.createElement("option", {
       key: e.id,
       value: e.id
