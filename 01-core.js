@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix300
+// 版本 2026.06.05-fix313
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -4423,10 +4423,67 @@ var REFUND_PAYMENT_METHODS = [{
   label: 'Wire Transfer',
   color: '#16a34a'
 }, {
+  key: 'amazon_pay',
+  label: 'Amazon Pay',
+  color: '#ff9900'
+}, {
+  key: 'paypal_express',
+  label: 'PayPal Express Checkout',
+  color: '#003087'
+}, {
+  key: 'paypal_card',
+  label: 'Credit/Debit card by PayPal',
+  color: '#0070ba'
+}, {
+  key: 'paypal_checkout',
+  label: 'PayPal Checkout',
+  color: '#009cde'
+}, {
+  key: 'shop_cash',
+  label: 'Shop Cash',
+  color: '#5a31f4'
+}, {
+  key: 'authorize_net',
+  label: 'authorize.net',
+  color: '#e4002b'
+}, {
+  key: 'oceanpayment',
+  label: 'Oceanpayment',
+  color: '#0d9488'
+}, {
+  key: 'credit_debit_card',
+  label: 'Credit / Debit Card',
+  color: '#475569'
+}, {
   key: 'other',
   label: '其他',
   color: '#525252'
 }];
+
+// 🆕 fix313:多币种显示与汇总统一标准(四端一致)—— 绝不混加不同币种
+var CUR_SYM = { USD: '$', CNY: '\u00A5', EUR: '\u20AC', GBP: '\u00A3', AUD: 'A$', AED: '\u062F.\u0625', CAD: 'C$', JPY: '\u00A5', HKD: 'HK$' };
+function sumByCurrency(records, amountField) {
+  amountField = amountField || 'amount';
+  var byCurr = {};
+  (records || []).forEach(function (r) {
+    var c = ((r && r.currency) || 'USD').toUpperCase();
+    byCurr[c] = (byCurr[c] || 0) + (parseFloat(r && r[amountField]) || 0);
+  });
+  return byCurr;
+}
+function fmtCur(amount, currency) {
+  var c = (currency || 'USD').toUpperCase();
+  var sym = CUR_SYM[c] || '';
+  return c + ' ' + sym + (parseFloat(amount) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtMultiCurrency(byCurr) {
+  var entries = Object.keys(byCurr || {}).map(function (k) { return [k, byCurr[k]]; }).filter(function (e) { return e[1] !== 0; }).sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); });
+  if (!entries.length) return 'USD $0.00';
+  return entries.map(function (e) {
+    var sym = CUR_SYM[e[0]] || '';
+    return e[0] + ' ' + sym + e[1].toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }).join('  +  ');
+}
 
 // 🆕 退款审核状态
 var REFUND_STATUSES = [{

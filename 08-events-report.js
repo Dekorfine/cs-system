@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix294
+// 版本 2026.06.05-fix313
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -464,10 +464,7 @@ var EventsModule = function EventsModule(_ref) {
     var rdCompleted = rdInMonth.filter(function (r) {
       return r.status === 'completed' || r.status === 'approved';
     });
-    var totalAmount = rdCompleted.reduce(function (s, r) {
-      // 简单按 USD 算（实际多币种需汇率，这里展示用）
-      return s + parseFloat(r.amount || 0);
-    }, 0);
+    var totalAmount = sumByCurrency(rdCompleted, 'amount');
     var rdByType = {};
     var rdByTypeAmount = {};
     rdCompleted.forEach(function (r) {
@@ -476,7 +473,9 @@ var EventsModule = function EventsModule(_ref) {
         return x.key === r.refund_type;
       })) === null || _REFUND_TYPES$find === void 0 ? void 0 : _REFUND_TYPES$find.label) || r.refund_type;
       rdByType[t] = (rdByType[t] || 0) + 1;
-      rdByTypeAmount[t] = (rdByTypeAmount[t] || 0) + parseFloat(r.amount || 0);
+      rdByTypeAmount[t] = rdByTypeAmount[t] || {};
+      var _cur = (r.currency || 'USD').toUpperCase();
+      rdByTypeAmount[t][_cur] = (rdByTypeAmount[t][_cur] || 0) + parseFloat(r.amount || 0);
     });
 
     // 补件
@@ -3555,16 +3554,12 @@ var RefundsTable = function RefundsTable(_ref22) {
       acc[r.status] = (acc[r.status] || 0) + 1;
       return acc;
     }, {});
-    var totalPending = items.filter(function (r) {
+    var totalPending = sumByCurrency(items.filter(function (r) {
       return r.status === 'pending';
-    }).reduce(function (s, r) {
-      return s + parseFloat(r.amount || 0);
-    }, 0);
-    var totalCompleted = items.filter(function (r) {
+    }), 'amount');
+    var totalCompleted = sumByCurrency(items.filter(function (r) {
       return r.status === 'completed';
-    }).reduce(function (s, r) {
-      return s + parseFloat(r.amount || 0);
-    }, 0);
+    }), 'amount');
     return {
       byStatus: byStatus,
       totalPending: totalPending,
@@ -3645,7 +3640,7 @@ var RefundsTable = function RefundsTable(_ref22) {
       fontSize: 11,
       color: '#854d0e'
     }
-  }, "USD ", summary.totalPending.toFixed(2))), /*#__PURE__*/React.createElement("div", {
+  }, fmtMultiCurrency(summary.totalPending))), /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-xl p-3",
     style: {
       background: '#e0f2fe',
@@ -3684,7 +3679,7 @@ var RefundsTable = function RefundsTable(_ref22) {
       fontSize: 11,
       color: '#14532d'
     }
-  }, "USD ", summary.totalCompleted.toFixed(2))), /*#__PURE__*/React.createElement("div", {
+  }, fmtMultiCurrency(summary.totalCompleted))), /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-xl p-3",
     style: {
       background: '#fef2f2',
@@ -3819,7 +3814,7 @@ var RefundsTable = function RefundsTable(_ref22) {
         fontWeight: 600,
         color: '#dc2626'
       }
-    }, r.currency, " ", parseFloat(r.amount).toFixed(2)), /*#__PURE__*/React.createElement("td", {
+    }, fmtCur(r.amount, r.currency)), /*#__PURE__*/React.createElement("td", {
       style: {
         fontSize: 11
       }
@@ -4067,7 +4062,7 @@ var RefundReviewModal = function RefundReviewModal(_ref23) {
       fontWeight: 700,
       color: '#dc2626'
     }
-  }, refund.currency, " ", parseFloat(refund.amount).toFixed(2))), refund.product_name && /*#__PURE__*/React.createElement("div", {
+  }, fmtCur(refund.amount, refund.currency))), refund.product_name && /*#__PURE__*/React.createElement("div", {
     style: {
       color: 'var(--ink-2)',
       marginBottom: 4
@@ -6159,7 +6154,7 @@ var SummaryPanel = function SummaryPanel(_ref36) {
       color: '#dc2626',
       marginTop: 4
     }
-  }, "$", stats.refunds.totalAmount.toFixed(2)), /*#__PURE__*/React.createElement("div", {
+  }, fmtMultiCurrency(stats.refunds.totalAmount)), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: 'var(--ink-3)',
@@ -6244,13 +6239,15 @@ var SummaryPanel = function SummaryPanel(_ref36) {
       padding: '20px 0'
     }
   }, "\u672C\u6708\u6682\u65E0\u6570\u636E") : Object.entries(stats.refunds.byTypeAmount).sort(function (a, b) {
-    return b[1] - a[1];
+    var _mag = function _mag(o) { return Object.keys(o || {}).reduce(function (s, c) { return s + Math.abs(o[c] || 0); }, 0); };
+    return _mag(b[1]) - _mag(a[1]);
   }).map(function (_ref43) {
     var _ref44 = _slicedToArray(_ref43, 2),
       k = _ref44[0],
       amt = _ref44[1];
-    var max = Math.max.apply(Math, _toConsumableArray(Object.values(stats.refunds.byTypeAmount)));
-    var pct = amt / max * 100;
+    var _magB = function _magB(o) { return Object.keys(o || {}).reduce(function (s, c) { return s + Math.abs(o[c] || 0); }, 0); };
+    var max = Math.max.apply(Math, Object.values(stats.refunds.byTypeAmount).map(_magB));
+    var pct = max ? _magB(amt) / max * 100 : 0;
     var count = stats.refunds.byType[k] || 0;
     return /*#__PURE__*/React.createElement("div", {
       key: k,
@@ -6274,7 +6271,7 @@ var SummaryPanel = function SummaryPanel(_ref36) {
         fontWeight: 600,
         color: '#dc2626'
       }
-    }, "$", amt.toFixed(2))), /*#__PURE__*/React.createElement("div", {
+    }, fmtMultiCurrency(amt))), /*#__PURE__*/React.createElement("div", {
       style: {
         height: 6,
         background: 'var(--bg)',
