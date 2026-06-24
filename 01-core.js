@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix313
+// 版本 2026.06.05-fix317
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -1449,7 +1449,8 @@ var ORDER_PREFIX_TO_SITE = {
 // 从订单号/备注里抽取开头连续字母,优先匹配 2 字母前缀,再退 1 字母
 function siteFromOrderRef(ref) {
   if (!ref) return '';
-  var m = String(ref).trim().match(/^([A-Za-z]{1,3})/);
+  // 🆕 fix317:Shopify 订单号常带 # / ＃ / 空格前缀(如 #RD23000),匹配字母前先剥掉
+  var m = String(ref).trim().replace(/^[#\uFF03\s]+/, '').match(/^([A-Za-z]{1,3})/);
   if (!m) return '';
   var letters = m[1].toUpperCase();
   if (ORDER_PREFIX_TO_SITE[letters]) return ORDER_PREFIX_TO_SITE[letters];
