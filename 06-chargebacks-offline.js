@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix316
+// 版本 2026.06.05-fix319
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4008,7 +4008,7 @@ function buildShippedMsg(order, user) {
     attachments: [],
     related_type: 'offline_shipped',
     related_ref: order.order_no || '',
-    status: 'unread',
+    status: 'pending',
     thread: [],
     read_by: [user && user.id || ''],
     created_at_ms: Date.now(),
@@ -4560,9 +4560,9 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
             title: '[客服已发货] ' + (order.order_no || ''),
             body: '转单号: ' + no + ((shipCarrier || '').trim() ? ' · ' + shipCarrier.trim() : '') + '\n订单: ' + (order.order_no || '') + ' · ' + (order.site || ''),
             attachments: [], related_type: 'offline_shipped', related_ref: order.order_no || '',
-            status: 'unread', thread: [], read_by: [(user && user.id) || ''],
+            status: 'pending', thread: [], read_by: [(user && user.id) || ''],
             created_at_ms: Date.now(), updated_at: nowIso
-          }).then(function () {}, function () {});
+          }).then(function () {}, function (er) { console.warn('offline_shipped 写入失败:', er); });
         }
       } catch (e) {}
       setShipBusy(false); setShowShip(false);
@@ -4675,9 +4675,9 @@ var OfflineOrderCard = function OfflineOrderCard(_ref29) {
             title: '[\u5BA2\u670D\u5DF2\u53D1\u8D27] ' + (order.order_no || ''),
             body: '\u8F6C\u5355\u53F7: ' + no + ((shipCarrier || '').trim() ? ' \u00B7 ' + shipCarrier.trim() : '') + '\n\u8BA2\u5355: ' + (order.order_no || '') + ' \u00B7 ' + (order.site || ''),
             attachments: [], related_type: 'offline_shipped', related_ref: order.order_no || '',
-            status: 'unread', thread: [], read_by: [(user && user.id) || ''],
+            status: 'pending', thread: [], read_by: [(user && user.id) || ''],
             created_at_ms: Date.now(), updated_at: nowIso
-          }).then(function () {}, function () {});
+          }).then(function () {}, function (er) { console.warn('offline_shipped 写入失败:', er); });
         }
       } catch (e) {}
       setShipBusy(false); setShowShip(false);
