@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix308
+// 版本 2026.06.05-fix323
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -15185,7 +15185,7 @@ function InventoryModuleInline(props) {
     var c = poClient();
     if (!c) { setErr('Supabase 未就绪'); setLoading(false); return; }
     setLoading(true); setErr('');
-    c.from('products').select('id,sku,name_cn,name_en,image_url,stock_qty,stock_alert_threshold,default_supplier,platform_skus,stock_in_at')
+    c.from('products').select('id,sku,name_cn,name_en,image_url,stock_qty,stock_qty_domestic,stock_qty_overseas,stock_qty_in_transit,overseas_lead_days,price_usd,color_temp,variant_color,pkg_single,weight_single,pkg_carton,weight_carton,qty_per_carton,carton_count,label_large,label_small,product_url,stock_alert_threshold,default_supplier,platform_skus,stock_in_at')
       .eq('is_inventory_item', true).is('deleted_at', null).order('stock_qty', { ascending: true }).limit(5000)
       .then(function (res) {
         if (res && res.error) { setErr('加载失败:' + (res.error.message || res.error)); setRows([]); }
@@ -15205,6 +15205,7 @@ function InventoryModuleInline(props) {
       if ((p.name_cn || '').toLowerCase().indexOf(qq) >= 0) return true;
       if ((p.name_en || '').toLowerCase().indexOf(qq) >= 0) return true;
       if ((p.default_supplier || '').toLowerCase().indexOf(qq) >= 0) return true;
+      if ((p.variant_color || '').toLowerCase().indexOf(qq) >= 0) return true;
       return Array.isArray(p.platform_skus) && p.platform_skus.some(function (ps) { return (ps && ps.sku || '').toLowerCase().indexOf(qq) >= 0; });
     });
   }, [rows, q]);
@@ -15280,6 +15281,29 @@ function InventoryModuleInline(props) {
         h('div', { style: { fontSize: 13, fontWeight: 600, lineHeight: 1.35, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: p.name_cn || '' }, p.name_cn || '(无名)'),
         h('div', { style: { fontSize: 11.5, color: C.sec, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, p.sku || ''),
         age != null ? h('div', { style: { fontSize: 11.5, marginTop: 2, color: stale ? '#b45309' : C.sec } }, (stale ? '🐢 ' : '库龄 ') + age + '天') : null,
+        (p.stock_qty_domestic != null || p.stock_qty_overseas != null || Number(p.stock_qty_in_transit || 0) > 0)
+          ? h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4, fontSize: 11 } },
+              h('span', { style: { color: '#0369a1' }, title: '国内仓' }, '🏠 ' + (p.stock_qty_domestic != null ? p.stock_qty_domestic : '-')),
+              h('span', { style: { color: '#7c3aed' }, title: '海外仓' }, '✈️ ' + (p.stock_qty_overseas != null ? p.stock_qty_overseas : '-')),
+              Number(p.stock_qty_in_transit || 0) > 0 ? h('span', { style: { color: '#b45309' }, title: '在途(已下单未到仓)' }, '🚚 ' + p.stock_qty_in_transit) : null)
+          : null,
+        (p.price_usd != null && p.price_usd !== '' || p.variant_color || p.color_temp)
+          ? h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 3, fontSize: 11, alignItems: 'center' } },
+              p.price_usd != null && p.price_usd !== '' ? h('span', { style: { color: '#16a34a', fontWeight: 600 } }, '$ ' + p.price_usd) : null,
+              p.variant_color ? h('span', { style: { color: C.sec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }, title: p.variant_color }, '🎨 ' + p.variant_color) : null,
+              p.color_temp ? h('span', { style: { color: C.sec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }, title: p.color_temp }, '💡 ' + p.color_temp) : null)
+          : null,
+        (p.pkg_single || p.weight_single || p.pkg_carton || p.weight_carton || p.qty_per_carton != null || p.carton_count != null || p.overseas_lead_days != null || p.label_large || p.label_small || p.product_url)
+          ? h('details', { style: { marginTop: 5, fontSize: 11, color: C.sec } },
+              h('summary', { style: { cursor: 'pointer', color: C.accent } }, '详情'),
+              h('div', { style: { marginTop: 4, lineHeight: 1.7 } },
+                (p.pkg_single || p.weight_single) ? h('div', null, '单个:' + (p.pkg_single || '-') + (p.weight_single ? ' · ' + p.weight_single : '')) : null,
+                (p.pkg_carton || p.weight_carton) ? h('div', null, '整箱:' + (p.pkg_carton || '-') + (p.weight_carton ? ' · ' + p.weight_carton : '')) : null,
+                (p.qty_per_carton != null || p.carton_count != null) ? h('div', null, (p.qty_per_carton != null ? '每箱 ' + p.qty_per_carton + ' 个' : '') + (p.carton_count != null ? (p.qty_per_carton != null ? ' · ' : '') + p.carton_count + ' 箱' : '')) : null,
+                p.overseas_lead_days != null ? h('div', null, '海外补货约 ' + p.overseas_lead_days + ' 天') : null,
+                (p.label_large || p.label_small) ? h('div', null, '标签:' + (p.label_large || '') + (p.label_small ? ' / ' + p.label_small : '')) : null,
+                p.product_url ? h('a', { href: p.product_url, target: '_blank', rel: 'noopener', style: { color: C.accent } }, '产品页 ↗') : null))
+          : null,
         h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 11, color: C.sec } },
           h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' } }, p.default_supplier ? '🏭 ' + p.default_supplier : ''),
           h('span', null, plat.length ? '🔗' + plat.length : ''))));

@@ -54,7 +54,7 @@ function ageDays(p){ if(!p.stock_in_at)return null; return Math.floor((Date.now(
 async function load(){
   try{
     const { data, error } = await SB.from('products')
-      .select('id,sku,name_cn,name_en,image_url,stock_qty,stock_alert_threshold,default_supplier,platform_skus,stock_in_at')
+      .select('id,sku,name_cn,name_en,image_url,stock_qty,stock_qty_domestic,stock_qty_overseas,stock_qty_in_transit,overseas_lead_days,price_usd,color_temp,variant_color,pkg_single,weight_single,pkg_carton,weight_carton,qty_per_carton,carton_count,label_large,label_small,product_url,stock_alert_threshold,default_supplier,platform_skus,stock_in_at')
       .eq('is_inventory_item',true).is('deleted_at',null)
       .order('stock_qty',{ascending:true});
     if(error)throw error;
@@ -94,6 +94,21 @@ function render(){
       <div class="name">${esc(p.name_cn||'(无名)')}</div>
       <div class="sku">${esc(p.sku||'')}</div>
       ${age!=null?`<div class="${s>0&&age>=90?'stale':'sku'}">${s>0&&age>=90?'🐢 ':'库龄 '}${age}天</div>`:''}
+      ${(p.stock_qty_domestic!=null||p.stock_qty_overseas!=null||Number(p.stock_qty_in_transit||0)>0)?`<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;">
+        <span style="color:#0369a1;">🏠 ${p.stock_qty_domestic!=null?p.stock_qty_domestic:'-'}</span>
+        <span style="color:#7c3aed;">✈️ ${p.stock_qty_overseas!=null?p.stock_qty_overseas:'-'}</span>
+        ${Number(p.stock_qty_in_transit||0)>0?`<span style="color:#b45309;">🚚 ${p.stock_qty_in_transit}</span>`:''}
+      </div>`:''}
+      ${(p.price_usd!=null&&p.price_usd!==''||p.variant_color)?`<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--sec);">
+        ${p.price_usd!=null&&p.price_usd!==''?`<span style="color:#16a34a;font-weight:600;">$ ${esc(p.price_usd)}</span>`:''}
+        ${p.variant_color?`<span>🎨 ${esc(p.variant_color)}</span>`:''}
+      </div>`:''}
+      ${(p.pkg_single||p.weight_carton||p.qty_per_carton!=null||p.product_url)?`<details style="font-size:11px;color:var(--sec);"><summary style="cursor:pointer;color:var(--accent);">详情</summary>
+        ${p.pkg_single||p.weight_single?`<div>单个:${esc(p.pkg_single||'-')}${p.weight_single?' · '+esc(p.weight_single):''}</div>`:''}
+        ${p.pkg_carton||p.weight_carton?`<div>整箱:${esc(p.pkg_carton||'-')}${p.weight_carton?' · '+esc(p.weight_carton):''}</div>`:''}
+        ${p.qty_per_carton!=null?`<div>每箱 ${p.qty_per_carton} 个${p.carton_count!=null?' · '+p.carton_count+' 箱':''}</div>`:''}
+        ${p.product_url?`<div><a href="${esc(p.product_url)}" target="_blank" rel="noopener" style="color:var(--accent);">产品页 ↗</a></div>`:''}
+      </details>`:''}
       <div class="meta"><span>${p.default_supplier?'🏭 '+esc(p.default_supplier):''}</span><span>${plat.length?'🔗'+plat.length:''}</span></div>
     </div>`;
   }).join('')+'</div>';

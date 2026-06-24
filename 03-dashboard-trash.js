@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix247
+// 版本 2026.06.05-fix323
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1013,11 +1013,46 @@ var Section360 = function Section360(_ref3) {
 // 4 层视图:概览卡 + 分布图 + 未解决清单 + 4 独立模块整合
 // ============================================================
 
+// ☆ fix323: 客服分组 —— 支持客服(回邮件)名单,其余=操作客服。主管 Miya 只看支持组、Nicole 只看操作组。
+var CS_SUPPORT_KEYS = (function () {
+  var arr = ['hazelle', 'sally', 'ling', 'aletta', 'qiang', 'tammy', 'lammy', 'yulia', 'ashley', 'abby', 'luna', 'hannah', '杨佳欢', '区栩灵', '谭燕灵', '冯恩桐', '刘强', '伍家家', '陶艳巧', '侯泳珊', '张宣霞', '杨甜', '聂诗误'];
+  var set = {};
+  arr.forEach(function (k) { set[String(k).toLowerCase()] = true; });
+  return set;
+})();
+function __csIsSupport(e) {
+  if (!e) return false;
+  var a = (e.alias || '').trim().toLowerCase();
+  var n = (e.name || '').trim().toLowerCase();
+  return !!(CS_SUPPORT_KEYS[a] || CS_SUPPORT_KEYS[n]);
+}
+function __viewerCsScope(user) {
+  if (!user) return null;
+  var k = ((user.alias || '') + '|' + (user.name || '')).toLowerCase();
+  if (k.indexOf('miya') >= 0 || k.indexOf('邱琴方') >= 0) return 'support'; // Miya → 支持客服
+  if (k.indexOf('nicole') >= 0 || k.indexOf('李彬桦') >= 0) return 'operation'; // Nicole → 操作客服
+  return null; // 其他(含 super_admin/Martin)= 全部
+}
+
 var DashboardModule = function DashboardModule(_ref4) {
   var user = _ref4.user,
     employees = _ref4.employees,
     records = _ref4.records;
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  // ☆ fix323: 主管分组过滤 —— Miya 只见支持客服 / Nicole 只见操作客服 / 其余看全部
+  var __csScope = __viewerCsScope(user);
+  var visibleEmployees = useMemo(function () {
+    if (!__csScope) return employees || [];
+    return (employees || []).filter(function (e) {
+      var sup = __csIsSupport(e);
+      return __csScope === 'support' ? sup : !sup;
+    });
+  }, [employees, __csScope]);
+  var __visIds = useMemo(function () {
+    var st = {};
+    visibleEmployees.forEach(function (e) { if (e && e.id != null) st[e.id] = true; });
+    return st;
+  }, [visibleEmployees]);
   var _useState17 = useState('today'),
     _useState18 = _slicedToArray(_useState17, 2),
     timeRange = _useState18[0],
@@ -1265,7 +1300,7 @@ var DashboardModule = function DashboardModule(_ref4) {
   });
   var activeEmps = new Set(periodRecords.map(function (r) {
     return r.ownerId;
-  })).size;
+  }).filter(function (id) { return !__csScope || __visIds[id]; })).size;
 
   // ========== 独立模块计数 ==========
   var cbActive = extra.chargebacks.filter(function (c) {
@@ -1381,7 +1416,7 @@ var DashboardModule = function DashboardModule(_ref4) {
 
   // ========== 按客服分布 ==========
   var empStats = useMemo(function () {
-    return employees.map(function (e) {
+    return visibleEmployees.map(function (e) {
       var recs = periodRecords.filter(function (r) {
         return r.ownerId === e.id;
       });
@@ -1510,7 +1545,7 @@ var DashboardModule = function DashboardModule(_ref4) {
       border: '1px solid var(--line)',
       borderRadius: 6
     }
-  }, employees.map(function (e) {
+  }, visibleEmployees.map(function (e) {
     return /*#__PURE__*/React.createElement("option", {
       key: e.id,
       value: e.id
@@ -1624,7 +1659,7 @@ var DashboardModule = function DashboardModule(_ref4) {
   }), /*#__PURE__*/React.createElement(KpiCard, {
     title: "\uD83D\uDC65 \u6D3B\u8DC3\u5BA2\u670D",
     value: activeEmps,
-    sub: "/ ".concat(employees.length, " \u603B\u4EBA\u6570"),
+    sub: "/ ".concat(visibleEmployees.length, " \u603B\u4EBA\u6570"),
     accent: "#5e5ce6",
     onClick: activeEmps > 0 ? function () {
       return setKpiDetail({
@@ -2522,7 +2557,7 @@ var UnresolvedList = function UnresolvedList(_ref11) {
     }
   }, /*#__PURE__*/React.createElement("option", {
     value: "all"
-  }, "\u5168\u90E8\u5BA2\u670D"), employees.map(function (e) {
+  }, "\u5168\u90E8\u5BA2\u670D"), visibleEmployees.map(function (e) {
     return /*#__PURE__*/React.createElement("option", {
       key: e.id,
       value: e.id
@@ -5504,12 +5539,33 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
   }, []);
 
   // 按员工 + 时间筛选
+  // ☆ fix323: 主管分组 —— Miya 只见支持客服 / Nicole 只见操作客服 / 其余(含Martin)全部
+  var __csScope = __viewerCsScope(user);
+  var __allowedWho = (function () {
+    if (!__csScope) return null;
+    var set = {};
+    (employees || []).forEach(function (e) {
+      var sup = __csIsSupport(e);
+      if (__csScope === 'support' ? sup : !sup) {
+        if (e.id != null) set[e.id] = true;
+        if (e.name) set[e.name] = true;
+        if (e.alias) set[e.alias] = true;
+      }
+    });
+    return set;
+  })();
+  var __empOk = function __empOk(em) { return !__csScope || (__csScope === 'support' ? __csIsSupport(em) : !__csIsSupport(em)); };
   var filterByEmployee = function filterByEmployee(list) {
     var fields = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : ['created_by'];
     var l = (list || []).filter(inTime);
     if (filterEmployee !== 'all') l = l.filter(function (r) {
       return fields.some(function (f) {
         return r[f] === filterEmployee;
+      });
+    });
+    if (__allowedWho) l = l.filter(function (r) {
+      return fields.some(function (f) {
+        return __allowedWho[r[f]];
       });
     });
     return l;
@@ -5575,6 +5631,11 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
     if (filterEmployee !== 'all') l = l.filter(function (r) {
       return fields.some(function (f) {
         return r[f] === filterEmployee;
+      });
+    });
+    if (__allowedWho) l = l.filter(function (r) {
+      return fields.some(function (f) {
+        return __allowedWho[r[f]];
       });
     });
     return l;
@@ -6335,7 +6396,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
   }, /*#__PURE__*/React.createElement("option", {
     value: "all"
   }, "\u5168\u90E8\u5458\u5DE5"), employees.filter(function (em) {
-    return !em.hideFromList;
+    return !em.hideFromList && __empOk(em);
   }).map(function (em) {
     return /*#__PURE__*/React.createElement("option", {
       key: em.id,
@@ -6893,7 +6954,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
       textAlign: 'center'
     }
   }, "\u2B50 \u8BC4\u4EF7"))), /*#__PURE__*/React.createElement("tbody", null, employees.filter(function (em) {
-    return !em.hideFromList && em.role !== 'super_admin';
+    return !em.hideFromList && em.role !== 'super_admin' && __empOk(em);
   }).map(function (em, idx) {
     var cnt = function cnt(list) {
       var field = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'created_by';
