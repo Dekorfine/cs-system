@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix311
+// 版本 2026.06.05-fix321
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4464,7 +4464,32 @@ var CSModule = function CSModule(_ref7) {
         whiteSpace: 'nowrap'
       },
       title: "\u70B9\u51FB\u7B5B\u9009\u8D85\u8FC7 7 \u5929\u672A\u89E3\u51B3\u7684\u8BB0\u5F55"
-    }, "\u26A0 \u8D85 7 \u5929\u672A\u89E3\u51B3: ", overdueUnresolved.length, " \u6761")), /*#__PURE__*/React.createElement("div", {
+    }, "\u26A0 \u8D85 7 \u5929\u672A\u89E3\u51B3: ", overdueUnresolved.length, " \u6761")), overdueUnresolved.length > 0 && /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        var targets = overdueUnresolved;
+        if (!targets.length) return;
+        Promise.resolve(wsConfirm('将把当前【超 7 天未解决】的 ' + targets.length + ' 条记录全部标记为「已解决」(各加一条"批量已解决"跟进记录)。确认?')).then(function (ok) {
+          if (!ok) return;
+          var ids = {};
+          targets.forEach(function (t) { ids[t.id] = true; });
+          var nowI = nowISO();
+          setRecords(function (prev) {
+            return prev.map(function (r) {
+              if (!ids[r.id]) return r;
+              return _objectSpread(_objectSpread({}, r), {}, {
+                status: 'resolved',
+                resolvedAt: r.resolvedAt || nowI,
+                updatedAt: nowI,
+                followUps: [].concat(_toConsumableArray(r.followUps || []), [{ id: 'fu_b' + Date.now() + '_' + r.id, time: new Date().toISOString(), text: '批量标记已解决', status: 'done' }])
+              });
+            });
+          });
+          toast('\u2713 \u5DF2\u6279\u91CF\u6807\u8BB0 ' + targets.length + ' \u6761\u4E3A\u5DF2\u89E3\u51B3');
+        });
+      },
+      style: { padding: '4px 11px', background: '#dcfce7', color: '#15803d', border: '1px solid #16a34a', borderRadius: 14, fontSize: 11, fontWeight: 600, fontFamily: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' },
+      title: "\u628A\u5F53\u524D\u8D85 7 \u5929\u672A\u89E3\u51B3\u7684\u8BB0\u5F55\u4E00\u952E\u6807\u8BB0\u4E3A\u5DF2\u89E3\u51B3"
+    }, "\u2705 \u6279\u91CF\u6807\u8BB0\u5DF2\u89E3\u51B3 (", overdueUnresolved.length, ")"), /*#__PURE__*/React.createElement("div", {
       style: {
         display: 'flex',
         alignItems: 'center',
