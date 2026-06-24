@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix315
+// 版本 2026.06.05-fix316
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3290,6 +3290,9 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   var _bBatch = useState(false),
     batching = _bBatch[0],
     setBatching = _bBatch[1];
+  var _bRec = useState(false),
+    showReconcile = _bRec[0],
+    setShowReconcile = _bRec[1];
   var load = /*#__PURE__*/function () {
     var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
       var data, _t0;
@@ -3603,7 +3606,12 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     onClick: function onClick() { return setView(view === 'board' ? 'list' : 'board'); },
     className: "btn-sec",
     style: { padding: '6px 14px', fontSize: 12, fontWeight: 600 }
-  }, view === 'board' ? "\uD83D\uDCD1 \u5217\u8868" : "\uD83D\uDCCB \u770B\u677F"), isAdmin && /*#__PURE__*/React.createElement("button", {
+  }, view === 'board' ? "\uD83D\uDCD1 \u5217\u8868" : "\uD83D\uDCCB \u770B\u677F"), (list || []).filter(function (o) { return o && !o.deleted && o.status === 'shipped'; }).length > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { return setShowReconcile(true); },
+    className: "btn-sec",
+    style: { padding: '6px 12px', fontSize: 12, fontWeight: 600 },
+    title: "\u53D1\u8D27\u5BF9\u8D26\uFF1Acs \u5DF2\u53D1\u8D27\u4F46\u8DDF\u5355\u672A\u6536\u5230\u53D1\u8D27\u901A\u77E5\u7684\u5355\uFF0C\u53EF\u4E00\u952E\u8865\u53D1"
+  }, "\uD83D\uDCE6 \u53D1\u8D27\u5BF9\u8D26"), isAdmin && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setView('commission');
     },
@@ -3922,6 +3930,11 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       return setOoShowTrash(false);
     },
     columns: [{ label: '订单号', fmt: function (r) { return r.order_ref || r.order_no || r.order_number || ''; } }, { label: '客户', fmt: function (r) { return r.customer || r.customer_name || ''; } }, { key: 'site', label: '店铺' }, { label: '金额', fmt: function (r) { return r.refund_amount != null && r.refund_amount !== '' ? '退款 ' + r.refund_amount : r.amount || ''; } }, { key: 'status', label: '状态' }, { key: 'created_by_name', label: '录入人' }]
+  }), showReconcile && /*#__PURE__*/React.createElement(ShippedReconcileModal, {
+    orders: (list || []).filter(function (o) { return o && !o.deleted && o.status === 'shipped'; }),
+    user: user,
+    toast: toast,
+    onClose: function onClose() { return setShowReconcile(false); }
   }));
 };
 
@@ -3977,6 +3990,93 @@ function autoTransferOfflineOrder(order, user) {
     console.warn('自动转跟单失败:', e);
     return false;
   });
+}
+// 🆕 fix316:发货对账 —— cs 已发货但 po 未收到 offline_shipped 通知时,可一键补发(带去重)
+function buildShippedMsg(order, user) {
+  var no = (order.ship_no || '').trim();
+  var carrier = (order.ship_carrier || '').trim();
+  return {
+    from_system: typeof MY_SYSTEM !== 'undefined' ? MY_SYSTEM : 'cs',
+    from_user_id: user && user.id || null,
+    from_user_name: user && (user.name || user.alias) || '客服',
+    to_system: 'po',
+    related_shop: order.site || null,
+    category: 'general',
+    priority: 'normal',
+    title: '[线下发货] ' + (order.order_no || ''),
+    body: '快递单号: ' + no + (carrier ? ' · ' + carrier : '') + '\n订单: ' + (order.order_no || '') + ' · ' + (order.site || ''),
+    attachments: [],
+    related_type: 'offline_shipped',
+    related_ref: order.order_no || '',
+    status: 'unread',
+    thread: [],
+    read_by: [user && user.id || ''],
+    created_at_ms: Date.now(),
+    updated_at: new Date().toISOString()
+  };
+}
+function resendShippedNotice(order, user) {
+  var cdm = typeof getCdmClient === 'function' ? getCdmClient() : null;
+  if (!cdm) return Promise.resolve(false);
+  var ref = order.order_no || '';
+  if (!ref) return Promise.resolve(false);
+  return Promise.resolve(cdm.from('cross_dept_messages').select('id').eq('to_system', 'po').eq('related_type', 'offline_shipped').eq('related_ref', ref).limit(1)).then(function (ex) {
+    if (ex && ex.data && ex.data.length) return true; // 已有发货通知,不重发
+    return Promise.resolve(cdm.from('cross_dept_messages').insert(buildShippedMsg(order, user))).then(function (res) {
+      return !(res && res.error);
+    });
+  }).catch(function (e) {
+    console.warn('补发发货通知失败:', e);
+    return false;
+  });
+}
+function ShippedReconcileModal(props) {
+  var orders = props.orders,
+    user = props.user,
+    onClose = props.onClose,
+    toast = props.toast;
+  var _r = useState(null),
+    rows = _r[0],
+    setRows = _r[1]; // null = 查询中
+  var _b = useState(false),
+    busy = _b[0],
+    setBusy = _b[1];
+  var loadStatus = function loadStatus() {
+    setRows(null);
+    var cdm = typeof getCdmClient === 'function' ? getCdmClient() : null;
+    if (!cdm) {
+      setRows(orders.map(function (o) { return { o: o, sent: false }; }));
+      return;
+    }
+    var refs = orders.map(function (o) { return o.order_no; }).filter(Boolean);
+    var q = refs.length ? cdm.from('cross_dept_messages').select('related_ref,read_by,created_at_ms').eq('to_system', 'po').eq('related_type', 'offline_shipped').in('related_ref', refs) : Promise.resolve({ data: [] });
+    Promise.resolve(q).then(function (res) {
+      var map = {};
+      (res && res.data || []).forEach(function (m) { if (!map[m.related_ref]) map[m.related_ref] = m; });
+      setRows(orders.map(function (o) { return { o: o, sent: !!map[o.order_no], msg: map[o.order_no] || null }; }));
+    }).catch(function () {
+      setRows(orders.map(function (o) { return { o: o, sent: false }; }));
+    });
+  };
+  useEffect(loadStatus, []);
+  var resendOne = function resendOne(o) {
+    setBusy(true);
+    resendShippedNotice(o, user).then(function () { setBusy(false); toast('✓ 已补发'); loadStatus(); });
+  };
+  var resendAll = function resendAll() {
+    var miss = (rows || []).filter(function (r) { return !r.sent; });
+    if (!miss.length) { toast('✓ 无缺失'); return; }
+    setBusy(true);
+    var chain = miss.reduce(function (p, r) { return p.then(function () { return resendShippedNotice(r.o, user); }); }, Promise.resolve());
+    chain.then(function () { setBusy(false); toast('✓ 已补发 ' + miss.length + ' 条'); loadStatus(); });
+  };
+  var missCount = (rows || []).filter(function (r) { return !r.sent; }).length;
+  var th = function th(t) { return React.createElement('th', { style: { padding: '6px 8px', borderBottom: '1px solid var(--line)', textAlign: 'left' } }, t); };
+  var td = function td(c, st) { return React.createElement('td', { style: _objectSpread({ padding: '7px 8px' }, st || {}) }, c); };
+  return React.createElement('div', { style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }, onClick: onClose }, React.createElement('div', { onClick: function (e) { e.stopPropagation(); }, style: { background: '#fff', borderRadius: 12, width: 'min(780px,96vw)', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }, React.createElement('div', { style: { padding: '14px 18px', borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' } }, React.createElement('div', null, React.createElement('div', { style: { fontSize: 16, fontWeight: 700 } }, '📦 发货对账 · cs → 跟单'), React.createElement('div', { style: { fontSize: 12, color: 'var(--ink-3)', marginTop: 2 } }, '共 ' + orders.length + ' 张已发货' + (rows === null ? '' : ' · 未通知 ' + missCount + ' 张'))), React.createElement('button', { onClick: onClose, style: { border: 'none', background: 'transparent', fontSize: 22, cursor: 'pointer', color: 'var(--ink-3)' } }, '×')), React.createElement('div', { style: { padding: '10px 18px', display: 'flex', gap: 8, alignItems: 'center', borderBottom: '1px solid var(--line)' } }, React.createElement('button', { onClick: resendAll, disabled: busy || missCount === 0, className: 'btn-pri', style: { padding: '6px 14px', fontSize: 12, fontWeight: 600, opacity: busy || missCount === 0 ? .5 : 1 } }, busy ? '⏳ 处理中…' : '⚡ 一键补发缺失 ' + missCount), React.createElement('button', { onClick: loadStatus, disabled: busy, className: 'btn-sec', style: { padding: '6px 12px', fontSize: 12 } }, '🔄 重查')), React.createElement('div', { style: { overflow: 'auto', padding: '8px 18px 4px' } }, rows === null ? React.createElement('div', { style: { padding: 24, textAlign: 'center', color: 'var(--ink-3)' } }, '查询中…') : rows.length === 0 ? React.createElement('div', { style: { padding: 24, textAlign: 'center', color: 'var(--ink-3)' } }, '暂无已发货线下单') : React.createElement('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 13 } }, React.createElement('thead', null, React.createElement('tr', { style: { color: 'var(--ink-3)', fontSize: 12 } }, th('订单号'), th('站点'), th('快递单号'), th('发货时间'), th('通知状态'), th(''))), React.createElement('tbody', null, rows.map(function (r, i) {
+    var o = r.o;
+    return React.createElement('tr', { key: o.id || i, style: { borderBottom: '1px solid #f1f1f1' } }, td(o.order_no || '—', { fontWeight: 600 }), td(o.site || '—', { color: 'var(--ink-3)' }), td((o.ship_no || '—') + (o.ship_carrier ? ' · ' + o.ship_carrier : '')), td((o.shipped_at || '').slice(0, 16).replace('T', ' ') || '—', { color: 'var(--ink-3)' }), td(r.sent ? React.createElement('span', { style: { color: '#15803d', fontWeight: 600 } }, '✅ 已通知') : React.createElement('span', { style: { color: '#b45309', fontWeight: 600 } }, '⚠️ 未通知')), td(r.sent ? null : React.createElement('button', { onClick: function () { resendOne(o); }, disabled: busy, className: 'btn-sec', style: { padding: '4px 10px', fontSize: 11, fontWeight: 600 } }, '补发'), { textAlign: 'right' }));
+  })))), React.createElement('div', { style: { padding: '8px 18px', fontSize: 11, color: 'var(--ink-3)', borderTop: '1px solid var(--line)' } }, '说明:"已通知" = 发货消息已发到跟单。若某单已通知但 po 仍停在"已到货",属 po 端消费问题,请在 po 系统排查。')));
 }
 var TransferToPoModal = function TransferToPoModal(_ref26) {
   var order = _ref26.order,
