@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix307
+// 版本 2026.06.05-fix310
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -8597,6 +8597,10 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     _useState146 = _slicedToArray(_useState145, 2),
     commImages = _useState146[0],
     setCommImages = _useState146[1];
+  // 🆕 fix310:问题标记(标记后展开产品改进闭环,三种单通用)。已有改进数据或已标记的记录自动展开
+  var _useStateFlag310 = useState(!!(existingEvent && (existingEvent.flagged || existingEvent.packer || existingEvent.qc || existingEvent.improvement_suggestion || existingEvent.improvement_status || existingEvent.communication_images && existingEvent.communication_images.length))),
+    flagged = _useStateFlag310[0],
+    setFlagged = _useStateFlag310[1];
   var _useState147 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.product_name) || ''),
     _useState148 = _slicedToArray(_useState147, 2),
     productName = _useState148[0],
@@ -8857,7 +8861,14 @@ var EventEditorModal = function EventEditorModal(_ref38) {
               notes: notes.trim() || null,
               created_by: user.id,
               created_by_name: user.name + (user.alias ? ' ' + user.alias : ''),
-              updated_at: now
+              updated_at: now,
+              flagged: flagged,
+              country: country.trim() || null,
+              packer: packer.trim() || null,
+              qc: qc.trim() || null,
+              improvement_suggestion: improvementSuggestion.trim() || null,
+              improvement_status: improvementStatus.trim() || null,
+              communication_images: commImages
             };
             if (!(kind === 'aftersale')) {
               _context14.n = 3;
@@ -9642,7 +9653,7 @@ var EventEditorModal = function EventEditorModal(_ref38) {
       fontFamily: 'inherit',
       resize: 'vertical'
     }
-  })), /*#__PURE__*/React.createElement("div", {
+  }))), /*#__PURE__*/React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, padding: '9px 12px', background: flagged ? '#fef2f2' : '#f8fafc', border: '1px solid ' + (flagged ? '#fca5a5' : 'var(--line)'), borderRadius: 8, cursor: 'pointer' }, onClick: function onClick() { return setFlagged(!flagged); } }, /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: flagged, readOnly: true, style: { width: 15, height: 15, cursor: 'pointer' } }), /*#__PURE__*/React.createElement("span", { style: { fontSize: 12.5, fontWeight: 700, color: flagged ? '#b91c1c' : 'var(--ink-2)' } }, "\uD83D\uDEA9 \u6807\u8BB0\u4E3A\u95EE\u9898\u5355"), /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, color: 'var(--ink-3)', fontWeight: 400 } }, flagged ? "(\u5DF2\u5C55\u5F00\u4EA7\u54C1\u6539\u8FDB\u95ED\u73AF)" : "(\u52FE\u9009\u540E\u586B\u6253\u5305/\u8D28\u68C0/\u6539\u8FDB\u5EFA\u8BAE/\u72B6\u6001/\u6C9F\u901A\u56FE\u7247)")), flagged && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: 'grid',
       gridTemplateColumns: '1fr 1fr 1fr',
@@ -9813,7 +9824,7 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     setAttachments: setCommImages,
     defaultLabel: "\u6C9F\u901A",
     maxSize: 10
-  })), /*#__PURE__*/React.createElement("div", {
+  }))), kind === 'aftersale' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 4,
       marginBottom: 14,
