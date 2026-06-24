@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix306
+// 版本 2026.06.05-fix309
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -6119,7 +6119,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
       key: s,
       value: s
     }, s);
-  }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }))), /*#__PURE__*/React.createElement("div", null, !(status === 'draft' || status === 'pending_payment') && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("label", {
     style: {
       fontSize: 11,
       fontWeight: 600,
@@ -6194,7 +6194,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
       fontSize: 10,
       color: '#854d0e'
     }
-  }, "\u270F \u4F60\u5DF2\u624B\u52A8\u4FEE\u6539\u8BA2\u5355\u7F16\u53F7(\u4FDD\u5B58\u65F6\u5C06\u4F7F\u7528\u6B64\u7F16\u53F7)"), /*#__PURE__*/React.createElement("div", { style: { marginTop: 8 } }, /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 4 } }, "\u53D1\u7968\u53F7", (status === 'draft' || status === 'pending_payment') ? /*#__PURE__*/React.createElement("span", { style: { marginLeft: 6, color: '#b45309', fontWeight: 700 } }, " *\u672A\u4ED8\u6B3E\u5FC5\u586B") : /*#__PURE__*/React.createElement("span", { style: { marginLeft: 6, color: 'var(--ink-3)', fontWeight: 400 } }, " (\u53EF\u9009)")), /*#__PURE__*/React.createElement("input", { value: invoiceNo, onChange: function onChange(e) { return setInvoiceNo(e.target.value); }, placeholder: "\u5982 VKA-0913 / \u5F62\u5F0F\u53D1\u7968\u53F7", style: { width: '100%', boxSizing: 'border-box', padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, fontSize: 13, fontFamily: 'monospace', fontWeight: 600 } }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }, "\u270F \u4F60\u5DF2\u624B\u52A8\u4FEE\u6539\u8BA2\u5355\u7F16\u53F7(\u4FDD\u5B58\u65F6\u5C06\u4F7F\u7528\u6B64\u7F16\u53F7)")), /*#__PURE__*/React.createElement("div", { style: { marginTop: 8 } }, /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', display: 'block', marginBottom: 4 } }, "\u53D1\u7968\u53F7", (status === 'draft' || status === 'pending_payment') ? /*#__PURE__*/React.createElement("span", { style: { marginLeft: 6, color: '#b45309', fontWeight: 700 } }, " *\u672A\u4ED8\u6B3E\u5FC5\u586B") : /*#__PURE__*/React.createElement("span", { style: { marginLeft: 6, color: 'var(--ink-3)', fontWeight: 400 } }, " (\u53EF\u9009)")), /*#__PURE__*/React.createElement("input", { value: invoiceNo, onChange: function onChange(e) { return setInvoiceNo(e.target.value); }, placeholder: "\u5982 VKA-0913 / \u5F62\u5F0F\u53D1\u7968\u53F7", style: { width: '100%', boxSizing: 'border-box', padding: '7px 10px', border: '1px solid var(--line)', borderRadius: 6, fontSize: 13, fontFamily: 'monospace', fontWeight: 600 } }))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: {
       fontSize: 11,
       fontWeight: 600,
