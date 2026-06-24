@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix305
+// 版本 2026.06.05-fix306
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -5901,6 +5901,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
           case 14:
             res = _context21.v;
             if (res) {
+              if (!isEdit) { try { localStorage.removeItem('cs_offline_draft_' + ((user && user.id) || 'anon')); } catch (e) {} }
               toast(isEdit ? '✓ 已更新' : '✓ 已创建线下单');
               onSaved();
             } else {
@@ -5916,6 +5917,72 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
       return _ref39.apply(this, arguments);
     };
   }();
+  // 🆕 fix306: 新建线下单自动保存草稿(Abby 反馈:填一半切走/误关回来内容没了,白填)
+  var DRAFT_KEY = 'cs_offline_draft_' + ((user && user.id) || 'anon');
+  var _draftSt = useState(null),
+    pendingDraft = _draftSt[0],
+    setPendingDraft = _draftSt[1];
+  useEffect(function () {
+    if (isEdit) return;
+    try {
+      var raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      var d = JSON.parse(raw);
+      if (d && d._savedAt) setPendingDraft(d);
+    } catch (e) {}
+  }, []);
+  useEffect(function () {
+    if (isEdit) return;
+    var t = setTimeout(function () {
+      var hasContent = (orderNo || '').trim() || (invoiceNo || '').trim() || (customerName || '').trim() || (customerEmail || '').trim() || (customerPhone || '').trim() || (shipToName || '').trim() || (shipToAddress || '').trim() || (notes || '').trim() || (paymentAmount || '').trim() || products && products.length;
+      if (!hasContent) return;
+      var draft = {
+        orderNo: orderNo, site: site, status: status, invoiceNo: invoiceNo,
+        customerName: customerName, customerEmail: customerEmail, customerPhone: customerPhone,
+        shipToName: shipToName, shipToPhone: shipToPhone, shipToAddress: shipToAddress, shipToAddress2: shipToAddress2,
+        shipToCity: shipToCity, shipToState: shipToState, shipToZip: shipToZip, shipToCountry: shipToCountry,
+        paymentMethod: paymentMethod, paymentAmount: paymentAmount, paymentCurrency: paymentCurrency,
+        receivedAmount: receivedAmount, paidAt: paidAt, quoteNo: quoteNo, notes: notes,
+        products: products, attachments: attachments, _savedAt: Date.now()
+      };
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch (e) {
+        try { draft.attachments = []; localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch (e2) {}
+      }
+    }, 600);
+    return function () { clearTimeout(t); };
+  }, [orderNo, site, status, invoiceNo, customerName, customerEmail, customerPhone, shipToName, shipToPhone, shipToAddress, shipToAddress2, shipToCity, shipToState, shipToZip, shipToCountry, paymentMethod, paymentAmount, paymentCurrency, receivedAmount, paidAt, quoteNo, notes, products, attachments]);
+  var applyDraft = function applyDraft(d) {
+    if (d.orderNo != null) setOrderNo(d.orderNo);
+    if (d.site != null) setSite(d.site);
+    if (d.status != null) setStatus(d.status);
+    if (d.invoiceNo != null) setInvoiceNo(d.invoiceNo);
+    if (d.customerName != null) setCustomerName(d.customerName);
+    if (d.customerEmail != null) setCustomerEmail(d.customerEmail);
+    if (d.customerPhone != null) setCustomerPhone(d.customerPhone);
+    if (d.shipToName != null) setShipToName(d.shipToName);
+    if (d.shipToPhone != null) setShipToPhone(d.shipToPhone);
+    if (d.shipToAddress != null) setShipToAddress(d.shipToAddress);
+    if (d.shipToAddress2 != null) setShipToAddress2(d.shipToAddress2);
+    if (d.shipToCity != null) setShipToCity(d.shipToCity);
+    if (d.shipToState != null) setShipToState(d.shipToState);
+    if (d.shipToZip != null) setShipToZip(d.shipToZip);
+    if (d.shipToCountry != null) setShipToCountry(d.shipToCountry);
+    if (d.paymentMethod != null) setPaymentMethod(d.paymentMethod);
+    if (d.paymentAmount != null) setPaymentAmount(d.paymentAmount);
+    if (d.paymentCurrency != null) setPaymentCurrency(d.paymentCurrency);
+    if (d.receivedAmount != null) setReceivedAmount(d.receivedAmount);
+    if (d.paidAt != null) setPaidAt(d.paidAt);
+    if (d.quoteNo != null) setQuoteNo(d.quoteNo);
+    if (d.notes != null) setNotes(d.notes);
+    if (Array.isArray(d.products)) setProducts(d.products);
+    if (Array.isArray(d.attachments)) setAttachments(d.attachments);
+  };
+  var discardDraft = function discardDraft() {
+    try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    setPendingDraft(null);
+  };
   return /*#__PURE__*/React.createElement("div", {
     onClick: onClose,
     style: {
@@ -6003,7 +6070,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
     title: "\u7EBF\u4E0B\u5355\u767B\u8BB0",
     steps: ['基本信息:选网站、填客户信息(线下/批发等非常规下单走这里)。', '产品 / 金额:填订单产品与金额、币种。', '付款方式 / 付款状态:怎么收款、是否已收。', '发货:发货方式、物流单号、发货状态。', '备注:特殊要求 / 沟通记录,方便交接。'],
     feedbackTip: "\u5982\u679C\u7EBF\u4E0B\u5355\u6D41\u7A0B\u66B4\u9732\u53CD\u590D\u95EE\u9898(\u67D0\u5BA2\u6237\u8001\u62D6\u6B3E\u3001\u67D0\u6E20\u9053\u603B\u51FA\u9519\u2026),\u56DE\u5230\u8BE5\u5BA2\u6237\u7684\u300C\u8DDF\u8FDB & \u622A\u56FE\u300D\u5F39\u7A97\u52FE\u300C\uD83D\uDCE3 \u6807\u8BB0\u4E3A\u95EE\u9898\u53CD\u9988\u300D\u5E76\u5199\u8BF4\u660E,\u4E3B\u7BA1\u4F1A\u5728\u300C\u4ECA\u65E5\u5DE5\u4F5C\u5FEB\u7167\u300D\u6536\u5230\u63D0\u9192\u3002"
-  }), /*#__PURE__*/React.createElement("div", {
+  }), pendingDraft && !isEdit && /*#__PURE__*/React.createElement("div", { style: { padding: 10, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, marginBottom: 9, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, color: '#92400e', fontWeight: 600 } }, "\uD83D\uDCDD \u53D1\u73B0\u4E0A\u6B21\u672A\u5B8C\u6210\u7684\u8349\u7A3F\uFF08\u5DF2\u81EA\u52A8\u4FDD\u5B58\uFF09\u00B7 \u662F\u5426\u6062\u590D\u7EE7\u7EED\u586B\u5199\uFF1F"), /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 8 } }), /*#__PURE__*/React.createElement("button", { type: "button", onClick: function onClick() { applyDraft(pendingDraft); setPendingDraft(null); toast('\u2713 \u5DF2\u6062\u590D\u8349\u7A3F'); }, style: { padding: '5px 12px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'inherit' } }, "\u6062\u590D\u586B\u5199"), /*#__PURE__*/React.createElement("button", { type: "button", onClick: discardDraft, style: { padding: '5px 12px', background: '#fff', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: 'inherit' } }, "\u5F03\u7A3F")), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: 10,
       background: '#f0f9ff',
