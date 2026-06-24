@@ -83,7 +83,10 @@
   .sbtn[data-s=pending].sel{background:var(--warn);border-color:var(--warn);}
   .sbtn[data-s=revise].sel{background:var(--revise);border-color:var(--revise);}
   .sbtn[data-s=confirmed].sel{background:var(--ok);border-color:var(--ok);}
+  .sbtn[data-s=noreply].sel{background:var(--ok);border-color:var(--ok);}
   .sbtn[data-s=closed].sel{background:var(--closed);border-color:var(--closed);}
+  .sbtn[data-s=refunded].sel{background:var(--danger);border-color:var(--danger);}
+  .sbtn[data-s=cancelled].sel{background:var(--closed);border-color:var(--closed);}
   .modal-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:16px;}
   .modal-foot .right{display:flex;gap:8px;}
   .itembox{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:12px;line-height:1.7;}
@@ -138,7 +141,10 @@
     <span class="chip danger" data-f="overdue" onclick="setStatus('overdue')">逾期未回复</span>
     <span class="chip revise" data-f="revise" onclick="setStatus('revise')">需跟单</span>
     <span class="chip" data-f="confirmed" onclick="setStatus('confirmed')">已发货</span>
+    <span class="chip" data-f="noreply" onclick="setStatus('noreply')">没回复发货</span>
     <span class="chip" data-f="closed" onclick="setStatus('closed')">已完成</span>
+    <span class="chip" data-f="refunded" onclick="setStatus('refunded')">退款</span>
+    <span class="chip" data-f="cancelled" onclick="setStatus('cancelled')">取消订单</span>
     <span class="chip" data-t="all" onclick="setPreset('all')">全部时间</span>
     <span class="chip" data-t="today" onclick="setPreset('today')">今天</span>
     <span class="chip" data-t="7" onclick="setPreset('7')">近7天</span>
@@ -179,14 +185,20 @@ const SHOP_BRAND = {
 /* 状态 → 标签回写映射(对齐 Shopify add_order_tags) */
 const TAG_MAP = {
   confirmed:{tags:['确认无误'], remove:['数量待确认']},
+  noreply:{tags:['无回复发货'], remove:['数量待确认']},
   revise:{tags:['客户要改'], remove:['数量待确认']},
-  closed:{tags:['已处理'], remove:[]}
+  closed:{tags:['已处理'], remove:[]},
+  refunded:{tags:['已退款'], remove:['数量待确认']},
+  cancelled:{tags:['已取消'], remove:['数量待确认']}
 };
 const ST = {
   pending:{label:'待处理·等客户', col:'var(--warn)', bg:'rgba(245,158,11,.13)'},
   revise:{label:'客户已回复·需跟单', col:'var(--revise)', bg:'rgba(124,58,237,.12)'},
   confirmed:{label:'确认无误·按原单发货', col:'var(--ok)', bg:'rgba(22,163,74,.12)'},
-  closed:{label:'已完成', col:'var(--closed)', bg:'rgba(107,114,128,.13)'}
+  noreply:{label:'没回复·正常发货', col:'var(--ok)', bg:'rgba(22,163,74,.10)'},
+  closed:{label:'已完成', col:'var(--closed)', bg:'rgba(107,114,128,.13)'},
+  refunded:{label:'退款', col:'var(--danger)', bg:'rgba(220,38,38,.12)'},
+  cancelled:{label:'取消订单', col:'var(--closed)', bg:'rgba(107,114,128,.13)'}
 };
 
 let ALL=[], statusF='all', shopF='all', Q='', followup=false, typeF='all';
@@ -235,7 +247,7 @@ async function load(){
 
 /* ============ 统计卡 + 店铺分组 ============ */
 function renderStats(){
-  const c={total:ALL.length,pending:0,overdue:0,revise:0,confirmed:0,closed:0};
+  const c={total:ALL.length,pending:0,overdue:0,revise:0,confirmed:0,noreply:0,closed:0,refunded:0,cancelled:0};
   ALL.forEach(r=>{ if(c[r.status]!=null)c[r.status]++; if(isOverdue(r))c.overdue++; });
   const cards=[
     {k:'all',n:c.total,l:'总发送',cls:''},
@@ -243,7 +255,10 @@ function renderStats(){
     {k:'overdue',n:c.overdue,l:'逾期未回复',cls:'danger'},
     {k:'revise',n:c.revise,l:'客户已回复',cls:'revise'},
     {k:'confirmed',n:c.confirmed,l:'到期/确认发货',cls:'ok'},
+    {k:'noreply',n:c.noreply,l:'没回复·正常发货',cls:'ok'},
     {k:'closed',n:c.closed,l:'已完成',cls:'closed'},
+    {k:'refunded',n:c.refunded,l:'退款',cls:'danger'},
+    {k:'cancelled',n:c.cancelled,l:'取消订单',cls:'closed'},
   ];
   document.getElementById('stats').innerHTML=cards.map(x=>
     `<div class="stat ${x.cls} ${statusF===x.k?'on':''}" onclick="setStatus('${x.k}')"><div class="n">${x.n}</div><div class="l">${x.l}</div></div>`).join('');
@@ -341,7 +356,10 @@ function openModal(idx){
         <div class="sbtn" data-s="pending"  onclick="pickStatus('pending')">待处理·等客户</div>
         <div class="sbtn" data-s="revise"   onclick="pickStatus('revise')">客户要改·需跟单</div>
         <div class="sbtn" data-s="confirmed" onclick="pickStatus('confirmed')">确认无误·发货</div>
+        <div class="sbtn" data-s="noreply"   onclick="pickStatus('noreply')">没回复·正常发货</div>
         <div class="sbtn" data-s="closed"   onclick="pickStatus('closed')">已完成</div>
+        <div class="sbtn" data-s="refunded" onclick="pickStatus('refunded')">退款</div>
+        <div class="sbtn" data-s="cancelled" onclick="pickStatus('cancelled')">取消订单</div>
       </div></div>
     <div class="field"><label>跟进人 handler</label><input type="text" id="mHandler" value="${esc(editing._handler)}" placeholder="指派/认领" style="width:100%"></div>
     <div class="field"><label>备注 / 客户诉求(转 revise 时务必写清)</label><textarea id="mNote" placeholder="客户要求改成…/ 取消多余数量 等">${esc(editing._note)}</textarea></div>
