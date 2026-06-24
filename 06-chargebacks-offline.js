@@ -3287,6 +3287,9 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     dateFilter = _useState88[0],
     setDateFilter = _useState88[1];
   var isAdmin = user.role === 'admin' || user.role === 'super_admin';
+  var _bBatch = useState(false),
+    batching = _bBatch[0],
+    setBatching = _bBatch[1];
   var load = /*#__PURE__*/function () {
     var _ref24 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
       var data, _t0;
@@ -3325,6 +3328,40 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       return _ref24.apply(this, arguments);
     };
   }();
+  // 🆕 fix315:一键批量补转 —— 扫描"已下单/已付款且未转跟单"的存量单,去重补发转跟单消息并回写标记
+  var batchTransfer = function batchTransfer() {
+    var targets = (list || []).filter(function (o) {
+      return o && !o.deleted && !o.transferred_to_po && (o.status === 'dispatched' || o.status === 'paid');
+    });
+    if (!targets.length) {
+      toast('✓ 没有需要补转的单');
+      return;
+    }
+    Promise.resolve(wsConfirm('将为 ' + targets.length + ' 张"已下单/已付款但未转跟单"的单补发转跟单消息(已去重,不会重复发),确认?')).then(function (ok) {
+      if (!ok) return;
+      setBatching(true);
+      var sent = 0;
+      var chain = targets.reduce(function (p, o) {
+        return p.then(function () {
+          return autoTransferOfflineOrder(o, user).then(function (okk) {
+            if (okk) {
+              sent++;
+              return CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, o), {}, {
+                transferred_to_po: true,
+                transferred_to_name: o.transferred_to_name || '批量补转·待跟单认领',
+                transferred_at: new Date().toISOString()
+              }));
+            }
+          }).catch(function () {});
+        });
+      }, Promise.resolve());
+      chain.then(function () {
+        setBatching(false);
+        toast('✓ 补转完成:' + sent + '/' + targets.length + ' 已转跟单');
+        load();
+      });
+    });
+  };
   useEffect(function () {
     load();
   }, []);
@@ -3556,7 +3593,13 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     className: "btn-sec",
     style: { padding: '6px 12px', fontSize: 12, fontWeight: 600 },
     title: "\u91CD\u65B0\u52A0\u8F7D\u6700\u65B0\u7EBF\u4E0B\u5355"
-  }, "\uD83D\uDD04 \u5237\u65B0"), /*#__PURE__*/React.createElement("button", {
+  }, "\uD83D\uDD04 \u5237\u65B0"), (list || []).filter(function (o) { return o && !o.deleted && !o.transferred_to_po && (o.status === 'dispatched' || o.status === 'paid'); }).length > 0 && /*#__PURE__*/React.createElement("button", {
+    onClick: batchTransfer,
+    disabled: batching,
+    className: "btn-sec",
+    style: { padding: '6px 12px', fontSize: 12, fontWeight: 600, background: '#fffbeb', borderColor: '#f59e0b', color: '#b45309' },
+    title: "把'已下单/已付款但未转跟单'的存量单一键补发转跟单消息(已去重)"
+  }, batching ? "\u23F3 \u8865\u8F6C\u4E2D\u2026" : ("\u26A1 \u8865\u8F6C\u8DDF\u5355 " + (list || []).filter(function (o) { return o && !o.deleted && !o.transferred_to_po && (o.status === 'dispatched' || o.status === 'paid'); }).length)), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() { return setView(view === 'board' ? 'list' : 'board'); },
     className: "btn-sec",
     style: { padding: '6px 14px', fontSize: 12, fontWeight: 600 }
