@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix313
+// 版本 2026.06.05-fix314
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1311,7 +1311,11 @@ var EventsModule = function EventsModule(_ref) {
       }
     },
     getSite: function getSite(r) {
-      return r.site || r.website || null;
+      var s = (r.site || '').trim() || (r.website || '').trim();
+      if (s) return s;
+      // 🆕 fix314:退款无 site/website,用订单号前缀(K→VK / DF / RD / MJ…)识别站点
+      var ref = r.order_ref || r.orderRef || r.order_no || r.order_number || r.orderNo || r.order;
+      return ref && typeof window !== 'undefined' && window.__siteFromOrderRef ? window.__siteFromOrderRef(ref) || null : null;
     },
     onClickStats: function onClickStats(_ref1) {
       var records = _ref1.records,
@@ -4477,7 +4481,7 @@ var AmountSummaryWidget = function AmountSummaryWidget(_ref25) {
     var m = {};
     filtered.forEach(function (it) {
       // 🆕 fix258:站点未填时,用订单号前缀(VK/DC/DF/MJ…)自动识别
-      var site = (getSite ? getSite(it) : it.site) || typeof window !== 'undefined' && window.__siteFromOrderRef && window.__siteFromOrderRef(it.order_no || it.orderRef || it.order_number || it.orderNo || it.order) || '(未填)';
+      var site = (getSite ? getSite(it) : it.site) || typeof window !== 'undefined' && window.__siteFromOrderRef && window.__siteFromOrderRef(it.order_ref || it.order_no || it.orderRef || it.order_number || it.orderNo || it.order) || '(未填)';
       var amt = parseFloat(it[amountKey] || 0) || 0;
       var cur = (it.currency || 'USD').toUpperCase();
       if (!m[site]) m[site] = {
