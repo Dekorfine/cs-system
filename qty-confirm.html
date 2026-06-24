@@ -60,6 +60,8 @@
   .items{display:flex;flex-wrap:wrap;gap:4px;}
   .skuchip{font-size:10.5px;font-family:monospace;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--sec);}
   .skuchip b{color:var(--danger);}
+  .ctrow{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px;}
+  .ctbadge{font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;white-space:nowrap;}
   .dt{font-size:11px;color:var(--sec);line-height:1.4;}
   .dt .dl.over{color:var(--danger);font-weight:700;}
   .stcol{text-align:right;}
@@ -141,6 +143,11 @@
     <span class="chip" data-t="today" onclick="setPreset('today')">今天</span>
     <span class="chip" data-t="7" onclick="setPreset('7')">近7天</span>
     <span class="chip" data-t="30" onclick="setPreset('30')">近30天</span>
+    <span class="chip on" data-ct="all" onclick="setType('all')">全部类型</span>
+    <span class="chip" data-ct="quantity" onclick="setType('quantity')">数量</span>
+    <span class="chip" data-ct="plug" onclick="setType('plug')">插头</span>
+    <span class="chip" data-ct="color" onclick="setType('color')">颜色</span>
+    <span class="chip" data-ct="recent" onclick="setType('recent')">重复订单</span>
     <input type="date" id="dFrom" title="创建起" onchange="applyFilterChange()">
     <span class="sub">~</span>
     <input type="date" id="dTo" title="创建止" onchange="applyFilterChange()">
@@ -182,7 +189,7 @@ const ST = {
   closed:{label:'已完成', col:'var(--closed)', bg:'rgba(107,114,128,.13)'}
 };
 
-let ALL=[], statusF='all', shopF='all', Q='', followup=false;
+let ALL=[], statusF='all', shopF='all', Q='', followup=false, typeF='all';
 let PAGE=1, PAGE_SIZE=50;     // 分页(客户端分页,统计仍用全量)
 let imgCache={};              // order_name → 行项目图缓存
 let editing=null;
@@ -198,6 +205,12 @@ function fmtDT(s){ if(!s)return '—'; const d=new Date(s); if(isNaN(d))return '
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function fmtDate(s){ if(!s)return ''; return String(s).slice(0,10); }
 const isOverdue=r=>r.status==='pending' && r.reply_deadline && new Date(r.reply_deadline) < new Date();
+
+/* 🆕 fix312:核实类型(数量/插头/颜色/重复订单)。发信器给每单打 check_types 数组;缺省按"数量" */
+const CT={quantity:{l:'数量',c:'#2563eb',bg:'#eff6ff'},plug:{l:'插头',c:'#7c3aed',bg:'#f5f3ff'},color:{l:'颜色',c:'#ea580c',bg:'#fff7ed'},recent:{l:'重复订单',c:'#0891b2',bg:'#ecfeff'}};
+const ctOf=r=>(Array.isArray(r.check_types)&&r.check_types.length)?r.check_types:['quantity'];
+function ctBadges(r){ return ctOf(r).map(k=>{ const t=CT[k]||{l:k,c:'#64748b',bg:'#f1f5f9'}; return `<span class="ctbadge" style="color:${t.c};background:${t.bg};">${t.l}</span>`; }).join(''); }
+function setType(f){ typeF=f; PAGE=1; document.querySelectorAll('.chip[data-ct]').forEach(c=>c.classList.toggle('on',c.dataset.ct===f)); renderStats(); render(); }
 
 function toast(msg,kind){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show'+(kind?' '+kind:''); clearTimeout(t._t); t._t=setTimeout(()=>t.className='',kind==='err'||kind==='warn'?4200:2400); }
 
@@ -262,6 +275,7 @@ document.getElementById('q').addEventListener('input',e=>{ Q=e.target.value.trim
 function passFilter(r){
   if(statusF==='overdue'){ if(!isOverdue(r))return false; }
   else if(statusF!=='all'){ if(r.status!==statusF)return false; }
+  if(typeF!=='all' && !ctOf(r).includes(typeF)) return false;
   if(shopF!=='all' && (r.shop||'(无)')!==shopF) return false;
   if(Q){ const hit=(r.order_name||'').toLowerCase().includes(Q)||(r.customer_email||'').toLowerCase().includes(Q)||(r.customer_name||'').toLowerCase().includes(Q); if(!hit)return false; }
   const df=document.getElementById('dFrom').value, dt=document.getElementById('dTo').value;
@@ -290,7 +304,7 @@ function render(){
     return `<div class="row ${ov?'overdue':''}" onclick="openModal(${ALL.indexOf(r)})">
       <div class="ordno"><a href="${esc(r.admin_url||'#')}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(r.order_name||'—')} ↗</a><span class="shop">${esc(brandOf(r.shop))}</span></div>
       <div class="cust">${esc(r.customer_name||'(未填名)')}<div class="em">${esc(r.customer_email||'')}</div></div>
-      <div class="items">${itemsHtml(r.items)}</div>
+      <div class="items"><div class="ctrow">${ctBadges(r)}</div>${itemsHtml(r.items)}</div>
       <div class="dt">发信 ${fmtDate(r.email_sent_at)}<br><span class="dl ${dlOver?'over':''}">截 ${fmtDate(r.reply_deadline)}</span></div>
       <div class="stcol"><span class="pill" style="color:${stCol};background:${stBg};">${stLabel}</span><div class="handler">${r.handler?'👤 '+esc(r.handler):'未指派'}</div></div>
     </div>`;
