@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix324
+// 版本 2026.06.05-fix325
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -5580,11 +5580,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
         return r[f] === filterEmployee;
       });
     });
-    if (__allowedWho) l = l.filter(function (r) {
-      return fields.some(function (f) {
-        return __allowedWho[r[f]];
-      });
-    });
+    // fix325: 主管分组过滤已从总闸移走 → 头条/金额/网站·类型分布/趋势保持公司级,仅人头排行(csRanking)收口
     return l;
   };
   // 🆕 fix133: 本期/上期窗口(环比)
@@ -5650,11 +5646,7 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
         return r[f] === filterEmployee;
       });
     });
-    if (__allowedWho) l = l.filter(function (r) {
-      return fields.some(function (f) {
-        return __allowedWho[r[f]];
-      });
-    });
+    // fix325: 同上 —— 上期窗口也保持公司级
     return l;
   };
 
@@ -5885,6 +5877,10 @@ var AdminOverviewDashboard = function AdminOverviewDashboard(_ref31) {
     });
     var csRanking = Object.values(csMap).sort(function (a, b) {
       return b.count - a.count;
+    });
+    // fix325: 仅「客服人头排行」按主管分组收口(头条/金额/分布已保持公司级)
+    if (__allowedWho) csRanking = csRanking.filter(function (c) {
+      return __allowedWho[c.who];
     });
     // 网站分布 / 类型分布
     var dist = function dist(arr, key) {

@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix298
+// 版本 2026.06.05-fix325
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4615,9 +4615,29 @@ var WorkSnapshotPanel = function WorkSnapshotPanel(_ref22) {
   var stats = useMemo(function () {
     var _window$__canProcessR, _window;
     var today = todayISO();
+    // fix325: 主管分组收口 —— Miya 只见支持客服 / Nicole 只见操作客服 / super_admin(Martin)= 全部
+    //   退款处理人专属红卡(refundPendingForProcessor 等)不走 isMine,仍全局,见下。
+    var __csScope = typeof __viewerCsScope === 'function' ? __viewerCsScope(user) : null;
+    var __allowedWho = (function () {
+      if (!__csScope) return null;
+      var set = {};
+      (employees || []).forEach(function (e) {
+        if (typeof __csVisible === 'function' && __csVisible(e, __csScope)) {
+          if (e.id != null) set[e.id] = true;
+          if (e.name) set[e.name] = true;
+          if (e.alias) set[e.alias] = true;
+        }
+      });
+      return set;
+    })();
     var isMine = function isMine(r) {
       var fields = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : ['created_by', 'ownerId', 'owner_id'];
-      if (isAdminRole) return true; // 主管看全部
+      if (isAdminRole) {
+        if (!__allowedWho) return true; // 无分组(super_admin/Martin)= 全部
+        return fields.some(function (f) {
+          return __allowedWho[r[f]];
+        });
+      }
       return fields.some(function (f) {
         return r[f] === user.id;
       });
@@ -4702,7 +4722,7 @@ var WorkSnapshotPanel = function WorkSnapshotPanel(_ref22) {
       refundApprovedForProcessor: refundApprovedForProcessor,
       isRefundProcessor: isRefundProcessor
     };
-  }, [data, records, thresholds, user, isAdminRole]);
+  }, [data, records, thresholds, user, isAdminRole, employees]);
   var totalAlerts = stats.csOverdue.length + stats.csDueToday.length + stats.cbUrgent.length + stats.offlineStuck.length + stats.customStuck.length + stats.photoStuck.length + stats.refundStuck.length + stats.aftersaleStuck.length + stats.refillStuck.length + stats.refundPendingForProcessor.length + stats.refundApprovedForProcessor.length;
   if (loading) return null;
   if (totalAlerts === 0) return null; // 没有未完成 → 不显示
