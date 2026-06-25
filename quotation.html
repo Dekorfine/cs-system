@@ -1360,6 +1360,14 @@ fieldset legend {
             <span>装箱单显示长×宽×高 · Show Dimensions in Packing List</span>
           </label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="opt_pl_show_image" />
+            <span>🖼️ 装箱单嵌入产品图 · Embed Product Images in Packing List</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+            <input type="checkbox" id="opt_pl_show_pickup" />
+            <span style="color:#15803d;font-weight:600;">🚚 装箱单显示提货地址 · Pickup Address <span style="color:var(--ink-4);font-weight:400;font-size:11px;">(EXW 工厂价·上门提货)</span></span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
             <input type="checkbox" id="opt_show_deposit_in_quote" />
             <span>报价单显示定金信息 · Show Deposit in Quote/PI <span style="color:var(--ink-4);font-size:11px;">(仅在客户支付定金时勾)</span></span>
           </label>
@@ -1376,6 +1384,17 @@ fieldset legend {
           </label>
           <textarea id="customer_note" rows="2" placeholder="如:客户要求黄铜色调暗一点 / 急单 6 月 10 日前发货 / 加固包装易碎件..."
             style="width:100%;padding:7px 10px;border:1px solid #fca5a5;border-radius:5px;font-size:13px;font-family:inherit;color:#dc2626;font-weight:600;resize:vertical;"></textarea>
+        </div>
+        <!-- 🆕 装箱单提货地址(EXW 上门提货)— 勾选「显示提货地址」才出现 -->
+        <div id="pickup_wrap" style="display:none;margin-top:10px;padding:10px;background:#f0fdf4;border:1px dashed #86efac;border-radius:6px;">
+          <label style="display:block;font-size:11px;font-weight:600;color:#15803d;margin-bottom:4px;">
+            🚚 提货地址 / Pickup Address <span style="font-weight:400;color:#86868b;">(EXW 工厂价·快递上门提货 · <strong>留空则按报价单语言自动用默认地址</strong>)</span>
+          </label>
+          <textarea id="pl_pickup_address" rows="2" oninput="scheduleSync()" placeholder=""
+            style="width:100%;padding:7px 10px;border:1px solid #86efac;border-radius:5px;font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+          <label style="display:block;font-size:11px;font-weight:600;color:#15803d;margin:8px 0 4px;">📞 提货电话 / Pickup Tel <span style="font-weight:400;color:#86868b;">(谁对接此单就填自己的电话 · <strong>留空则自动用 Nicole / Miya</strong>)</span></label>
+          <input type="text" id="pl_pickup_tel" oninput="scheduleSync()" placeholder="填你自己的电话(对接此单的客服)· 忘填自动用 Nicole / Miya"
+            style="width:100%;padding:7px 10px;border:1px solid #86efac;border-radius:5px;font-size:13px;font-family:inherit;">
         </div>
       </fieldset>
     </div>
@@ -1746,11 +1765,16 @@ fieldset legend {
             <p><strong data-doc-key="invoice_no">Invoice No.:</strong> <span id="pl_pi_number"></span></p>
             <p><strong data-doc-key="date">Date:</strong> <span id="pl_date"></span></p>
           </div>
+          <div class="info-box pl-pickup-box" id="pl_pickup_box" style="grid-column:span 2;display:none;">
+            <h3 id="pl_pickup_label">Pickup Address:</h3>
+            <div id="pl_pickup_info"></div>
+          </div>
         </div>
         <table class="doc-table">
           <thead><tr>
             <th data-doc-key="th_carton_no">Carton No.</th>
             <th data-doc-key="th_item_desc_sku">Item Description / SKU</th>
+            <th class="pl-img-col" data-doc-key="th_image" style="display:none;">Image</th>
             <th data-doc-key="th_qty_pcs">Quantity (PCS)</th>
             <th class="pl-dim-col" data-doc-key="th_dims">L × W × H (cm)</th>
             <th data-doc-key="th_nw_kgs">Net Weight (KGS)</th>
@@ -1761,6 +1785,7 @@ fieldset legend {
           <tfoot>
             <tr style="font-weight:700;background:#f8fafc;">
               <td colspan="2"><span data-doc-key="total_pl">TOTAL</span>:</td>
+              <td class="pl-img-col" style="display:none;"></td>
               <td id="pl-total-qty">0</td>
               <td class="pl-dim-col"></td>
               <td id="pl-total-nw">0.00</td>
@@ -2382,6 +2407,8 @@ async function setLanguage(lang) {
       }
     }
   }
+  const _pk = $('pl_pickup_address');
+  if (_pk) _pk.placeholder = (PICKUP_ADDR[lang] || PICKUP_ADDR.en);
   syncAndCalculate();
   updateFreightLabel();  // 🆕 fix36: 语言切换时也刷新运费标签
   updateShippingMethodDoc();  // 🆕 语言切换时刷新单据运输方式标签
@@ -2436,6 +2463,23 @@ function autoFillSellerInfo() {
    THE CORE SYNC: master form → 4 documents
    (debounced for performance)
    ============================================================ */
+
+/* 🆕 装箱单提货地址(EXW 工厂价·快递上门提货)默认值 + 标签,按报价单语言自动切换 */
+const PICKUP_ADDR = {
+  en:        "Room 401-1, Building 3, No. 80 Longxi Road, Jianghai District, Jiangmen City, Guangdong, China",
+  bilingual: "江门市江海区龙溪路80号3栋401室之一\nRoom 401-1, Building 3, No. 80 Longxi Road, Jianghai District, Jiangmen, China",
+  es:        "Habitación 401-1, Edificio 3, No. 80 Longxi Road, Distrito de Jianghai, Jiangmen, Guangdong, China",
+  de:        "Raum 401-1, Gebäude 3, Nr. 80 Longxi Road, Bezirk Jianghai, Jiangmen, Guangdong, China",
+  fr:        "Salle 401-1, Bâtiment 3, No. 80 Longxi Road, District de Jianghai, Jiangmen, Guangdong, Chine",
+  ar:        "غرفة 401-1، المبنى 3، رقم 80 طريق لونغشي، منطقة جيانغهاي، جيانغمن، قوانغدونغ، الصين",
+  ru:        "Комната 401-1, Здание 3, № 80, Лунси Роуд, район Цзянхай, Цзянмынь, Гуандун, Китай"
+};
+const PICKUP_LABEL = {
+  en:"Pickup Address:", bilingual:"Pickup Address / 提货地址:", es:"Dirección de Recogida:",
+  de:"Abholadresse:", fr:"Adresse d'Enlèvement:", ar:"عنوان الاستلام:", ru:"Адрес Самовывоза:"
+};
+const PICKUP_TEL_DEFAULT = "Nicole +86 177 2410 6334 / Miya +86 158 7609 6434";
+
 function syncAndCalculate() {
   // The previous code ran this synchronously on every keystroke and
   // re-rendered four full tables. Here we still do the work, but we
@@ -2589,7 +2633,7 @@ function syncAndCalculate() {
     poRows.push(`<tr><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
     piRows.push(`<tr><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
     quoteRows.push(`<tr><td>${imageSrc ? `<img src="${imageSrc}" class="quote-item-image">` : ''}</td><td>${safeSku}</td><td style="white-space:pre-wrap;">${safeDesc}</td><td>${qty}</td><td>${convertedPrice.toFixed(2)}</td><td>${convertedLineTotal.toFixed(2)}</td></tr>`);
-    plRows.push(`<tr><td>${safeCarton}</td><td>${safeDesc}<br><strong>SKU: ${safeSku}</strong></td><td>${qty}</td><td class="pl-dim-col">${dimsStr}</td><td>${nw.toFixed(2)}</td><td>${gw.toFixed(2)}</td><td>${cbm.toFixed(3)}</td></tr>`);
+    plRows.push(`<tr><td>${safeCarton}</td><td>${safeDesc}<br><strong>SKU: ${safeSku}</strong></td><td class="pl-img-col" style="text-align:center;">${imageSrc ? `<img src="${imageSrc}" style="max-width:54px;max-height:54px;object-fit:contain;border-radius:4px;">` : ''}</td><td>${qty}</td><td class="pl-dim-col">${dimsStr}</td><td>${nw.toFixed(2)}</td><td>${gw.toFixed(2)}</td><td>${cbm.toFixed(3)}</td></tr>`);
   });
 
   $('po-items-table').innerHTML = poRows.join('');
@@ -2602,6 +2646,29 @@ function syncAndCalculate() {
   document.querySelectorAll('.pl-dim-col').forEach(el => {
     el.style.display = showDims ? '' : 'none';
   });
+  // 🆕 装箱单产品图列显隐(默认关)
+  const showPlImg = !!$('opt_pl_show_image')?.checked;
+  document.querySelectorAll('.pl-img-col').forEach(el => {
+    el.style.display = showPlImg ? '' : 'none';
+  });
+  // 🆕 装箱单提货地址(EXW 上门提货,默认关;留空按语言用默认地址)
+  const showPickup = !!$('opt_pl_show_pickup')?.checked;
+  const pickupWrap = $('pickup_wrap');
+  if (pickupWrap) pickupWrap.style.display = showPickup ? '' : 'none';
+  const pickupBox = $('pl_pickup_box');
+  if (pickupBox) {
+    if (showPickup) {
+      const pkAddr = (($('pl_pickup_address')?.value) || '').trim() || PICKUP_ADDR[lang] || PICKUP_ADDR.en;
+      const pkTel  = (($('pl_pickup_tel')?.value) || '').trim() || PICKUP_TEL_DEFAULT;
+      const telLabel = (translations.doc[lang] || translations.doc.en).tel || 'Tel:';
+      const esc = s => String(s).replace(/</g,'&lt;');
+      if ($('pl_pickup_label')) $('pl_pickup_label').innerText = PICKUP_LABEL[lang] || PICKUP_LABEL.en;
+      $('pl_pickup_info').innerHTML = esc(pkAddr).replace(/\n/g,'<br>') + '<br><strong>' + esc(telLabel) + '</strong> ' + esc(pkTel);
+      pickupBox.style.display = '';
+    } else {
+      pickupBox.style.display = 'none';
+    }
+  }
 
   const discountAmtUSD = subtotalUSD * (discountPct / 100);
   const totalAfterDisc = subtotalUSD - discountAmtUSD;
@@ -2949,6 +3016,10 @@ function collectFormData() {
     opt_show_dimensions: !!$('opt_show_dimensions')?.checked,
     opt_show_deposit_in_quote: !!$('opt_show_deposit_in_quote')?.checked,  // 🆕 fix38: 默认 false
     opt_show_customer_note: !!$('opt_show_customer_note')?.checked,  // 🆕 fix24-3
+    opt_pl_show_image: !!$('opt_pl_show_image')?.checked,            // 🆕 装箱单嵌入产品图
+    opt_pl_show_pickup: !!$('opt_pl_show_pickup')?.checked,          // 🆕 装箱单提货地址(EXW)
+    pl_pickup_address: $('pl_pickup_address')?.value || '',          // 🆕 提货地址(留空用默认)
+    pl_pickup_tel: $('pl_pickup_tel')?.value || '',                  // 🆕 提货电话
     customer_note: $('customer_note')?.value || '',                   // 🆕 fix24-3
     need_followup:      !!$('need_followup')?.checked,                // 🆕 fix82
     followup_date:      $('followup_date')?.value || '',             // 🆕 fix82
@@ -2972,7 +3043,7 @@ function restoreDataToForm(d) {
 
   const skip = new Set(['items','bankFields','pl_remarks','_status','_total_usd','_created_at','_updated_at','_sku_list']);
   // checkbox 字段：用 .checked 而不是 .value
-  const checkboxFields = new Set(['opt_show_dimensions','opt_show_deposit_in_quote','opt_show_customer_note','need_followup']);
+  const checkboxFields = new Set(['opt_show_dimensions','opt_show_deposit_in_quote','opt_show_customer_note','opt_pl_show_image','opt_pl_show_pickup','need_followup']);
   for (const k in d) {
     if (skip.has(k)) continue;
     if (k.startsWith('_')) continue;
@@ -4594,7 +4665,7 @@ function attachListeners() {
   });
   
   // 显示选项 checkbox
-  ['opt_show_dimensions','opt_show_deposit_in_quote','opt_show_customer_note'].forEach(id => {
+  ['opt_show_dimensions','opt_show_deposit_in_quote','opt_show_customer_note','opt_pl_show_image','opt_pl_show_pickup'].forEach(id => {
     const el = $(id);
     if (el) el.addEventListener('change', () => { scheduleSync(); updatePreview(); });
   });
