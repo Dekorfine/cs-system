@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix333
+// 版本 2026.06.05-fix335
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4662,6 +4662,34 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
     }
     return null;
   })();
+  // 🆕 fix335: 点击缩略图预览 —— 列表查询不带 attachments(重列),products 也可能无图;
+  //   点击时优先用已加载图,没有则按需去 DB 拉 products+attachments,凑齐所有图再预览(发票/凭证也能看)。
+  var _collectImgs = function _collectImgs(prods, atts) {
+    var urls = [];
+    (prods || []).forEach(function (p) {
+      var u = p && (p.image_url || p.image || p.img || (p.images && p.images[0]));
+      if (typeof u === 'string' && u) urls.push(u);
+    });
+    (atts || []).forEach(function (a) {
+      var au = typeof a === 'string' ? a : a && (a.url || a.dataUrl || a.data);
+      if (typeof au === 'string' && au && !/\.(mp4|webm|mov|avi|m4v)(\?|$)/i.test(au)) urls.push(au);
+    });
+    return urls;
+  };
+  var previewImages = function previewImages() {
+    var have = _collectImgs(order.products, Array.isArray(order.attachments) ? order.attachments : null);
+    if (have.length) {
+      if (window.__setPreviewImg) window.__setPreviewImg(have.length === 1 ? have[0] : have, 0);
+      return;
+    }
+    if (!CLOUD.client) { toast && toast('云端未就绪,稍后再试', 'error'); return; }
+    Promise.resolve(CLOUD.client.from('offline_orders').select('products,attachments').eq('id', order.id).single()).then(function (r) {
+      var d = r && r.data || {};
+      var us = _collectImgs(d.products, d.attachments);
+      if (us.length && window.__setPreviewImg) window.__setPreviewImg(us.length === 1 ? us[0] : us, 0);
+      else toast && toast('该单暂无可预览图片', 'error');
+    }, function () { toast && toast('图片加载失败', 'error'); });
+  };
   var doShip = function doShip() {
     var no = (shipNo || '').trim();
     if (!no) { toast('请填转单号(物流单号)', 'error'); return; }
@@ -4719,9 +4747,9 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       style: { display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px', borderLeft: '3px solid ' + (status.color || '#9ca3af'), flexWrap: 'wrap', rowGap: 8 }
     },
       React.createElement("div", {
-        onClick: function onClick() { if (ooImg && window.__setPreviewImg) window.__setPreviewImg(ooImg); },
-        title: ooImg ? "点击放大查看" : "无产品图",
-        style: { width: 46, height: 46, borderRadius: 8, border: '1px solid var(--line)', background: '#f8fafc', backgroundImage: ooImg ? 'url("' + ooImg + '")' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: ooImg ? 'zoom-in' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: 'var(--ink-3)', flexShrink: 0 }
+        onClick: previewImages,
+        title: "点击查看图片(含发票/凭证)",
+        style: { width: 46, height: 46, borderRadius: 8, border: '1px solid var(--line)', background: '#f8fafc', backgroundImage: ooImg ? 'url("' + ooImg + '")' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: 'var(--ink-3)', flexShrink: 0 }
       }, ooImg ? null : "📦"),
       React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 150px', minWidth: 110 } },
         order.site ? React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: '#475569', background: '#eef2f7', borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' } }, order.site) : null,
@@ -4776,9 +4804,9 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
     ),
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8 } },
       React.createElement("div", {
-        onClick: function onClick() { if (ooImg && window.__setPreviewImg) window.__setPreviewImg(ooImg); },
-        title: ooImg ? "\u70B9\u51FB\u653E\u5927\u67E5\u770B" : "\u65E0\u4EA7\u54C1\u56FE",
-        style: { width: 46, height: 46, borderRadius: 8, border: '1px solid var(--line)', background: '#f8fafc', backgroundImage: ooImg ? 'url("' + ooImg + '")' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: ooImg ? 'zoom-in' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: 'var(--ink-3)', flexShrink: 0 }
+        onClick: previewImages,
+        title: "\u70B9\u51FB\u67E5\u770B\u56FE\u7247",
+        style: { width: 46, height: 46, borderRadius: 8, border: '1px solid var(--line)', background: '#f8fafc', backgroundImage: ooImg ? 'url("' + ooImg + '")' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: 'var(--ink-3)', flexShrink: 0 }
       }, ooImg ? null : "\uD83D\uDCE6"),
       React.createElement("div", { onClick: onEdit, title: order.order_no || '', style: _objectSpread({ fontSize: 14, fontWeight: 700, color: '#0f172a', cursor: 'pointer', minWidth: 0, flex: 1 }, ell) }, order.order_no || '—')
     ),
