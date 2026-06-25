@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix324
+// 版本 2026.06.05-fix327
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3993,6 +3993,183 @@ var FreightCalcModule = function FreightCalcModule(_ref25) {
 // 完整 KPI 模型(业绩75 + 能力25 + 11项奖惩 + 等级 S/A/B/C/D)· 自评+主管评分 · 每项扣分/加分依据+图片 · 日报/月报
 // 数据经 window.storage 垫片存 cs CLOUD 的 kpi_kv 表(团队共享/永久)· 整套逻辑在 kpi-scorer.html
 // ════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// 🆕 fix327: 绩效奖惩自动填充 —— 从日常工作按事件日期写入 kpi_kv(不碰打分器压缩包)
+//   仅 2 项有客观事件源:bp1 产品优化奖(workspace_records.isProductOpt by ownerId)
+//   / bp3 拒付失误(chargebacks.cs_fault by cs_fault_emp|created_by)。
+//   名字键 = name+' '+alias(与打分器 Qe 一致);按「姓名:日期」合并写入,只改 count,保留主管已填 reason/images。
+// ════════════════════════════════════════════════════════════════════
+var KpiAutoFillPanel = function KpiAutoFillPanel(_refKAF) {
+  var toast = _refKAF.toast,
+    onDone = _refKAF.onDone;
+  var _kafM = useState(function () {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  });
+  var month = _kafM[0],
+    setMonth = _kafM[1];
+  var _kafS = useState('idle');
+  var stage = _kafS[0],
+    setStage = _kafS[1]; // idle | computing | empty | preview | writing
+  var _kafP = useState(null);
+  var preview = _kafP[0],
+    setPreview = _kafP[1];
+  var _kafE = useState('');
+  var errMsg = _kafE[0],
+    setErrMsg = _kafE[1];
+
+  var compute = async function compute() {
+    setStage('computing');
+    setErrMsg('');
+    setPreview(null);
+    try {
+      var accs = (await CLOUD.list('cs_accounts', { limit: 500 })) || [];
+      var recs = (await CLOUD.list('workspace_records', { limit: 8000 })) || [];
+      var cbs = (await CLOUD.list('chargebacks', { limit: 3000 })) || [];
+      var idToName = {};
+      accs.forEach(function (a) {
+        if (a && a.id != null) idToName[a.id] = (a.name || '') + (a.alias ? ' ' + a.alias : '');
+      });
+      var dayMap = {};
+      var unmatched = 0;
+      var add = function add(empId, day, k) {
+        if (!empId || !day || day.slice(0, 7) !== month) return;
+        var nm = idToName[empId];
+        if (!nm) {
+          unmatched++;
+          return;
+        }
+        if (!dayMap[nm]) dayMap[nm] = {};
+        if (!dayMap[nm][day]) dayMap[nm][day] = { bp1: 0, bp3: 0 };
+        dayMap[nm][day][k]++;
+      };
+      recs.forEach(function (r) {
+        if (!r || r.deleted || !r.isProductOpt) return;
+        var day = (r.productOptMarkedAt || r.date || r.created_at || '').toString().slice(0, 10);
+        add(r.ownerId, day, 'bp1');
+      });
+      cbs.forEach(function (c) {
+        if (!c || c.deleted || !c.cs_fault) return;
+        var day = (c.created_at || c.deadline || c.updated_at || '').toString().slice(0, 10);
+        add(c.cs_fault_emp || c.created_by, day, 'bp3');
+      });
+      var rows = {};
+      var days = [];
+      Object.keys(dayMap).forEach(function (nm) {
+        Object.keys(dayMap[nm]).forEach(function (day) {
+          var c = dayMap[nm][day];
+          days.push({ nameKey: nm, day: day, bp1: c.bp1, bp3: c.bp3 });
+          if (!rows[nm]) rows[nm] = { nameKey: nm, bp1: 0, bp3: 0 };
+          rows[nm].bp1 += c.bp1;
+          rows[nm].bp3 += c.bp3;
+        });
+      });
+      var rowArr = Object.keys(rows).map(function (k) {
+        return rows[k];
+      }).sort(function (a, b) {
+        return b.bp1 + Math.abs(b.bp3) - (a.bp1 + Math.abs(a.bp3));
+      });
+      setPreview({ rows: rowArr, days: days, unmatched: unmatched });
+      setStage(rowArr.length ? 'preview' : 'empty');
+    } catch (e) {
+      setErrMsg('统计失败:' + (e && e.message ? e.message : e));
+      setStage('idle');
+    }
+  };
+
+  var write = async function write() {
+    if (!preview || !preview.days.length) return;
+    setStage('writing');
+    setErrMsg('');
+    var ok = 0,
+      fail = 0;
+    for (var i = 0; i < preview.days.length; i++) {
+      var d = preview.days[i];
+      var key = 'record:' + encodeURIComponent(d.nameKey) + ':' + d.day;
+      try {
+        var existing = null;
+        var r = await CLOUD.client.from('kpi_kv').select('v').eq('k', key).maybeSingle();
+        if (r && r.data && r.data.v) {
+          try {
+            existing = JSON.parse(r.data.v);
+          } catch (_e) {
+            existing = null;
+          }
+        }
+        var rec = existing || { scores: {}, notes: '', employeeSign: '', supervisorSign: '', headSign: '', signDate: '' };
+        if (!rec.scores) rec.scores = {};
+        var b1 = rec.scores.bp1 || { count: 0, reason: '', images: [] };
+        var b3 = rec.scores.bp3 || { count: 0, reason: '', images: [] };
+        rec.scores.bp1 = { count: d.bp1, reason: b1.reason || '', images: b1.images || [] };
+        rec.scores.bp3 = { count: d.bp3, reason: b3.reason || '', images: b3.images || [] };
+        var up = await CLOUD.client.from('kpi_kv').upsert({ k: key, v: JSON.stringify(rec), updated_at: new Date().toISOString() }, { onConflict: 'k' });
+        if (up && up.error) throw up.error;
+        ok++;
+      } catch (e2) {
+        fail++;
+      }
+    }
+    setStage('idle');
+    setPreview(null);
+    if (toast) toast('✓ 已写入 ' + ok + ' 天记录' + (fail ? ' · 失败 ' + fail : ''));
+    if (onDone) onDone();
+  };
+
+  return /*#__PURE__*/React.createElement("div", {
+    style: { border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', marginBottom: 10, background: '#fff' }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: { fontWeight: 600, fontSize: 13 }
+  }, "📊 从日常工作自动填充奖惩"), /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 11, color: 'var(--ink-3)' }
+  }, "仅 产品优化奖 + 拒付失误 · 按事件日期写入当天 · 合并不覆盖手填项"), /*#__PURE__*/React.createElement("span", {
+    style: { flex: 1 }
+  }), /*#__PURE__*/React.createElement("input", {
+    type: 'month',
+    value: month,
+    onChange: function onChange(e) {
+      setMonth(e.target.value);
+    },
+    style: { padding: '4px 8px', fontSize: 12, border: '1px solid var(--line)', borderRadius: 6 }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: compute,
+    disabled: stage === 'computing' || stage === 'writing',
+    className: "btn-sec",
+    style: { padding: '5px 12px', fontSize: 12 }
+  }, stage === 'computing' ? '统计中…' : '🔍 统计')), errMsg ? /*#__PURE__*/React.createElement("div", {
+    style: { marginTop: 8, fontSize: 12, color: 'var(--bad)' }
+  }, errMsg) : null, stage === 'empty' ? /*#__PURE__*/React.createElement("div", {
+    style: { marginTop: 8, fontSize: 12, color: 'var(--ink-3)' }
+  }, month + " 本月无可填充的产品优化/拒付失误事件。") : null, (stage === 'preview' || stage === 'writing') && preview ? /*#__PURE__*/React.createElement("div", {
+    style: { marginTop: 10 }
+  }, /*#__PURE__*/React.createElement("table", {
+    style: { width: '100%', borderCollapse: 'collapse', fontSize: 12 }
+  }, /*#__PURE__*/React.createElement("thead", null, /*#__PURE__*/React.createElement("tr", {
+    style: { textAlign: 'left', color: 'var(--ink-3)' }
+  }, /*#__PURE__*/React.createElement("th", { style: { padding: '4px 6px' } }, "姓名"), /*#__PURE__*/React.createElement("th", { style: { padding: '4px 6px', textAlign: 'center' } }, "产品优化"), /*#__PURE__*/React.createElement("th", { style: { padding: '4px 6px', textAlign: 'center' } }, "拒付失误"))), /*#__PURE__*/React.createElement("tbody", null, preview.rows.map(function (row) {
+    return /*#__PURE__*/React.createElement("tr", {
+      key: row.nameKey,
+      style: { borderTop: '1px solid var(--line)' }
+    }, /*#__PURE__*/React.createElement("td", { style: { padding: '4px 6px' } }, row.nameKey), /*#__PURE__*/React.createElement("td", { style: { padding: '4px 6px', textAlign: 'center', color: '#16a34a', fontWeight: 600 } }, row.bp1 || '-'), /*#__PURE__*/React.createElement("td", { style: { padding: '4px 6px', textAlign: 'center', color: 'var(--bad)', fontWeight: 600 } }, row.bp3 || '-'));
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: { marginTop: 8, fontSize: 11, color: 'var(--ink-3)' }
+  }, "共 " + preview.rows.length + " 人 · " + preview.days.length + " 天记录" + (preview.unmatched ? ' · ⚠ ' + preview.unmatched + ' 条未匹配到账号(已跳过)' : '')), /*#__PURE__*/React.createElement("div", {
+    style: { marginTop: 8, display: 'flex', gap: 8 }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: write,
+    disabled: stage === 'writing',
+    style: { padding: '6px 14px', fontSize: 12, background: '#0071e3', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' }
+  }, stage === 'writing' ? '写入中…' : '✓ 确认写入 kpi_kv'), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      setPreview(null);
+      setStage('idle');
+    },
+    className: "btn-sec",
+    style: { padding: '6px 14px', fontSize: 12 }
+  }, "取消"))) : null);
+};
+
 var KpiScorerModule = function KpiScorerModule(_ref26) {
   var user = _ref26.user,
     toast = _ref26.toast;
@@ -4098,7 +4275,10 @@ var KpiScorerModule = function KpiScorerModule(_ref26) {
       cursor: 'pointer',
       fontFamily: 'inherit'
     }
-  }, "\uD83D\uDD04 \u518D\u8BD5\u4E00\u6B21")), /*#__PURE__*/React.createElement("iframe", {
+  }, "\uD83D\uDD04 \u518D\u8BD5\u4E00\u6B21")), /*#__PURE__*/React.createElement(KpiAutoFillPanel, {
+    toast: toast,
+    onDone: reload
+  }), /*#__PURE__*/React.createElement("iframe", {
     key: iframeUrl,
     src: iframeUrl,
     title: "\u7EE9\u6548\u8003\u6838\u6253\u5206\u5668",
