@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix331
+// 版本 2026.06.05-fix332
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3493,10 +3493,14 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   var _ootr = useState(false),
     ooShowTrash = _ootr[0],
     setOoShowTrash = _ootr[1];
+  // 🆕 fix332: 已发货独立页(不占主看板)
+  var _ooSh = useState(false),
+    showShipped = _ooSh[0],
+    setShowShipped = _ooSh[1];
   var filtered = useMemo(function () {
     var l = list;
     if (filterStatus === 'active') l = l.filter(function (o) {
-      return o.status !== 'completed' && o.status !== 'cancelled';
+      return o.status !== 'completed' && o.status !== 'cancelled' && o.status !== 'shipped' && o.status !== 'draft';
     });else if (filterStatus === 'mine') l = l.filter(function (o) {
       return o.created_by === user.id;
     });else if (filterStatus !== 'all') l = l.filter(function (o) {
@@ -3678,7 +3682,12 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     onClick: function onClick() { return setView(view === 'board' ? 'list' : 'board'); },
     className: "btn-sec",
     style: { padding: '6px 14px', fontSize: 12, fontWeight: 600 }
-  }, view === 'board' ? "\uD83D\uDCD1 \u5217\u8868" : "\uD83D\uDCCB \u770B\u677F"), (list || []).filter(function (o) { return o && !o.deleted && o.status === 'shipped'; }).length > 0 && /*#__PURE__*/React.createElement("button", {
+  }, view === 'board' ? "\uD83D\uDCD1 \u5217\u8868" : "\uD83D\uDCCB \u770B\u677F"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { return setShowShipped(true); },
+    className: "btn-sec",
+    style: { padding: '6px 12px', fontSize: 12, fontWeight: 600 },
+    title: "\u67E5\u770B\u5DF2\u53D1\u8D27\u8BA2\u5355\uFF08\u5DF2\u79FB\u51FA\u4E3B\u770B\u677F\uFF09"
+  }, "\uD83D\uDCE6 \u5DF2\u53D1\u8D27 " + (list || []).filter(function (o) { return o && !o.deleted && o.status === 'shipped'; }).length), (list || []).filter(function (o) { return o && !o.deleted && o.status === 'shipped'; }).length > 0 && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() { return setShowReconcile(true); },
     className: "btn-sec",
     style: { padding: '6px 12px', fontSize: 12, fontWeight: 600 },
@@ -3951,7 +3960,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   }, "\uD83D\uDCCB \u6682\u65E0\u7EBF\u4E0B\u5355") : view === 'board' ? /*#__PURE__*/React.createElement("div", {
     style: { display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }
   }, OFFLINE_ORDER_STATUSES.filter(function (st) {
-    return ['draft', 'pending_payment', 'paid', 'dispatched', 'shipped'].indexOf(st.key) >= 0 || filtered.some(function (o) { return (o.status || 'draft') === st.key; });
+    return ['pending_payment', 'paid', 'dispatched'].indexOf(st.key) >= 0;
   }).map(function (st) {
     var col = filtered.filter(function (o) { return (o.status || 'draft') === st.key; });
     return /*#__PURE__*/React.createElement(OfflineBoardColumn, { key: st.key, st: st, col: col, user: user, isAdmin: isAdmin, onEditOrder: setEditing, onDeleteOrder: handleDelete, onReload: load, toast: toast });
@@ -3993,7 +4002,25 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       return setOoShowTrash(false);
     },
     columns: [{ label: '订单号', fmt: function (r) { return r.order_ref || r.order_no || r.order_number || ''; } }, { label: '客户', fmt: function (r) { return r.customer || r.customer_name || ''; } }, { key: 'site', label: '店铺' }, { label: '金额', fmt: function (r) { return r.refund_amount != null && r.refund_amount !== '' ? '退款 ' + r.refund_amount : r.amount || ''; } }, { key: 'status', label: '状态' }, { key: 'created_by_name', label: '录入人' }]
-  }), showReconcile && /*#__PURE__*/React.createElement(ShippedReconcileModal, {
+  }), showShipped && /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick() { return setShowShipped(false); },
+    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: function onClick(e) { e.stopPropagation(); },
+    style: { background: '#fff', borderRadius: 16, padding: 20, width: 'min(960px, 96vw)' }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontSize: 16, fontWeight: 700 } }, "\uD83D\uDCE6 \u5DF2\u53D1\u8D27\u8BA2\u5355 (" + (list || []).filter(function (o) { return o && !o.deleted && o.status === 'shipped'; }).length + ")"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { return setShowShipped(false); },
+    style: { border: 'none', background: 'transparent', fontSize: 22, cursor: 'pointer', color: 'var(--ink-3)', lineHeight: 1 }
+  }, "\u00D7")), (function () {
+    var shippedList = (list || []).filter(function (o) { return o && !o.deleted && o.status === 'shipped'; });
+    return shippedList.length === 0 ? /*#__PURE__*/React.createElement("div", { style: { padding: 28, textAlign: 'center', color: 'var(--ink-3)' } }, "\u6682\u65E0\u5DF2\u53D1\u8D27\u8BA2\u5355") : /*#__PURE__*/React.createElement("div", {
+      style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }
+    }, shippedList.map(function (o) {
+      return /*#__PURE__*/React.createElement(OfflineBoardCard, { key: o.id, order: o, user: user, isAdmin: isAdmin, onEdit: function onEdit() { setShowShipped(false); setEditing(o); }, onDelete: function onDelete() { return handleDelete(o); }, onReload: load, toast: toast });
+    }));
+  })())), showReconcile && /*#__PURE__*/React.createElement(ShippedReconcileModal, {
     orders: (list || []).filter(function (o) { return o && !o.deleted && o.status === 'shipped'; }),
     user: user,
     toast: toast,
@@ -4617,6 +4644,22 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
   var _bTransSt = useState(false), showTransfer = _bTransSt[0], setShowTransfer = _bTransSt[1];
   var status = OFFLINE_ORDER_STATUSES.find(function (s) { return s.key === order.status; }) || OFFLINE_ORDER_STATUSES[0];
   var prodCount = (order.products || []).length;
+  // 🆕 fix332: 产品缩略图(对标跟单:products[].image_url → attachments 非视频 → 占位)
+  var ooImg = (function () {
+    var ps = order.products || [];
+    for (var i = 0; i < ps.length; i++) {
+      var p = ps[i];
+      var u = p && (p.image_url || p.image || p.img || (p.images && p.images[0]));
+      if (u) return u;
+    }
+    var atts = order.attachments || [];
+    for (var j = 0; j < atts.length; j++) {
+      var a = atts[j];
+      var au = a && (typeof a === 'string' ? a : a.url || a.dataUrl || a.data);
+      if (au && !/\.(mp4|webm|mov|avi|m4v)(\?|$)/i.test(au)) return au;
+    }
+    return null;
+  })();
   var doShip = function doShip() {
     var no = (shipNo || '').trim();
     if (!no) { toast('请填转单号(物流单号)', 'error'); return; }
@@ -4666,7 +4709,14 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       ),
       React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: '#111827', whiteSpace: 'nowrap' } }, (order.payment_currency || 'USD') + ' ' + (order.payment_amount || 0))
     ),
-    React.createElement("div", { onClick: onEdit, title: order.order_no || '', style: _objectSpread({ fontSize: 14, fontWeight: 700, color: '#0f172a', cursor: 'pointer' }, ell) }, order.order_no || '—'),
+    React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+      React.createElement("div", {
+        onClick: function onClick() { if (ooImg && window.__setPreviewImg) window.__setPreviewImg(ooImg); },
+        title: ooImg ? "\u70B9\u51FB\u653E\u5927\u67E5\u770B" : "\u65E0\u4EA7\u54C1\u56FE",
+        style: { width: 46, height: 46, borderRadius: 8, border: '1px solid var(--line)', background: '#f8fafc', backgroundImage: ooImg ? 'url("' + ooImg + '")' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: ooImg ? 'zoom-in' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: 'var(--ink-3)', flexShrink: 0 }
+      }, ooImg ? null : "\uD83D\uDCE6"),
+      React.createElement("div", { onClick: onEdit, title: order.order_no || '', style: _objectSpread({ fontSize: 14, fontWeight: 700, color: '#0f172a', cursor: 'pointer', minWidth: 0, flex: 1 }, ell) }, order.order_no || '—')
+    ),
     React.createElement("div", { style: _objectSpread({ fontSize: 12, fontWeight: 500, color: '#374151' }, ell) }, '👤 ' + (order.customer_name || order.customer_email || '—')),
     (order.customer_email && order.customer_name) ? React.createElement("div", { style: _objectSpread({ fontSize: 11, color: 'var(--ink-3)' }, ell) }, '✉ ' + order.customer_email) : null,
     React.createElement("div", { style: _objectSpread({ fontSize: 11, color: 'var(--ink-3)' }, ell) }, '📦 ' + prodCount + '件' + (order.created_by_name ? ' · 录入 ' + order.created_by_name : '')),
