@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix328
+// 版本 2026.06.05-fix337
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -15348,39 +15348,155 @@ function poClient() {
 function _invAgeDays(p) { if (!p || !p.stock_in_at) return null; return Math.floor((Date.now() - new Date(p.stock_in_at).getTime()) / 86400000); }
 
 function InventoryModuleInline(props) {
-  var toast = props.toast;
+  var toast = props.toast || function (m) { try { window.__toast && window.__toast(m); } catch (e) {} };
+  var user = props.user || null;
   var h = React.createElement;
+
   var s_rows = useState([]); var rows = s_rows[0], setRows = s_rows[1];
+  var s_trash = useState(null); var trashRows = s_trash[0], setTrashRows = s_trash[1]; // null=未加载
   var s_loading = useState(true); var loading = s_loading[0], setLoading = s_loading[1];
   var s_err = useState(''); var err = s_err[0], setErr = s_err[1];
   var s_q = useState(''); var q = s_q[0], setQ = s_q[1];
   var s_f = useState('all'); var filt = s_f[0], setFilt = s_f[1];
+  var s_age = useState('any'); var ageFilt = s_age[0], setAgeFilt = s_age[1];
+  var s_shop = useState(''); var shopFilt = s_shop[0], setShopFilt = s_shop[1];
   var s_sk = useState('stock_qty'); var sortKey = s_sk[0], setSortKey = s_sk[1];
   var s_sd = useState('asc'); var sortDir = s_sd[0], setSortDir = s_sd[1];
   var s_pg = useState(1); var page = s_pg[0], setPage = s_pg[1];
   var s_ps = useState(48); var pageSize = s_ps[0], setPageSize = s_ps[1];
   var s_lb = useState(null); var lb = s_lb[0], setLb = s_lb[1];
+  var s_tab = useState('list'); var tab = s_tab[0], setTab = s_tab[1];             // list | outbound
+  var s_moves = useState(null); var moves = s_moves[0], setMoves = s_moves[1];     // 出库流水
+  var s_today = useState(null); var todayIds = s_today[0], setTodayIds = s_today[1]; // 今日消耗 product_id 集
+  var s_edit = useState(null); var editP = s_edit[0], setEditP = s_edit[1];        // 编辑弹窗产品
+  var s_trace = useState(null); var trace = s_trace[0], setTrace = s_trace[1];     // 该SKU操作留痕
+  var s_eWh = useState('overseas'); var eWh = s_eWh[0], setEWh = s_eWh[1];
+  var s_eOp = useState('inbound'); var eOp = s_eOp[0], setEOp = s_eOp[1];
+  var s_eQty = useState(''); var eQty = s_eQty[0], setEQty = s_eQty[1];
+  var s_busy = useState(false); var busy = s_busy[0], setBusy = s_busy[1];
+
+  var COLS = 'id,sku,name_cn,name_en,image_url,stock_qty,stock_qty_domestic,stock_qty_overseas,stock_qty_in_transit,overseas_lead_days,price_usd,color_temp,variant_color,pkg_single,weight_single,pkg_carton,weight_carton,qty_per_carton,carton_count,label_large,label_small,product_url,stock_alert_threshold,default_supplier,platform_skus,stock_in_at';
 
   function load() {
     var c = poClient();
     if (!c) { setErr('Supabase 未就绪'); setLoading(false); return; }
     setLoading(true); setErr('');
-    c.from('products').select('id,sku,name_cn,name_en,image_url,stock_qty,stock_qty_domestic,stock_qty_overseas,stock_qty_in_transit,overseas_lead_days,price_usd,color_temp,variant_color,pkg_single,weight_single,pkg_carton,weight_carton,qty_per_carton,carton_count,label_large,label_small,product_url,stock_alert_threshold,default_supplier,platform_skus,stock_in_at')
-      .eq('is_inventory_item', true).is('deleted_at', null).order('stock_qty', { ascending: true }).limit(5000)
+    c.from('products').select(COLS).eq('is_inventory_item', true).is('deleted_at', null).order('stock_qty', { ascending: true }).limit(5000)
       .then(function (res) {
         if (res && res.error) { setErr('加载失败:' + (res.error.message || res.error)); setRows([]); }
         else { setRows((res && res.data) || []); }
         setLoading(false);
       });
   }
-  useEffect(function () { load(); }, []);
+  function loadToday() {
+    var c = poClient(); if (!c) return;
+    var start = new Date(); start.setHours(0, 0, 0, 0);
+    c.from('inventory_movements').select('product_id').eq('movement_type', 'order_deduct').gte('created_at', start.toISOString()).limit(5000)
+      .then(function (res) {
+        var set = {}; (((res && res.data) || [])).forEach(function (m) { if (m && m.product_id) set[m.product_id] = 1; });
+        setTodayIds(set);
+      }, function () { setTodayIds({}); });
+  }
+  function loadTrash() {
+    var c = poClient(); if (!c) return; setTrashRows([]);
+    c.from('products').select(COLS).eq('is_inventory_item', true).not('deleted_at', 'is', null).order('stock_qty', { ascending: true }).limit(2000)
+      .then(function (res) { setTrashRows((res && res.data) || []); }, function () { setTrashRows([]); });
+  }
+  function loadMoves() {
+    var c = poClient(); if (!c) return; setMoves(null);
+    c.from('stock_movements').select('*').order('moved_at', { ascending: false }).limit(500)
+      .then(function (res) { setMoves((res && res.data) || []); }, function () { setMoves([]); });
+  }
+  function loadTrace(sku) {
+    setTrace(null);
+    var c = poClient(); if (!c) return;
+    c.from('inventory_movements').select('movement_type,qty_change,qty_after,operator,note,created_at,ref_id').eq('internal_sku', sku).order('created_at', { ascending: false }).limit(50)
+      .then(function (res) { setTrace((res && res.data) || []); }, function () { setTrace([]); });
+  }
+  useEffect(function () { load(); loadToday(); }, []);
 
   var C = { ink: 'var(--ink-1,#1c1a17)', sec: 'var(--ink-3,#6b6660)', line: 'var(--line,#e7e5e0)', accent: 'var(--accent,#2563eb)' };
 
+  function openEdit(p) {
+    setEditP(p);
+    setEOp('inbound');
+    setEWh(Number(p.stock_qty_overseas || 0) > 0 || Number(p.stock_qty_domestic || 0) <= 0 ? 'overseas' : 'domestic');
+    setEQty('');
+    loadTrace(p.sku);
+  }
+
+  // 入库 / 出库 / 调整(分仓 + 总量 + 写 inventory_movements 留痕;防并发先读最新)
+  function applyStockOp(p, opType, warehouse, amount) {
+    var c = poClient(); if (!c) { toast('库存库未连接', 'error'); return; }
+    var csName = (user && (user.name || user.alias)) || '客服';
+    setBusy(true);
+    Promise.resolve(c.from('products').select('id,sku,name_cn,stock_qty,stock_qty_domestic,stock_qty_overseas').eq('id', p.id).single()).then(function (r) {
+      var prod = r && r.data; if (!prod) { setBusy(false); toast('读取最新库存失败', 'error'); return; }
+      var dom = Number(prod.stock_qty_domestic || 0), ovs = Number(prod.stock_qty_overseas || 0);
+      var cur = warehouse === 'overseas' ? ovs : dom;
+      var whName = warehouse === 'overseas' ? '海外' : '国内';
+      var newWh, delta;
+      if (opType === 'inbound') { newWh = cur + amount; delta = amount; }
+      else if (opType === 'outbound') {
+        if (amount > cur) { setBusy(false); toast(whName + '仓只剩 ' + cur + ',不够出 ' + amount, 'error'); return; }
+        newWh = cur - amount; delta = -amount;
+      } else { newWh = amount; delta = amount - cur; } // adjust: amount=绝对值
+      if (newWh < 0) newWh = 0;
+      var newDom = warehouse === 'overseas' ? dom : newWh;
+      var newOvs = warehouse === 'overseas' ? newWh : ovs;
+      var newTotal = newDom + newOvs;
+      var upd = { stock_qty: newTotal, stock_qty_domestic: newDom, stock_qty_overseas: newOvs };
+      Promise.resolve(c.from('products').update(upd).eq('id', prod.id)).then(function (u) {
+        if (u && u.error) { setBusy(false); toast('写入失败:' + (u.error.message || u.error) + ' · 若RLS请在跟单库放行 products', 'error'); return; }
+        var mt = opType === 'inbound' ? 'inbound' : 'manual_adjust';
+        var note = opType === 'inbound' ? ('客服' + whName + '仓入库') : opType === 'outbound' ? ('客服' + whName + '仓出库') : ('客服调整' + whName + '仓 ' + cur + '→' + newWh);
+        Promise.resolve(c.from('inventory_movements').insert({
+          product_id: prod.id, internal_sku: prod.sku, movement_type: mt,
+          qty_change: delta, qty_after: newTotal, ref_type: 'manual', operator: csName, note: note
+        })).then(function () {
+          setBusy(false);
+          toast('✓ 已更新 · ' + whName + '仓 ' + cur + '→' + newWh + ' · 总 ' + newTotal);
+          setRows(function (prev) { return prev.map(function (x) { return x.id === prod.id ? Object.assign({}, x, upd) : x; }); });
+          setEditP(function (cur2) { return cur2 ? Object.assign({}, cur2, upd) : cur2; });
+          setEQty('');
+          loadTrace(prod.sku);
+        }, function () { setBusy(false); toast('留痕写入失败(库存数已改)', 'error'); loadTrace(prod.sku); });
+      }, function (e) { setBusy(false); toast('写入异常:' + ((e && e.message) || e), 'error'); });
+    }, function () { setBusy(false); toast('读取最新库存失败', 'error'); });
+  }
+
+  function restoreItem(p) {
+    var c = poClient(); if (!c) return;
+    Promise.resolve(c.from('products').update({ deleted_at: null }).eq('id', p.id)).then(function (u) {
+      if (u && u.error) { toast('恢复失败:' + (u.error.message || u.error), 'error'); return; }
+      toast('✓ 已恢复出回收站');
+      setTrashRows(function (prev) { return (prev || []).filter(function (x) { return x.id !== p.id; }); });
+      load();
+    }, function () { toast('恢复失败', 'error'); });
+  }
+
+  // ── 数据派生 ──
+  var shopList = useMemo(function () {
+    var set = {};
+    rows.forEach(function (p) { (Array.isArray(p.platform_skus) ? p.platform_skus : []).forEach(function (ps) { var l = ps && (ps.shop_label || ps.shop); if (l) set[l] = 1; }); });
+    return Object.keys(set).sort();
+  }, [rows]);
+
+  var summary = useMemo(function () {
+    var dom = 0, ovs = 0, domN = 0, ovsN = 0;
+    rows.forEach(function (p) {
+      var d = Number(p.stock_qty_domestic || 0), o = Number(p.stock_qty_overseas || 0);
+      dom += d; ovs += o; if (d > 0) domN++; if (o > 0) ovsN++;
+    });
+    return { dom: dom, ovs: ovs, domN: domN, ovsN: ovsN };
+  }, [rows]);
+
+  var base = filt === 'trash' ? (trashRows || []) : rows;
+
   var byQ = useMemo(function () {
     var qq = q.trim().toLowerCase();
-    if (!qq) return rows;
-    return rows.filter(function (p) {
+    var arr = base;
+    if (qq) arr = arr.filter(function (p) {
       if ((p.sku || '').toLowerCase().indexOf(qq) >= 0) return true;
       if ((p.name_cn || '').toLowerCase().indexOf(qq) >= 0) return true;
       if ((p.name_en || '').toLowerCase().indexOf(qq) >= 0) return true;
@@ -15388,28 +15504,50 @@ function InventoryModuleInline(props) {
       if ((p.variant_color || '').toLowerCase().indexOf(qq) >= 0) return true;
       return Array.isArray(p.platform_skus) && p.platform_skus.some(function (ps) { return (ps && ps.sku || '').toLowerCase().indexOf(qq) >= 0; });
     });
-  }, [rows, q]);
+    return arr;
+  }, [base, q]);
 
-  var counts = useMemo(function () {
-    var c = { all: byQ.length, instock: 0, out: 0, low: 0 };
-    byQ.forEach(function (p) {
-      var s = Number(p.stock_qty || 0), thr = Number(p.stock_alert_threshold || 5);
-      if (s > 0) c.instock++;
-      if (s <= 0) c.out++;
-      if (s > 0 && s <= thr) c.low++;
-    });
-    return c;
-  }, [byQ]);
-
-  var filtered = useMemo(function () {
+  var scoped = useMemo(function () {
+    var ageMin = { any: 0, '30': 30, '60': 60, '90': 90, '180': 180, '365': 365 }[ageFilt] || 0;
     return byQ.filter(function (p) {
-      var s = Number(p.stock_qty || 0), thr = Number(p.stock_alert_threshold || 5);
-      if (filt === 'instock') return s > 0;
-      if (filt === 'out') return s <= 0;
-      if (filt === 'low') return s > 0 && s <= thr;
+      if (shopFilt) {
+        var hit = Array.isArray(p.platform_skus) && p.platform_skus.some(function (ps) { return ps && (ps.shop_label === shopFilt || ps.shop === shopFilt); });
+        if (!hit) return false;
+      }
+      if (ageMin > 0) { var a = _invAgeDays(p); if (a == null || a < ageMin) return false; }
       return true;
     });
-  }, [byQ, filt]);
+  }, [byQ, shopFilt, ageFilt]);
+
+  var counts = useMemo(function () {
+    var c = { all: scoped.length, domestic: 0, overseas: 0, low: 0, out: 0, restock: 0, today: 0, unbound: 0 };
+    scoped.forEach(function (p) {
+      var s = Number(p.stock_qty || 0), thr = Number(p.stock_alert_threshold || 5), it = Number(p.stock_qty_in_transit || 0);
+      if (Number(p.stock_qty_domestic || 0) > 0) c.domestic++;
+      if (Number(p.stock_qty_overseas || 0) > 0) c.overseas++;
+      if (s > 0 && s <= thr) c.low++;
+      if (s <= 0) c.out++;
+      if (s <= thr && it <= 0) c.restock++;
+      if (todayIds && todayIds[p.id]) c.today++;
+      if (!(Array.isArray(p.platform_skus) && p.platform_skus.length)) c.unbound++;
+    });
+    return c;
+  }, [scoped, todayIds]);
+
+  var filtered = useMemo(function () {
+    if (filt === 'trash') return scoped;
+    return scoped.filter(function (p) {
+      var s = Number(p.stock_qty || 0), thr = Number(p.stock_alert_threshold || 5), it = Number(p.stock_qty_in_transit || 0);
+      if (filt === 'domestic') return Number(p.stock_qty_domestic || 0) > 0;
+      if (filt === 'overseas') return Number(p.stock_qty_overseas || 0) > 0;
+      if (filt === 'low') return s > 0 && s <= thr;
+      if (filt === 'out') return s <= 0;
+      if (filt === 'restock') return s <= thr && it <= 0;
+      if (filt === 'today') return todayIds && todayIds[p.id];
+      if (filt === 'unbound') return !(Array.isArray(p.platform_skus) && p.platform_skus.length);
+      return true;
+    });
+  }, [scoped, filt, todayIds]);
 
   var sorted = useMemo(function () {
     var arr = filtered.slice();
@@ -15429,10 +15567,17 @@ function InventoryModuleInline(props) {
   var curPage = Math.min(page, totalPages);
   var paged = sorted.slice((curPage - 1) * pageSize, curPage * pageSize);
 
-  function chip(key, label) {
-    var on = filt === key;
-    return h('button', { key: key, onClick: function () { setFilt(key); setPage(1); }, style: { padding: '6px 13px', fontSize: 12.5, border: '1px solid ' + (on ? C.accent : C.line), background: on ? 'rgba(37,99,235,.08)' : '#fff', color: on ? C.accent : C.sec, borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', fontWeight: on ? 600 : 400 } }, label + ' ' + counts[key]);
+  function setFiltSafe(key) {
+    setTab('list'); setFilt(key); setPage(1);
+    if (key === 'trash' && trashRows == null) loadTrash();
   }
+
+  function chip(key, label, special) {
+    var on = tab === 'list' && filt === key;
+    var n = key === 'trash' ? (trashRows == null ? '' : trashRows.length) : (counts[key] != null ? counts[key] : '');
+    return h('button', { key: key, onClick: function () { setFiltSafe(key); }, style: { padding: '6px 13px', fontSize: 12.5, border: '1px solid ' + (on ? C.accent : C.line), background: on ? 'rgba(37,99,235,.08)' : (special ? '#fff7ed' : '#fff'), color: on ? C.accent : (special ? '#b45309' : C.sec), borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', fontWeight: on ? 600 : 400, whiteSpace: 'nowrap' } }, label + (n !== '' ? ' ' + n : ''));
+  }
+
   function pgBtn(d) { return { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: d ? '#f5f5f4' : '#fff', color: d ? '#bbb' : C.ink, cursor: d ? 'default' : 'pointer', fontFamily: 'inherit' }; }
   function pager(key) {
     return h('div', { key: key, style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 0', justifyContent: 'flex-end' } },
@@ -15444,6 +15589,15 @@ function InventoryModuleInline(props) {
       h('button', { onClick: function () { setPage(totalPages); }, disabled: curPage >= totalPages, style: pgBtn(curPage >= totalPages) }, '»'));
   }
 
+  function sumCard(key, icon, label, total, n, color) {
+    var on = tab === 'list' && filt === key;
+    return h('div', { onClick: function () { setFiltSafe(on ? 'all' : key); }, style: { flex: '1 1 220px', minWidth: 200, border: '1px solid ' + (on ? color : C.line), background: on ? (color + '14') : '#fff', borderRadius: 12, padding: '12px 16px', cursor: 'pointer' } },
+      h('div', { style: { fontSize: 12, color: C.sec } }, icon + ' ' + label + ' · 点击只看该仓'),
+      h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 2 } },
+        h('span', { style: { fontSize: 26, fontWeight: 700, color: color } }, total),
+        h('span', { style: { fontSize: 12, color: C.sec } }, n + ' 款')));
+  }
+
   function card(p) {
     var s = Number(p.stock_qty || 0), thr = Number(p.stock_alert_threshold || 5);
     var col = '#16a34a', txt = '充足';
@@ -15451,6 +15605,7 @@ function InventoryModuleInline(props) {
     var age = _invAgeDays(p);
     var plat = Array.isArray(p.platform_skus) ? p.platform_skus : [];
     var stale = s > 0 && age != null && age >= 90;
+    var isTrash = filt === 'trash';
     return h('div', { key: p.id, style: { border: '1px solid ' + C.line, borderRadius: 12, overflow: 'hidden', background: '#fff', display: 'flex', flexDirection: 'column' } },
       h('div', { style: { position: 'relative', aspectRatio: '1/1', background: '#faf9f7', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
         p.image_url
@@ -15459,44 +15614,142 @@ function InventoryModuleInline(props) {
         h('span', { style: { position: 'absolute', top: 6, left: 6, background: col, color: '#fff', fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600 } }, txt + ' ' + s)),
       h('div', { style: { padding: '8px 10px 10px' } },
         h('div', { style: { fontSize: 13, fontWeight: 600, lineHeight: 1.35, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: p.name_cn || '' }, p.name_cn || '(无名)'),
-        h('div', { style: { fontSize: 11.5, color: C.sec, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, p.sku || ''),
+        h('div', { style: { fontSize: 11.5, color: C.sec, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, '内部 SKU:' + (p.sku || '-')),
         age != null ? h('div', { style: { fontSize: 11.5, marginTop: 2, color: stale ? '#b45309' : C.sec } }, (stale ? '🐢 ' : '库龄 ') + age + '天') : null,
-        (p.stock_qty_domestic != null || p.stock_qty_overseas != null || Number(p.stock_qty_in_transit || 0) > 0)
-          ? h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4, fontSize: 11 } },
-              h('span', { style: { color: '#0369a1' }, title: '国内仓' }, '🏠 ' + (p.stock_qty_domestic != null ? p.stock_qty_domestic : '-')),
-              h('span', { style: { color: '#7c3aed' }, title: '海外仓' }, '✈️ ' + (p.stock_qty_overseas != null ? p.stock_qty_overseas : '-')),
-              Number(p.stock_qty_in_transit || 0) > 0 ? h('span', { style: { color: '#b45309' }, title: '在途(已下单未到仓)' }, '🚚 ' + p.stock_qty_in_transit) : null)
-          : null,
+        h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4, fontSize: 11.5, fontWeight: 600 } },
+          h('span', { style: { color: '#0369a1' }, title: '国内仓' }, '🏠 国内 ' + (p.stock_qty_domestic != null ? p.stock_qty_domestic : '-')),
+          h('span', { style: { color: '#7c3aed' }, title: '海外仓' }, '✈️ 海外 ' + (p.stock_qty_overseas != null ? p.stock_qty_overseas : '-')),
+          Number(p.stock_qty_in_transit || 0) > 0 ? h('span', { style: { color: '#b45309' }, title: '在途(已下单未到仓)' }, '🚚 在途 ' + p.stock_qty_in_transit) : null),
+        !plat.length ? h('div', { style: { fontSize: 11, marginTop: 4, color: '#b45309' } }, '🔗 未绑定平台SKU · 下单不会自动扣减') : null,
         (p.price_usd != null && p.price_usd !== '' || p.variant_color || p.color_temp)
           ? h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 3, fontSize: 11, alignItems: 'center' } },
               p.price_usd != null && p.price_usd !== '' ? h('span', { style: { color: '#16a34a', fontWeight: 600 } }, '$ ' + p.price_usd) : null,
               p.variant_color ? h('span', { style: { color: C.sec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }, title: p.variant_color }, '🎨 ' + p.variant_color) : null,
               p.color_temp ? h('span', { style: { color: C.sec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }, title: p.color_temp }, '💡 ' + p.color_temp) : null)
           : null,
-        (p.pkg_single || p.weight_single || p.pkg_carton || p.weight_carton || p.qty_per_carton != null || p.carton_count != null || p.overseas_lead_days != null || p.label_large || p.label_small || p.product_url)
-          ? h('details', { style: { marginTop: 5, fontSize: 11, color: C.sec } },
-              h('summary', { style: { cursor: 'pointer', color: C.accent } }, '详情'),
-              h('div', { style: { marginTop: 4, lineHeight: 1.7 } },
-                (p.pkg_single || p.weight_single) ? h('div', null, '单个:' + (p.pkg_single || '-') + (p.weight_single ? ' · ' + p.weight_single : '')) : null,
-                (p.pkg_carton || p.weight_carton) ? h('div', null, '整箱:' + (p.pkg_carton || '-') + (p.weight_carton ? ' · ' + p.weight_carton : '')) : null,
-                (p.qty_per_carton != null || p.carton_count != null) ? h('div', null, (p.qty_per_carton != null ? '每箱 ' + p.qty_per_carton + ' 个' : '') + (p.carton_count != null ? (p.qty_per_carton != null ? ' · ' : '') + p.carton_count + ' 箱' : '')) : null,
-                p.overseas_lead_days != null ? h('div', null, '海外补货约 ' + p.overseas_lead_days + ' 天') : null,
-                (p.label_large || p.label_small) ? h('div', null, '标签:' + (p.label_large || '') + (p.label_small ? ' / ' + p.label_small : '')) : null,
-                p.product_url ? h('a', { href: p.product_url, target: '_blank', rel: 'noopener', style: { color: C.accent } }, '产品页 ↗') : null))
-          : null,
-        h('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 11, color: C.sec } },
-          h('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' } }, p.default_supplier ? '🏭 ' + p.default_supplier : ''),
-          h('span', null, plat.length ? '🔗' + plat.length : ''))));
+        h('div', { style: { display: 'flex', gap: 6, marginTop: 8 } },
+          isTrash
+            ? h('button', { onClick: function () { restoreItem(p); }, style: { flex: 1, padding: '6px 0', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: '#fff', color: '#0369a1', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 } }, '♻️ 恢复')
+            : h('button', { onClick: function () { openEdit(p); }, style: { flex: 1, padding: '6px 0', fontSize: 12, border: 'none', borderRadius: 8, background: C.accent, color: '#fff', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 } }, '✏️ 入库/出库/调整'))));
+  }
+
+  // ── 编辑弹窗 ──
+  function editModal() {
+    if (!editP) return null;
+    var p = editP;
+    var dom = Number(p.stock_qty_domestic || 0), ovs = Number(p.stock_qty_overseas || 0);
+    var input = { width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit', boxSizing: 'border-box' };
+    function whBtn(w, label, val) {
+      var on = eWh === w;
+      return h('button', { onClick: function () { setEWh(w); }, style: { flex: 1, padding: '8px 0', fontSize: 12.5, border: '1px solid ' + (on ? C.accent : C.line), background: on ? 'rgba(37,99,235,.08)' : '#fff', color: on ? C.accent : C.sec, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontWeight: on ? 600 : 400 } }, label + ' (' + val + ')');
+    }
+    function opBtn(o, label) {
+      var on = eOp === o;
+      var clr = o === 'inbound' ? '#16a34a' : o === 'outbound' ? '#dc2626' : '#7c3aed';
+      return h('button', { onClick: function () { setEOp(o); setEQty(''); }, style: { flex: 1, padding: '8px 0', fontSize: 13, border: '1px solid ' + (on ? clr : C.line), background: on ? (clr + '14') : '#fff', color: on ? clr : C.sec, borderRadius: 8, cursor: 'pointer', fontFamily: 'inherit', fontWeight: on ? 700 : 400 } }, label);
+    }
+    var traceTypeLabel = { inbound: '➕入库', order_deduct: '🛒订单扣减', manual_adjust: '✏️调整/出库' };
+    return h('div', { onClick: function (e) { if (e.target === e.currentTarget) setEditP(null); }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 2147483600, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 16px', overflowY: 'auto' } },
+      h('div', { style: { background: '#fff', borderRadius: 14, width: 'min(560px,100%)', boxShadow: '0 12px 40px rgba(0,0,0,.2)', overflow: 'hidden' } },
+        h('div', { style: { padding: '14px 18px', borderBottom: '1px solid ' + C.line, display: 'flex', alignItems: 'center', gap: 10 } },
+          p.image_url ? h('img', { src: (window.__imgThumb ? window.__imgThumb(p.image_url, 120, 44) : p.image_url), style: { width: 44, height: 44, borderRadius: 8, objectFit: 'cover' } }) : h('span', { style: { fontSize: 26 } }, '📦'),
+          h('div', { style: { flex: 1, minWidth: 0 } },
+            h('div', { style: { fontSize: 15, fontWeight: 700, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, p.name_cn || '(无名)'),
+            h('div', { style: { fontSize: 12, color: C.sec } }, '内部 SKU:' + (p.sku || '-'))),
+          h('button', { onClick: function () { setEditP(null); }, style: { border: 'none', background: 'transparent', fontSize: 20, cursor: 'pointer', color: C.sec } }, '×')),
+        h('div', { style: { padding: '16px 18px' } },
+          h('div', { style: { display: 'flex', gap: 14, marginBottom: 12, fontSize: 14, fontWeight: 700 } },
+            h('span', { style: { color: '#0369a1' } }, '🏠 国内 ' + dom),
+            h('span', { style: { color: '#7c3aed' } }, '✈️ 海外 ' + ovs),
+            h('span', { style: { color: C.sec, fontWeight: 400, marginLeft: 'auto', fontSize: 12 } }, '总 ' + Number(p.stock_qty || 0) + (Number(p.stock_qty_in_transit || 0) > 0 ? ' · 在途 ' + p.stock_qty_in_transit : ''))),
+          h('div', { style: { fontSize: 12, color: C.sec, marginBottom: 4 } }, '① 操作'),
+          h('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } }, opBtn('inbound', '➕ 入库'), opBtn('outbound', '➖ 出库'), opBtn('adjust', '✏️ 调整为')),
+          h('div', { style: { fontSize: 12, color: C.sec, marginBottom: 4 } }, '② 仓库'),
+          h('div', { style: { display: 'flex', gap: 8, marginBottom: 12 } }, whBtn('overseas', '✈️ 海外仓', ovs), whBtn('domestic', '🏠 国内仓', dom)),
+          h('div', { style: { fontSize: 12, color: C.sec, marginBottom: 4 } }, eOp === 'adjust' ? '③ 把该仓库存改为' : '③ 数量'),
+          h('div', { style: { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 } },
+            h('input', { type: 'number', min: 0, value: eQty, onChange: function (e) { setEQty(e.target.value); }, placeholder: eOp === 'adjust' ? '新的库存数' : '数量', style: Object.assign({}, input, { flex: 1 }) }),
+            h('button', { disabled: busy, onClick: function () {
+              var amt = parseInt(eQty, 10);
+              if (isNaN(amt) || amt < 0) { toast('请输入数量', 'error'); return; }
+              if (eOp !== 'adjust' && amt <= 0) { toast('数量要大于 0', 'error'); return; }
+              applyStockOp(p, eOp, eWh, amt);
+            }, style: { padding: '8px 18px', fontSize: 13, border: 'none', borderRadius: 8, background: busy ? '#94a3b8' : C.accent, color: '#fff', cursor: busy ? 'default' : 'pointer', fontFamily: 'inherit', fontWeight: 700 } }, busy ? '处理中…' : '确认')),
+          h('div', { style: { fontSize: 12, color: C.sec, margin: '4px 0 6px', borderTop: '1px solid ' + C.line, paddingTop: 10 } }, '🕓 操作留痕(近 50 条)'),
+          trace == null
+            ? h('div', { style: { fontSize: 12, color: C.sec, padding: '8px 0' } }, '加载中…')
+            : (trace.length === 0
+              ? h('div', { style: { fontSize: 12, color: C.sec, padding: '8px 0' } }, '暂无记录')
+              : h('div', { style: { maxHeight: 200, overflowY: 'auto', border: '1px solid ' + C.line, borderRadius: 8 } },
+                  trace.map(function (m, i) {
+                    return h('div', { key: i, style: { display: 'flex', gap: 8, alignItems: 'center', padding: '6px 10px', borderBottom: i < trace.length - 1 ? '1px solid #f1f1f1' : 'none', fontSize: 12 } },
+                      h('span', { style: { width: 96, color: C.sec } }, (traceTypeLabel[m.movement_type] || m.movement_type || '')),
+                      h('span', { style: { width: 52, fontWeight: 700, color: Number(m.qty_change) >= 0 ? '#16a34a' : '#dc2626' } }, (Number(m.qty_change) >= 0 ? '+' : '') + m.qty_change),
+                      h('span', { style: { width: 60, color: C.sec } }, '→' + m.qty_after),
+                      h('span', { style: { flex: 1, color: C.sec, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: (m.operator || '') + ' ' + (m.note || '') }, '👤' + (m.operator || '-') + (m.note ? ' · ' + m.note : '')),
+                      h('span', { style: { color: '#aaa', whiteSpace: 'nowrap' } }, (m.created_at || '').slice(5, 16).replace('T', ' ')));
+                  }))))));
+  }
+
+  // ── 出库流水页(stock_movements)──
+  function outboundView() {
+    var list = moves || [];
+    var sumOvs = 0, sumDom = 0, sumNone = 0;
+    list.forEach(function (m) { var qn = Number(m.qty || 0); if (m.warehouse === 'overseas') sumOvs += qn; else if (m.warehouse === 'domestic') sumDom += qn; else sumNone += qn; });
+    var th = { textAlign: 'left', padding: '8px 10px', fontSize: 12, color: C.sec, fontWeight: 600, borderBottom: '1px solid ' + C.line, whiteSpace: 'nowrap' };
+    var tdS = { padding: '8px 10px', fontSize: 12.5, borderBottom: '1px solid #f1f1f1', verticalAlign: 'top' };
+    return h('div', null,
+      h('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 } },
+        h('span', { style: { fontSize: 13, color: '#7c3aed', fontWeight: 600 } }, '✈️ 海外出库 ' + sumOvs),
+        h('span', { style: { fontSize: 13, color: '#0369a1', fontWeight: 600 } }, '🏠 国内出库 ' + sumDom),
+        sumNone ? h('span', { style: { fontSize: 13, color: '#b45309', fontWeight: 600 } }, '⏳ 待标仓 ' + sumNone) : null,
+        h('span', { style: { fontSize: 12, color: C.sec, marginLeft: 'auto' } }, '共 ' + list.length + ' 条(近 500)')),
+      moves == null
+        ? h('div', { style: { padding: 40, textAlign: 'center', color: C.sec } }, '加载中…')
+        : (list.length === 0
+          ? h('div', { style: { padding: 40, textAlign: 'center', color: C.sec } }, '📤 暂无出库记录')
+          : h('div', { style: { overflowX: 'auto', border: '1px solid ' + C.line, borderRadius: 10 } },
+              h('table', { style: { width: '100%', borderCollapse: 'collapse', minWidth: 720 } },
+                h('thead', null, h('tr', null,
+                  h('th', { style: th }, '产品 (内部SKU ← 平台SKU)'), h('th', { style: th }, '店铺'), h('th', { style: th }, '订单号'), h('th', { style: th }, '数量'), h('th', { style: th }, '出库仓'), h('th', { style: th }, '操作人'), h('th', { style: th }, '时间'))),
+                h('tbody', null, list.map(function (m, i) {
+                  return h('tr', { key: m.id || i },
+                    h('td', { style: tdS }, h('div', { style: { fontWeight: 600, color: C.ink } }, m.product_name || ''), h('div', { style: { color: C.sec, fontSize: 11.5 } }, (m.internal_sku || '') + (m.platform_sku && m.platform_sku !== m.internal_sku ? ' ← ' + m.platform_sku : ''))),
+                    h('td', { style: tdS }, m.store_label || m.shop_domain || '—'),
+                    h('td', { style: tdS }, m.order_no || '—'),
+                    h('td', { style: Object.assign({}, tdS, { fontWeight: 700, color: '#dc2626' }) }, '-' + (m.qty || 0)),
+                    h('td', { style: tdS }, m.warehouse === 'overseas' ? '✈️ 海外' : m.warehouse === 'domestic' ? '🏠 国内' : '⏳ 待标'),
+                    h('td', { style: tdS }, m.created_by || '—'),
+                    h('td', { style: Object.assign({}, tdS, { color: '#aaa', whiteSpace: 'nowrap' }) }, (m.moved_at || '').slice(0, 16).replace('T', ' ')));
+                })))))); 
   }
 
   return h('div', { className: 'paper rounded-2xl', style: { padding: '16px 18px' } },
-    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 } },
-      h('div', { className: 'font-display', style: { fontSize: 20, fontWeight: 600, flex: 1, minWidth: 160 } }, '📦 库存查询',
-        h('span', { style: { fontSize: 12, fontWeight: 400, color: C.sec, marginLeft: 8 } }, '只读 · 数据来自跟单库存')),
-      h('button', { onClick: load, style: { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' } }, '🔄 刷新')),
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 } },
+      h('div', { className: 'font-display', style: { fontSize: 20, fontWeight: 600, flex: 1, minWidth: 160 } }, '📦 库存仓库',
+        h('span', { style: { fontSize: 12, fontWeight: 400, color: C.sec, marginLeft: 8 } }, '多店同款绑一个内部SKU · 分国内/海外仓 · 数据与跟单同源')),
+      h('button', { onClick: function () { load(); loadToday(); if (tab === 'outbound') loadMoves(); if (filt === 'trash') loadTrash(); }, style: { padding: '6px 12px', fontSize: 12, border: '1px solid ' + C.line, borderRadius: 8, background: '#fff', cursor: 'pointer', fontFamily: 'inherit' } }, '🔄 刷新')),
+
+    // 仓库合计卡
+    h('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 } },
+      sumCard('domestic', '🏠', '国内仓合计', summary.dom, summary.domN, '#0369a1'),
+      sumCard('overseas', '✈️', '海外仓合计', summary.ovs, summary.ovsN, '#7c3aed')),
+
+    // chip 行
     h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 } },
+      chip('all', '全部'),
+      chip('restock', '📊 备货建议', true),
+      h('button', { onClick: function () { setTab('outbound'); if (moves == null) loadMoves(); }, style: { padding: '6px 13px', fontSize: 12.5, border: '1px solid ' + (tab === 'outbound' ? C.accent : C.line), background: tab === 'outbound' ? 'rgba(37,99,235,.08)' : '#fff', color: tab === 'outbound' ? C.accent : C.sec, borderRadius: 16, cursor: 'pointer', fontFamily: 'inherit', fontWeight: tab === 'outbound' ? 600 : 400, whiteSpace: 'nowrap' } }, '📤 出库流水'),
+      chip('domestic', '🏠 有国内仓'), chip('overseas', '✈️ 有海外仓'),
+      chip('low', '⚠️ 低库存'), chip('out', '🔴 缺货'),
+      chip('today', '📅 今日消耗'), chip('unbound', '🔗 未绑定平台SKU'),
+      chip('trash', '🗑 回收站')),
+
+    // 搜索 + 店铺 + 库龄 + 排序
+    tab === 'list' ? h('div', { style: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 } },
       h('input', { type: 'text', value: q, onChange: function (e) { setQ(e.target.value); setPage(1); }, placeholder: '🔍 搜 SKU / 名称 / 供应商 / 平台SKU', style: { flex: 1, minWidth: 200, padding: '8px 12px', fontSize: 13, border: '1px solid ' + C.line, borderRadius: 18, fontFamily: 'inherit' } }),
-      chip('all', '全部'), chip('instock', '在库'), chip('low', '低库存'), chip('out', '缺货'),
+      h('select', { value: shopFilt, onChange: function (e) { setShopFilt(e.target.value); setPage(1); }, style: { padding: '7px 10px', fontSize: 12.5, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit' } },
+        [h('option', { key: '_all', value: '' }, '🏪 全部店铺')].concat(shopList.map(function (s) { return h('option', { key: s, value: s }, s); }))),
       h('select', { value: sortKey + ':' + sortDir, onChange: function (e) { var v = e.target.value.split(':'); setSortKey(v[0]); setSortDir(v[1]); setPage(1); }, style: { padding: '7px 10px', fontSize: 12.5, border: '1px solid ' + C.line, borderRadius: 8, fontFamily: 'inherit' } },
         h('option', { value: 'stock_qty:asc' }, '库存 少→多'),
         h('option', { value: 'stock_qty:desc' }, '库存 多→少'),
@@ -15504,15 +15757,31 @@ function InventoryModuleInline(props) {
         h('option', { value: 'age:asc' }, '库龄 新→久'),
         h('option', { value: 'sku:asc' }, 'SKU 升序'),
         h('option', { value: 'name_cn:asc' }, '名称 升序'),
-        h('option', { value: 'default_supplier:asc' }, '供应商 升序'))),
+        h('option', { value: 'default_supplier:asc' }, '供应商 升序'))) : null,
+
+    // 库龄 chip
+    tab === 'list' ? h('div', { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 } },
+      h('span', { style: { fontSize: 12, color: C.sec, marginRight: 2 } }, '库龄:'),
+      [['any', '不限'], ['30', '>30天'], ['60', '>60天'], ['90', '>90天'], ['180', '>半年'], ['365', '>1年']].map(function (a) {
+        var on = ageFilt === a[0];
+        return h('button', { key: a[0], onClick: function () { setAgeFilt(a[0]); setPage(1); }, style: { padding: '5px 11px', fontSize: 12, border: '1px solid ' + (on ? C.accent : C.line), background: on ? 'rgba(37,99,235,.08)' : '#fff', color: on ? C.accent : C.sec, borderRadius: 14, cursor: 'pointer', fontFamily: 'inherit', fontWeight: on ? 600 : 400 } }, a[1]);
+      })) : null,
+
     err ? h('div', { style: { padding: 14, color: '#dc2626', fontSize: 13 } }, err) : null,
-    pager('top'),
-    loading
-      ? h('div', { style: { padding: 40, textAlign: 'center', color: C.sec } }, '加载中…')
-      : (paged.length === 0
-        ? h('div', { style: { padding: 40, textAlign: 'center', color: C.sec } }, '📦 没有匹配的库存')
-        : h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 12 } }, paged.map(card))),
-    pager('bottom'),
+
+    tab === 'outbound'
+      ? outboundView()
+      : h('div', null,
+          filt === 'restock' ? h('div', { style: { fontSize: 12, color: '#b45309', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 8, padding: '8px 12px', marginBottom: 8 } }, '📊 备货建议:库存 ≤ 预警线 且 无在途补货的产品(销量驱动版待跟单提供 shopify_orders 字段后接入)') : null,
+          pager('top'),
+          loading
+            ? h('div', { style: { padding: 40, textAlign: 'center', color: C.sec } }, '加载中…')
+            : (paged.length === 0
+              ? h('div', { style: { padding: 40, textAlign: 'center', color: C.sec } }, '📦 没有匹配的库存')
+              : h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12 } }, paged.map(card))),
+          pager('bottom')),
+
+    editModal(),
     lb ? h('div', { onClick: function () { setLb(null); }, style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 2147483647, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', padding: 24, cursor: 'zoom-out' } },
       h('img', { src: (window.__imgFull ? window.__imgFull(lb.url) : lb.url), onClick: function (e) { e.stopPropagation(); }, style: { maxWidth: '92vw', maxHeight: '82vh', objectFit: 'contain', borderRadius: 8 } }),
       h('div', { style: { color: '#fff', fontSize: 13, marginTop: 12 } }, lb.cap || ''),
