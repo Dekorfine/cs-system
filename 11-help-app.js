@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix333
+// 版本 2026.06.05-fix334
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3530,12 +3530,12 @@ var App = function App() {
             cdmLoadingRef.current = true;
             setCdmLoading(true);
             _context16.p = 3;
-            // 拉最近 90 天 500 条 · 🆕 fix136: 列表只取轻量列(不含 attachments/thread 巨型 base64),详情再按需取
+            // 🆕 fix334: 拉最近 90 天最多 3000 条(原 500 太小:新消息把旧的挤出窗口,"我发起的"计数会莫名下降;消息其实未删)。列表只取轻量列(不含 attachments/thread 巨型 base64),详情再按需取
             cutoffMs = Date.now() - 90 * 24 * 3600 * 1000;
             _context16.n = 4;
             return client.from('cross_dept_messages').select(CDM_LIST_COLS).gte('created_at_ms', cutoffMs).order('created_at_ms', {
               ascending: false
-            }).limit(500);
+            }).limit(3000);
           case 4:
             _yield$client$from$se = _context16.v;
             data = _yield$client$from$se.data;
@@ -5442,7 +5442,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix333';
+var APP_VERSION = '2026.06.05-fix334';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
