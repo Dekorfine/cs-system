@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix335
+// 版本 2026.06.05-fix336
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4046,6 +4046,100 @@ function cdmInsert(msg) {
   if (!primary) return Promise.resolve({ error: { message: '无可用消息库连接' } });
   return Promise.resolve(primary.from('cross_dept_messages').insert(msg));
 }
+// 🆕 客服发货扣库存 —— 客服发货=真正出库(跟单只下单)。发货前校验,通过才扣:
+//   • 按 p.sku → products.sku 直配,配不上再按 platform_skus 包含匹配(同款多店绑一个内部SKU)
+//   • 选仓:优先海外仓(够扣),不够则国内仓;哪个仓都不够 或 SKU 对不上 → 卡住不发货
+//   • 提交:扣对应仓 + 总量 → 写 stock_movements(绑 order_no+warehouse,onConflict 幂等)+ 写 inventory_movements(留痕 operator)
+//   • 幂等:该单已写过的出库流水(order_no+platform_sku)跳过,避免重复扣
+//   返回 {ok:true,deducted,alreadyDone,skipped} 或 {ok:false,reason}
+async function _deductInventoryForShip(order, user) {
+  var products = (order.products || []).filter(function (p) { return p && (p.sku || '').trim() && (Number(p.qty) || 0) > 0; });
+  if (!products.length) return { ok: true, skipped: true };
+  var c = (typeof getPoClient === 'function') ? getPoClient() : null;
+  if (!c) return { ok: false, reason: '库存库(跟单库)未连接,无法扣库存,请稍后再试' };
+  var orderNo = (order.order_no || '').trim();
+  var COLS = 'id,sku,name_cn,name_en,stock_qty,stock_qty_domestic,stock_qty_overseas,platform_skus';
+  // 合并同 sku 数量
+  var need = {};
+  products.forEach(function (p) {
+    var k = (p.sku || '').trim();
+    if (!need[k]) need[k] = { qty: 0, name: p.name || '' };
+    need[k].qty += (Number(p.qty) || 0);
+  });
+  var skus = Object.keys(need);
+  var matched = {};
+  // 1) 内部 sku 直配(一次批量)
+  try {
+    var r1 = await c.from('products').select(COLS).eq('is_inventory_item', true).is('deleted_at', null).in('sku', skus);
+    (((r1 && r1.data) || [])).forEach(function (prod) { if (prod && prod.sku && !matched[prod.sku]) matched[prod.sku] = prod; });
+  } catch (e1) {}
+  // 2) 没配上的按 platform_skus 包含匹配
+  for (var i = 0; i < skus.length; i++) {
+    var sk = skus[i];
+    if (matched[sk]) continue;
+    try {
+      var r2 = await c.from('products').select(COLS).eq('is_inventory_item', true).is('deleted_at', null).contains('platform_skus', [{ sku: sk }]).limit(1);
+      if (r2 && r2.data && r2.data.length) matched[sk] = r2.data[0];
+    } catch (e2) {}
+  }
+  // 校验:匹配 + 选仓 + 够扣
+  var plan = [], noMatch = [], shortage = [];
+  skus.forEach(function (sku) {
+    var prod = matched[sku];
+    if (!prod) { noMatch.push(sku + (need[sku].name ? '(' + need[sku].name + ')' : '')); return; }
+    var qty = need[sku].qty;
+    var ovs = Number(prod.stock_qty_overseas || 0), dom = Number(prod.stock_qty_domestic || 0);
+    var wh = ovs >= qty ? 'overseas' : (dom >= qty ? 'domestic' : null);
+    if (!wh) { shortage.push((prod.sku || sku) + ' 需' + qty + '·海外' + ovs + '/国内' + dom); return; }
+    var shop = order.site || '', label = order.site || '';
+    if (Array.isArray(prod.platform_skus)) {
+      var hit = prod.platform_skus.filter(function (ps) { return ps && (ps.sku || '') === sku; });
+      var pick = hit.filter(function (ps) { return (ps.shop || '') === (order.site || '') || (ps.shop_label || '') === (order.site || ''); })[0] || hit[0];
+      if (pick) { shop = pick.shop || shop; label = pick.shop_label || label; }
+    }
+    plan.push({ prod: prod, sku: sku, qty: qty, wh: wh, ovs: ovs, dom: dom, shop: shop, label: label });
+  });
+  if (noMatch.length || shortage.length) {
+    var parts = ['⛔ 库存核对未通过,未发货'];
+    if (noMatch.length) parts.push('找不到库存(SKU对不上):' + noMatch.join('、'));
+    if (shortage.length) parts.push('库存不够扣:' + shortage.join('、'));
+    parts.push('请先在库存里补货/绑定SKU后再发货');
+    return { ok: false, reason: parts.join(' · ') };
+  }
+  // 幂等:取该单已写过的出库流水(已扣过的 sku 跳过)
+  var done = {};
+  if (orderNo) {
+    try {
+      var ex = await c.from('stock_movements').select('platform_sku').eq('order_no', orderNo);
+      (((ex && ex.data) || [])).forEach(function (m) { if (m && m.platform_sku) done[m.platform_sku] = 1; });
+    } catch (e3) {}
+  }
+  var csName = (user && (user.name || user.alias)) || '客服';
+  var nowIso = new Date().toISOString();
+  var deducted = 0;
+  for (var j = 0; j < plan.length; j++) {
+    var it = plan[j];
+    if (done[it.sku]) continue; // 已扣过
+    var newDom = it.wh === 'domestic' ? it.dom - it.qty : it.dom;
+    var newOvs = it.wh === 'overseas' ? it.ovs - it.qty : it.ovs;
+    var newTotal = newDom + newOvs;
+    var u1 = await c.from('products').update({ stock_qty: newTotal, stock_qty_domestic: newDom, stock_qty_overseas: newOvs }).eq('id', it.prod.id);
+    if (u1 && u1.error) return { ok: false, reason: '扣库存写入失败(' + (it.prod.sku || it.sku) + '):' + (u1.error.message || u1.error) + ' · 若为权限/RLS,请在跟单库放行 products 更新' };
+    await c.from('stock_movements').upsert({
+      internal_sku: it.prod.sku, product_name: it.prod.name_cn || it.prod.name_en || it.prod.sku,
+      platform_sku: it.sku, shop_domain: it.shop || null, store_label: it.label || null,
+      order_no: orderNo || null, shopify_order_id: null, qty: it.qty,
+      warehouse: it.wh, moved_at: nowIso, created_by: csName, note: '客服发货出库'
+    }, { onConflict: 'order_no,platform_sku' });
+    await c.from('inventory_movements').insert({
+      product_id: it.prod.id, internal_sku: it.prod.sku, movement_type: 'order_deduct',
+      qty_change: -it.qty, qty_after: newTotal, ref_type: 'order', ref_id: orderNo || null,
+      operator: csName, note: '客服发货'
+    });
+    deducted++;
+  }
+  return { ok: true, deducted: deducted, alreadyDone: deducted === 0 && plan.length > 0 };
+}
 // 🆕 fix315:自动转跟单 helper —— 状态推进到已付款/已下单时,若未转跟单则自动补发"已付款转单"消息(带去重,避免重复工单)
 function buildAutoTransferMsg(order, user) {
   var products = order.products || [];
@@ -4695,6 +4789,9 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
     if (!no) { toast('请填转单号(物流单号)', 'error'); return; }
     setShipBusy(true);
     var nowIso = new Date().toISOString();
+    Promise.resolve(_deductInventoryForShip(order, user)).then(function (inv) {
+      if (!inv || !inv.ok) { setShipBusy(false); toast((inv && inv.reason) || '库存扣减失败,未发货', 'error'); return; }
+      var _invNote = inv.skipped ? '' : (inv.alreadyDone ? ' · 库存已扣过' : (inv.deducted ? ' · 已扣库存' + inv.deducted + '项' : ''));
     CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, order), {}, {
       status: 'shipped', ship_no: no, ship_carrier: (shipCarrier || '').trim() || null, shipped_at: nowIso, updated_at: nowIso
     })).then(function () {
@@ -4715,11 +4812,12 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
         }
       } catch (e) {}
       setShipBusy(false); setShowShip(false);
-      toast('✓ 已发货 · 转单号 ' + no + ' · 已通知跟单');
+      toast('✓ 已发货 · 转单号 ' + no + ' · 已通知跟单' + _invNote);
       onReload();
     }, function (err) {
       setShipBusy(false); toast('发货失败: ' + ((err && err.message) || err), 'error');
     });
+    }, function (e) { setShipBusy(false); toast('库存核对异常: ' + ((e && e.message) || e), 'error'); });
   };
   var ell = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
   var copyDispatch = function copyDispatch() {
