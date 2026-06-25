@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix322
+// 版本 2026.06.05-fix331
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3415,12 +3415,34 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       });
     });
   };
+  // 🆕 fix331: 云端就绪信号 —— 直接刷新落在本 tab 时 CLOUD.client 可能还没建好,
+  //   原来 load 只在挂载跑一次([]),CLOUD.list 拿到 null 就空了且不重试,必须切 tab(remount)才加载。
+  //   改:轮询到 CLOUD.client 就绪 → cloudReady=true → 加载 + 实时订阅都自动重跑。
+  var _crState = useState(!!(CLOUD && CLOUD.client)),
+    cloudReady = _crState[0],
+    setCloudReady = _crState[1];
   useEffect(function () {
-    load();
-  }, []);
+    if (cloudReady) return;
+    var tries = 0;
+    var iv = setInterval(function () {
+      tries++;
+      if (CLOUD && CLOUD.client) {
+        clearInterval(iv);
+        setCloudReady(true);
+      } else if (tries > 50) {
+        clearInterval(iv);
+      }
+    }, 300);
+    return function () {
+      clearInterval(iv);
+    };
+  }, [cloudReady]);
+  useEffect(function () {
+    if (cloudReady) load();
+  }, [cloudReady]);
   // 🆕 fix300: 实时监听 offline_orders 变更 → 自动刷新(不用切模块)
   useEffect(function () {
-    if (!CLOUD || !CLOUD.client) return;
+    if (!cloudReady || !CLOUD || !CLOUD.client) return;
     var ch = null;
     try {
       ch = CLOUD.client.channel('offline_orders_rt_cs').on('postgres_changes', {
@@ -3433,7 +3455,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       try { if (ch) CLOUD.client.removeChannel(ch); } catch (e) {}
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, []);
+  }, [cloudReady]);
   var handleDelete = /*#__PURE__*/function () {
     var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(o) {
       var summary;
