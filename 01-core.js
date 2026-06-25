@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix320
+// 版本 2026.06.05-fix330
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -1923,6 +1923,7 @@ function empToAccountRow(e) {
     hide_from_list: !!e.hideFromList,
     active: e.active !== false && !e.disabled,
     allowed_tabs: Array.isArray(e.allowedTabs) && e.allowedTabs.length ? e.allowedTabs : null,
+    cs_group: e.csGroup === 'support' || e.csGroup === 'operation' ? e.csGroup : null,
     updated_at: new Date().toISOString()
   };
 }
@@ -1939,7 +1940,9 @@ function accountRowToEmp(r) {
     team: r.team || '',
     hideFromList: !!r.hide_from_list,
     disabled: r.active === false,
-    allowedTabs: Array.isArray(r.allowed_tabs) ? r.allowed_tabs : null // 🆕 fix260:按 tab 权限(空=角色默认)
+    allowedTabs: Array.isArray(r.allowed_tabs) ? r.allowed_tabs : null,
+    // 🆕 fix260:按 tab 权限(空=角色默认)
+    csGroup: r.cs_group === 'support' || r.cs_group === 'operation' ? r.cs_group : '' // fix330:客服分组(支持/操作),空=未设(回退写死名单)
   };
 }
 // 拉云端账号:成功→数组;失败(表不存在/未连)→null(调用方回退本地)

@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix328
+// 版本 2026.06.05-fix330
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1015,7 +1015,7 @@ var Section360 = function Section360(_ref3) {
 
 // ☆ fix324: 客服分组 —— 支持客服(回邮件)名单,其余=操作客服;排除名单(非客服,仅协助)对两位主管都隐藏。
 var CS_SUPPORT_KEYS = (function () {
-  var arr = ['hazelle', 'sally', 'ling', 'aletta', 'tammy', 'lammy', 'yulia', 'ashley', 'abby', 'luna', 'hannah', '杨佳欢', '区栩灵', '谭燕灵', '冯恩桐', '伍家家', '陶艳巧', '侯泳珊', '张宣霞', '杨甜', '聂诗误'];
+  var arr = ['hazelle', 'sally', 'ling', 'aletta', 'tammy', 'lammy', 'yulia', 'ashley', 'abby', 'luna', 'hannah', 'cheese', '杨佳欢', '区栩灵', '谭燕灵', '冯恩桐', '伍家家', '陶艳巧', '侯泳珊', '张宣霞', '杨甜', '聂诗误', '叶滋欣'];
   var set = {};
   arr.forEach(function (k) { set[String(k).toLowerCase()] = true; });
   return set;
@@ -1036,6 +1036,8 @@ function __csIsExcluded(e) {
   return !!(CS_EXCLUDE_KEYS[k[0]] || CS_EXCLUDE_KEYS[k[1]]);
 }
 function __csIsSupport(e) {
+  // fix330: 优先读账号上设置的 cs_group(支持/操作客服),未设则回退写死名单
+  if (e && (e.csGroup === 'support' || e.csGroup === 'operation')) return e.csGroup === 'support';
   var k = __csKeys(e);
   return !!(CS_SUPPORT_KEYS[k[0]] || CS_SUPPORT_KEYS[k[1]]);
 }

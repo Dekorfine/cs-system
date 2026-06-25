@@ -1,5 +1,5 @@
 // ====== cs-system — 04-admin-finance ======
-// 版本 2026.06.05-fix267
+// 版本 2026.06.05-fix330
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1238,7 +1238,25 @@ var AdminModule = function AdminModule(_ref5) {
     value: "staff"
   }, "\u5458\u5DE5"), /*#__PURE__*/React.createElement("option", {
     value: "admin"
-  }, "\u4E3B\u7BA1 (\u6709\u5168\u90E8\u6743\u9650)")))), /*#__PURE__*/React.createElement("div", {
+  }, "\u4E3B\u7BA1 (\u6709\u5168\u90E8\u6743\u9650)"))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    className: "block text-[11px] font-bold mb-1",
+    style: {
+      color: 'var(--ink-2)'
+    }
+  }, "\u5BA2\u670D\u5206\u7EC4"), /*#__PURE__*/React.createElement("select", {
+    value: newEmp.csGroup || '',
+    onChange: function onChange(e) {
+      return setNewEmp(_objectSpread(_objectSpread({}, newEmp), {}, {
+        csGroup: e.target.value
+      }));
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ""
+  }, "\u9ED8\u8BA4\uFF08\u56DE\u9000\u540D\u5355\uFF09"), /*#__PURE__*/React.createElement("option", {
+    value: "support"
+  }, "\u652F\u6301\u5BA2\u670D"), /*#__PURE__*/React.createElement("option", {
+    value: "operation"
+  }, "\u64CD\u4F5C\u5BA2\u670D")))), /*#__PURE__*/React.createElement("div", {
     className: "mt-3 flex gap-2"
   }, /*#__PURE__*/React.createElement("button", {
     className: "btn-pri",
@@ -1305,7 +1323,7 @@ var AdminModule = function AdminModule(_ref5) {
       style: {
         color: 'var(--ink-3)'
       }
-    }, e.sites || '—')), /*#__PURE__*/React.createElement("td", null, isEditing ? /*#__PURE__*/React.createElement("select", {
+    }, e.sites || '—')), /*#__PURE__*/React.createElement("td", null, isEditing ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("select", {
       value: e.role,
       onChange: function onChange(ev) {
         return updateEmp(e.id, {
@@ -1320,9 +1338,34 @@ var AdminModule = function AdminModule(_ref5) {
       value: "staff"
     }, "\u5458\u5DE5"), /*#__PURE__*/React.createElement("option", {
       value: "admin"
-    }, "\u4E3B\u7BA1")) : /*#__PURE__*/React.createElement("span", {
+    }, "\u4E3B\u7BA1")), /*#__PURE__*/React.createElement("select", {
+      value: e.csGroup || '',
+      onChange: function onChange(ev) {
+        return updateEmp(e.id, {
+          csGroup: ev.target.value
+        });
+      },
+      title: "\u5BA2\u670D\u5206\u7EC4\uFF1A\u51B3\u5B9A\u4E3B\u7BA1\u89C6\u89D2\uFF08Miya=\u652F\u6301 / Nicole=\u64CD\u4F5C\uFF09\u53EF\u89C1\u8303\u56F4",
+      style: {
+        padding: '4px 8px',
+        fontSize: '11px',
+        marginTop: 4,
+        display: 'block'
+      }
+    }, /*#__PURE__*/React.createElement("option", {
+      value: ""
+    }, "\u5206\u7EC4\uFF1A\u9ED8\u8BA4"), /*#__PURE__*/React.createElement("option", {
+      value: "support"
+    }, "\u652F\u6301\u5BA2\u670D"), /*#__PURE__*/React.createElement("option", {
+      value: "operation"
+    }, "\u64CD\u4F5C\u5BA2\u670D"))) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("span", {
       className: "tag ".concat(e.role === 'admin' ? 'tag-gold' : 'tag-neutral')
-    }, e.role === 'admin' ? '主管' : '员工')), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
+    }, e.role === 'admin' ? '主管' : '员工'), e.csGroup ? /*#__PURE__*/React.createElement("span", {
+      className: "tag tag-neutral",
+      style: {
+        marginLeft: 4
+      }
+    }, e.csGroup === 'support' ? '支持' : '操作') : null)), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement("span", {
       className: "font-mono text-[10px]",
       style: {
         color: 'var(--ink-4)'
