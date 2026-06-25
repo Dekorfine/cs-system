@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix332
+// 版本 2026.06.05-fix333
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3293,10 +3293,10 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     _useState70 = _slicedToArray(_useState69, 2),
     filterStatus = _useState70[0],
     setFilterStatus = _useState70[1];
-  var _useState71 = useState('board'),
+  var _useState71 = useState('list'),
     _useState72 = _slicedToArray(_useState71, 2),
     view = _useState72[0],
-    setView = _useState72[1]; // 🆕 fix229: list | commission(主管)
+    setView = _useState72[1]; // 🆕 fix333: list 为默认(行式列表),board/commission 可切
   var _useState73 = useState('all'),
     _useState74 = _slicedToArray(_useState73, 2),
     filterSite = _useState74[0],
@@ -3500,7 +3500,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   var filtered = useMemo(function () {
     var l = list;
     if (filterStatus === 'active') l = l.filter(function (o) {
-      return o.status !== 'completed' && o.status !== 'cancelled' && o.status !== 'shipped' && o.status !== 'draft';
+      return o.status !== 'completed' && o.status !== 'cancelled' && o.status !== 'shipped' && o.status !== 'draft' && o.status !== 'pending_payment';
     });else if (filterStatus === 'mine') l = l.filter(function (o) {
       return o.created_by === user.id;
     });else if (filterStatus !== 'all') l = l.filter(function (o) {
@@ -3967,11 +3967,12 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   })) : /*#__PURE__*/React.createElement(React.Fragment, null, ooPager, /*#__PURE__*/React.createElement("div", {
     className: "space-y-2"
   }, ooPaged.map(function (o) {
-    return /*#__PURE__*/React.createElement(OfflineOrderCard, {
+    return /*#__PURE__*/React.createElement(OfflineBoardCard, {
       key: o.id,
       order: o,
       user: user,
       isAdmin: isAdmin,
+      layout: 'row',
       onEdit: function onEdit() {
         return setEditing(o);
       },
@@ -4636,7 +4637,8 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
     onEdit = _refbc.onEdit,
     onDelete = _refbc.onDelete,
     onReload = _refbc.onReload,
-    toast = _refbc.toast;
+    toast = _refbc.toast,
+    layout = _refbc.layout || 'card';
   var _bShipSt = useState(false), showShip = _bShipSt[0], setShowShip = _bShipSt[1];
   var _bNoSt = useState(order.ship_no || ''), shipNo = _bNoSt[0], setShipNo = _bNoSt[1];
   var _bCarSt = useState(order.ship_carrier || ''), shipCarrier = _bCarSt[0], setShipCarrier = _bCarSt[1];
@@ -4699,6 +4701,69 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       navigator.clipboard.writeText(text).then(function () { toast('✓ 下单指令已复制'); }, function () { toast('复制失败,请手动复制', 'error'); });
     } catch (e) { toast('复制失败,请手动复制', 'error'); }
   };
+  if (layout === 'row') {
+    var _PO = [{ k: 'ordered', l: '待下单' }, { k: 'producing', l: '生产中' }, { k: 'arrived', l: '货到工厂' }];
+    var _cur = order.po_stage || 'ordered';
+    var _ci = _cur === 'shipped' ? _PO.length : _PO.findIndex(function (s) { return s.k === _cur; });
+    if (_ci < 0) _ci = 0;
+    var _poBar = React.createElement("div", { style: { display: 'flex', gap: 3, flex: '0 0 auto' }, title: "进度:" + (_PO[_ci] ? _PO[_ci].l : '已发货') }, _PO.map(function (s, i) {
+      var done = i < _ci, curr = i === _ci;
+      return React.createElement("span", { key: s.k, style: { fontSize: 9.5, fontWeight: 700, color: done || curr ? '#fff' : 'var(--ink-3)', background: done ? '#1d9e75' : curr ? '#ef9f27' : 'var(--bg)', border: done || curr ? 'none' : '1px solid var(--line)', borderRadius: 5, padding: '3px 7px', whiteSpace: 'nowrap' } }, (done ? '✓ ' : '') + s.l);
+    }));
+    var _mid = order.status === 'shipped'
+      ? React.createElement("span", { style: _objectSpread({ fontSize: 11, fontWeight: 700, color: '#059669', background: '#d1fae5', borderRadius: 6, padding: '4px 9px', flex: '0 0 auto', maxWidth: 190 }, ell) }, "✓ 已发货 " + (order.ship_no || ''))
+      : (order.status === 'paid' || order.status === 'dispatched')
+        ? _poBar
+        : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: status.color, background: status.bg, borderRadius: 5, padding: '2px 8px', flex: '0 0 auto', whiteSpace: 'nowrap' } }, status.label);
+    return React.createElement("div", {
+      style: { display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px', borderLeft: '3px solid ' + (status.color || '#9ca3af'), flexWrap: 'wrap', rowGap: 8 }
+    },
+      React.createElement("div", {
+        onClick: function onClick() { if (ooImg && window.__setPreviewImg) window.__setPreviewImg(ooImg); },
+        title: ooImg ? "点击放大查看" : "无产品图",
+        style: { width: 46, height: 46, borderRadius: 8, border: '1px solid var(--line)', background: '#f8fafc', backgroundImage: ooImg ? 'url("' + ooImg + '")' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: ooImg ? 'zoom-in' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: 'var(--ink-3)', flexShrink: 0 }
+      }, ooImg ? null : "📦"),
+      React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 150px', minWidth: 110 } },
+        order.site ? React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: '#475569', background: '#eef2f7', borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' } }, order.site) : null,
+        React.createElement("div", { onClick: onEdit, title: order.order_no || '', style: _objectSpread({ fontSize: 14, fontWeight: 700, color: '#0f172a', cursor: 'pointer', minWidth: 0 }, ell) }, order.order_no || '—')
+      ),
+      React.createElement("div", { style: { flex: '2 1 170px', minWidth: 0 } },
+        React.createElement("div", { style: _objectSpread({ fontSize: 12.5, fontWeight: 500, color: '#374151' }, ell) }, '👤 ' + (order.customer_name || order.customer_email || '—')),
+        order.customer_email && order.customer_name ? React.createElement("div", { style: _objectSpread({ fontSize: 11, color: 'var(--ink-3)' }, ell) }, '✉ ' + order.customer_email) : null
+      ),
+      React.createElement("div", { style: { flex: '0 0 auto', textAlign: 'right', minWidth: 92 } },
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: '#111827', whiteSpace: 'nowrap' } }, (order.payment_currency || 'USD') + ' ' + (order.payment_amount || 0)),
+        React.createElement("div", { style: { fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' } }, '📦' + prodCount + '件' + (order.created_by_name ? ' · ' + order.created_by_name : ''))
+      ),
+      _mid,
+      React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto', marginLeft: 'auto' } },
+        React.createElement("button", { onClick: copyDispatch, title: "复制下单指令", style: { padding: '4px 8px', fontSize: 11, border: '1px solid var(--line)', background: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' } }, "📋"),
+        React.createElement("button", { onClick: onEdit, style: { padding: '4px 9px', fontSize: 11, border: '1px solid var(--line)', background: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' } }, "✏ 编辑"),
+        isAdmin ? React.createElement("button", { onClick: onDelete, style: { padding: '4px 8px', fontSize: 11, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' } }, "🗑") : null,
+        order.status === 'shipped' ? null : (order.transferred_to_po
+          ? React.createElement("button", { onClick: function onClick() { setShipNo(order.ship_no || ''); setShipCarrier(order.ship_carrier || ''); setShowShip(true); }, style: { padding: '4px 12px', fontSize: 11, border: 'none', background: '#059669', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }, title: "填转单号 → 置已发货并通知跟单" }, "📦 发货")
+          : ((order.status === 'paid' || order.status === 'dispatched')
+            ? React.createElement("button", { onClick: function onClick() { setShowTransfer(true); }, style: { padding: '4px 11px', fontSize: 11, border: 'none', background: '#1e40af', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }, title: "转给跟单部" }, "📤 转跟单")
+            : null))
+      ),
+      showShip && React.createElement("div", {
+        onClick: function onClick(e) { if (e.target === e.currentTarget) setShowShip(false); },
+        style: { position: 'fixed', inset: 0, zIndex: 2147483400, background: 'rgba(15,15,20,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }
+      }, React.createElement("div", { style: { background: '#fff', width: '100%', maxWidth: 420, borderRadius: 12, padding: 18, boxShadow: '0 16px 50px rgba(0,0,0,.3)' } },
+        React.createElement("div", { style: { fontSize: 15, fontWeight: 600, marginBottom: 4 } }, "📦 发货 · 填转单号"),
+        React.createElement("div", { style: { fontSize: 12, color: '#6b7280', marginBottom: 12 } }, "订单 " + (order.order_no || '') + " · 填写后置为「已发货」并通知跟单,线下单完结"),
+        React.createElement("label", { style: { fontSize: 12, color: '#374151', display: 'block', marginBottom: 4 } }, "转单号 / 物流单号 *"),
+        React.createElement("input", { value: shipNo, autoFocus: true, onChange: function onChange(e) { return setShipNo(e.target.value); }, placeholder: "如 SF1234567890 / 1Z...", style: { width: '100%', boxSizing: 'border-box', padding: '8px 11px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, marginBottom: 10 } }),
+        React.createElement("label", { style: { fontSize: 12, color: '#374151', display: 'block', marginBottom: 4 } }, "快递公司(选填)"),
+        React.createElement("input", { value: shipCarrier, onChange: function onChange(e) { return setShipCarrier(e.target.value); }, placeholder: "如 顺丰 / DHL / USPS", style: { width: '100%', boxSizing: 'border-box', padding: '8px 11px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, marginBottom: 14 } }),
+        React.createElement("div", { style: { display: 'flex', gap: 8, justifyContent: 'flex-end' } },
+          React.createElement("button", { onClick: function onClick() { return setShowShip(false); }, style: { padding: '7px 14px', border: '1px solid #d1d5db', background: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontFamily: 'inherit' } }, "取消"),
+          React.createElement("button", { onClick: doShip, disabled: shipBusy, style: { padding: '7px 16px', border: 'none', background: shipBusy ? '#9ca3af' : '#059669', color: '#fff', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: 'inherit' } }, shipBusy ? "发货中…" : "确认发货")
+        )
+      )),
+      showTransfer && React.createElement(TransferToPoModal, { order: order, user: user, onClose: function onClose() { return setShowTransfer(false); }, onTransferred: function onTransferred() { setShowTransfer(false); onReload && onReload(); }, toast: toast })
+    );
+  }
   return React.createElement("div", {
     style: { background: '#fff', border: '1px solid var(--line)', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 5, borderLeft: '3px solid ' + (status.color || '#9ca3af') }
   },
