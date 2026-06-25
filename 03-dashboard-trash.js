@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix327
+// 版本 2026.06.05-fix328
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1394,7 +1394,7 @@ var DashboardModule = function DashboardModule(_ref4) {
 
   // ========== 🆕 fix82: 问题反馈统计 — 显示全部"未解决"的标记(不按日期筛,标记的问题没解决就一直显示给主管) ==========
   var feedbackStats = useMemo(function () {
-    return employees.map(function (e) {
+    return visibleEmployees.map(function (e) {
       return _objectSpread(_objectSpread({}, e), {}, {
         count: scopedRecords.filter(function (r) {
           return r.ownerId === e.id && r.isFeedback && r.status !== 'resolved';
@@ -1405,16 +1405,16 @@ var DashboardModule = function DashboardModule(_ref4) {
     }).sort(function (a, b) {
       return b.count - a.count;
     });
-  }, [employees, scopedRecords]);
+  }, [visibleEmployees, scopedRecords]);
   var feedbackRecords = useMemo(function () {
     return scopedRecords.filter(function (r) {
-      return r.isFeedback && r.status !== 'resolved';
+      return r.isFeedback && r.status !== 'resolved' && (!__csScope || __visIds[r.ownerId]);
     });
-  }, [scopedRecords]);
+  }, [scopedRecords, __csScope, __visIds]);
 
   // 🆕 fix174: 产品优化标记统计(对应 WorkTrack 绩效「产品优化奖」)
   var productOptStats = useMemo(function () {
-    return employees.map(function (e) {
+    return visibleEmployees.map(function (e) {
       return _objectSpread(_objectSpread({}, e), {}, {
         count: scopedRecords.filter(function (r) {
           return r.ownerId === e.id && r.isProductOpt;
@@ -1425,12 +1425,12 @@ var DashboardModule = function DashboardModule(_ref4) {
     }).sort(function (a, b) {
       return b.count - a.count;
     });
-  }, [employees, scopedRecords]);
+  }, [visibleEmployees, scopedRecords]);
   var productOptRecords = useMemo(function () {
     return scopedRecords.filter(function (r) {
-      return r.isProductOpt;
+      return r.isProductOpt && (!__csScope || __visIds[r.ownerId]);
     });
-  }, [scopedRecords]);
+  }, [scopedRecords, __csScope, __visIds]);
 
   // ========== 按客服分布 ==========
   var empStats = useMemo(function () {
@@ -1744,6 +1744,7 @@ var DashboardModule = function DashboardModule(_ref4) {
     scope: scope,
     selectedEmpId: scope === 'me' ? user.id : selectedEmpId,
     employees: employees,
+    teamEmployees: visibleEmployees,
     live: liveRecords,
     today: today,
     last7Start: addDays(today, -6),

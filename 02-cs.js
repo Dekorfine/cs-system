@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix322
+// 版本 2026.06.05-fix328
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -12825,6 +12825,7 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
   var scope = _ref45.scope,
     selectedEmpId = _ref45.selectedEmpId,
     employees = _ref45.employees,
+    teamEmployees = _ref45.teamEmployees,
     live = _ref45.live,
     today = _ref45.today,
     last7Start = _ref45.last7Start,
@@ -12851,13 +12852,13 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
       }) || employees[0];
       return me ? [me] : [];
     }
-    // team — 只列有数据的员工
-    return employees.filter(function (e) {
+    // team — 只列有数据的员工(主管视角用 teamEmployees 收口到本组;me/one 仍用全量 employees)
+    return (teamEmployees || employees).filter(function (e) {
       return live.some(function (r) {
         return r.ownerId === e.id && r.date >= startDate;
       });
     });
-  }, [scope, selectedEmpId, employees, live, startDate]);
+  }, [scope, selectedEmpId, employees, teamEmployees, live, startDate]);
 
   // 日期范围 - 按天展开
   var days = useMemo(function () {
