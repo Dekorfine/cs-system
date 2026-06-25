@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix328
+// 版本 2026.06.05-fix329
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -8809,6 +8809,10 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     _useState184 = _slicedToArray(_useState183, 2),
     refillStatus = _useState184[0],
     setRefillStatus = _useState184[1];
+  // 🆕 fix329: 补件问题类型(可选,复用售后 ISSUE_TYPES)
+  var _useStateRfIss = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.issue_type) || '');
+  var refillIssueType = _useStateRfIss[0],
+    setRefillIssueType = _useStateRfIss[1];
 
   // 退款专属
   var _useState185 = useState((existingEvent === null || existingEvent === void 0 ? void 0 : existingEvent.refund_type) || 'quality_issue'),
@@ -8961,7 +8965,8 @@ var EventEditorModal = function EventEditorModal(_ref38) {
             payload = _objectSpread(_objectSpread({}, base), {}, {
               items: validItems,
               expected_ship_date: expectedShipDate || null,
-              status: refillStatus
+              status: refillStatus,
+              issue_type: refillIssueType || null
             });
             _context14.n = 10;
             break;
@@ -10032,6 +10037,38 @@ var EventEditorModal = function EventEditorModal(_ref38) {
       display: 'block',
       marginBottom: 4
     }
+  }, "\u95EE\u9898\u7C7B\u578B"), /*#__PURE__*/React.createElement("select", {
+    value: refillIssueType,
+    onChange: function onChange(e) {
+      return setRefillIssueType(e.target.value);
+    },
+    style: {
+      width: '100%',
+      padding: '6px 10px',
+      border: '1px solid var(--line)',
+      borderRadius: 6,
+      fontSize: 13,
+      background: 'white'
+    }
+  }, /*#__PURE__*/React.createElement("option", {
+    value: ''
+  }, "\u8BF7\u9009\u62E9\uFF08\u53EF\u9009\uFF09"), ISSUE_TYPES.map(function (t) {
+    return /*#__PURE__*/React.createElement("option", {
+      key: t.key,
+      value: t.key
+    }, t.label);
+  }))), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginBottom: 14
+    }
+  }, /*#__PURE__*/React.createElement("label", {
+    style: {
+      fontSize: 11,
+      fontWeight: 600,
+      color: 'var(--ink-2)',
+      display: 'block',
+      marginBottom: 4
+    }
   }, "\u8865\u4EF6\u6E05\u5355 *  ", /*#__PURE__*/React.createElement("span", {
     style: {
       color: 'var(--ink-4)',
@@ -10166,11 +10203,13 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     }, "(", it.attachments.length, ")")), /*#__PURE__*/React.createElement(MultiImageUploader, {
       attachments: it.attachments || [],
       setAttachments: function setAttachments(atts) {
-        var next = _toConsumableArray(refillItems);
-        next[idx] = _objectSpread(_objectSpread({}, next[idx]), {}, {
-          attachments: atts
+        setRefillItems(function (prev) {
+          var next = _toConsumableArray(prev);
+          next[idx] = _objectSpread(_objectSpread({}, next[idx]), {}, {
+            attachments: atts
+          });
+          return next;
         });
-        setRefillItems(next);
       },
       acceptVideo: true,
       defaultLabel: "product"
