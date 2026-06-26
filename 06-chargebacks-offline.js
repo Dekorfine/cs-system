@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix340
+// 版本 2026.06.05-fix341
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4824,12 +4824,11 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
     } catch (e) { toast('复制失败,请手动复制', 'error'); }
   };
   if (layout === 'row') {
-    var _PO = [{ k: 'pending', l: '待下单' }, { k: 'ordered', l: '已下单' }, { k: 'producing', l: '生产中' }, { k: 'arrived', l: '货到工厂' }];
-    // 归一化 po_stage(跟单写的值兼容多种写法;空=待下单)
+    var _PO = [{ k: 'pending', l: '待下单' }, { k: 'producing', l: '已下单·生产中' }, { k: 'arrived', l: '货到工厂' }];
+    // 归一化 po_stage(对齐跟单语义:ordered=待下单初始态;producing=已下单+生产中;arrived=货到工厂)
     var _raw = (order.po_stage == null ? '' : String(order.po_stage)).trim().toLowerCase();
-    var _norm = { '': 'pending', 'pending': 'pending', 'todo': 'pending', '待下单': 'pending', '未下单': 'pending',
-      'ordered': 'ordered', 'placed': 'ordered', 'order': 'ordered', 'po': 'ordered', '已下单': 'ordered', '下单': 'ordered',
-      'producing': 'producing', 'production': 'producing', 'making': 'producing', '生产中': 'producing', '生产': 'producing',
+    var _norm = { '': 'pending', 'pending': 'pending', 'ordered': 'pending', 'order': 'pending', 'todo': 'pending', '待下单': 'pending', '未下单': 'pending',
+      'producing': 'producing', 'production': 'producing', 'making': 'producing', 'placed': 'producing', '已下单': 'producing', '下单': 'producing', '生产中': 'producing', '生产': 'producing',
       'arrived': 'arrived', 'arrival': 'arrived', 'instock': 'arrived', 'in_stock': 'arrived', '货到工厂': 'arrived', '到厂': 'arrived', '已到厂': 'arrived',
       'shipped': 'shipped', '已发货': 'shipped' };
     var _cur = _norm[_raw] || 'pending';
