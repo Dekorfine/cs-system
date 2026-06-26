@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix344
+// 版本 2026.06.05-fix348
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3625,12 +3625,14 @@ var InventoryModule = function InventoryModule(_ref24) {
     setLoadStatus('loading');
     setIframeUrl("inventory-view.html?t=".concat(Date.now().toString(36)));
   };
+  var _ff = useFillHeight(); var fillRef = _ff[0], fillH = _ff[1];
   return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl",
+    ref: fillRef,
     style: {
       padding: '14px 14px 14px',
       overflow: 'hidden',
-      height: 'calc(100vh - 100px)',
+      height: fillH ? fillH + 'px' : 'calc(100vh - 160px)',
       display: 'flex',
       flexDirection: 'column',
       boxSizing: 'border-box'
@@ -3761,12 +3763,14 @@ var QtyConfirmModule = function QtyConfirmModule(_ref24b) {
     setLoadStatus('loading');
     setIframeUrl(_qcUrl());
   };
+  var _ff = useFillHeight(); var fillRef = _ff[0], fillH = _ff[1];
   return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl",
+    ref: fillRef,
     style: {
       padding: '14px',
       overflow: 'hidden',
-      height: 'calc(100vh - 100px)',
+      height: fillH ? fillH + 'px' : 'calc(100vh - 160px)',
       display: 'flex',
       flexDirection: 'column',
       boxSizing: 'border-box'
@@ -3898,12 +3902,14 @@ var FreightCalcModule = function FreightCalcModule(_ref25) {
     setLoadStatus('loading');
     setIframeUrl("freight-calc.html?t=".concat(Date.now().toString(36)));
   };
+  var _ff = useFillHeight(); var fillRef = _ff[0], fillH = _ff[1];
   return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl",
+    ref: fillRef,
     style: {
       padding: '14px 14px 14px',
       overflow: 'hidden',
-      height: 'calc(100vh - 100px)',
+      height: fillH ? fillH + 'px' : 'calc(100vh - 160px)',
       display: 'flex',
       flexDirection: 'column',
       boxSizing: 'border-box'
@@ -4001,6 +4007,36 @@ var FreightCalcModule = function FreightCalcModule(_ref25) {
 };
 
 // ════════════════════════════════════════════════════════════════════
+// 🆕 fix348:iframe 工具填满视口测量 hook —— 测自身到视口顶的真实距离,动态算高度,
+//   resize / 顶部横幅(拒付提醒)出现消失都自适应,根治「页面+iframe」双重滚动。
+function useFillHeight() {
+  var ref = React.useRef(null);
+  var s = React.useState(null),
+    h = s[0],
+    setH = s[1];
+  React.useEffect(function () {
+    var measure = function measure() {
+      var el = ref.current;
+      if (!el) return;
+      var top = el.getBoundingClientRect().top;
+      var nh = Math.max(320, Math.floor(window.innerHeight - top - 10));
+      setH(nh);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    var ro = null;
+    try { ro = new ResizeObserver(measure); ro.observe(document.body); } catch (e) {}
+    var t1 = setTimeout(measure, 200),
+      t2 = setTimeout(measure, 700);
+    return function () {
+      window.removeEventListener('resize', measure);
+      if (ro) { try { ro.disconnect(); } catch (e) {} }
+      clearTimeout(t1); clearTimeout(t2);
+    };
+  }, []);
+  return [ref, h];
+}
+
 // 🆕 fix112: 📋 绩效考核打分器(iframe 嵌入独立 kpi-scorer.html)
 // 完整 KPI 模型(业绩75 + 能力25 + 11项奖惩 + 等级 S/A/B/C/D)· 自评+主管评分 · 每项扣分/加分依据+图片 · 日报/月报
 // 数据经 window.storage 垫片存 cs CLOUD 的 kpi_kv 表(团队共享/永久)· 整套逻辑在 kpi-scorer.html
@@ -4209,12 +4245,14 @@ var KpiScorerModule = function KpiScorerModule(_ref26) {
     setLoadStatus('loading');
     setIframeUrl("kpi-scorer.html?t=".concat(Date.now().toString(36)));
   };
+  var _ff = useFillHeight(); var fillRef = _ff[0], fillH = _ff[1];
   return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl",
+    ref: fillRef,
     style: {
       padding: '14px 14px 14px',
       overflow: 'hidden',
-      height: 'calc(100vh - 100px)',
+      height: fillH ? fillH + 'px' : 'calc(100vh - 160px)',
       display: 'flex',
       flexDirection: 'column',
       boxSizing: 'border-box'
@@ -4346,12 +4384,14 @@ var ExpressInvoiceModule = function ExpressInvoiceModule(_ref27) {
     setLoadStatus('loading');
     setIframeUrl("express-invoice.html?t=".concat(Date.now().toString(36)));
   };
+  var _ff = useFillHeight(); var fillRef = _ff[0], fillH = _ff[1];
   return /*#__PURE__*/React.createElement("div", {
     className: "paper rounded-2xl",
+    ref: fillRef,
     style: {
       padding: '14px',
       overflow: 'hidden',
-      height: 'calc(100vh - 100px)',
+      height: fillH ? fillH + 'px' : 'calc(100vh - 160px)',
       display: 'flex',
       flexDirection: 'column',
       boxSizing: 'border-box'
