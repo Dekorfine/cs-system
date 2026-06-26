@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix342
+// 版本 2026.06.05-fix346
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -2706,7 +2706,7 @@ var OfflineCommissionView = function OfflineCommissionView(_ref13) {
     return Object.values(m).map(function (g) {
       var base = 0;
       var orderRows = g.orders.map(function (o) {
-        var usd = Number(o.amount) || 0;
+        var usd = Number(o.payment_amount) || 0;
         var rmb = usd * settleRate;
         var cost = Number(o.aftersale_cost) || 0;
         var basis = rmb - cost;
