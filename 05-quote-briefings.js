@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix338
+// 版本 2026.06.05-fix345
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3192,6 +3192,11 @@ var OFFLINE_ORDER_STATUSES = [{
   label: '已付款',
   bg: '#dcfce7',
   color: '#15803d'
+}, {
+  key: 'doc_printed',
+  label: '已打印',
+  bg: '#cffafe',
+  color: '#155e75'
 }, {
   key: 'dispatched',
   label: '已下单',
