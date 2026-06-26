@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix336
+// 版本 2026.06.05-fix338
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3440,6 +3440,14 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   useEffect(function () {
     if (cloudReady) load();
   }, [cloudReady]);
+  // 🆕 回收站 30 天自动清空 —— 删除进回收站(deleted=true),超 30 天(按 updated_at≈删除时间)硬删
+  useEffect(function () {
+    if (!cloudReady || !CLOUD || !CLOUD.client) return;
+    try {
+      var cutoff = new Date(Date.now() - 30 * 86400000).toISOString();
+      Promise.resolve(CLOUD.client.from('offline_orders')['delete']().eq('deleted', true).lt('updated_at', cutoff)).then(function () {}, function () {});
+    } catch (e) {}
+  }, [cloudReady]);
   // 🆕 fix300: 实时监听 offline_orders 变更 → 自动刷新(不用切模块)
   useEffect(function () {
     if (!cloudReady || !CLOUD || !CLOUD.client) return;
@@ -3456,32 +3464,22 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       document.removeEventListener('visibilitychange', onVis);
     };
   }, [cloudReady]);
-  var handleDelete = /*#__PURE__*/function () {
-    var _ref25 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(o) {
-      var summary;
-      return _regenerator().w(function (_context12) {
-        while (1) switch (_context12.n) {
-          case 0:
-            summary = "".concat(o.order_no, " \xB7 ").concat(o.payment_currency || 'USD', " ").concat(o.payment_amount || 0, " \xB7 ").concat(o.customer_email || o.customer_name || '?');
-            _context12.n = 1;
-            return requestDelete({
-              user: user,
-              tableName: 'offline_orders',
-              moduleLabel: '💳 线下单',
-              record: o,
-              recordSummary: summary,
-              toast: toast,
-              onSuccess: load
-            });
-          case 1:
-            return _context12.a(2);
-        }
-      }, _callee12);
-    }));
-    return function handleDelete(_x7) {
-      return _ref25.apply(this, arguments);
-    };
-  }();
+  // 🆕 线下单删除:所有人可删,直接进回收站(30天内可恢复,超30天自动清空),不再走老板审批
+  var handleDelete = function handleDelete(o) {
+    var summary = (o.order_no || '') + ' · ' + (o.payment_currency || 'USD') + ' ' + (o.payment_amount || 0) + ' · ' + (o.customer_email || o.customer_name || '?');
+    Promise.resolve(wsConfirm('🗑️ 删除线下单\n\n' + summary + '\n\n删除后进【回收站】,30 天内可在回收站恢复,超 30 天自动清空。确认删除?')).then(function (ok) {
+      if (!ok) return;
+      var nowIso = new Date().toISOString();
+      Promise.resolve(CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, o), {}, { deleted: true, deleted_at: nowIso, updated_at: nowIso }))).then(function (res) {
+        var saved = Array.isArray(res) ? res[0] : res;
+        if (saved && saved.deleted === true) { toast('✓ 已移入回收站 · 30天内可恢复'); load(); return; }
+        Promise.resolve(CLOUD.client.from('offline_orders')['delete']().eq('id', o.id)).then(function (r2) {
+          if (r2 && r2.error) { toast('删除失败:' + (r2.error.message || r2.error), 'error'); return; }
+          toast('✓ 已删除'); load();
+        }, function (e) { toast('删除失败:' + ((e && e.message) || e), 'error'); });
+      }, function (e) { toast('删除失败:' + ((e && e.message) || e), 'error'); });
+    });
+  };
   // 🆕 fix270: 分页
   var _oopg = useState(1),
     ooPage = _oopg[0],
@@ -3616,6 +3614,9 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       }).length,
       dispatched: list.filter(function (o) {
         return o.status === 'dispatched';
+      }).length,
+      printed: list.filter(function (o) {
+        return o.status === 'printed';
       }).length,
       completed: list.filter(function (o) {
         return o.status === 'completed';
@@ -3752,6 +3753,9 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   }, {
     key: 'dispatched',
     label: '🚚 已下单'
+  }, {
+    key: 'printed',
+    label: '🖨️ 已打单'
   }, {
     key: 'completed',
     label: '✅ 已完成'
@@ -3960,7 +3964,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   }, "\uD83D\uDCCB \u6682\u65E0\u7EBF\u4E0B\u5355") : view === 'board' ? /*#__PURE__*/React.createElement("div", {
     style: { display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 8, alignItems: 'flex-start' }
   }, OFFLINE_ORDER_STATUSES.filter(function (st) {
-    return ['pending_payment', 'paid', 'dispatched'].indexOf(st.key) >= 0;
+    return ['pending_payment', 'paid', 'dispatched', 'printed'].indexOf(st.key) >= 0;
   }).map(function (st) {
     var col = filtered.filter(function (o) { return (o.status || 'draft') === st.key; });
     return /*#__PURE__*/React.createElement(OfflineBoardColumn, { key: st.key, st: st, col: col, user: user, isAdmin: isAdmin, onEditOrder: setEditing, onDeleteOrder: handleDelete, onReload: load, toast: toast });
