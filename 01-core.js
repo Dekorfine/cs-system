@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix330
+// 版本 2026.06.05-fix340
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -612,7 +612,7 @@ var CLOUD = {
             // 🆕 fix139: 重表默认排除大体积列(图片 base64),列表秒开;详情/展开再按需取
             HEAVY = {
               chargebacks: 'id,amount,currency,status,site,order_no,customer_name,customer_email,platform,reason,reason_detail,resolution,notes,deadline,opened_at,created_at,updated_at,created_by,created_by_name,assigned_to,assigned_to_names,assigned_at,resolved_at,cs_fault,cs_fault_emp,deleted',
-              offline_orders: 'id,order_no,site,status,customer_name,customer_email,customer_phone,payment_method,payment_currency,payment_amount,received_amount,paid_at,invoice_no,quote_id,quote_no,products,notes,follow_dispatch_text,ship_to_name,ship_to_phone,ship_to_address,ship_to_address2,ship_to_city,ship_to_state,ship_to_zip,ship_to_country,ship_no,ship_carrier,shipped_at,dispatched_at,transferred_to_po,transferred_to_name,transferred_at,created_at,updated_at,created_by,created_by_name,deleted'
+              offline_orders: 'id,order_no,site,status,customer_name,customer_email,customer_phone,payment_method,payment_currency,payment_amount,received_amount,paid_at,invoice_no,quote_id,quote_no,products,notes,follow_dispatch_text,ship_to_name,ship_to_phone,ship_to_address,ship_to_address2,ship_to_city,ship_to_state,ship_to_zip,ship_to_country,ship_no,ship_carrier,shipped_at,dispatched_at,po_stage,transferred_to_po,transferred_to_name,transferred_at,created_at,updated_at,created_by,created_by_name,deleted'
             };
             sel = opts.select || !opts.full && HEAVY[table] || '*'; // 🆕 IO优化:预先剥掉本会话已知缺失的列,避免每次先报错再回退
             if (sel !== '*' && _this2._missingColumns[table] && _this2._missingColumns[table].size) {

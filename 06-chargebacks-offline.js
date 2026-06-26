@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix339
+// 版本 2026.06.05-fix340
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4824,8 +4824,15 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
     } catch (e) { toast('复制失败,请手动复制', 'error'); }
   };
   if (layout === 'row') {
-    var _PO = [{ k: 'ordered', l: '待下单' }, { k: 'producing', l: '生产中' }, { k: 'arrived', l: '货到工厂' }];
-    var _cur = order.po_stage || 'ordered';
+    var _PO = [{ k: 'pending', l: '待下单' }, { k: 'ordered', l: '已下单' }, { k: 'producing', l: '生产中' }, { k: 'arrived', l: '货到工厂' }];
+    // 归一化 po_stage(跟单写的值兼容多种写法;空=待下单)
+    var _raw = (order.po_stage == null ? '' : String(order.po_stage)).trim().toLowerCase();
+    var _norm = { '': 'pending', 'pending': 'pending', 'todo': 'pending', '待下单': 'pending', '未下单': 'pending',
+      'ordered': 'ordered', 'placed': 'ordered', 'order': 'ordered', 'po': 'ordered', '已下单': 'ordered', '下单': 'ordered',
+      'producing': 'producing', 'production': 'producing', 'making': 'producing', '生产中': 'producing', '生产': 'producing',
+      'arrived': 'arrived', 'arrival': 'arrived', 'instock': 'arrived', 'in_stock': 'arrived', '货到工厂': 'arrived', '到厂': 'arrived', '已到厂': 'arrived',
+      'shipped': 'shipped', '已发货': 'shipped' };
+    var _cur = _norm[_raw] || 'pending';
     var _ci = _cur === 'shipped' ? _PO.length : _PO.findIndex(function (s) { return s.k === _cur; });
     if (_ci < 0) _ci = 0;
     var _poBar = React.createElement("div", { style: { display: 'flex', gap: 3, flex: '0 0 auto' }, title: "进度:" + (_PO[_ci] ? _PO[_ci].l : '已发货') }, _PO.map(function (s, i) {
