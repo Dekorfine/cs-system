@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix314
+// 版本 2026.06.05-fix339
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1199,7 +1199,7 @@ var EventsModule = function EventsModule(_ref) {
     }
   })), subTab === 'refills' && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: { textAlign: 'right', marginBottom: 6 }
-  }, /*#__PURE__*/React.createElement("button", {
+  }, isAdmin && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() { return setShowRefillTrash(true); },
     style: { padding: '5px 12px', fontSize: 12, border: '1px solid var(--line)', borderRadius: 8, background: '#fff', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit' }
   }, "\uD83D\uDDD1\uFE0F \u56DE\u6536\u7AD9")), /*#__PURE__*/React.createElement(CompletionStatsBanner, {

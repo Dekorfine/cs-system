@@ -1,5 +1,5 @@
 // ====== cs-system — 03-dashboard-trash ======
-// 版本 2026.06.05-fix330
+// 版本 2026.06.05-fix339
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3866,318 +3866,51 @@ var isSameDay = function isSameDay(record) {
 // 通用删除请求 - 替代直接 deleted=true
 // 主管/老板:仍可直接删除(会有审计日志)
 // 普通客服:必须走审批
-var requestDelete = /*#__PURE__*/function () {
-  var _ref23 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(_ref22) {
-    var user, tableName, moduleLabel, record, recordSummary, toast, onSuccess, isAdmin, isSuperAdmin, sameDay, isOwner, res, savedRow, actuallyDeleted, _yield$CLOUD$client$f, delErr, stillActive, _yield$CLOUD$client$f2, chk, chkErr, _yield$CLOUD$client$f3, chk2, _res, _savedRow, _yield$CLOUD$client$f4, _delErr, _reason, reason, _t3, _t4, _t5, _t6, _t7, _t8, _t9;
-    return _regenerator().w(function (_context5) {
-      while (1) switch (_context5.p = _context5.n) {
-        case 0:
-          user = _ref22.user, tableName = _ref22.tableName, moduleLabel = _ref22.moduleLabel, record = _ref22.record, recordSummary = _ref22.recordSummary, toast = _ref22.toast, onSuccess = _ref22.onSuccess;
-          isAdmin = user.role === 'admin' || user.role === 'super_admin';
-          isSuperAdmin = user.role === 'super_admin';
-          sameDay = isSameDay(record);
-          isOwner = record.created_by === user.id || record.ownerId === user.id; // 老板:直接删除(权限最大)
-          if (!isSuperAdmin) {
-            _context5.n = 21;
-            break;
-          }
-          _context5.n = 1;
-          return wsConfirm("\uD83D\uDC51 \u8001\u677F\u6743\u9650\u76F4\u63A5\u5220\u9664\n\n".concat(recordSummary, "\n\n\u786E\u8BA4\u5220\u9664? \u6B64\u64CD\u4F5C\u4F1A\u8BB0\u5F55\u5230\u5BA1\u8BA1\u65E5\u5FD7\u3002"));
-        case 1:
-          if (_context5.v) {
-            _context5.n = 2;
-            break;
-          }
-          return _context5.a(2, false);
-        case 2:
-          _context5.p = 2;
-          _context5.n = 3;
-          return CLOUD.upsert(tableName, _objectSpread(_objectSpread({}, record), {}, {
-            deleted: true,
-            updated_at: new Date().toISOString()
-          }));
-        case 3:
-          res = _context5.v;
-          if (!res) {
-            _context5.n = 17;
-            break;
-          }
-          // 🆕 fix9b: 验证 deleted=true 真的写入了 — 如果 CLOUD.upsert 的 schema-retry 把 deleted 字段剥离了(因为表没这一列),
-          // upsert 会"成功"但记录其实没标记删除 → 刷新后又会回来。这种情况下提示用户跑 SQL 而不是冒充已删除。
-          savedRow = Array.isArray(res) ? res[0] : res;
-          actuallyDeleted = savedRow && savedRow.deleted === true;
-          if (actuallyDeleted) {
-            _context5.n = 5;
-            break;
-          }
-          _context5.n = 4;
-          return CLOUD.client.from(tableName)["delete"]().eq('id', record.id);
-        case 4:
-          _yield$CLOUD$client$f = _context5.v;
-          delErr = _yield$CLOUD$client$f.error;
-          if (!delErr) {
-            _context5.n = 5;
-            break;
-          }
-          alert("\u5220\u9664\u5931\u8D25: ".concat(delErr.message || delErr, "\n\n(\u8F6F\u5220\u9664\u672A\u751F\u6548\u3001\u786C\u5220\u9664\u4E5F\u5931\u8D25 \u2014 \u53EF\u80FD\u662F RLS \u6743\u9650\u6216\u8868\u540D\u95EE\u9898)"));
-          return _context5.a(2, false);
-        case 5:
-          // 🆕 真删验证:确认这条真的没了 / 真的标记 deleted 了,否则别假报"已删除"
-          stillActive = false;
-          _context5.p = 6;
-          _context5.n = 7;
-          return CLOUD.client.from(tableName).select('id,deleted').eq('id', record.id).maybeSingle();
-        case 7:
-          _yield$CLOUD$client$f2 = _context5.v;
-          chk = _yield$CLOUD$client$f2.data;
-          chkErr = _yield$CLOUD$client$f2.error;
-          if (!chkErr) {
-            _context5.n = 9;
-            break;
-          }
-          _context5.n = 8;
-          return CLOUD.client.from(tableName).select('id').eq('id', record.id).maybeSingle();
-        case 8:
-          _yield$CLOUD$client$f3 = _context5.v;
-          chk2 = _yield$CLOUD$client$f3.data;
-          stillActive = !!(chk2 && chk2.id);
-          _context5.n = 10;
-          break;
-        case 9:
-          stillActive = !!(chk && chk.deleted !== true);
-        case 10:
-          _context5.n = 12;
-          break;
-        case 11:
-          _context5.p = 11;
-          _t3 = _context5.v;
-          stillActive = false;
-        case 12:
-          if (!stillActive) {
-            _context5.n = 13;
-            break;
-          }
-          alert("\u26A0 \u5220\u9664\u6CA1\u6709\u751F\u6548(\u6570\u636E\u5E93\u91CC\u8FD9\u6761\u8FD8\u5728)\n\n\u6700\u53EF\u80FD\u539F\u56E0:".concat(tableName, " \u8868\u7F3A\u5C11 deleted \u5217,\u4E14 RLS \u4E0D\u5141\u8BB8\u524D\u7AEF\u76F4\u63A5\u5220\u884C \u2192 \u5220\u9664\u88AB\u9759\u9ED8\u62E6\u622A\u3002\n\n\u89E3\u51B3(\u5728 Supabase \u9879\u76EE kwrajryhwyytkjkkidor \u7684 SQL Editor \u8DD1\u4E00\u6B21):\nALTER TABLE ").concat(tableName, " ADD COLUMN IF NOT EXISTS deleted boolean NOT NULL DEFAULT false;\n\n\u8DD1\u5B8C\u5F3A\u5237\u9875\u9762\u518D\u5220 \u2014 \u4F1A\u8D70\u8F6F\u5220\u9664(\u53EF\u5728\u56DE\u6536\u7AD9\u6062\u590D)\u3002"));
-          return _context5.a(2, false);
-        case 13:
-          _context5.p = 13;
-          _context5.n = 14;
-          return CLOUD.client.from('delete_requests').insert({
-            table_name: tableName,
-            record_id: String(record.id),
-            record_summary: recordSummary,
-            module_label: moduleLabel,
-            reason: '老板直接删除',
-            requested_by: user.id,
-            requested_by_name: user.name + (user.alias ? ' ' + user.alias : ''),
-            is_same_day: sameDay,
-            created_at_original: record.created_at || null,
-            approver_role: 'super_admin',
-            status: 'approved',
-            approver_id: user.id,
-            approver_name: user.name,
-            approved_at: new Date().toISOString(),
-            approval_note: '总管直接删除(无需审批)'
-          });
-        case 14:
-          _context5.n = 16;
-          break;
-        case 15:
-          _context5.p = 15;
-          _t4 = _context5.v;
-        case 16:
-          toast('✓ 已删除');
-          if (onSuccess) onSuccess();
-          return _context5.a(2, true);
-        case 17:
-          // 🆕 fix8: 之前这里默默 return false,用户看不到错误
-          // 实际可能是:1) 数据库无 deleted 列(aftersales/refills/refunds 旧 schema) 2) RLS 拒绝 3) 列名拼写错
-          alertSaveError('删除');
-          return _context5.a(2, false);
-        case 18:
-          _context5.n = 20;
-          break;
-        case 19:
-          _context5.p = 19;
-          _t5 = _context5.v;
-          alert('删除失败: ' + _t5.message);
-        case 20:
-          return _context5.a(2, false);
-        case 21:
-          if (!isAdmin) {
-            _context5.n = 38;
-            break;
-          }
-          if (!sameDay) {
-            _context5.n = 33;
-            break;
-          }
-          _context5.n = 22;
-          return wsConfirm("\u2B50 \u4E3B\u7BA1\u5220\u9664\u5F53\u5929\u6570\u636E\n\n".concat(recordSummary, "\n\n\u786E\u8BA4\u5220\u9664?"));
-        case 22:
-          if (_context5.v) {
-            _context5.n = 23;
-            break;
-          }
-          return _context5.a(2, false);
-        case 23:
-          _context5.p = 23;
-          _context5.n = 24;
-          return CLOUD.upsert(tableName, _objectSpread(_objectSpread({}, record), {}, {
-            deleted: true,
-            updated_at: new Date().toISOString()
-          }));
-        case 24:
-          _res = _context5.v;
-          if (!_res) {
-            _context5.n = 30;
-            break;
-          }
-          // 🆕 软删除没真正写入(表无 deleted 列,如 chargebacks)→ 自动硬删除
-          _savedRow = Array.isArray(_res) ? _res[0] : _res;
-          if (_savedRow && _savedRow.deleted === true) {
-            _context5.n = 26;
-            break;
-          }
-          _context5.n = 25;
-          return CLOUD.client.from(tableName)["delete"]().eq('id', record.id);
-        case 25:
-          _yield$CLOUD$client$f4 = _context5.v;
-          _delErr = _yield$CLOUD$client$f4.error;
-          if (!_delErr) {
-            _context5.n = 26;
-            break;
-          }
-          alert("\u5220\u9664\u5931\u8D25: ".concat(_delErr.message || _delErr));
-          return _context5.a(2, false);
-        case 26:
-          _context5.p = 26;
-          _context5.n = 27;
-          return CLOUD.client.from('delete_requests').insert({
-            table_name: tableName,
-            record_id: String(record.id),
-            record_summary: recordSummary,
-            module_label: moduleLabel,
-            reason: '主管删除当天数据',
-            requested_by: user.id,
-            requested_by_name: user.name + (user.alias ? ' ' + user.alias : ''),
-            is_same_day: true,
-            created_at_original: record.created_at || null,
-            approver_role: 'admin',
-            status: 'approved',
-            approver_id: user.id,
-            approver_name: user.name,
-            approved_at: new Date().toISOString(),
-            approval_note: '主管直接删除当天数据'
-          });
-        case 27:
-          _context5.n = 29;
-          break;
-        case 28:
-          _context5.p = 28;
-          _t6 = _context5.v;
-        case 29:
-          toast('✓ 已删除');
-          if (onSuccess) onSuccess();
-          return _context5.a(2, true);
-        case 30:
-          _context5.n = 32;
-          break;
-        case 31:
-          _context5.p = 31;
-          _t7 = _context5.v;
-          alert('删除失败: ' + _t7.message);
-        case 32:
-          return _context5.a(2, false);
-        case 33:
-          _context5.n = 34;
-          return wsPrompt("\uD83D\uDCDC \u5220\u9664\u5386\u53F2\u6570\u636E\u9700\u8981\u8001\u677F\u5BA1\u6279\n\n".concat(recordSummary, "\n\n\u8BF7\u586B\u5199\u5220\u9664\u7406\u7531:"));
-        case 34:
-          _reason = _context5.v;
-          if (!(!_reason || !_reason.trim())) {
-            _context5.n = 35;
-            break;
-          }
-          return _context5.a(2, false);
-        case 35:
-          _context5.p = 35;
-          _context5.n = 36;
-          return CLOUD.client.from('delete_requests').insert({
-            table_name: tableName,
-            record_id: String(record.id),
-            record_summary: recordSummary,
-            module_label: moduleLabel,
-            reason: _reason.trim(),
-            requested_by: user.id,
-            requested_by_name: user.name + (user.alias ? ' ' + user.alias : ''),
-            is_same_day: false,
-            created_at_original: record.created_at || null,
-            approver_role: 'super_admin',
-            status: 'pending'
-          });
-        case 36:
-          toast('✓ 已提交老板审批,等待批准');
-          return _context5.a(2, true);
-        case 37:
-          _context5.p = 37;
-          _t8 = _context5.v;
-          alert('提交失败: ' + _t8.message);
-          return _context5.a(2, false);
-        case 38:
-          if (isOwner) {
-            _context5.n = 39;
-            break;
-          }
-          alert('❌ 你不能删除别人的数据');
-          return _context5.a(2, false);
-        case 39:
-          if (sameDay) {
-            _context5.n = 40;
-            break;
-          }
-          alert('❌ 历史数据(非当天)只有主管/老板能删除\n\n请联系主管');
-          return _context5.a(2, false);
-        case 40:
-          _context5.n = 41;
-          return wsPrompt("\uD83D\uDCCB \u7533\u8BF7\u5220\u9664\u5F53\u5929\u6570\u636E(\u9700\u4E3B\u7BA1\u6279\u51C6)\n\n".concat(recordSummary, "\n\n\u8BF7\u586B\u5199\u5220\u9664\u7406\u7531:"));
-        case 41:
-          reason = _context5.v;
-          if (!(!reason || !reason.trim())) {
-            _context5.n = 42;
-            break;
-          }
-          return _context5.a(2, false);
-        case 42:
-          _context5.p = 42;
-          _context5.n = 43;
-          return CLOUD.client.from('delete_requests').insert({
-            table_name: tableName,
-            record_id: String(record.id),
-            record_summary: recordSummary,
-            module_label: moduleLabel,
-            reason: reason.trim(),
-            requested_by: user.id,
-            requested_by_name: user.name + (user.alias ? ' ' + user.alias : ''),
-            is_same_day: true,
-            created_at_original: record.created_at || null,
-            approver_role: 'admin',
-            status: 'pending'
-          });
-        case 43:
-          toast('✓ 删除申请已提交,等待主管批准');
-          return _context5.a(2, true);
-        case 44:
-          _context5.p = 44;
-          _t9 = _context5.v;
-          alert('提交失败: ' + _t9.message);
-          return _context5.a(2, false);
+var requestDelete = function requestDelete(opts) {
+  // 🆕 删除策略统一:所有人都可删除 → 软删进回收站(deleted=true,30天内可恢复)→ 写留痕(谁/何时)。
+  //   主管/老板在各模块的「回收站」可查看 + 恢复;兜底:表无 deleted 列则硬删。返回 Promise<boolean>。
+  var user = opts.user, tableName = opts.tableName, moduleLabel = opts.moduleLabel,
+      record = opts.record, recordSummary = opts.recordSummary, toast = opts.toast, onSuccess = opts.onSuccess;
+  var opName = (user && user.name ? user.name : '') + (user && user.alias ? ' ' + user.alias : '');
+  function auditLog(mode) {
+    try {
+      var nowIso = new Date().toISOString();
+      Promise.resolve(CLOUD.client.from('delete_requests').insert({
+        table_name: tableName, record_id: String(record.id), record_summary: recordSummary || '',
+        module_label: moduleLabel || '', reason: mode === 'hard' ? '删除(硬删·表无回收站)' : '删除(进回收站)',
+        requested_by: (user && user.id) || null, requested_by_name: opName || '(未知)',
+        is_same_day: isSameDay(record), created_at_original: record.created_at || null,
+        approver_role: (user && user.role) || '', status: 'approved',
+        approver_id: (user && user.id) || null, approver_name: opName || '',
+        approved_at: nowIso, approval_note: '所有人可删 · ' + (mode === 'hard' ? '硬删除' : '进回收站(30天内可恢复)')
+      })).then(function () {}, function () {});
+    } catch (e) {}
+  }
+  function fail(msg) { try { (typeof alert === 'function' ? alert : toast)(msg); } catch (e) { toast && toast(msg, 'error'); } return false; }
+  return Promise.resolve(wsConfirm('🗑️ 删除\n\n' + (recordSummary || '') + '\n\n删除后进【回收站】,30 天内主管可在回收站恢复,超 30 天自动清空。确认删除?')).then(function (ok) {
+    if (!ok) return false;
+    var nowIso = new Date().toISOString();
+    return Promise.resolve(CLOUD.upsert(tableName, _objectSpread(_objectSpread({}, record), {}, {
+      deleted: true, deleted_at: nowIso, updated_at: nowIso
+    }))).then(function (res) {
+      var saved = Array.isArray(res) ? res[0] : res;
+      if (saved && saved.deleted === true) {
+        auditLog('soft');
+        toast('✓ 已移入回收站 · 30天内可恢复');
+        if (onSuccess) onSuccess();
+        return true;
       }
-    }, _callee5, null, [[42, 44], [35, 37], [26, 28], [23, 31], [13, 15], [6, 11], [2, 19]]);
-  }));
-  return function requestDelete(_x2) {
-    return _ref23.apply(this, arguments);
-  };
-}();
+      // 软删没生效(表无 deleted 列,如 chargebacks 旧 schema)→ 硬删
+      return Promise.resolve(CLOUD.client.from(tableName)['delete']().eq('id', record.id)).then(function (r2) {
+        if (r2 && r2.error) return fail('删除失败: ' + (r2.error.message || r2.error));
+        auditLog('hard');
+        toast('✓ 已删除');
+        if (onSuccess) onSuccess();
+        return true;
+      }, function (e) { return fail('删除失败: ' + ((e && e.message) || e)); });
+    }, function (e) { return fail('删除失败: ' + ((e && e.message) || e)); });
+  });
+};
 
 // 📋 删除审批中心 - 主管/老板用
 var DeleteApprovalCenter = function DeleteApprovalCenter(_ref24) {

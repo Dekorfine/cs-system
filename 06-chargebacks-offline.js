@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix338
+// 版本 2026.06.05-fix339
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -453,7 +453,7 @@ var ChargebacksModule = function ChargebacksModule(_ref) {
       padding: '6px 14px',
       fontSize: 12
     }
-  }, "+ \u65B0\u589E\u62D2\u4ED8"), /*#__PURE__*/React.createElement("button", {
+  }, "+ \u65B0\u589E\u62D2\u4ED8"), (user.role === 'admin' || user.role === 'super_admin') && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setCbShowTrash(true);
     },
@@ -3464,20 +3464,12 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       document.removeEventListener('visibilitychange', onVis);
     };
   }, [cloudReady]);
-  // 🆕 线下单删除:所有人可删,直接进回收站(30天内可恢复,超30天自动清空),不再走老板审批
+  // 🆕 线下单删除:走统一 requestDelete(所有人可删·软删进回收站·留痕)
   var handleDelete = function handleDelete(o) {
-    var summary = (o.order_no || '') + ' · ' + (o.payment_currency || 'USD') + ' ' + (o.payment_amount || 0) + ' · ' + (o.customer_email || o.customer_name || '?');
-    Promise.resolve(wsConfirm('🗑️ 删除线下单\n\n' + summary + '\n\n删除后进【回收站】,30 天内可在回收站恢复,超 30 天自动清空。确认删除?')).then(function (ok) {
-      if (!ok) return;
-      var nowIso = new Date().toISOString();
-      Promise.resolve(CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, o), {}, { deleted: true, deleted_at: nowIso, updated_at: nowIso }))).then(function (res) {
-        var saved = Array.isArray(res) ? res[0] : res;
-        if (saved && saved.deleted === true) { toast('✓ 已移入回收站 · 30天内可恢复'); load(); return; }
-        Promise.resolve(CLOUD.client.from('offline_orders')['delete']().eq('id', o.id)).then(function (r2) {
-          if (r2 && r2.error) { toast('删除失败:' + (r2.error.message || r2.error), 'error'); return; }
-          toast('✓ 已删除'); load();
-        }, function (e) { toast('删除失败:' + ((e && e.message) || e), 'error'); });
-      }, function (e) { toast('删除失败:' + ((e && e.message) || e), 'error'); });
+    return requestDelete({
+      user: user, tableName: 'offline_orders', moduleLabel: '💳 线下单', record: o,
+      recordSummary: (o.order_no || '') + ' · ' + (o.payment_currency || 'USD') + ' ' + (o.payment_amount || 0) + ' · ' + (o.customer_email || o.customer_name || '?'),
+      toast: toast, onSuccess: load
     });
   };
   // 🆕 fix270: 分页
@@ -3712,7 +3704,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       padding: '6px 14px',
       fontSize: 12
     }
-  }, "+ \u65B0\u5EFA\u7EBF\u4E0B\u5355"), /*#__PURE__*/React.createElement("button", {
+  }, "+ \u65B0\u5EFA\u7EBF\u4E0B\u5355"), (user.role === 'admin' || user.role === 'super_admin') && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setOoShowTrash(true);
     },
@@ -8147,7 +8139,7 @@ var CustomInquiriesSubModule = function CustomInquiriesSubModule(_ref43) {
       padding: '6px 14px',
       fontSize: 12
     }
-  }, "+ \u65B0\u589E\u5B9A\u5236\u54A8\u8BE2"), /*#__PURE__*/React.createElement("button", {
+  }, "+ \u65B0\u589E\u5B9A\u5236\u54A8\u8BE2"), (user.role === 'admin' || user.role === 'super_admin') && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() { return setCiShowTrash(true); },
     style: { padding: '6px 14px', fontSize: 12, marginLeft: 8, border: '1px solid var(--line)', borderRadius: 8, background: '#fff', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit' }
   }, "\uD83D\uDDD1\uFE0F \u56DE\u6536\u7AD9")), /*#__PURE__*/React.createElement("div", {
@@ -9622,7 +9614,7 @@ var PhotoVerificationsSubModule = function PhotoVerificationsSubModule(_ref52) {
       padding: '6px 14px',
       fontSize: 12
     }
-  }, "+ \u65B0\u589E\u6838\u5B9E"), /*#__PURE__*/React.createElement("button", {
+  }, "+ \u65B0\u589E\u6838\u5B9E"), (user.role === 'admin' || user.role === 'super_admin') && /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() { return setPvShowTrash(true); },
     style: { padding: '6px 14px', fontSize: 12, marginLeft: 8, border: '1px solid var(--line)', borderRadius: 8, background: '#fff', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit' }
   }, "\uD83D\uDDD1\uFE0F \u56DE\u6536\u7AD9")), /*#__PURE__*/React.createElement("div", {
