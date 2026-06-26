@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix341
+// 版本 2026.06.05-fix342
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4761,8 +4761,12 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       if (typeof u === 'string' && u) urls.push(u);
     });
     (atts || []).forEach(function (a) {
+      // 只收真图片:用全局 attMimeKind 判定(PDF/文档=file 跳过),再加扩展名兜底
+      if (window.attMimeKind && window.attMimeKind(a) === 'file') return;
       var au = typeof a === 'string' ? a : a && (a.url || a.dataUrl || a.data);
-      if (typeof au === 'string' && au && !/\.(mp4|webm|mov|avi|m4v)(\?|$)/i.test(au)) urls.push(au);
+      if (typeof au !== 'string' || !au) return;
+      if (/\.(mp4|webm|mov|avi|m4v|pdf|docx?|xlsx?|pptx?|csv|zip|rar|7z|txt)(\?|$)/i.test(au)) return;
+      urls.push(au);
     });
     return urls;
   };
@@ -4838,11 +4842,12 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       var done = i < _ci, curr = i === _ci;
       return React.createElement("span", { key: s.k, style: { fontSize: 9.5, fontWeight: 700, color: done || curr ? '#fff' : 'var(--ink-3)', background: done ? '#1d9e75' : curr ? '#ef9f27' : 'var(--bg)', border: done || curr ? 'none' : '1px solid var(--line)', borderRadius: 5, padding: '3px 7px', whiteSpace: 'nowrap' } }, (done ? '✓ ' : '') + s.l);
     }));
+    var _statusTag = React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: status.color, background: status.bg, borderRadius: 5, padding: '3px 8px', flex: '0 0 auto', whiteSpace: 'nowrap' } }, status.label);
     var _mid = order.status === 'shipped'
       ? React.createElement("span", { style: _objectSpread({ fontSize: 11, fontWeight: 700, color: '#059669', background: '#d1fae5', borderRadius: 6, padding: '4px 9px', flex: '0 0 auto', maxWidth: 190 }, ell) }, "✓ 已发货 " + (order.ship_no || ''))
       : (order.status === 'paid' || order.status === 'dispatched')
-        ? _poBar
-        : React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: status.color, background: status.bg, borderRadius: 5, padding: '2px 8px', flex: '0 0 auto', whiteSpace: 'nowrap' } }, status.label);
+        ? React.createElement("div", { style: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', flex: '0 0 auto' } }, _statusTag, _poBar)
+        : _statusTag;
     return React.createElement("div", {
       style: { display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px', borderLeft: '3px solid ' + (status.color || '#9ca3af'), flexWrap: 'wrap', rowGap: 8 }
     },
