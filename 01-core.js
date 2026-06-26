@@ -1,5 +1,5 @@
 // ====== cs-system — 01-core ======
-// 版本 2026.06.05-fix340
+// 版本 2026.06.05-fix343
 // 预编译切片
 //
 var _excluded = ["data"];
@@ -2425,13 +2425,14 @@ var ImgPreviewModal = function ImgPreviewModal(_ref5) {
   };
   return ReactDOM.createPortal( /*#__PURE__*/React.createElement("div", {
     onClick: onClose,
+    "data-imgpreview-root": "1",
     style: { position: 'fixed', inset: 0, zIndex: 2147483600, background: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: 24 }
   }, multi && /*#__PURE__*/React.createElement("button", { onClick: function (e) { e.stopPropagation(); go(-1); }, style: navStyle('left'), title: '\u4E0A\u4E00\u5F20 (\u2190)' }, "\u2039"), /*#__PURE__*/React.createElement("img", {
     src: hd ? __imgFull(src) : pvSrc,
     onError: function (e) { window.__imgOnError && window.__imgOnError(e); },
     alt: "",
-    onClick: function onClick(e) { return e.stopPropagation(); },
-    style: { maxWidth: '90vw', maxHeight: multi ? '78vh' : '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 12px 48px rgba(0,0,0,0.5)' }
+    onClick: function onClick(e) { e.stopPropagation(); setHd(!hd); },
+    style: { maxWidth: '90vw', maxHeight: multi ? '78vh' : '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 12px 48px rgba(0,0,0,0.5)', cursor: hd ? 'zoom-out' : 'zoom-in' }
   }), multi && /*#__PURE__*/React.createElement("button", { onClick: function (e) { e.stopPropagation(); go(1); }, style: navStyle('right'), title: '\u4E0B\u4E00\u5F20 (\u2192)' }, "\u203A"), /*#__PURE__*/React.createElement("button", {
     onClick: onClose,
     style: { position: 'fixed', top: 16, right: 20, background: 'rgba(255,255,255,0.92)', border: 'none', borderRadius: 20, width: 40, height: 40, fontSize: 20, cursor: 'pointer', lineHeight: '40px' }
