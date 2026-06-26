@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix346
+// 版本 2026.06.05-fix349
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3404,8 +3404,8 @@ var generateOrderNo = /*#__PURE__*/function () {
         case 3:
           prefix = seq.prefix || site;
           separator = seq.separator || '-';
-          padding = seq.padding || 4; // 2. 扫描历史最大编号(从多个表收集)
-          maxNo = seq.current_no || 0; // 2a. 扫描 offline_orders
+          padding = seq.padding || 4; // 2. 扫描历史实际订单最大编号(从多个表收集,不再以 current_no 起步——它会因未保存的预览而虚高)
+          maxNo = 0; // 2a. 扫描 offline_orders
           _context0.p = 4;
           _context0.n = 5;
           return CLOUD.client.from('offline_orders').select('order_no').eq('site', site);
@@ -3492,8 +3492,7 @@ var generateOrderNo = /*#__PURE__*/function () {
           _context0.n = 11;
           break;
         case 16:
-          // 3. 生成新编号（放弃历史扫描，只认 site_order_sequences.current_no）
-          maxNo = seq.current_no || 0;
+          // 3. 生成新编号(基于历史实际订单扫描出的最大号 +1;不再用 current_no——它会因未保存的预览虚高而跳号)
           newNo = maxNo + 1;
           padded = String(newNo).padStart(padding, '0');
           orderNo = prefix + separator + padded; // 4. 更新 sequence(预览模式不更新)
@@ -4238,6 +4237,11 @@ var AU_STATES = {
 };
 function parseAddressText(text) {
   if (!text || typeof text !== 'string') return {};
+  // 🆕 美国州全称 → 反查(客户常写 Florida 而非 FL)
+  var US_STATE_NAME2ABBR = {};
+  for (var _sk in US_STATES) {
+    if (US_STATES.hasOwnProperty(_sk)) US_STATE_NAME2ABBR[US_STATES[_sk].toLowerCase()] = _sk;
+  }
   // 标准化: 去 label 前缀 / 拆行 / 去空
   var cleaned = text.replace(/^\s*(name|姓名|recipient|联系人|attn|attention)\s*[::]\s*/gim, '').replace(/^\s*(phone|tel|mobile|电话|手机|联系电话)\s*[::]\s*/gim, '').replace(/^\s*(address|地址|street|street address)\s*[::]\s*/gim, '').replace(/^\s*(city|城市)\s*[::]\s*/gim, '').replace(/^\s*(state|province|州|省)\s*[::]\s*/gim, '').replace(/^\s*(zip|postcode|postal code|邮编|邮政编码)\s*[::]\s*/gim, '').replace(/^\s*(country|国家)\s*[::]\s*/gim, '');
   var lines = cleaned.split(/[\n\r]+/).map(function (l) {
@@ -4295,6 +4299,25 @@ function parseAddressText(text) {
       result.state = m[2];
       result.zip = m[3];
       if (!result.country && US_STATES[m[2]]) result.country = 'United States';
+      remaining.splice(_i2, 1);
+      break;
+    }
+    // 🆕 US 全称州名模式: "City, Florida 32804"(客户常写州全称而非 FL)
+    m = line.match(/^(.+?),\s*([A-Za-z][A-Za-z.\s]+?)\s+(\d{5}(?:-\d{4})?)\s*$/);
+    if (m && US_STATE_NAME2ABBR[m[2].trim().replace(/\.$/, '').toLowerCase()]) {
+      result.city = m[1].trim();
+      result.state = m[2].trim().replace(/\.$/, '');
+      result.zip = m[3];
+      if (!result.country) result.country = 'United States';
+      remaining.splice(_i2, 1);
+      break;
+    }
+    // 🆕 US 全称州名(无邮编): "City, Florida"
+    m = line.match(/^(.+?),\s*([A-Za-z][A-Za-z.\s]+?)\s*$/);
+    if (m && US_STATE_NAME2ABBR[m[2].trim().replace(/\.$/, '').toLowerCase()]) {
+      result.city = m[1].trim();
+      result.state = m[2].trim().replace(/\.$/, '');
+      if (!result.country) result.country = 'United States';
       remaining.splice(_i2, 1);
       break;
     }

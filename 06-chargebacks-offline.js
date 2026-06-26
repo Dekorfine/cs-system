@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix347
+// 版本 2026.06.05-fix349
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4944,7 +4944,7 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto', marginLeft: 'auto' } },
         React.createElement("button", { onClick: copyDispatch, title: "复制下单指令", style: { padding: '4px 8px', fontSize: 11, border: '1px solid var(--line)', background: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' } }, "📋"),
         React.createElement("button", { onClick: onEdit, style: { padding: '4px 9px', fontSize: 11, border: '1px solid var(--line)', background: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' } }, "✏ 编辑"),
-        isAdmin ? React.createElement("button", { onClick: onDelete, style: { padding: '4px 8px', fontSize: 11, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' } }, "🗑") : null,
+        (isAdmin || order.created_by === user.id) ? React.createElement("button", { onClick: onDelete, style: { padding: '4px 8px', fontSize: 11, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' } }, "🗑") : null,
         order.status === 'shipped' ? null : (order.transferred_to_po
           ? React.createElement("button", { onClick: function onClick() { setShipNo(order.ship_no || ''); setShipCarrier(order.ship_carrier || ''); setShowShip(true); }, style: { padding: '4px 12px', fontSize: 11, border: 'none', background: '#059669', color: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }, title: "填转单号 → 置已发货并通知跟单" }, "📦 发货")
           : ((order.status === 'paid' || order.status === 'dispatched')
@@ -4993,7 +4993,7 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, paddingTop: 6, borderTop: '1px dashed var(--line)', flexWrap: 'wrap', rowGap: 6 } },
       React.createElement("button", { onClick: copyDispatch, title: "复制下单指令(发工厂/供应商)", style: { padding: '4px 8px', fontSize: 11, border: '1px solid var(--line)', background: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' } }, "📋"),
       React.createElement("button", { onClick: onEdit, style: { padding: '4px 9px', fontSize: 11, border: '1px solid var(--line)', background: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' } }, "✏ 编辑"),
-      isAdmin ? React.createElement("button", { onClick: onDelete, style: { padding: '4px 8px', fontSize: 11, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' } }, "🗑") : null,
+      (isAdmin || order.created_by === user.id) ? React.createElement("button", { onClick: onDelete, style: { padding: '4px 8px', fontSize: 11, border: '1px solid #fecaca', background: '#fef2f2', color: '#dc2626', borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit' } }, "🗑") : null,
       React.createElement("div", { style: { flex: 1, minWidth: 8 } }),
       order.status === 'shipped'
         ? React.createElement("span", { title: '转单号 ' + (order.ship_no || ''), style: _objectSpread({ fontSize: 11, fontWeight: 700, color: '#059669', background: '#d1fae5', borderRadius: 6, padding: '4px 9px', maxWidth: 160 }, ell) }, "✓ 已发货 " + (order.ship_no || ''))
