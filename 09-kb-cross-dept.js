@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix337
+// 版本 2026.06.05-fix344
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3629,7 +3629,11 @@ var InventoryModule = function InventoryModule(_ref24) {
     className: "paper rounded-2xl",
     style: {
       padding: '14px 14px 14px',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      height: 'calc(100vh - 100px)',
+      display: 'flex',
+      flexDirection: 'column',
+      boxSizing: 'border-box'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3712,8 +3716,8 @@ var InventoryModule = function InventoryModule(_ref24) {
     },
     style: {
       width: '100%',
-      height: 'calc(100vh - 220px)',
-      minHeight: 560,
+      flex: '1 1 auto',
+      minHeight: 0,
       border: 'none',
       borderRadius: 12,
       background: '#fafafa',
@@ -3761,7 +3765,11 @@ var QtyConfirmModule = function QtyConfirmModule(_ref24b) {
     className: "paper rounded-2xl",
     style: {
       padding: '14px',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      height: 'calc(100vh - 100px)',
+      display: 'flex',
+      flexDirection: 'column',
+      boxSizing: 'border-box'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3839,8 +3847,8 @@ var QtyConfirmModule = function QtyConfirmModule(_ref24b) {
     },
     style: {
       width: '100%',
-      height: 'calc(100vh - 220px)',
-      minHeight: 560,
+      flex: '1 1 auto',
+      minHeight: 0,
       border: 'none',
       borderRadius: 12,
       background: '#fafafa',
@@ -3894,7 +3902,11 @@ var FreightCalcModule = function FreightCalcModule(_ref25) {
     className: "paper rounded-2xl",
     style: {
       padding: '14px 14px 14px',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      height: 'calc(100vh - 100px)',
+      display: 'flex',
+      flexDirection: 'column',
+      boxSizing: 'border-box'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -3978,8 +3990,8 @@ var FreightCalcModule = function FreightCalcModule(_ref25) {
     },
     style: {
       width: '100%',
-      height: 'calc(100vh - 220px)',
-      minHeight: 560,
+      flex: '1 1 auto',
+      minHeight: 0,
       border: 'none',
       borderRadius: 12,
       background: '#fafafa',
@@ -4201,7 +4213,11 @@ var KpiScorerModule = function KpiScorerModule(_ref26) {
     className: "paper rounded-2xl",
     style: {
       padding: '14px 14px 14px',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      height: 'calc(100vh - 100px)',
+      display: 'flex',
+      flexDirection: 'column',
+      boxSizing: 'border-box'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4287,8 +4303,8 @@ var KpiScorerModule = function KpiScorerModule(_ref26) {
     },
     style: {
       width: '100%',
-      height: 'calc(100vh - 220px)',
-      minHeight: 560,
+      flex: '1 1 auto',
+      minHeight: 0,
       border: 'none',
       borderRadius: 12,
       background: '#fafafa',
@@ -4334,7 +4350,11 @@ var ExpressInvoiceModule = function ExpressInvoiceModule(_ref27) {
     className: "paper rounded-2xl",
     style: {
       padding: '14px',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      height: 'calc(100vh - 100px)',
+      display: 'flex',
+      flexDirection: 'column',
+      boxSizing: 'border-box'
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -4410,8 +4430,8 @@ var ExpressInvoiceModule = function ExpressInvoiceModule(_ref27) {
     },
     style: {
       width: '100%',
-      height: 'calc(100vh - 220px)',
-      minHeight: 560,
+      flex: '1 1 auto',
+      minHeight: 0,
       border: 'none',
       borderRadius: 12,
       background: '#fafafa',
