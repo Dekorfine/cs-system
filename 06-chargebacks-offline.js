@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix346
+// 版本 2026.06.05-fix347
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4306,6 +4306,57 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
     _useState102 = _slicedToArray(_useState101, 2),
     shopOwners = _useState102[0],
     setShopOwners = _useState102[1];
+  // 🆕 打印交接客服名单(app_config.cs_print_support;未配置则取 org_directory 客服里名字含「侯成」的,默认全勾选)
+  var _psR = useState([]),
+    printRoster = _psR[0],
+    setPrintRoster = _psR[1];
+  var _psS = useState([]),
+    printSel = _psS[0],
+    setPrintSel = _psS[1];
+  useEffect(function () {
+    var alive = true;
+    Promise.resolve().then(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _cbPR() {
+      var members, r, row, cli, d;
+      return _regenerator().w(function (_c) {
+        while (1) switch (_c.n) {
+          case 0:
+            members = [];
+            _c.p = 0;
+            if (!(CLOUD && CLOUD.client)) { _c.n = 2; break; }
+            _c.n = 1;
+            return CLOUD.client.from('app_config').select('value').eq('key', 'cs_print_support').order('updated_at', { ascending: false }).limit(1);
+          case 1:
+            r = _c.v;
+            row = r && r.data && r.data[0];
+            if (row && row.value && Array.isArray(row.value.members) && row.value.members.length) members = row.value.members;
+          case 2:
+            if (members.length) { _c.n = 4; break; }
+            cli = getMsgClient && getMsgClient();
+            if (!cli) { _c.n = 4; break; }
+            _c.n = 3;
+            return cli.from('org_directory').select('*');
+          case 3:
+            d = _c.v;
+            (d.data || []).forEach(function (p) {
+              var nm = p.display_name || p.name || '';
+              if (/\u4FAF\u6210/.test(nm)) members.push({ id: p.user_id || p.id, name: nm });
+            });
+          case 4:
+            _c.n = 6;
+            break;
+          case 5:
+            _c.p = 5;
+            _c.v;
+          case 6:
+            if (!alive) return _c.a(2);
+            setPrintRoster(members);
+            setPrintSel(members.map(function (m) { return m.id; }));
+            return _c.a(2);
+        }
+      }, _cbPR, null, [[0, 5]]);
+    })));
+    return function () { alive = false; };
+  }, []);
 
   // 加载跟单员工(从 shop_owners 表里跟单系统的负责人)
   useEffect(function () {
@@ -4461,6 +4512,9 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
               transferred_to_name: poUserName.trim() || '跟单部',
               transferred_at: new Date().toISOString(),
               status: order.status === 'paid' ? 'dispatched' : order.status,
+              print_assignee: printSel.length ? printSel : null,
+              print_assignee_name: printSel.length ? printRoster.filter(function (m) { return printSel.indexOf(m.id) >= 0; }).map(function (m) { return m.name; }).join('\u3001') : null,
+              print_status: printSel.length ? 'pending' : null,
               // 已付款 → 自动改为已下单
               updated_at: new Date().toISOString()
             }));
@@ -4600,6 +4654,24 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
       marginTop: 3
     }
   }, "\uD83D\uDCA1 \u4E3B\u7BA1\u5728\u8DE8\u90E8\u95E8\u534F\u4F5C\u91CC\u7EF4\u62A4\u4E86\"\u5E97\u94FA\u8D1F\u8D23\u4EBA\"\u6620\u5C04\u540E,\u8FD9\u91CC\u4F1A\u81EA\u52A8\u63A8\u8350")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+    style: { fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }
+  }, "\uD83D\uDDA8\uFE0F \u6253\u5370\u4EA4\u63A5\u5BA2\u670D"), printRoster.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 11, color: '#86868b' }
+  }, "\u672A\u914D\u7F6E\u3002\u4E3B\u7BA1\u53EF\u5728\u7EBF\u4E0B\u5355\u300C\u6253\u5370\u5BA2\u670D\u8BBE\u7F6E\u300D\u914D\u7F6E\uFF08\u9ED8\u8BA4\u4FAF\u6210\uFF09") : /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', flexWrap: 'wrap', gap: 8 }
+  }, printRoster.map(function (m) {
+    var on = printSel.indexOf(m.id) >= 0;
+    return /*#__PURE__*/React.createElement("label", {
+      key: m.id,
+      style: { display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, padding: '4px 10px', border: '1px solid ' + (on ? '#6d28d9' : 'var(--line)'), borderRadius: 7, background: on ? '#f5f3ff' : '#fff', cursor: 'pointer', color: on ? '#6d28d9' : 'var(--ink-2)', fontWeight: on ? 700 : 500 }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: 'checkbox',
+      checked: on,
+      onChange: function onChange() { setPrintSel(on ? printSel.filter(function (x) { return x !== m.id; }) : printSel.concat([m.id])); }
+    }), m.name);
+  })), /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 10, color: '#86868b', marginTop: 3 }
+  }, "\u8F6C\u5355\u540E\u52FE\u9009\u7684\u5BA2\u670D\u4F1A\u6536\u5230\u300C\u5F85\u6253\u5370\u4EA4\u63A5\u300D\u63D0\u9192\uFF0C\u6253\u5370\u8BA2\u5355\u4FE1\u606F\u4EA4\u7ED9\u8DDF\u5355")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: {
       fontSize: 11,
       fontWeight: 600,
