@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix349
+// 版本 2026.06.05-fix350
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3405,7 +3405,7 @@ var generateOrderNo = /*#__PURE__*/function () {
           prefix = seq.prefix || site;
           separator = seq.separator || '-';
           padding = seq.padding || 4; // 2. 扫描历史实际订单最大编号(从多个表收集,不再以 current_no 起步——它会因未保存的预览而虚高)
-          maxNo = 0; // 2a. 扫描 offline_orders
+          maxNo = seq.current_no || 0; // 2a. 权威:以 site_order_sequences.current_no 为准(offline_orders 不全且有脏数据,历史扫描仅参考)
           _context0.p = 4;
           _context0.n = 5;
           return CLOUD.client.from('offline_orders').select('order_no').eq('site', site);
@@ -3493,6 +3493,7 @@ var generateOrderNo = /*#__PURE__*/function () {
           break;
         case 16:
           // 3. 生成新编号(基于历史实际订单扫描出的最大号 +1;不再用 current_no——它会因未保存的预览虚高而跳号)
+          maxNo = seq.current_no || 0; // 编号权威以 current_no 为准(offline_orders 不全/有脏数据,不能当基准)
           newNo = maxNo + 1;
           padded = String(newNo).padStart(padding, '0');
           orderNo = prefix + separator + padded; // 4. 更新 sequence(预览模式不更新)
