@@ -339,7 +339,7 @@ function goPage(p){ PAGE=p; render(); try{ document.getElementById('list').scrol
 
 /* ============ 编辑弹层 ============ */
 function openModal(idx){
-  const r=ALL[idx]; if(!r)return; editing={...r, _idx:idx, _newStatus:r.status, _note:r.note||'', _handler:r.handler||ME||''};
+  const r=ALL[idx]; if(!r)return; editing={...r, _idx:idx, _newStatus:r.status, _note:r.note||'', _handler:r.handler||ME||'', _images:Array.isArray(r.images)?r.images.slice():[]};
   const st=ST[r.status]||ST.pending;
   document.getElementById('modal').innerHTML=`
     <h2>${esc(r.order_name||'—')} · ${esc(brandOf(r.shop))}
@@ -365,13 +365,17 @@ function openModal(idx){
       </div></div>
     <div class="field"><label>跟进人 handler</label><input type="text" id="mHandler" value="${esc(editing._handler)}" placeholder="指派/认领" style="width:100%"></div>
     <div class="field"><label>备注 / 客户诉求(转 revise 时务必写清)</label><textarea id="mNote" placeholder="客户要求改成…/ 取消多余数量 等">${esc(editing._note)}</textarea></div>
+    <div class="field"><label>客户换款 / 参考图(可粘贴 Ctrl+V / 上传 / 拖拽 · 跟单同步可见)</label>
+      <div id="mUploads" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+      <div id="mDrop" onclick="document.getElementById('mFile').click()" ondragover="event.preventDefault();this.style.borderColor='var(--accent,#0071e3)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';onPickFiles(event.dataTransfer.files)" style="border:1.5px dashed var(--line,#ccc);border-radius:8px;padding:14px;text-align:center;color:var(--ter,#888);font-size:12px;cursor:pointer">📷 点击选择 · 直接 Ctrl+V 粘贴 · 拖拽图片到此<input type="file" id="mFile" accept="image/*" multiple style="display:none" onchange="onPickFiles(this.files)"></div>
+    </div>
     <div class="modal-foot">
       <span class="sub" id="mWarn"></span>
       <div class="right"><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" id="mSave" onclick="saveEdit()">保存并回写标签</button></div>
     </div>`;
   pickStatus(editing._newStatus);
   document.getElementById('mask').classList.add('show');
-  loadOrderImages(editing);
+  loadOrderImages(editing); renderUploads();
 }
 function pickStatus(s){ editing._newStatus=s; document.querySelectorAll('#sbtns .sbtn').forEach(b=>b.classList.toggle('sel',b.dataset.s===s)); }
 function closeModal(){ document.getElementById('mask').classList.remove('show'); editing=null; }
@@ -383,7 +387,7 @@ async function saveEdit(){
   const handler=document.getElementById('mHandler').value.trim();
   const btn=document.getElementById('mSave'); btn.disabled=true; btn.textContent='保存中…';
   try{
-    const patch={status:newStatus, note:note||null, handler:handler||null, updated_at:new Date().toISOString()};
+    const patch={status:newStatus, note:note||null, handler:handler||null, images:editing._images||[], updated_at:new Date().toISOString()};
     if((newStatus==='confirmed'||newStatus==='closed') && !r.resolved_at) patch.resolved_at=new Date().toISOString();
     const { error } = await SB.from('qty_confirmations').update(patch).eq('shopify_order_id', r.shopify_order_id);
     if(error) throw error;
@@ -486,6 +490,38 @@ function openLightbox(url){
   const ov=document.getElementById('localLB'); ov.querySelector('img').src=url; ov.classList.add('show'); document.body.style.overflow='hidden';
 }
 function closeLightbox(){ const ov=document.getElementById('localLB'); ov.classList.remove('show'); ov.querySelector('img').src=''; document.body.style.overflow=''; }
+
+/* ============ 客户换款/参考图:上传到 Storage 存 URL(不存 base64)· 跟单同步可读 ============ */
+const QC_BUCKET='qc-uploads';
+async function uploadQcImage(file){
+  const ext=((file.name||'').split('.').pop()||'png').toLowerCase().replace(/[^a-z0-9]/g,'')||'png';
+  const path='qc/'+(editing&&editing.shopify_order_id||'misc')+'/'+Date.now()+'_'+Math.random().toString(36).slice(2,7)+'.'+ext;
+  const up=await SB.storage.from(QC_BUCKET).upload(path, file, {contentType:file.type||'image/png',upsert:false});
+  if(up.error) throw up.error;
+  const { data } = SB.storage.from(QC_BUCKET).getPublicUrl(path);
+  return { url:(data&&data.publicUrl)||'', name:file.name||'image' };
+}
+async function onPickFiles(files){
+  if(!editing||!files||!files.length)return;
+  const drop=document.getElementById('mDrop'); const old=drop?drop.innerHTML:''; if(drop)drop.innerHTML='⏳ 上传中…';
+  try{
+    for(const f of files){ if(!/^image\//.test(f.type||''))continue; const img=await uploadQcImage(f); editing._images.push(img); }
+    renderUploads();
+  }catch(e){ toast('图片上传失败:'+((e&&e.message)||e),'warn'); }
+  if(drop)drop.innerHTML=old;
+  const fi=document.getElementById('mFile'); if(fi)fi.value='';
+}
+function renderUploads(){
+  const box=document.getElementById('mUploads'); if(!box)return;
+  const arr=editing&&editing._images||[];
+  box.innerHTML=arr.map((im,i)=>'<div style="position:relative;width:64px;height:64px"><img src="'+esc(im.url)+'" data-full="'+esc(im.url)+'" onclick="openLightbox(this.dataset.full)" style="width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line,#ddd);cursor:pointer"><span onclick="removeUpload('+i+')" title="移除" style="position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;width:18px;height:18px;border-radius:50%;font-size:12px;line-height:18px;text-align:center;cursor:pointer">×</span></div>').join('');
+}
+function removeUpload(i){ if(!editing)return; editing._images.splice(i,1); renderUploads(); }
+document.addEventListener('paste', e=>{
+  if(!editing)return; const items=(e.clipboardData&&e.clipboardData.items)||[]; const files=[];
+  for(const it of items){ if(it.type&&it.type.indexOf('image')===0){ const f=it.getAsFile(); if(f)files.push(f); } }
+  if(files.length){ e.preventDefault(); onPickFiles(files); }
+});
 
 /* 初始化 */
 syncFollowupUI();
