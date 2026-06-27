@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix355
+// 版本 2026.06.05-fix356
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3704,7 +3704,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       padding: '6px 14px',
       fontSize: 12
     }
-  }, "+ \u65B0\u5EFA\u7EBF\u4E0B\u5355"), (user.role === 'admin' || user.role === 'super_admin') && /*#__PURE__*/React.createElement("button", {
+  }, "+ \u65B0\u5EFA\u7EBF\u4E0B\u5355"), /*#__PURE__*/React.createElement("button", {
     onClick: function onClick() {
       return setOoShowTrash(true);
     },
