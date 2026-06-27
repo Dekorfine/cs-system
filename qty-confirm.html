@@ -389,7 +389,14 @@ async function saveEdit(){
   try{
     const patch={status:newStatus, note:note||null, handler:handler||null, images:editing._images||[], updated_at:new Date().toISOString()};
     if((newStatus==='confirmed'||newStatus==='closed') && !r.resolved_at) patch.resolved_at=new Date().toISOString();
-    const { error } = await SB.from('qty_confirmations').update(patch).eq('shopify_order_id', r.shopify_order_id);
+    let { error } = await SB.from('qty_confirmations').update(patch).eq('shopify_order_id', r.shopify_order_id);
+    if(error && /images|schema cache/i.test((error.message||'')+(error.details||''))){
+      // images 列还没建 → 去掉图片再存其它字段,别整单失败;提示去跑 SQL
+      const rest = Object.assign({}, patch); delete rest.images;
+      const retry = await SB.from('qty_confirmations').update(rest).eq('shopify_order_id', r.shopify_order_id);
+      error = retry.error;
+      if(!error && (patch.images||[]).length) toast('⚠️ 图片未保存:请先在 po库给 qty_confirmations 加 images 列(SQL 见上次交付)','warn');
+    }
     if(error) throw error;
     // 本地同步
     Object.assign(ALL[r._idx], patch);
