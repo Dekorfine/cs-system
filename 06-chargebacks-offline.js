@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix354
+// 版本 2026.06.05-fix355
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4930,7 +4930,10 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       }, ooImg ? null : "📦"),
       React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 150px', minWidth: 110 } },
         order.site ? React.createElement("span", { style: { fontSize: 10, fontWeight: 600, color: '#475569', background: '#eef2f7', borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap' } }, order.site) : null,
-        React.createElement("div", { onClick: onEdit, title: order.order_no || '', style: _objectSpread({ fontSize: 14, fontWeight: 700, color: '#0f172a', cursor: 'pointer', minWidth: 0 }, ell) }, order.order_no || '—')
+        React.createElement("div", { style: { minWidth: 0 } },
+          React.createElement("div", { onClick: onEdit, title: order.order_no || '', style: _objectSpread({ fontSize: 14, fontWeight: 700, color: '#0f172a', cursor: 'pointer', minWidth: 0 }, ell) }, order.order_no || '—'),
+          order.invoice_no ? React.createElement("div", { title: '发票号', style: _objectSpread({ fontSize: 10.5, fontWeight: 600, color: '#0369a1' }, ell) }, '🧾 ' + order.invoice_no) : null
+        )
       ),
       React.createElement("div", { style: { flex: '2 1 170px', minWidth: 0 } },
         React.createElement("div", { style: _objectSpread({ fontSize: 12.5, fontWeight: 500, color: '#374151' }, ell) }, '👤 ' + (order.customer_name || order.customer_email || '—')),
@@ -4987,6 +4990,7 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       }, ooImg ? null : "\uD83D\uDCE6"),
       React.createElement("div", { onClick: onEdit, title: order.order_no || '', style: _objectSpread({ fontSize: 14, fontWeight: 700, color: '#0f172a', cursor: 'pointer', minWidth: 0, flex: 1 }, ell) }, order.order_no || '—')
     ),
+    order.invoice_no ? React.createElement("div", { title: '发票号', style: _objectSpread({ fontSize: 10.5, fontWeight: 600, color: '#0369a1', marginTop: 2 }, ell) }, '🧾 ' + order.invoice_no) : null,
     React.createElement("div", { style: _objectSpread({ fontSize: 12, fontWeight: 500, color: '#374151' }, ell) }, '👤 ' + (order.customer_name || order.customer_email || '—')),
     (order.customer_email && order.customer_name) ? React.createElement("div", { style: _objectSpread({ fontSize: 11, color: 'var(--ink-3)' }, ell) }, '✉ ' + order.customer_email) : null,
     React.createElement("div", { style: _objectSpread({ fontSize: 11, color: 'var(--ink-3)' }, ell) }, '📦 ' + prodCount + '件' + (order.created_by_name ? ' · 录入 ' + order.created_by_name : '')),
