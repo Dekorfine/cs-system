@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix349
+// 版本 2026.06.05-fix352
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3502,7 +3502,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     if (search.trim()) {
       var q = search.trim().toLowerCase();
       l = l.filter(function (o) {
-        return (o.order_no || '').toLowerCase().includes(q) || (o.customer_email || '').toLowerCase().includes(q) || (o.customer_name || '').toLowerCase().includes(q) || (o.ship_to_name || '').toLowerCase().includes(q);
+        return (o.order_no || '').toLowerCase().includes(q) || (o.invoice_no || '').toLowerCase().includes(q) || (o.customer_email || '').toLowerCase().includes(q) || (o.customer_name || '').toLowerCase().includes(q) || (o.ship_to_name || '').toLowerCase().includes(q);
       });
     }
     // 🆕 时间筛选
@@ -3808,7 +3808,7 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
     onChange: function onChange(e) {
       return setSearch(e.target.value);
     },
-    placeholder: "\uD83D\uDD0D \u8BA2\u5355\u53F7 / \u5BA2\u6237\u90AE\u7BB1 / \u59D3\u540D...",
+    placeholder: "\uD83D\uDD0D \u8BA2\u5355\u53F7 / \u53D1\u7968\u53F7 / \u5BA2\u6237\u90AE\u7BB1 / \u59D3\u540D...",
     style: {
       width: '100%',
       marginTop: 10,
