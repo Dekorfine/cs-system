@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix339
+// 版本 2026.06.05-fix351
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3016,7 +3016,11 @@ var AftersalesTable = function AftersalesTable(_ref18) {
           whiteSpace: 'nowrap'
         }
       }, "\uD83D\uDCE6 ", (rs === null || rs === void 0 ? void 0 : rs.label) || '补件');
-    }()), /*#__PURE__*/React.createElement("td", {
+    }(), e.return_status === 'handled' && /*#__PURE__*/React.createElement("span", {
+      style: { marginLeft: 5, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8, background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', whiteSpace: 'nowrap' }
+    }, "\u2705 已处理退货", e.return_handled_at ? ' \xB7 ' + String(e.return_handled_at).slice(0, 10) : ''), e.refill_ordered_at && /*#__PURE__*/React.createElement("span", {
+      style: { marginLeft: 5, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8, background: '#ede9fe', color: '#6d28d9', border: '1px solid #ddd6fe', whiteSpace: 'nowrap' }
+    }, "\uD83D\uDCDD 跟单已下单 \xB7 ", String(e.refill_ordered_at).slice(0, 10))), /*#__PURE__*/React.createElement("td", {
       style: {
         fontSize: 12
       }
@@ -3374,7 +3378,11 @@ var RefillsTable = function RefillsTable(_ref20) {
         border: '1px solid #fed7aa',
         whiteSpace: 'nowrap'
       }
-    }, "\u552E\u540E\u8F6C\u5165")), /*#__PURE__*/React.createElement("td", null, e.attachments && e.attachments.length > 0 ? function () {
+    }, "\u552E\u540E\u8F6C\u5165"), e.refill_scope && /*#__PURE__*/React.createElement("span", {
+      style: { marginLeft: 5, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8, background: e.refill_scope === 'whole_lamp' ? '#fef3c7' : '#f1f5f9', color: e.refill_scope === 'whole_lamp' ? '#b45309' : '#475569', border: '1px solid ' + (e.refill_scope === 'whole_lamp' ? '#fde68a' : '#e2e8f0'), whiteSpace: 'nowrap' }
+    }, e.refill_scope === 'whole_lamp' ? '💡 整灯·跟单' : '🔩 小配件·客服'), e.refill_ordered_at && /*#__PURE__*/React.createElement("span", {
+      style: { marginLeft: 5, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8, background: '#ede9fe', color: '#6d28d9', border: '1px solid #ddd6fe', whiteSpace: 'nowrap' }
+    }, "\uD83D\uDCDD 跟单已下单 \xB7 ", String(e.refill_ordered_at).slice(0, 10))), /*#__PURE__*/React.createElement("td", null, e.attachments && e.attachments.length > 0 ? function () {
       var a0 = e.attachments[0] || {};
       var u0 = a0.url || a0.dataUrl || a0.data || '';
       return /*#__PURE__*/React.createElement("div", {
@@ -3779,7 +3787,9 @@ var RefundsTable = function RefundsTable(_ref22) {
       }
     }, /*#__PURE__*/React.createElement(OrderRefLink, {
       orderNo: r.order_ref
-    })), /*#__PURE__*/React.createElement("td", {
+    }), r.return_status === 'handled' && /*#__PURE__*/React.createElement("span", {
+      style: { marginLeft: 5, fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8, background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', whiteSpace: 'nowrap' }
+    }, "\u2705 已处理退货", r.return_handled_at ? ' \xB7 ' + String(r.return_handled_at).slice(0, 10) : '')), /*#__PURE__*/React.createElement("td", {
       style: {
         fontSize: 11,
         color: 'var(--ink-3)'
