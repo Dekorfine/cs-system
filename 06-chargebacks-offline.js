@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix352
+// 版本 2026.06.05-fix353
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1220,7 +1220,7 @@ var ChargebackCard = function ChargebackCard(_ref5) {
       color: cb.cs_fault ? '#dc2626' : 'var(--ink-3)',
       border: '1px solid ' + (cb.cs_fault ? '#fca5a5' : 'var(--line)')
     }
-  }, cb.cs_fault ? '⚠️客服失误✓' : '标记失误'), (isAdmin || cb.created_by === user.id) && /*#__PURE__*/React.createElement("button", {
+  }, cb.cs_fault ? '⚠️客服失误✓' : '标记失误'), /*#__PURE__*/React.createElement("button", {
     onClick: onDelete,
     style: {
       padding: '5px 10px',
@@ -1248,16 +1248,16 @@ var ChargebackCard = function ChargebackCard(_ref5) {
       icon: '🔧',
       who: handler,
       when: fmtStepDate(cb.assigned_at),
-      done: !!handler && !!cb.assigned_at,
+      done: (!!cb.status && cb.status !== 'pending') || !!handler && !!cb.assigned_at,
       color: '#9333ea'
     }, {
       id: 'done',
-      label: '完成',
-      icon: '✅',
+      label: cb.status === 'won' ? '完成·胜诉' : cb.status === 'lost' ? '完成·败诉' : '完成',
+      icon: cb.status === 'lost' ? '❌' : cb.status === 'won' ? '🏆' : '✅',
       who: handler,
       when: fmtStepDate(cb.resolved_at),
-      done: ['won', 'lost', 'closed'].includes(cb.status) && !!cb.resolved_at,
-      color: '#16a34a'
+      done: ['won', 'lost', 'closed'].includes(cb.status),
+      color: cb.status === 'lost' ? '#dc2626' : '#16a34a'
     }];
     return /*#__PURE__*/React.createElement("div", {
       style: {
