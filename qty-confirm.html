@@ -150,10 +150,11 @@
     <span class="chip" data-t="7" onclick="setPreset('7')">近7天</span>
     <span class="chip" data-t="30" onclick="setPreset('30')">近30天</span>
     <span class="chip on" data-ct="all" onclick="setType('all')">全部类型</span>
-    <span class="chip" data-ct="quantity" onclick="setType('quantity')">数量</span>
+    <span class="chip" data-ct="qty" onclick="setType('qty')">数量</span>
+    <span class="chip" data-ct="bundle" onclick="setType('bundle')">套数</span>
     <span class="chip" data-ct="plug" onclick="setType('plug')">插头</span>
     <span class="chip" data-ct="color" onclick="setType('color')">颜色</span>
-    <span class="chip" data-ct="recent" onclick="setType('recent')">重复订单</span>
+    <span class="chip" data-ct="duplicate" onclick="setType('duplicate')">重复订单</span>
     <input type="date" id="dFrom" title="创建起" onchange="applyFilterChange()">
     <span class="sub">~</span>
     <input type="date" id="dTo" title="创建止" onchange="applyFilterChange()">
@@ -218,9 +219,10 @@ function fmtDT(s){ if(!s)return '—'; const d=new Date(s); if(isNaN(d))return '
 function fmtDate(s){ if(!s)return ''; return String(s).slice(0,10); }
 const isOverdue=r=>r.status==='pending' && r.reply_deadline && new Date(r.reply_deadline) < new Date();
 
-/* 🆕 fix312:核实类型(数量/插头/颜色/重复订单)。发信器给每单打 check_types 数组;缺省按"数量" */
-const CT={quantity:{l:'数量',c:'#2563eb',bg:'#eff6ff'},plug:{l:'插头',c:'#7c3aed',bg:'#f5f3ff'},color:{l:'颜色',c:'#ea580c',bg:'#fff7ed'},recent:{l:'重复订单',c:'#0891b2',bg:'#ecfeff'}};
-const ctOf=r=>(Array.isArray(r.check_types)&&r.check_types.length)?r.check_types:['quantity'];
+/* 🆕 核实类型五类:后端写 reasons 文本(+ 连接):qty/bundle/plug/color/duplicate。兼容旧 check_types(quantity→qty / recent→duplicate);缺省 qty */
+const CT={qty:{l:'数量',c:'#2563eb',bg:'#eff6ff'},bundle:{l:'套数',c:'#16a34a',bg:'#f0fdf4'},plug:{l:'插头',c:'#7c3aed',bg:'#f5f3ff'},color:{l:'颜色',c:'#ea580c',bg:'#fff7ed'},duplicate:{l:'重复订单',c:'#0891b2',bg:'#ecfeff'}};
+const _CT_OLD={quantity:'qty',recent:'duplicate'};
+const ctOf=r=>{ if(r.reasons!=null && String(r.reasons).trim()){ return String(r.reasons).split('+').map(s=>s.trim()).filter(Boolean).map(k=>_CT_OLD[k]||k); } if(Array.isArray(r.check_types)&&r.check_types.length){ return r.check_types.map(k=>_CT_OLD[k]||k); } return ['qty']; };
 function ctBadges(r){ return ctOf(r).map(k=>{ const t=CT[k]||{l:k,c:'#64748b',bg:'#f1f5f9'}; return `<span class="ctbadge" style="color:${t.c};background:${t.bg};">${t.l}</span>`; }).join(''); }
 function setType(f){ typeF=f; PAGE=1; document.querySelectorAll('.chip[data-ct]').forEach(c=>c.classList.toggle('on',c.dataset.ct===f)); renderStats(); render(); }
 
@@ -292,7 +294,7 @@ function passFilter(r){
   else if(statusF!=='all'){ if(r.status!==statusF)return false; }
   if(typeF!=='all' && !ctOf(r).includes(typeF)) return false;
   if(shopF!=='all' && (r.shop||'(无)')!==shopF) return false;
-  if(Q){ const hit=(r.order_name||'').toLowerCase().includes(Q)||(r.customer_email||'').toLowerCase().includes(Q)||(r.customer_name||'').toLowerCase().includes(Q); if(!hit)return false; }
+  if(Q){ const qn=Q.replace(/#/g,''); const hit=(r.order_name||'').toLowerCase().replace(/#/g,'').includes(qn)||(r.customer_email||'').toLowerCase().includes(Q)||(r.customer_name||'').toLowerCase().includes(Q); if(!hit)return false; }
   const df=document.getElementById('dFrom').value, dt=document.getElementById('dTo').value;
   if(df && fmtDate(r.created_at) < df) return false;
   if(dt && fmtDate(r.created_at) > dt) return false;
@@ -398,7 +400,21 @@ async function saveEdit(){
     }
     closeModal(); renderStats(); render();
     toast(warn? warn : '✓ 已保存并回写标签', warn?'warn':'ok');
-  }catch(e){ btn.disabled=false; btn.textContent='保存并回写标签'; document.getElementById('mWarn').textContent='保存失败:'+(e.message||e); document.getElementById('mWarn').style.color='var(--danger)'; }
+  }catch(e){
+    btn.disabled=false; btn.textContent='保存并回写标签';
+    const mWarn=document.getElementById('mWarn'); const msg=(e&&e.message)||String(e);
+    // 🆕 fix318:命中 status 约束错误 → 弹出可复制的修复 SQL(SQL 由 ST 动态生成,以后加状态自动包含,不再静默失败)
+    if(/qty_confirmations_status_check/i.test(msg) || (/check constraint/i.test(msg)&&/status/i.test(msg))){
+      const keys=Object.keys(ST);
+      const sql="ALTER TABLE qty_confirmations DROP CONSTRAINT IF EXISTS qty_confirmations_status_check;\nALTER TABLE qty_confirmations ADD CONSTRAINT qty_confirmations_status_check CHECK (status IN ("+keys.map(function(k){return "'"+k+"'";}).join(',')+"));";
+      mWarn.innerHTML='❌ 数据库状态约束缺新值「'+newStatus+'」,无法保存。请在 po 库 SQL Editor 执行修复 → <button id="mCopySql" style="margin-top:4px;padding:3px 10px;border:1px solid var(--danger);border-radius:6px;background:#fff;color:var(--danger);cursor:pointer;font-size:12px;font-weight:600;">📋 复制修复 SQL</button>';
+      mWarn.style.color='var(--danger)';
+      const cb=document.getElementById('mCopySql');
+      if(cb) cb.onclick=function(){ const can=navigator.clipboard&&navigator.clipboard.writeText; (can?navigator.clipboard.writeText(sql):Promise.reject()).then(function(){toast('✓ 修复 SQL 已复制,去 Supabase SQL Editor 粘贴执行','ok');},function(){window.prompt('复制下面 SQL 到 Supabase SQL Editor 执行:',sql);}); };
+    } else {
+      mWarn.textContent='保存失败:'+msg; mWarn.style.color='var(--danger)';
+    }
+  }
 }
 
 async function writeTags(r, status){
