@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix357
+// 版本 2026.06.05-fix358
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -9114,6 +9114,14 @@ var EventEditorModal = function EventEditorModal(_ref38) {
       color: '#dc2626'
     }
   }[kind];
+  var tryClose = function tryClose() {
+    var dirty = (orderRef && orderRef.trim()) || (productName && productName.trim()) || (issueDetail && issueDetail.trim()) || (commImages && commImages.length > 0);
+    if (!dirty) { onClose(); return; }
+    var msg = '有未保存的内容,确定关闭吗?关闭后已填写的内容将丢失。';
+    var _wc = typeof wsConfirm === 'function' ? wsConfirm : typeof window !== 'undefined' ? window.wsConfirm : null;
+    if (_wc) { _wc(msg).then(function (ok) { if (ok) onClose(); }); return; }
+    if (window.confirm(msg)) onClose();
+  };
   return ReactDOM.createPortal(/*#__PURE__*/React.createElement("div", {
     style: {
       position: 'fixed',
@@ -9225,7 +9233,7 @@ var EventEditorModal = function EventEditorModal(_ref38) {
     title: "\u628A\u8FD9\u6761\u4E8B\u4EF6\u4EA4\u7ED9\u4E3B\u7BA1/\u8001\u677F\u5904\u7406"
   }, user.role === 'admin' ? '👑 申请老板' : '🚨 申请主管'), /*#__PURE__*/React.createElement("button", {
     className: "btn-sec",
-    onClick: onClose,
+    onClick: tryClose,
     style: {
       padding: '4px 12px'
     }
@@ -10660,7 +10668,7 @@ var EventEditorModal = function EventEditorModal(_ref38) {
       flexShrink: 0
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: onClose,
+    onClick: tryClose,
     className: "btn-sec",
     style: {
       padding: '8px 18px'
