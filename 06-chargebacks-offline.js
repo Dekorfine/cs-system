@@ -6185,11 +6185,14 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
     if (!order || !order.id) return;
     if (Array.isArray(order.attachments)) { attLoadedRef.current = true; return; }
     var alive = true;
-    CLOUD.client.from('offline_orders').select('attachments').eq('id', order.id).single().then(function (r) {
+    CLOUD.client.from('offline_orders').select('attachments,ship_channel_note,ship_channel_images').eq('id', order.id).single().then(function (r) {
       if (!alive) return;
-      setAttachments(r && r.data && r.data.attachments || []);
+      var _d = r && r.data || {};
+      setAttachments(_d.attachments || []);
+      setShipChannelNote(_d.ship_channel_note || '');
+      setShipChannelImages(_d.ship_channel_images || []);
       attLoadedRef.current = true;
-    }, function () {/* 拉取失败:保持 attLoadedRef=false,保存时不写 attachments,保护原文件 */});
+    }, function () {/* 拉取失败:保持 attLoadedRef=false,保存时不写 attachments/发货渠道,保护原文件 */});
     return function () { alive = false; };
   }, [order && order.id]);
   var _useState163 = useState((order === null || order === void 0 ? void 0 : order.notes) || ''),
@@ -6483,8 +6486,6 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
               quote_no: quoteNo.trim() || null,
               notes: notes.trim() || null,
               status: status,
-              ship_channel_note: shipChannelNote.trim() || null,
-              ship_channel_images: shipChannelImages,
               follow_dispatch_text: dispatchText,
               updated_at: now,
               // 🆕 fix7: created_by 必须非空(旧记录可能为 null)
@@ -6492,7 +6493,11 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
               created_by_name: (order === null || order === void 0 ? void 0 : order.created_by_name) || userName
             });
             // 🆕 fix305: 仅在附件已加载完成时才写 attachments,否则不动该列(保护已有文件)
-            if (attLoadedRef.current) { payload.attachments = attachments; }
+            if (attLoadedRef.current) {
+              payload.attachments = attachments;
+              payload.ship_channel_note = shipChannelNote.trim() || null;
+              payload.ship_channel_images = shipChannelImages;
+            }
             _context21.n = 14;
             return CLOUD.upsert('offline_orders', payload);
           case 14:
