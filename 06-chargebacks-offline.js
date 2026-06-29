@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix360
+// 版本 2026.06.05-fix361
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -105,6 +105,94 @@ function RecordTrashView(props) {
   );
 }
 if (typeof window !== 'undefined') window.RecordTrashView = RecordTrashView;
+
+// 🆕 打单客服设置(主管维护 app_config.cs_print_support 名单;转跟单时从中选打单交接人)
+function PrintSupportConfig(props) {
+  var onClose = props.onClose, toast = props.toast || function () {};
+  var _a = useState([]), all = _a[0], setAll = _a[1];
+  var _s = useState({}), sel = _s[0], setSel = _s[1];
+  var _l = useState(true), loading = _l[0], setLoading = _l[1];
+  var _q = useState(''), q = _q[0], setQ = _q[1];
+  var _sv = useState(false), saving = _sv[0], setSaving = _sv[1];
+  useEffect(function () {
+    var alive = true;
+    (async function () {
+      var people = [], selMap = {};
+      try {
+        var cli = getMsgClient && getMsgClient();
+        if (cli) {
+          var d = await cli.from('org_directory').select('*');
+          (d.data || []).forEach(function (p) {
+            var id = p.user_id || p.id, nm = p.display_name || p.name || '';
+            if (id && nm) people.push({ id: id, name: nm });
+          });
+        }
+      } catch (e) {}
+      try {
+        var r = await CLOUD.client.from('app_config').select('value').eq('key', 'cs_print_support').order('updated_at', { ascending: false }).limit(1);
+        var row = r && r.data && r.data[0];
+        if (row && row.value && Array.isArray(row.value.members)) {
+          row.value.members.forEach(function (m) {
+            selMap[m.id] = true;
+            if (!people.some(function (p) { return p.id === m.id; })) people.push({ id: m.id, name: m.name });
+          });
+        }
+      } catch (e) {}
+      if (!alive) return;
+      setAll(people); setSel(selMap); setLoading(false);
+    })();
+    return function () { alive = false; };
+  }, []);
+  var toggle = function (id) {
+    setSel(function (prev) { var n = Object.assign({}, prev); if (n[id]) delete n[id]; else n[id] = true; return n; });
+  };
+  var save = async function () {
+    setSaving(true);
+    var members = all.filter(function (p) { return sel[p.id]; }).map(function (p) { return { id: p.id, name: p.name }; });
+    try {
+      var res = await CLOUD.client.from('app_config').upsert({ key: 'cs_print_support', value: { members: members } });
+      if (res && res.error) throw res.error;
+      toast('\u2713 \u5DF2\u4FDD\u5B58\u6253\u5355\u5BA2\u670D\u540D\u5355\uFF08' + members.length + '\u4EBA\uFF09');
+      onClose && onClose();
+    } catch (e) {
+      toast('\u4FDD\u5B58\u5931\u8D25\uFF1A' + (e.message || e), 'error');
+      setSaving(false);
+    }
+  };
+  var filtered = all.filter(function (p) { return !q || p.name.indexOf(q) >= 0; });
+  return /*#__PURE__*/React.createElement("div", {
+    style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 100000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '5vh 16px', overflowY: 'auto' }
+  }, /*#__PURE__*/React.createElement("div", {
+    onClick: function (e) { return e.stopPropagation(); },
+    style: { background: 'white', borderRadius: 14, width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', maxHeight: '85vh' }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { padding: '16px 20px', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
+  }, /*#__PURE__*/React.createElement("div", { style: { fontWeight: 700, fontSize: 15 } }, "\uD83D\uDDA8\uFE0F \u6253\u5355\u5BA2\u670D\u8BBE\u7F6E"), /*#__PURE__*/React.createElement("button", {
+    onClick: onClose, style: { border: 'none', background: 'transparent', fontSize: 20, cursor: 'pointer', color: 'var(--ink-3)' }
+  }, "\u00D7")), /*#__PURE__*/React.createElement("div", {
+    style: { padding: '8px 20px', fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.5 }
+  }, "\u52FE\u9009\u7684\u5BA2\u670D\u4F1A\u51FA\u73B0\u5728\u300C\u8F6C\u8DDF\u5355\u300D\u7684\u6253\u5355\u4EA4\u63A5\u5019\u9009\u91CC\uFF0C\u8F6C\u5355\u65F6\u53EF\u6307\u5B9A\u5176\u4E2D\u4E00\u4EBA\u53BB\u6253\u7EB8\u8D28\u5355\u636E\u3002"), /*#__PURE__*/React.createElement("div", {
+    style: { padding: '4px 20px 8px' }
+  }, /*#__PURE__*/React.createElement("input", {
+    value: q, onChange: function (e) { return setQ(e.target.value); }, placeholder: "\uD83D\uDD0D \u641C\u7D22\u5BA2\u670D\u59D3\u540D\u2026",
+    style: { width: '100%', padding: '8px 12px', fontSize: 13, border: '1px solid var(--line)', borderRadius: 7, boxSizing: 'border-box' }
+  })), /*#__PURE__*/React.createElement("div", {
+    style: { flex: 1, overflowY: 'auto', padding: '0 20px 8px' }
+  }, loading ? /*#__PURE__*/React.createElement("div", { style: { padding: 20, textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 } }, "\u52A0\u8F7D\u4E2D\u2026") : filtered.length === 0 ? /*#__PURE__*/React.createElement("div", { style: { padding: 20, textAlign: 'center', color: 'var(--ink-3)', fontSize: 13 } }, "\u6CA1\u6709\u5339\u914D\u7684\u5BA2\u670D") : filtered.map(function (p) {
+    return /*#__PURE__*/React.createElement("label", {
+      key: p.id, style: { display: 'flex', alignItems: 'center', gap: 10, padding: '9px 8px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer', fontSize: 14 }
+    }, /*#__PURE__*/React.createElement("input", {
+      type: "checkbox", checked: !!sel[p.id], onChange: function () { return toggle(p.id); }, style: { width: 16, height: 16, cursor: 'pointer' }
+    }), /*#__PURE__*/React.createElement("span", null, p.name));
+  })), /*#__PURE__*/React.createElement("div", {
+    style: { padding: '12px 20px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }
+  }, /*#__PURE__*/React.createElement("span", { style: { fontSize: 12, color: 'var(--ink-3)' } }, "\u5DF2\u9009 " + Object.keys(sel).length + " \u4EBA"), /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 8 } }, /*#__PURE__*/React.createElement("button", {
+    onClick: onClose, className: "btn-sec", style: { padding: '8px 16px' }
+  }, "\u53D6\u6D88"), /*#__PURE__*/React.createElement("button", {
+    onClick: save, disabled: saving, className: "btn-pri", style: { padding: '8px 16px' }
+  }, saving ? '\u4FDD\u5B58\u4E2D\u2026' : '\u4FDD\u5B58')))));
+}
+if (typeof window !== 'undefined') window.PrintSupportConfig = PrintSupportConfig;
 
 var ChargebacksModule = function ChargebacksModule(_ref) {
   var user = _ref.user,
@@ -1538,7 +1626,7 @@ var ChargebackEditor = function ChargebackEditor(_ref0) {
               _context7.n = 1;
               break;
             }
-            alert('请先填订单编号');
+            toast('请先填订单编号');
             return _context7.a(2);
           case 1:
             setCbPull({
@@ -1770,35 +1858,35 @@ var ChargebackEditor = function ChargebackEditor(_ref0) {
               _context9.n = 1;
               break;
             }
-            alert('请填写订单编号');
+            toast('请填写订单编号');
             return _context9.a(2);
           case 1:
             if (customerEmail.trim()) {
               _context9.n = 2;
               break;
             }
-            alert('请填写客户邮箱');
+            toast('请填写客户邮箱');
             return _context9.a(2);
           case 2:
             if (!(!amount || parseFloat(amount) <= 0)) {
               _context9.n = 3;
               break;
             }
-            alert('请填写金额');
+            toast('请填写金额');
             return _context9.a(2);
           case 3:
             if (openedAt) {
               _context9.n = 4;
               break;
             }
-            alert('请填写拒付日期');
+            toast('请填写拒付日期');
             return _context9.a(2);
           case 4:
             if (deadline) {
               _context9.n = 5;
               break;
             }
-            alert('请填写截止处理日期');
+            toast('请填写截止处理日期');
             return _context9.a(2);
           case 5:
             setSaving(true);
@@ -2779,7 +2867,7 @@ var OfflineCommissionView = function OfflineCommissionView(_ref13) {
           case 3:
             _context10.p = 3;
             _t9 = _context10.v;
-            toast('保存失败:' + (_t9.message || _t9));
+            toast('保存失败:' + (_t9.message || _t9), 'error');
           case 4:
             return _context10.a(2);
         }
@@ -3483,6 +3571,9 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
   var _ootr = useState(false),
     ooShowTrash = _ootr[0],
     setOoShowTrash = _ootr[1];
+  var _pcfg = useState(false),
+    showPrintCfg = _pcfg[0],
+    setShowPrintCfg = _pcfg[1];
   // 🆕 fix332: 已发货独立页(不占主看板)
   var _ooSh = useState(false),
     showShipped = _ooSh[0],
@@ -3719,7 +3810,22 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       cursor: 'pointer',
       fontFamily: 'inherit'
     }
-  }, "\uD83D\uDDD1\uFE0F \u56DE\u6536\u7AD9"))), /*#__PURE__*/React.createElement("div", {
+  }, "\uD83D\uDDD1\uFE0F \u56DE\u6536\u7AD9"), (user.role === 'admin' || user.role === 'super_admin') && /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() {
+      return setShowPrintCfg(true);
+    },
+    style: {
+      padding: '6px 14px',
+      fontSize: 12,
+      marginLeft: 8,
+      border: '1px solid #bae6fd',
+      borderRadius: 8,
+      background: '#f0f9ff',
+      color: '#0369a1',
+      cursor: 'pointer',
+      fontFamily: 'inherit'
+    }
+  }, "\uD83D\uDDA8\uFE0F \u6253\u5355\u5BA2\u670D\u8BBE\u7F6E"))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
       display: 'flex',
@@ -3999,6 +4105,11 @@ var OfflineOrdersModule = function OfflineOrdersModule(_ref23) {
       return setOoShowTrash(false);
     },
     columns: [{ label: '订单号', fmt: function (r) { return r.order_ref || r.order_no || r.order_number || ''; } }, { label: '客户', fmt: function (r) { return r.customer || r.customer_name || ''; } }, { key: 'site', label: '店铺' }, { label: '金额', fmt: function (r) { return r.refund_amount != null && r.refund_amount !== '' ? '退款 ' + r.refund_amount : r.amount || ''; } }, { key: 'status', label: '状态' }, { key: 'created_by_name', label: '录入人' }]
+  }), showPrintCfg && /*#__PURE__*/React.createElement(PrintSupportConfig, {
+    toast: toast,
+    onClose: function onClose() {
+      return setShowPrintCfg(false);
+    }
   }), showShipped && /*#__PURE__*/React.createElement("div", {
     onClick: function onClick() { return setShowShipped(false); },
     style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px 20px', overflowY: 'auto' }
@@ -4448,7 +4559,7 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
               _context14.n = 1;
               break;
             }
-            alert('消息总线未连接,无法转单');
+            toast('消息总线未连接,无法转单', 'error');
             return _context14.a(2);
           case 1:
             if (!(!poUserId && !poUserName.trim())) {
@@ -4526,7 +4637,7 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
           case 8:
             _context14.p = 8;
             _t11 = _context14.v;
-            alert('转单失败: ' + (_t11.message || _t11));
+            toast('转单失败: ' + (_t11.message || _t11), 'error');
           case 9:
             setSending(false);
           case 10:
@@ -5557,7 +5668,8 @@ var OfflineOrderCard = function OfflineOrderCard(_ref29) {
 var ProductImageSlot = function ProductImageSlot(_ref31) {
   var value = _ref31.value,
     onChange = _ref31.onChange,
-    productName = _ref31.productName;
+    productName = _ref31.productName,
+    toast = _ref31.toast || function () {};
   var _useState109 = useState(false),
     _useState110 = _slicedToArray(_useState109, 2),
     zoom = _useState110[0],
@@ -5629,7 +5741,7 @@ var ProductImageSlot = function ProductImageSlot(_ref31) {
           case 4:
             _context16.p = 4;
             _t12 = _context16.v;
-            alert('上传失败: ' + (_t12.message || '不支持的格式'));
+            toast('上传失败: ' + (_t12.message || '不支持的格式'), 'error');
           case 5:
             return _context16.a(2);
         }
@@ -6283,7 +6395,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
               _context20.n = 1;
               break;
             }
-            alert('请先选择网站');
+            toast('请先选择网站');
             return _context20.a(2);
           case 1:
             setGenerating(true);
@@ -6362,7 +6474,7 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
             // 🆕 fix305: 未付款(草稿/待付款)不强制订单号,改为必填发票号;订单号客户付款后才有
             if (status === 'draft' || status === 'pending_payment') {
               if (!invoiceNo.trim()) {
-                alert('未付款订单(草稿/待付款)请填写发票号');
+                toast('未付款订单(草稿/待付款)请填写发票号');
                 return _context21.a(2);
               }
               _context21.n = 1;
@@ -6372,14 +6484,14 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
               _context21.n = 1;
               break;
             }
-            alert('请填写订单编号或选择网站自动生成');
+            toast('请填写订单编号或选择网站自动生成');
             return _context21.a(2);
           case 1:
             if (site) {
               _context21.n = 2;
               break;
             }
-            alert('请选择网站');
+            toast('请选择网站');
             return _context21.a(2);
           case 2:
             if (isEdit || !orderNo.trim()) {
@@ -7294,7 +7406,8 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
           image: img
         });
       },
-      productName: p.name
+      productName: p.name,
+      toast: toast
     }), /*#__PURE__*/React.createElement(ProductAutocomplete, {
       value: p.sku || '',
       onChange: function onChange(v) {
@@ -8891,7 +9004,7 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref49) {
               _context26.n = 1;
               break;
             }
-            alert('请先填关联订单编号');
+            toast('请先填关联订单编号');
             return _context26.a(2);
           case 1:
             setCuPull({
@@ -8959,7 +9072,7 @@ var CustomInquiryEditor = function CustomInquiryEditor(_ref49) {
               _context27.n = 1;
               break;
             }
-            alert('请至少填写客户姓名或邮箱');
+            toast('请至少填写客户姓名或邮箱');
             return _context27.a(2);
           case 1:
             setSaving(true);
@@ -10284,7 +10397,7 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref57) {
               _context31.n = 1;
               break;
             }
-            alert('请先填订单编号');
+            toast('请先填订单编号');
             return _context31.a(2);
           case 1:
             setPvPull({
@@ -10393,21 +10506,21 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref57) {
               _context32.n = 1;
               break;
             }
-            alert('请填写订单编号');
+            toast('请填写订单编号');
             return _context32.a(2);
           case 1:
             if (productName.trim()) {
               _context32.n = 2;
               break;
             }
-            alert('请填写产品名');
+            toast('请填写产品名');
             return _context32.a(2);
           case 2:
             if (differenceDetail.trim()) {
               _context32.n = 3;
               break;
             }
-            alert('请填写差异说明');
+            toast('请填写差异说明');
             return _context32.a(2);
           case 3:
             setSaving(true);
@@ -10878,7 +10991,8 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref57) {
   }))), /*#__PURE__*/React.createElement(CustomerRepliesBoard, {
     replies: replies,
     setReplies: setReplies,
-    user: user
+    user: user,
+    toast: toast
   }), isEdit && /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
@@ -11010,7 +11124,8 @@ var PhotoVerificationEditor = function PhotoVerificationEditor(_ref57) {
 var CustomerRepliesBoard = function CustomerRepliesBoard(_ref60) {
   var replies = _ref60.replies,
     setReplies = _ref60.setReplies,
-    user = _ref60.user;
+    user = _ref60.user,
+    toast = _ref60.toast || function () {};
   var userName = user.name + (user.alias ? ' ' + user.alias : '');
   var _useState299 = useState(''),
     _useState300 = _slicedToArray(_useState299, 2),
@@ -11042,7 +11157,7 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref60) {
               _context33.n = 2;
               break;
             }
-            alert('图片超过 10MB,请压缩');
+            toast('图片超过 10MB,请压缩');
             return _context33.a(2, null);
           case 2:
             setUploading(true);
@@ -11061,7 +11176,7 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref60) {
           case 6:
             _context33.p = 6;
             _t23 = _context33.v;
-            alert('上传失败: ' + _t23.message);
+            toast('上传失败: ' + _t23.message, 'error');
             return _context33.a(2, null);
           case 7:
             _context33.p = 7;
@@ -11205,7 +11320,7 @@ var CustomerRepliesBoard = function CustomerRepliesBoard(_ref60) {
   }();
   var send = function send() {
     if (!newContent.trim() && newImages.length === 0) {
-      alert('请输入留言内容或粘贴图片');
+      toast('请输入留言内容或粘贴图片');
       return;
     }
     var reply = {
