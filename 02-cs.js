@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix358
+// 版本 2026.06.05-fix359
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -5419,8 +5419,8 @@ var CSModule = function CSModule(_ref7) {
       }
     }, "\uD83D\uDD16 \u8BA2\u5355\u53F7"), /*#__PURE__*/React.createElement("input", {
       disabled: !editable,
-      value: r.orderRef || '',
-      onChange: function onChange(e) {
+      defaultValue: r.orderRef || '',
+      onBlur: function onBlur(e) {
         return updateRow(r.id, {
           orderRef: e.target.value
         });
@@ -5444,8 +5444,8 @@ var CSModule = function CSModule(_ref7) {
       }
     }, "\uD83D\uDCDD \u95EE\u9898 / \u6C9F\u901A\u8981\u70B9"), /*#__PURE__*/React.createElement("input", {
       disabled: !editable,
-      value: r.note || '',
-      onChange: function onChange(e) {
+      defaultValue: r.note || '',
+      onBlur: function onBlur(e) {
         return updateRow(r.id, {
           note: e.target.value
         });
