@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix356
+// 版本 2026.06.05-fix360
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -6200,6 +6200,12 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
     _useState166 = _slicedToArray(_useState165, 2),
     status = _useState166[0],
     setStatus = _useState166[1];
+  var _scNote = useState((order === null || order === void 0 ? void 0 : order.ship_channel_note) || '');
+  var shipChannelNote = _scNote[0],
+    setShipChannelNote = _scNote[1];
+  var _scImgs = useState((order === null || order === void 0 ? void 0 : order.ship_channel_images) || []);
+  var shipChannelImages = _scImgs[0],
+    setShipChannelImages = _scImgs[1];
   var _useState167 = useState(false),
     _useState168 = _slicedToArray(_useState167, 2),
     saving = _useState168[0],
@@ -6477,6 +6483,8 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
               quote_no: quoteNo.trim() || null,
               notes: notes.trim() || null,
               status: status,
+              ship_channel_note: shipChannelNote.trim() || null,
+              ship_channel_images: shipChannelImages,
               follow_dispatch_text: dispatchText,
               updated_at: now,
               // 🆕 fix7: created_by 必须非空(旧记录可能为 null)
@@ -7418,7 +7426,23 @@ var OfflineOrderEditor = function OfflineOrderEditor(_ref36) {
     setFiles: setAttachments,
     bucket: "business-files",
     maxSize: 50
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), (status === 'printed' || status === 'doc_printed') && /*#__PURE__*/React.createElement("div", {
+    style: { margin: '0 18px 12px', padding: 12, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 10 }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 8 }
+  }, "\uD83D\uDCE6 \u53D1\u8D27\u6E20\u9053\u5B89\u6392\uFF08\u5DF2\u6253\u5355\uFF09"), /*#__PURE__*/React.createElement("textarea", {
+    value: shipChannelNote,
+    onChange: function onChange(e) { return setShipChannelNote(e.target.value); },
+    placeholder: "\u53D1\u8D27\u6E20\u9053 / \u7269\u6D41\u5B89\u6392\u5907\u6CE8\uFF1A\u54EA\u5BB6\u8D27\u4EE3 / \u8FD0\u5355\u53F7 / \u7279\u6B8A\u8981\u6C42\u2026",
+    style: { width: '100%', minHeight: 60, padding: '8px 12px', fontSize: 13, border: '1px solid var(--line)', borderRadius: 7, fontFamily: 'inherit', marginBottom: 8, boxSizing: 'border-box', resize: 'vertical' }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 4 }
+  }, "\uD83D\uDCF7 \u53D1\u8D27\u6E20\u9053\u56FE\u7247"), /*#__PURE__*/React.createElement(MultiFileUploader, {
+    files: shipChannelImages,
+    setFiles: setShipChannelImages,
+    bucket: "business-files",
+    maxSize: 50
+  })), /*#__PURE__*/React.createElement("div", {
     style: {
       padding: '12px 18px',
       borderTop: '1px solid var(--line)',
