@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix363
+// 版本 2026.06.05-fix369
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1525,9 +1525,21 @@ var CSModule = function CSModule(_ref7) {
     var allLive = records.filter(function (r) {
       return !r.deleted && r.status !== 'resolved' && r.nextFollowUp && !(r.nextFollowUp < today && (handledSinceDue(r) || recentlyFollowed(r)));
     });
-    var base = isAdmin ? allLive : allLive.filter(function (r) {
-      return r.ownerId === user.id;
-    });
+    // 🆕 fix369:常规跟进记录加「名字兜底归属」(此前只有报价 mineQuote 有)。
+    //   Hannah 反馈"今日快照只显示10条" = 部分记录 ownerId 为空(名字没解析成员工id),被 ownerId===user.id 漏掉。
+    //   ownerId 为空时按 ownerName/created_by_name 匹配当前用户名/别名兜底(只补自己的,不会串到别人)。
+    var _nqR = function _nqR(s) {
+      return (s || '').replace(/\s+/g, '').toLowerCase();
+    };
+    var _unm = _nqR(user.name),
+      _ual = _nqR(user.alias);
+    var mineRec = function mineRec(r) {
+      if (r.ownerId === user.id) return true;
+      if (r.ownerId) return false;
+      var o = _nqR(r.ownerName || r.created_by_name);
+      return !!o && (_unm && (o === _unm || o.includes(_unm) || _unm.includes(o)) || _ual && (o === _ual || o.includes(_ual) || _ual.includes(o)));
+    };
+    var base = isAdmin ? allLive : allLive.filter(mineRec);
     // 🆕 fix235:非主管只看自己的报价 —— ownerId 没解析出的,按名字兜底归属(否则 Tammy 自己视角看不到自己新加的报价)
     var _nq = function _nq(s) {
       return (s || '').replace(/\s+/g, '').toLowerCase();
