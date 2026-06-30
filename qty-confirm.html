@@ -455,12 +455,19 @@ async function loadOrderImages(r){
   try{
     const prods=await fetchOrderProducts(r);
     const bySku={}; prods.forEach(p=>{ if(p.sku) bySku[String(p.sku).toLowerCase()]=p.image_url; });
+    let _imgChanged=false; // 🆕 把抓到的商品图回写进 items[].image,跟单直接读、不再实时取图
     (r.items||[]).forEach((it,ii)=>{
-      const el=document.getElementById('ithumb'+ii); if(!el)return;
       let img = it.image_url||it.image||it.img || bySku[String(it.sku||'').toLowerCase()];
       if(!img && prods.length===1) img=prods[0].image_url; // 单品兜底
-      if(img){ el.innerHTML='<img src="'+esc(img)+'" loading="lazy" data-full="'+esc(img)+'" onclick="openLightbox(this.dataset.full)">'; }
+      if(img){
+        const el=document.getElementById('ithumb'+ii);
+        if(el) el.innerHTML='<img src="'+esc(img)+'" loading="lazy" data-full="'+esc(img)+'" onclick="openLightbox(this.dataset.full)">';
+        if(!it.image){ it.image=img; _imgChanged=true; } // 统一存原图 URL 进 image 字段
+      }
     });
+    if(_imgChanged){ // 🆕 一次性自愈:把补全 image 的 items 存回库(只存 URL,非 base64)
+      try{ await SB.from('qty_confirmations').update({items:r.items, updated_at:new Date().toISOString()}).eq('shopify_order_id', r.shopify_order_id); }catch(_){}
+    }
     if(status)status.textContent = prods.length? '' : '未取到订单图(订单号可能与 Shopify 不一致)';
   }catch(e){ if(status)status.textContent='订单图拉取失败:'+esc(e.message||e); }
 }
