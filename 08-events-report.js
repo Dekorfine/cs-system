@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix365
+// 版本 2026.06.05-fix368
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3255,10 +3255,10 @@ function pushRefillToPO(e, user, toast, onDone) {
   var ref = String(e.id);
   Promise.resolve(primary.from('cross_dept_messages').select('id').eq('to_system', 'po').eq('related_type', 'refill').eq('related_ref', ref).limit(1)).then(function (ex) {
     if (ex && ex.data && ex.data.length) { toast('已推送给跟单,请勿重复'); if (onDone) onDone(true); return; }
-    var itemsTxt = Array.isArray(e.items) ? e.items.map(function (it) { return (it.item || it.name || it.product || '') + (it.qty ? ' \u00D7' + it.qty : ''); }).filter(Boolean).join('\u3001') : '';
+    var itemsTxt = Array.isArray(e.items) ? e.items.map(function (it) { return ((it.product ? it.product + ' - ' : '') + (it.item || it.name || '') + (it.qty ? ' \u00D7' + it.qty : '') + (it.unit || '')).trim(); }).filter(Boolean).join('\u3001') : '';
     var userName = user ? user.name + (user.alias ? ' ' + user.alias : '') : '\u5BA2\u670D';
     var atts = Array.isArray(e.attachments) ? e.attachments : [];
-    var scopeTxt = e.refill_scope === 'whole_lamp' ? '\u6574\u706F' : e.refill_scope === 'part' ? '\u5C0F\u914D\u4EF6' : '';
+    var scopeTxt = e.refill_scope === 'whole_lamp' ? '\u6574\u706F\u00B7\u8865\u53D1\u65B0\u706F' : e.refill_scope === 'part' ? '\u5C0F\u914D\u4EF6\u00B7\u8865\u53D1\u914D\u4EF6' : '';
     var msg = {
       from_system: 'cs', from_user_id: user && user.id, from_user_name: userName,
       to_system: 'po', to_user_id: null, to_user_name: null,
@@ -5741,12 +5741,10 @@ var SummaryPanel = function SummaryPanel(_ref36) {
             toast && toast('没有需要回填的记录(都已有链接/SKU)');
             return _context14.a(2);
           case 2:
-            if (window.confirm("\u5C06\u6309\u8BA2\u5355\u53F7\u91CD\u65B0\u62C9\u53D6 ".concat(targets.length, " \u6761\u5386\u53F2\u552E\u540E,\u8865\u5168 \u94FE\u63A5/SKU/\u53D8\u4F53\u3002\n\u9010\u6761\u8054\u7F51\u62C9\u53D6,\u53EF\u80FD\u8981\u4E00\u4F1A\u513F\u3002\u7EE7\u7EED?"))) {
-              _context14.n = 3;
-              break;
-            }
-            return _context14.a(2);
+            _context14.n = 3;
+            return wsConfirm("\u5C06\u6309\u8BA2\u5355\u53F7\u91CD\u65B0\u62C9\u53D6 ".concat(targets.length, " \u6761\u5386\u53F2\u552E\u540E,\u8865\u5168 \u94FE\u63A5/SKU/\u53D8\u4F53\u3002\n\u9010\u6761\u8054\u7F51\u62C9\u53D6,\u53EF\u80FD\u8981\u4E00\u4F1A\u513F\u3002\u53EA\u8865\u5168\u6570\u636E\u3001\u4E0D\u5220\u8BB0\u5F55\u3002\u7EE7\u7EED?"), { title: '\uD83D\uDD04 \u6279\u91CF\u56DE\u586B', okText: '\u5F00\u59CB\u62C9\u53D6', cancelText: '\u53D6\u6D88' });
           case 3:
+            if (!_context14.v) { return _context14.a(2); }
             setBackfill({
               done: 0,
               total: targets.length,

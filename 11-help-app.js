@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix366
+// 版本 2026.06.05-fix368
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -2784,12 +2784,10 @@ var App = function App() {
             }
             return _context12.a(2);
           case 1:
-            if (window.confirm('把历史记录里的图片迁移到云存储(只上传、不删数据)。\n\n迁移后列表加载会明显变快。期间请勿关闭页面。\n\n现在开始?')) {
-              _context12.n = 2;
-              break;
-            }
-            return _context12.a(2);
+            _context12.n = 2;
+            return wsConfirm('把历史记录里的图片迁移到云存储(只上传、不删数据)。\n\n迁移后列表加载会明显变快。期间请勿关闭页面。\n\n现在开始?', { title: '☁ 迁移图片到云存储?', okText: '现在开始', cancelText: '取消' });
           case 2:
+            if (!_context12.v) { return _context12.a(2); }
             setMigrating(true);
             _context12.p = 3;
             toast('⏳ 正在加载全部记录…');
@@ -5442,7 +5440,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix366';
+var APP_VERSION = '2026.06.05-fix368';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
