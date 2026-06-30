@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix362
+// 版本 2026.06.05-fix364
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -5051,11 +5051,13 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
       ),
       React.createElement("div", { style: { flex: '2 1 170px', minWidth: 0 } },
         React.createElement("div", { style: _objectSpread({ fontSize: 12.5, fontWeight: 500, color: '#374151' }, ell) }, '👤 ' + (order.customer_name || order.customer_email || '—')),
-        order.customer_email && order.customer_name ? React.createElement("div", { style: _objectSpread({ fontSize: 11, color: 'var(--ink-3)' }, ell) }, '✉ ' + order.customer_email) : null
+        order.customer_email && order.customer_name ? React.createElement("div", { style: _objectSpread({ fontSize: 11, color: 'var(--ink-3)' }, ell) }, '✉ ' + order.customer_email) : null,
+        order.ship_to_country ? React.createElement("div", { style: _objectSpread({ fontSize: 11, color: '#0369a1', fontWeight: 600 }, ell), title: '收货国家' }, '🌍 ' + order.ship_to_country) : null
       ),
       React.createElement("div", { style: { flex: '0 0 auto', textAlign: 'right', minWidth: 92 } },
         React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: '#111827', whiteSpace: 'nowrap' } }, (order.payment_currency || 'USD') + ' ' + (order.payment_amount || 0)),
-        React.createElement("div", { style: { fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' } }, '📦' + prodCount + '件' + (order.created_by_name ? ' · ' + order.created_by_name : ''))
+        React.createElement("div", { style: { fontSize: 10.5, color: 'var(--ink-3)', whiteSpace: 'nowrap' } }, '📦' + prodCount + '件' + (order.created_by_name ? ' · ' + order.created_by_name : '')),
+        order.created_at ? React.createElement("div", { style: { fontSize: 10, color: 'var(--ink-3)', whiteSpace: 'nowrap' }, title: '创建时间' }, '🗓 ' + String(order.created_at).slice(0, 10)) : null
       ),
       _mid,
       React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto', marginLeft: 'auto' } },
@@ -5107,7 +5109,9 @@ var OfflineBoardCard = function OfflineBoardCard(_refbc) {
     order.invoice_no ? React.createElement("div", { title: '发票号', style: _objectSpread({ fontSize: 10.5, fontWeight: 600, color: '#0369a1', marginTop: 2 }, ell) }, '🧾 ' + order.invoice_no) : null,
     React.createElement("div", { style: _objectSpread({ fontSize: 12, fontWeight: 500, color: '#374151' }, ell) }, '👤 ' + (order.customer_name || order.customer_email || '—')),
     (order.customer_email && order.customer_name) ? React.createElement("div", { style: _objectSpread({ fontSize: 11, color: 'var(--ink-3)' }, ell) }, '✉ ' + order.customer_email) : null,
+    order.ship_to_country ? React.createElement("div", { style: _objectSpread({ fontSize: 11, color: '#0369a1', fontWeight: 600 }, ell), title: '收货国家' }, '🌍 ' + order.ship_to_country) : null,
     React.createElement("div", { style: _objectSpread({ fontSize: 11, color: 'var(--ink-3)' }, ell) }, '📦 ' + prodCount + '件' + (order.created_by_name ? ' · 录入 ' + order.created_by_name : '')),
+    order.created_at ? React.createElement("div", { style: _objectSpread({ fontSize: 10.5, color: 'var(--ink-3)' }, ell), title: '创建时间' }, '🗓 ' + String(order.created_at).slice(0, 10)) : null,
     React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, paddingTop: 6, borderTop: '1px dashed var(--line)', flexWrap: 'wrap', rowGap: 6 } },
       React.createElement("button", { onClick: copyDispatch, title: "复制下单指令(发工厂/供应商)", style: { padding: '4px 8px', fontSize: 11, border: '1px solid var(--line)', background: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' } }, "📋"),
       React.createElement("button", { onClick: onEdit, style: { padding: '4px 9px', fontSize: 11, border: '1px solid var(--line)', background: '#fff', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontFamily: 'inherit' } }, "✏ 编辑"),
