@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix348
+// 版本 2026.06.05-fix366
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -6901,12 +6901,10 @@ var CdmMessageCard = function CdmMessageCard(_ref41) {
         while (1) switch (_context15.p = _context15.n) {
           case 0:
             e.stopPropagation();
-            if (window.confirm('删除这条跨部门消息?\n所有部门都不再显示。测试单可放心删。')) {
-              _context15.n = 1;
-              break;
-            }
-            return _context15.a(2);
+            _context15.n = 1;
+            return wsConfirm('删除跨部门消息「' + (msg.title || String(msg.body || msg.content || '').slice(0, 24) || '无标题') + '」(ID ' + msg.id + ')?\n所有部门都不再显示。软删除,可在回收站恢复。', { title: '🗑 删除跨部门消息?', okText: '删除', cancelText: '取消' });
           case 1:
+            if (!_context15.v) { return _context15.a(2); }
             c = getCdmClient();
             if (c) {
               _context15.n = 2;
@@ -8865,12 +8863,10 @@ var CdmDetailModal = function CdmDetailModal(_ref48) {
             }
             return _context29.a(2);
           case 1:
-            if (window.confirm('确定删除这条跨部门消息?\n删除后所有部门都不再显示它。\n测试单可放心删。')) {
-              _context29.n = 2;
-              break;
-            }
-            return _context29.a(2);
+            _context29.n = 2;
+            return wsConfirm('删除跨部门消息「' + (msg.title || String(msg.body || msg.content || '').slice(0, 24) || '无标题') + '」(ID ' + msg.id + ')?\n所有部门都不再显示。软删除,可在回收站恢复。', { title: '🗑 删除跨部门消息?', okText: '删除', cancelText: '取消' });
           case 2:
+            if (!_context29.v) { return _context29.a(2); }
             client = getCdmClient();
             if (client) {
               _context29.n = 3;
