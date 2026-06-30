@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix361
+// 版本 2026.06.05-fix362
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -119,14 +119,12 @@ function PrintSupportConfig(props) {
     (async function () {
       var people = [], selMap = {};
       try {
-        var cli = getMsgClient && getMsgClient();
-        if (cli) {
-          var d = await cli.from('org_directory').select('*');
-          (d.data || []).forEach(function (p) {
-            var id = p.user_id || p.id, nm = p.display_name || p.name || '';
-            if (id && nm) people.push({ id: id, name: nm });
-          });
-        }
+        var d = await CLOUD.client.from('cs_accounts').select('id,name,alias,role,active,hide_from_list').order('name');
+        (d.data || []).forEach(function (p) {
+          if (p.active === false || p.hide_from_list === true) return;
+          var id = p.id, nm = p.name || p.alias || '';
+          if (id && nm) people.push({ id: id, name: nm + (p.alias && p.alias !== nm ? ' (' + p.alias + ')' : '') });
+        });
       } catch (e) {}
       try {
         var r = await CLOUD.client.from('app_config').select('value').eq('key', 'cs_print_support').order('updated_at', { ascending: false }).limit(1);
@@ -138,6 +136,10 @@ function PrintSupportConfig(props) {
           });
         }
       } catch (e) {}
+      if (!Object.keys(selMap).length) {
+        var echo = people.find(function (p) { return /\u4FAF\u6210/.test(p.name); });
+        if (echo) selMap[echo.id] = true;
+      }
       if (!alive) return;
       setAll(people); setSel(selMap); setLoading(false);
     })();
@@ -4442,15 +4444,16 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
             if (row && row.value && Array.isArray(row.value.members) && row.value.members.length) members = row.value.members;
           case 2:
             if (members.length) { _c.n = 4; break; }
-            cli = getMsgClient && getMsgClient();
+            cli = CLOUD && CLOUD.client;
             if (!cli) { _c.n = 4; break; }
             _c.n = 3;
-            return cli.from('org_directory').select('*');
+            return cli.from('cs_accounts').select('id,name,alias,active,hide_from_list');
           case 3:
             d = _c.v;
             (d.data || []).forEach(function (p) {
-              var nm = p.display_name || p.name || '';
-              if (/\u4FAF\u6210/.test(nm)) members.push({ id: p.user_id || p.id, name: nm });
+              if (p.active === false || p.hide_from_list === true) return;
+              var nm = p.name || p.alias || '';
+              if (/\u4FAF\u6210/.test(nm)) members.push({ id: p.id, name: nm });
             });
           case 4:
             _c.n = 6;
