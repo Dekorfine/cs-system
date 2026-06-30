@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix359
+// 版本 2026.06.05-fix363
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1858,6 +1858,20 @@ var CSModule = function CSModule(_ref7) {
         return updated;
       });
     });
+  };
+
+  // 🆕 防抖提交:打字停手 600ms 自动 updateRow(内容落库、行变"有效"可上传),
+  //   避免 fix359 失焦才提交导致"加了行没失焦就刷新 → 空行不上传 → 丢失"。
+  var commitDebounced = function commitDebounced(id, field, val) {
+    var T = typeof window !== 'undefined' ? window.__csCommitTimers = window.__csCommitTimers || {} : commitDebounced._t = commitDebounced._t || {};
+    var k = id + ':' + field;
+    if (T[k]) clearTimeout(T[k]);
+    T[k] = setTimeout(function () {
+      delete T[k];
+      var patch = {};
+      patch[field] = val;
+      updateRow(id, patch);
+    }, 600);
   };
 
   // 删除 (软删除到回收站)
@@ -5420,6 +5434,9 @@ var CSModule = function CSModule(_ref7) {
     }, "\uD83D\uDD16 \u8BA2\u5355\u53F7"), /*#__PURE__*/React.createElement("input", {
       disabled: !editable,
       defaultValue: r.orderRef || '',
+      onChange: function onChange(e) {
+        return commitDebounced(r.id, 'orderRef', e.target.value);
+      },
       onBlur: function onBlur(e) {
         return updateRow(r.id, {
           orderRef: e.target.value
@@ -5445,6 +5462,9 @@ var CSModule = function CSModule(_ref7) {
     }, "\uD83D\uDCDD \u95EE\u9898 / \u6C9F\u901A\u8981\u70B9"), /*#__PURE__*/React.createElement("input", {
       disabled: !editable,
       defaultValue: r.note || '',
+      onChange: function onChange(e) {
+        return commitDebounced(r.id, 'note', e.target.value);
+      },
       onBlur: function onBlur(e) {
         return updateRow(r.id, {
           note: e.target.value
