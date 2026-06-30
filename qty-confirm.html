@@ -175,6 +175,10 @@
 const PROJECT_URL = 'https://pyfmuknvjqfwcqvbrsvw.supabase.co';
 const PUB_KEY = 'sb_publishable_dFjk1WN_Hc0Te6IhXZysZg_SXvKQU4C';
 const EDGE = PROJECT_URL + '/functions/v1';
+if(typeof supabase==='undefined'||!supabase.createClient){
+  try{ document.getElementById('list').innerHTML='<div class="empty">⚠️ Supabase 库未加载(CDN 可能被网络拦截)<br><span class="sub">请刷新页面;若反复出现,请换网络或反馈我们换 CDN</span></div>'; }catch(_){}
+  throw new Error('supabase-js not loaded');
+}
 const SB = supabase.createClient(PROJECT_URL, PUB_KEY);
 
 /* 店铺 handle → 品牌(展示用;未知则显示 handle) */
@@ -229,13 +233,14 @@ function setType(f){ typeF=f; PAGE=1; document.querySelectorAll('.chip[data-ct]'
 function toast(msg,kind){ const t=document.getElementById('toast'); t.textContent=msg; t.className='show'+(kind?' '+kind:''); clearTimeout(t._t); t._t=setTimeout(()=>t.className='',kind==='err'||kind==='warn'?4200:2400); }
 
 /* ============ 加载 ============ */
+const withTimeout=(p,ms,label)=>Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error((label||'请求')+'超时（'+(ms/1000)+'s 无响应，可能是网络或数据库无响应）')),ms))]);
 async function load(){
   try{
     // 分页全量拉(PostgREST 单次≤1000;循环 range 累加,统计才准),最多 5000 条
     let all=[], from=0, size=1000;
     for(let i=0;i<5;i++){
-      const { data, error } = await SB.from('qty_confirmations').select('*')
-        .order('created_at',{ascending:false}).range(from, from+size-1);
+      const { data, error } = await withTimeout(SB.from('qty_confirmations').select('*')
+        .order('created_at',{ascending:false}).range(from, from+size-1), 20000, '加载数量核实');
       if(error) throw error;
       all=all.concat(data||[]);
       if(!data || data.length<size) break;
@@ -285,7 +290,7 @@ function setPreset(t){
   PAGE=1; render();
 }
 function toggleFollowup(){ followup=!followup; PAGE=1; if(followup){statusF='revise';} else {statusF='all';} syncFollowupUI(); document.querySelectorAll('.chip[data-f]').forEach(c=>c.classList.toggle('on',c.dataset.f===statusF)); renderStats(); render(); }
-function syncFollowupUI(){ document.body.classList.toggle('followup-on',followup); const b=document.getElementById('followupBtn'); b.textContent=followup?'← 返回全部':'🧵 需跟单处理'; }
+function syncFollowupUI(){ document.body.classList.toggle('followup-on',followup); const b=document.getElementById('followupBtn'); if(b)b.textContent=followup?'← 返回全部':'🧵 需跟单处理'; }
 document.getElementById('q').addEventListener('input',e=>{ Q=e.target.value.trim().toLowerCase(); PAGE=1; render(); });
 
 /* ============ 列表渲染 ============ */
