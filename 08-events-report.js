@@ -1,5 +1,5 @@
 // ====== cs-system — 08-events-report ======
-// 版本 2026.06.05-fix351
+// 版本 2026.06.05-fix365
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1227,6 +1227,7 @@ var EventsModule = function EventsModule(_ref) {
     employees: employees,
     suppliers: suppliers,
     user: user,
+    toast: toast,
     isAdmin: isAdmin,
     onEdit: function onEdit(e) {
       return e._fromAftersale ? setEditEvent({
@@ -3243,6 +3244,49 @@ var AftersalesTable = function AftersalesTable(_ref18) {
 // ============================================================
 // 补件追踪表格
 // ============================================================
+// 🆕 补件「转跟单下单」:把补发件推成跨部门工单给跟单采购,替代微信群发图。
+//   路由与线下单一致:跟单库(getPoClient)为主 + 旧总线(getCdmClient)兼容,确保跟单一定收到;按 refill id 去重。
+function pushRefillToPO(e, user, toast, onDone) {
+  toast = toast || function () {};
+  var po = typeof getPoClient === 'function' ? getPoClient() : null;
+  var legacy = typeof getCdmClient === 'function' ? getCdmClient() : null;
+  var primary = po || legacy;
+  if (!primary) { toast('无可用消息库连接', 'error'); return; }
+  var ref = String(e.id);
+  Promise.resolve(primary.from('cross_dept_messages').select('id').eq('to_system', 'po').eq('related_type', 'refill').eq('related_ref', ref).limit(1)).then(function (ex) {
+    if (ex && ex.data && ex.data.length) { toast('已推送给跟单,请勿重复'); if (onDone) onDone(true); return; }
+    var itemsTxt = Array.isArray(e.items) ? e.items.map(function (it) { return (it.item || it.name || it.product || '') + (it.qty ? ' \u00D7' + it.qty : ''); }).filter(Boolean).join('\u3001') : '';
+    var userName = user ? user.name + (user.alias ? ' ' + user.alias : '') : '\u5BA2\u670D';
+    var atts = Array.isArray(e.attachments) ? e.attachments : [];
+    var scopeTxt = e.refill_scope === 'whole_lamp' ? '\u6574\u706F' : e.refill_scope === 'part' ? '\u5C0F\u914D\u4EF6' : '';
+    var msg = {
+      from_system: 'cs', from_user_id: user && user.id, from_user_name: userName,
+      to_system: 'po', to_user_id: null, to_user_name: null,
+      related_shop: e.site || null, watchers: null, category: 'general', priority: 'normal',
+      title: '[\u8865\u4EF6\u4E0B\u5355] ' + (e.order_ref || '') + (e.site ? ' \u00B7 ' + e.site : '') + ' \u00B7 ' + (e.product_name || ''),
+      body: ['\u8BF7\u91C7\u8D2D\u4E0B\u5355\u8865\u53D1\u4EF6\uFF0C\u4E0B\u5355\u540E\u5728\u8865\u4EF6\u8FFD\u8E2A\u91CC\u7F6E\u300C\u5DF2\u4E0B\u5355\u300D\uFF1A', '\u4EA7\u54C1\uFF1A' + (e.product_name || '-'), '\u8865\u4EF6\u6E05\u5355\uFF1A' + (itemsTxt || '-'), scopeTxt ? '\u7C7B\u578B\uFF1A' + scopeTxt : '', e.supplier_name ? '\u4F9B\u5E94\u5546\uFF1A' + e.supplier_name : '', e.issue_detail ? '\u539F\u56E0\uFF1A' + e.issue_detail : ''].filter(Boolean).join('\n'),
+      payload: { refill_id: e.id },
+      related_type: 'refill', related_ref: ref,
+      attachments: atts, status: 'pending', thread: [],
+      read_by: [user && user.id].filter(Boolean),
+      created_at_ms: Date.now(), updated_at: new Date().toISOString()
+    };
+    if (legacy && legacy !== po) { try { Promise.resolve(legacy.from('cross_dept_messages').insert(msg)).catch(function () {}); } catch (_e) {} }
+    var done = function done(r) {
+      if (r && r.error) { toast('\u8F6C\u8DDF\u5355\u5931\u8D25\uFF1A' + (r.error.message || r.error), 'error'); }
+      else { toast('\u2713 \u5DF2\u8F6C\u8DDF\u5355\u4E0B\u5355 \u00B7 \u8DDF\u5355\u4F1A\u5B89\u6392\u91C7\u8D2D'); if (onDone) onDone(true); }
+    };
+    Promise.resolve(primary.from('cross_dept_messages').insert(msg)).then(function (r) {
+      if (r && r.error && /payload/i.test(r.error.message || '')) {
+        var m2 = Object.assign({}, msg); delete m2.payload;
+        Promise.resolve(primary.from('cross_dept_messages').insert(m2)).then(done);
+        return;
+      }
+      done(r);
+    });
+  });
+}
+
 var RefillsTable = function RefillsTable(_ref20) {
   var items = _ref20.items,
     employees = _ref20.employees,
@@ -3252,7 +3296,8 @@ var RefillsTable = function RefillsTable(_ref20) {
     onEdit = _ref20.onEdit,
     onToggleFlag = _ref20.onToggleFlag,
     onDelete = _ref20.onDelete,
-    onUpdateStatus = _ref20.onUpdateStatus;
+    onUpdateStatus = _ref20.onUpdateStatus,
+    toast = _ref20.toast || function () {};
   var _useState63 = useState(null),
     _useState64 = _slicedToArray(_useState63, 2),
     openImageId = _useState64[0],
@@ -3458,7 +3503,19 @@ var RefillsTable = function RefillsTable(_ref20) {
         display: 'flex',
         gap: 2
       }
-    }, e.status !== 'shipped' && e.status !== 'delivered' && e.status !== 'cancelled' && /*#__PURE__*/React.createElement("button", {
+    }, e.status === 'pending_order' && /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        return pushRefillToPO(e, user, toast);
+      },
+      className: "btn-ghost",
+      style: {
+        padding: '3px 6px',
+        fontSize: 11,
+        color: '#1e40af',
+        fontWeight: 700
+      },
+      title: "\u8F6C\u7ED9\u8DDF\u5355\u91C7\u8D2D\u4E0B\u5355 \u00B7 \u66FF\u4EE3\u5FAE\u4FE1\u7FA4\u53D1\u56FE"
+    }, "\uD83D\uDCE4 \u8F6C\u8DDF\u5355"), e.status !== 'shipped' && e.status !== 'delivered' && e.status !== 'cancelled' && /*#__PURE__*/React.createElement("button", {
       onClick: /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
         return _regenerator().w(function (_context12) {
           while (1) switch (_context12.n) {
