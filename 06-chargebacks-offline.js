@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix372
+// 版本 2026.06.05-fix374
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -152,7 +152,7 @@ function PrintSupportConfig(props) {
     setSaving(true);
     var members = all.filter(function (p) { return sel[p.id]; }).map(function (p) { return { id: p.id, name: p.name }; });
     try {
-      var res = await CLOUD.client.from('app_config').upsert({ key: 'cs_print_support', value: { members: members } });
+      var res = await CLOUD.client.from('app_config').upsert({ key: 'cs_print_support', value: { members: members } }, { onConflict: 'key' });
       if (res && res.error) throw res.error;
       toast('\u2713 \u5DF2\u4FDD\u5B58\u6253\u5355\u5BA2\u670D\u540D\u5355\uFF08' + members.length + '\u4EBA\uFF09');
       onClose && onClose();
@@ -2730,7 +2730,7 @@ var OfflineCommissionView = function OfflineCommissionView(_ref13) {
                 cfg: nextCfg || cfg,
                 monthRate: nextRate || monthRate
               }
-            });
+            }, { onConflict: 'key' });
           case 1:
             _context1.n = 3;
             break;

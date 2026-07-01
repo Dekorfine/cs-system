@@ -1,5 +1,5 @@
 // ====== cs-system — 09-kb-cross-dept ======
-// 版本 2026.06.05-fix366
+// 版本 2026.06.05-fix374
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -11162,7 +11162,7 @@ var TimeoutSettingsModal = function TimeoutSettingsModal(_ref68) {
             return client.from('app_config').upsert({
               key: 'cdm_timeout_config',
               value: merged
-            });
+            }, { onConflict: 'key' });
           case 4:
             _yield$client$from$up5 = _context37.v;
             error = _yield$client$from$up5.error;
@@ -15041,7 +15041,8 @@ function OpsModule(props) {
 
   function saveCustom(next) {
     if (!CLOUD.client) { toast('云未就绪,请稍后再试'); return Promise.resolve(false); }
-    return CLOUD.client.from('app_config').upsert({ key: 'ops_work_contents', value: next }).then(function (res) {
+    // 🆕 修复:表的唯一约束在 key 列(非主键 id),upsert 默认按主键判冲突,不指定 onConflict 会在第二次保存时误走 insert 撞 key 唯一约束报错。
+    return CLOUD.client.from('app_config').upsert({ key: 'ops_work_contents', value: next }, { onConflict: 'key' }).then(function (res) {
       if (res && res.error) { toast('保存失败:' + res.error.message); return false; }
       return true;
     });
