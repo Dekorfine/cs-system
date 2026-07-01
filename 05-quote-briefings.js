@@ -1,5 +1,5 @@
 // ====== cs-system — 05-quote-briefings ======
-// 版本 2026.06.05-fix350
+// 版本 2026.06.05-fix370
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -3408,7 +3408,7 @@ var generateOrderNo = /*#__PURE__*/function () {
           maxNo = seq.current_no || 0; // 2a. 权威:以 site_order_sequences.current_no 为准(offline_orders 不全且有脏数据,历史扫描仅参考)
           _context0.p = 4;
           _context0.n = 5;
-          return CLOUD.client.from('offline_orders').select('order_no').eq('site', site);
+          return CLOUD.client.from('offline_orders').select('order_no').ilike('order_no', prefix + '%');
         case 5:
           _yield$CLOUD$client$f3 = _context0.v;
           offlineOrders = _yield$CLOUD$client$f3.data;
@@ -3492,8 +3492,10 @@ var generateOrderNo = /*#__PURE__*/function () {
           _context0.n = 11;
           break;
         case 16:
-          // 3. 生成新编号(基于历史实际订单扫描出的最大号 +1;不再用 current_no——它会因未保存的预览虚高而跳号)
-          maxNo = seq.current_no || 0; // 编号权威以 current_no 为准(offline_orders 不全/有脏数据,不能当基准)
+          // 3. 生成新编号:取「current_no」与「历史实际扫描最大号」的较大值 +1
+          //    - current_no 领先(未保存预览占位)→ 用 current_no,避免复用已预留号
+          //    - 实际已用号领先(current_no 落后/脏数据)→ 用扫描最大号,避免撞号(修复:此前直接重置回 current_no,丢弃扫描结果导致重复)
+          maxNo = Math.max(seq.current_no || 0, maxNo);
           newNo = maxNo + 1;
           padded = String(newNo).padStart(padding, '0');
           orderNo = prefix + separator + padded; // 4. 更新 sequence(预览模式不更新)
@@ -3665,12 +3667,10 @@ var ChargebackReminderBanner = function ChargebackReminderBanner(_ref18) {
             }
             return _context10.a(2);
           case 1:
-            if (window.confirm('确认这单已提交证据 / 已申诉?\n标记后进入「等争议结果(等银行裁决)」,不再催办逾期。')) {
-              _context10.n = 2;
-              break;
-            }
-            return _context10.a(2);
+            _context10.n = 2;
+            return wsConfirm('确认拒付单「' + (cb.case_no || cb.order_no || cb.customer_email || cb.id) + '」已提交证据 / 已申诉?\n标记后进入「等争议结果(等银行裁决)」,不再催办逾期。此为状态变更,可在拒付列表改回。', { title: '✅ 标记已提交证据?', okText: '确认已提交', cancelText: '取消' });
           case 2:
+            if (!_context10.v) { return _context10.a(2); }
             _context10.p = 2;
             _context10.n = 3;
             return CLOUD.client.from('chargebacks').update({
