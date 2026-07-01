@@ -1,5 +1,5 @@
 // ====== cs-system — 06-chargebacks-offline ======
-// 版本 2026.06.05-fix364
+// 版本 2026.06.05-fix372
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -4426,6 +4426,10 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
   var _psS = useState([]),
     printSel = _psS[0],
     setPrintSel = _psS[1];
+  // 🆕 转单模式:'po'=转跟单部(发跨部门工单给跟单) / 'print'=转客服打印(只交给侯成待打印交接,不发跟单)。两者互斥,避免"转跟单同时又通知侯成"的重复。
+  var _tMode = useState('po'),
+    transferMode = _tMode[0],
+    setTransferMode = _tMode[1];
   useEffect(function () {
     var alive = true;
     Promise.resolve().then(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _cbPR() {
@@ -4551,6 +4555,36 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
   }, [order.site]);
   var products = order.products || [];
   var dispatchText = order.follow_dispatch_text || generateDispatchText(order, products);
+  // 🆕 转客服打印:只把订单交给勾选的客服(如 侯成)「待打印交接」,不发跟单工单、不标记 transferred_to_po。
+  var transferPrintOnly = function transferPrintOnly() {
+    if (!printSel.length) {
+      toast('请先勾选打印交接客服(如 侯成)', 'error');
+      return;
+    }
+    setSending(true);
+    var names = printRoster.filter(function (m) {
+      return printSel.indexOf(m.id) >= 0;
+    }).map(function (m) {
+      return m.name;
+    }).join('\u3001');
+    Promise.resolve(CLOUD.upsert('offline_orders', _objectSpread(_objectSpread({}, order), {}, {
+      print_assignee: printSel,
+      print_assignee_name: names,
+      print_status: 'pending',
+      updated_at: new Date().toISOString()
+    }))).then(function (r) {
+      setSending(false);
+      if (r && r.error) {
+        toast('交接失败: ' + (r.error.message || r.error), 'error');
+        return;
+      }
+      toast('\u2713 \u5DF2\u4EA4\u63A5 ' + names + ' \u6253\u5370 \xB7 \u672A\u8F6C\u8DDF\u5355');
+      onTransferred && onTransferred();
+    })["catch"](function (e) {
+      setSending(false);
+      toast('交接失败: ' + (e.message || e), 'error');
+    });
+  };
   var transfer = /*#__PURE__*/function () {
     var _ref28 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
       var client, userName, body, attachments, msg, _yield$client$from$in, error, _t11;
@@ -4626,9 +4660,7 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
               transferred_to_name: poUserName.trim() || '跟单部',
               transferred_at: new Date().toISOString(),
               status: order.status === 'paid' ? 'dispatched' : order.status,
-              print_assignee: printSel.length ? printSel : null,
-              print_assignee_name: printSel.length ? printRoster.filter(function (m) { return printSel.indexOf(m.id) >= 0; }).map(function (m) { return m.name; }).join('\u3001') : null,
-              print_status: printSel.length ? 'pending' : null,
+              // 转跟单不再自动设「打印交接」——需要交接侯成时用弹窗里的「转客服打印」按钮,避免既转跟单又通知侯成的重复
               // 已付款 → 自动改为已下单
               updated_at: new Date().toISOString()
             }));
@@ -4713,7 +4745,17 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
       flexDirection: 'column',
       gap: 12
     }
-  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }, /*#__PURE__*/React.createElement("div", {
+    style: { display: 'flex', gap: 8 }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { setTransferMode('po'); },
+    style: { flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (transferMode === 'po' ? '#1e40af' : 'var(--line)'), background: transferMode === 'po' ? '#1e40af' : '#fff', color: transferMode === 'po' ? '#fff' : 'var(--ink-2)', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }
+  }, "\uD83D\uDCE4 \u8F6C\u8DDF\u5355\u90E8"), /*#__PURE__*/React.createElement("button", {
+    onClick: function onClick() { setTransferMode('print'); },
+    style: { flex: 1, padding: '8px 10px', borderRadius: 8, border: '1px solid ' + (transferMode === 'print' ? '#6d28d9' : 'var(--line)'), background: transferMode === 'print' ? '#6d28d9' : '#fff', color: transferMode === 'print' ? '#fff' : 'var(--ink-2)', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }
+  }, "\uD83D\uDDA8\uFE0F \u8F6C\u5BA2\u670D\u6253\u5370")), /*#__PURE__*/React.createElement("div", {
+    style: { fontSize: 10, color: 'var(--ink-3)', marginTop: -4 }
+  }, transferMode === 'po' ? "\u53D1\u8DE8\u90E8\u95E8\u5DE5\u5355\u7ED9\u8DDF\u5355\u90E8\u5904\u7406(\u4E0D\u901A\u77E5\u4FAF\u6210)" : "\u53EA\u4EA4\u7ED9\u4FAF\u6210\u5F85\u6253\u5370\u4EA4\u63A5(\u4E0D\u53D1\u8DDF\u5355)"), transferMode === 'po' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: {
       fontSize: 11,
       fontWeight: 600,
@@ -4767,7 +4809,7 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
       color: '#86868b',
       marginTop: 3
     }
-  }, "\uD83D\uDCA1 \u4E3B\u7BA1\u5728\u8DE8\u90E8\u95E8\u534F\u4F5C\u91CC\u7EF4\u62A4\u4E86\"\u5E97\u94FA\u8D1F\u8D23\u4EBA\"\u6620\u5C04\u540E,\u8FD9\u91CC\u4F1A\u81EA\u52A8\u63A8\u8350")), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
+  }, "\uD83D\uDCA1 \u4E3B\u7BA1\u5728\u8DE8\u90E8\u95E8\u534F\u4F5C\u91CC\u7EF4\u62A4\u4E86\"\u5E97\u94FA\u8D1F\u8D23\u4EBA\"\u6620\u5C04\u540E,\u8FD9\u91CC\u4F1A\u81EA\u52A8\u63A8\u8350")), transferMode === 'print' && /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("label", {
     style: { fontSize: 11, fontWeight: 600, color: 'var(--ink-3)', display: 'block', marginBottom: 4 }
   }, "\uD83D\uDDA8\uFE0F \u6253\u5370\u4EA4\u63A5\u5BA2\u670D"), printRoster.length === 0 ? /*#__PURE__*/React.createElement("div", {
     style: { fontSize: 11, color: '#86868b' }
@@ -4887,11 +4929,11 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
       fontSize: 12
     }
   }, "\u53D6\u6D88"), /*#__PURE__*/React.createElement("button", {
-    onClick: transfer,
+    onClick: function onClick() { return transferMode === 'print' ? transferPrintOnly() : transfer(); },
     disabled: sending,
     style: {
       padding: '7px 18px',
-      background: '#1e40af',
+      background: transferMode === 'print' ? '#6d28d9' : '#1e40af',
       color: 'white',
       border: 'none',
       borderRadius: 7,
@@ -4900,7 +4942,7 @@ var TransferToPoModal = function TransferToPoModal(_ref26) {
       fontWeight: 600,
       fontFamily: 'inherit'
     }
-  }, sending ? '转单中...' : '📤 确认转单')))), document.body);
+  }, sending ? (transferMode === 'print' ? '\u4EA4\u63A5\u4E2D...' : '\u8F6C\u5355\u4E2D...') : (transferMode === 'print' ? '\uD83D\uDDA8\uFE0F \u786E\u8BA4\u4EA4\u63A5\u6253\u5370' : '\uD83D\uDCE4 \u786E\u8BA4\u8F6C\u8DDF\u5355'))))), document.body);
 };
 // ════════════════════════════════════════════════════════════════════
 // 🆕 fix300: 紧凑看板卡 — 专为窄列(330px)设计,详细卡仅用于列表视图
