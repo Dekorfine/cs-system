@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix369
+// 版本 2026.06.05-fix371
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1522,8 +1522,11 @@ var CSModule = function CSModule(_ref7) {
         return (f.time || '').slice(0, 10) >= addDays(today, -FOLLOW_CYCLE);
       });
     };
+    // 🆕 fix371:今日快照逾期口径 —— 只隐藏「到期日当天/之后已跟进过(=真正响应了本轮)」的,
+    //   去掉过宽的"近7天跟过就藏"(recentlyFollowed)规则:它会把"到期前例行跟过、到期后没人跟(如放假)"的逾期单
+    //   错误隐藏,导致 Hannah 该显示的逾期(应跟29号、放假没跟)在今日快照消失。现逾期全部显示,除非到期后已响应。
     var allLive = records.filter(function (r) {
-      return !r.deleted && r.status !== 'resolved' && r.nextFollowUp && !(r.nextFollowUp < today && (handledSinceDue(r) || recentlyFollowed(r)));
+      return !r.deleted && r.status !== 'resolved' && r.nextFollowUp && !(r.nextFollowUp < today && handledSinceDue(r));
     });
     // 🆕 fix369:常规跟进记录加「名字兜底归属」(此前只有报价 mineQuote 有)。
     //   Hannah 反馈"今日快照只显示10条" = 部分记录 ownerId 为空(名字没解析成员工id),被 ownerId===user.id 漏掉。
