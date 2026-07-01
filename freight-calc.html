@@ -351,27 +351,31 @@ const App = () => {
     // 总计费重：多件按单箱限制12kg后的累计重，单件按原始最大值算(最低12kg起收)
     let bw = Math.ceil(isMulti ? totalBw : Math.max(totalV, totalA));
     if (bw < 12) bw = 12;
+    // 昌晖专属报价(2026-07-01,对应"美森加班"档) —— 首重/续重/12kg+/71kg+/101kg+ 五档
     const r = {
       west: {
-        b: 135,
+        b: 140,
         e: 14,
         m: 19,
-        h: 16
+        s: 18.5,
+        h: 15.8
       },
       mid: {
-        b: 145,
+        b: 150,
         e: 15,
         m: 20,
-        h: 17
+        s: 19.5,
+        h: 16.8
       },
       east: {
-        b: 165,
+        b: 170,
         e: 17,
         m: 21,
-        h: 18
+        s: 20.5,
+        h: 17.9
       }
     }[reg];
-    let cost = bw >= 101 ? bw * r.h : bw >= 12 ? bw * r.m : r.b + (bw - 5) * r.e;
+    let cost = bw >= 101 ? bw * r.h : bw >= 71 ? bw * r.s : bw >= 12 ? bw * r.m : r.b + (bw - 5) * r.e;
     return {
       totalCost: cost + sur.reduce((a, b) => a + b.cost, 0),
       bw,
@@ -448,18 +452,18 @@ const App = () => {
     let bw = Math.ceil(isMulti ? totalBw : Math.max(totalV, totalA));
     if (bw < 5) bw = 5;
 
-    // 完全按照线性公式计费：首重基准 + (总重-5) * 续重
+    // 完全按照线性公式计费：首重基准 + (总重-5) * 续重（与 calcCH 同一套昌晖报价,2026-07-01 更新）
     const r = {
       west: {
-        b: 135,
+        b: 140,
         e: 14
       },
       mid: {
-        b: 145,
+        b: 150,
         e: 15
       },
       east: {
-        b: 165,
+        b: 170,
         e: 17
       }
     }[reg];
