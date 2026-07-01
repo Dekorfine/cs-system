@@ -4034,8 +4034,8 @@ function openCloudRecordByRef(ref) {
   // 切到云端列表视图并选中加载
   if (typeof switchPreview === 'function') { try { switchPreview('fill'); } catch (e) {} }
   selectedCloudItem = rec;
-  if (typeof loadFromCloud === 'function') loadFromCloud();
-  else if (typeof loadSelectedFromCloud === 'function') loadSelectedFromCloud();
+  // 🆕 fix(quotation):此前调用的 loadFromCloud/loadSelectedFromCloud 从未定义过,静默失败导致跳转打开报价永远空白。真正的加载函数是 cloudLoad()。
+  if (typeof cloudLoad === 'function') cloudLoad();
   try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
   return true;
 }
@@ -4058,10 +4058,9 @@ function loadCloudRecordByPath(path) {
   const rec = cloudRecords.find(r => r.path === path);
   if (!rec) return;
   selectedCloudItem = rec;
-  if (typeof loadFromCloud === 'function') {
-    loadFromCloud();
-  } else if (typeof loadSelectedFromCloud === 'function') {
-    loadSelectedFromCloud();
+  // 🆕 fix(quotation):同上,改用真正存在的 cloudLoad()(此前调用的两个函数从未定义,历史报价点击无反应)
+  if (typeof cloudLoad === 'function') {
+    cloudLoad();
   }
   // 收起历史框
   const list = $('email-history-list');

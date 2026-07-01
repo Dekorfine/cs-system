@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix371
+// 版本 2026.06.05-fix373
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1945,6 +1945,10 @@ var CSModule = function CSModule(_ref7) {
     _useState68 = _slicedToArray(_useState67, 2),
     bucketFilter = _useState68[0],
     setBucketFilter = _useState68[1]; // 🆕 fix232: all|overdue|today|future|waiting|quote
+  // 🆕 fix373: 今日快照智能模糊搜索(客户/订单号/备注/网站/员工/状态,全字段匹配)
+  var _useSnapSearch = useState(''),
+    snapshotSearch = _useSnapSearch[0],
+    setSnapshotSearch = _useSnapSearch[1];
   // 🆕 fix104: 跟进提醒视角 — all(全部)/ self(本人)/ <empId>(单独看某人);标星员工持久化到本地
   var _useState69 = useState(isAdmin ? 'all' : 'self'),
     _useState70 = _slicedToArray(_useState69, 2),
@@ -2176,12 +2180,23 @@ var CSModule = function CSModule(_ref7) {
     });else if (bucketFilter === 'quote') list = list.filter(function (r) {
       return r.isQuote;
     });
+    // 🆕 fix373:智能模糊搜索 —— 客户/订单号/备注/网站/员工/状态,任意字段命中即算匹配
+    var kw = snapshotSearch.trim().toLowerCase();
+    if (kw) list = list.filter(function (r) {
+      var owner = employees.find(function (e) {
+        return e.id === r.ownerId;
+      });
+      var ownerText = owner ? owner.name + ' ' + (owner.alias || '') : r.ownerName || '';
+      var statusText = r.status === 'waiting' ? '等客户' : r.status === 'in_progress' ? '跟进中' : r.status === 'pending' ? '待处理' : r.status || '';
+      var haystack = [r.customer, r.orderRef, r.note, r.site, ownerText, statusText, r.piNo, r.buyerName].filter(Boolean).join(' ').toLowerCase();
+      return haystack.indexOf(kw) >= 0;
+    });
     return _toConsumableArray(list).sort(function (a, b) {
       // 🆕 报价桶:新增的排最前(按创建时间倒序);其它桶维持按下次跟进日期升序
       if (bucketFilter === 'quote') return (b.createdAt || '').localeCompare(a.createdAt || '');
       return (a.nextFollowUp || '9999-99-99').localeCompare(b.nextFollowUp || '9999-99-99');
     });
-  }, [reminders, reminderViewer, user.id, bucketFilter, today]);
+  }, [reminders, reminderViewer, user.id, bucketFilter, today, snapshotSearch, employees]);
 
   // 🆕 高频投诉客户监控（同邮箱 ≥5 封记录 = 疑似投诉/重要客户）
   var HIGH_FREQ_THRESHOLD = 5;
@@ -3394,7 +3409,40 @@ var CSModule = function CSModule(_ref7) {
         return !v;
       });
     }
-  }, remindersExpanded ? '▲ 收起' : '▼ 展开详情'))), remindersExpanded && bucketFilter === 'quote' && sortedReminders.length > 0 && /*#__PURE__*/React.createElement("div", {
+  }, remindersExpanded ? '▲ 收起' : '▼ 展开详情'))), remindersExpanded && /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: '8px 16px',
+      borderTop: '1px solid var(--line)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: { color: 'var(--ink-3)', flexShrink: 0, fontSize: 13 }
+  }, "\uD83D\uDD0D"), /*#__PURE__*/React.createElement("input", {
+    value: snapshotSearch,
+    onChange: function onChange(e) {
+      return setSnapshotSearch(e.target.value);
+    },
+    placeholder: "\u641C\u5BA2\u6237/\u8BA2\u5355\u53F7/\u5907\u6CE8/\u7F51\u7AD9/\u5458\u5DE5/\u72B6\u6001\u2026\u6A21\u7CCA\u641C\u7D22\u5FEB\u7167\u5185\u6240\u6709\u5185\u5BB9",
+    style: {
+      flex: 1,
+      border: '1px solid var(--line)',
+      borderRadius: 7,
+      padding: '5px 10px',
+      fontSize: 12.5,
+      fontFamily: 'inherit',
+      outline: 'none'
+    }
+  }), snapshotSearch && /*#__PURE__*/React.createElement("button", {
+    className: "btn-ghost",
+    style: { padding: '3px 8px', fontSize: 11, flexShrink: 0 },
+    onClick: function onClick() {
+      return setSnapshotSearch('');
+    }
+  }, "\u2715 \u6E05\u7A7A"), snapshotSearch && /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 11, color: 'var(--ink-3)', flexShrink: 0, whiteSpace: 'nowrap' }
+  }, "\u547D\u4E2D ", sortedReminders.length, " \u6761")), remindersExpanded && bucketFilter === 'quote' && sortedReminders.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
       borderTop: '1px solid var(--line)',
       padding: '10px 16px',
