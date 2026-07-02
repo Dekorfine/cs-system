@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix382
+// 版本 2026.06.05-fix383
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1233,6 +1233,7 @@ function POAftersalesModule(props) {
   var _s7 = useState(''), reasonFilter = _s7[0], setReasonFilter = _s7[1];
   var _s8 = useState(0), thresholdDays = _s8[0], setThresholdDays = _s8[1]; // 0=全部
   var _s8b = useState(false), urgentOnly = _s8b[0], setUrgentOnly = _s8b[1]; // 🆕 仅加急(is_urgent)
+  var _s8c = useState(false), unhandledOnly = _s8c[0], setUnhandledOnly = _s8c[1]; // 🆕 仅未处理(从没有任何跟进记录)
   var _s9 = useState(null), detailRow = _s9[0], setDetailRow = _s9[1];
   var _s10 = useState(null), gallery = _s10[0], setGallery = _s10[1]; // {images:[], index:0} | null —— 🆕 支持多图左右切换
   var viewImage = function viewImage(src) { setGallery(src ? { images: [src], index: 0 } : null); }; // 单图预览:无导航
@@ -1302,6 +1303,17 @@ function POAftersalesModule(props) {
     if (!id) return '—';
     return agentNames[String(id)] || (String(id).slice(0, 8) + '…');
   };
+  // 🆕 列表行缩略图:产品图优先(products[].image_url),没有则兜底沟通截图第1张,再没有就占位图标
+  var rowProductImages = function rowProductImages(r) {
+    var imgs = (Array.isArray(r.products) ? r.products : []).map(function (p) { return p.image_url || p.image || p.img || ''; }).filter(Boolean);
+    return imgs;
+  };
+  var rowThumb = function rowThumb(r) {
+    var imgs = rowProductImages(r);
+    if (imgs.length) return imgs[0];
+    var shots = Array.isArray(r.screenshots) ? r.screenshots.map(function (s) { return typeof s === 'string' ? s : (s.url || s.src || ''); }).filter(Boolean) : [];
+    return shots[0] || '';
+  };
 
   // 动态筛选选项(不硬编码,按实际数据里出现过的值来)
   var opts = useMemo(function () {
@@ -1332,6 +1344,7 @@ function POAftersalesModule(props) {
       if (supplierFilter && r.supplier !== supplierFilter) return false;
       if (reasonFilter && r.reason !== reasonFilter) return false;
       if (urgentOnly && !r.is_urgent) return false;
+      if (unhandledOnly && Array.isArray(r.followups) && r.followups.length > 0) return false;
       if (thresholdDays > 0) {
         var days = r.created_date ? Math.floor((new Date(today) - new Date(r.created_date)) / 86400000) : 0;
         if (days < thresholdDays) return false;
@@ -1342,7 +1355,7 @@ function POAftersalesModule(props) {
       }
       return true;
     });
-  }, [rows, search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, urgentOnly, today]);
+  }, [rows, search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, urgentOnly, unhandledOnly, today]);
 
   var save = function save(id, patch, okMsg) {
     var po = typeof getPoClient === 'function' ? getPoClient() : null;
@@ -1426,6 +1439,11 @@ function POAftersalesModule(props) {
     var next = (detailRow.screenshots || []).filter(function (_s, i) { return i !== idx; });
     save(detailRow.id, { screenshots: next }, '✓ 已删除截图');
   };
+  var deleteFollowup = function deleteFollowup(idx) {
+    if (!detailRow) return;
+    var next = (detailRow.followups || []).filter(function (_f, i) { return i !== idx; });
+    save(detailRow.id, { followups: next }, '✓ 已删除跟进记录');
+  };
   var followupText = function followupText(f) {
     if (typeof f === 'string') return f;
     var t = f.text || f.note || f.content || f.message;
@@ -1449,7 +1467,10 @@ function POAftersalesModule(props) {
   var _s15 = useState(1), curPage = _s15[0], setCurPage = _s15[1];
   var _s16 = useState(function () { return parseInt(localStorage.getItem('po_af_pagesize') || '50', 10); }), pageSize = _s16[0], setPageSize = _s16[1];
   var setPageSizeAndSave = function (n) { setPageSize(n); setCurPage(1); localStorage.setItem('po_af_pagesize', String(n)); };
-  useEffect(function () { setCurPage(1); }, [search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, urgentOnly]); // 筛选变了回第一页
+  // 🆕 列表/网格视图切换,记住偏好
+  var _s19 = useState(function () { return localStorage.getItem('po_af_viewmode') || 'list'; }), viewMode = _s19[0], setViewMode = _s19[1];
+  var setViewModeAndSave = function (m) { setViewMode(m); localStorage.setItem('po_af_viewmode', m); };
+  useEffect(function () { setCurPage(1); }, [search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, urgentOnly, unhandledOnly]); // 筛选变了回第一页
   var totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   var pageSafe = Math.min(curPage, totalPages);
   var paged = filtered.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
@@ -1478,10 +1499,22 @@ function POAftersalesModule(props) {
           /*#__PURE__*/React.createElement("span", { className: "font-display text-sm font-bold" }, "\uD83D\uDD27 \u8DDF\u5355\u552E\u540E"),
           /*#__PURE__*/React.createElement("span", { className: "text-[10px]", style: { color: 'var(--ink-3)' } }, "\u6570\u636E\u6765\u81EA\u8DDF\u5355\u5E93 \xB7 \u4E0E\u4E0A\u65B9\u300C\u5DE5\u4F5C\u4E3B\u7EBF\u300D\u91CC\u7684\u552E\u540E\u4E8B\u4EF6\u65E0\u5173")
         ),
-        /*#__PURE__*/React.createElement("button", {
-          onClick: load,
-          style: { padding: '5px 12px', fontSize: 12, borderRadius: 7, border: '1px solid var(--line)', background: 'white', cursor: 'pointer', fontFamily: 'inherit' }
-        }, loading ? '刷新中…' : '↻ 刷新')
+        /*#__PURE__*/React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          /*#__PURE__*/React.createElement("div", { style: { display: 'flex', border: '1px solid var(--line)', borderRadius: 7, overflow: 'hidden' } },
+            /*#__PURE__*/React.createElement("button", {
+              onClick: function () { setViewModeAndSave('list'); },
+              style: { padding: '5px 10px', fontSize: 12, border: 'none', background: viewMode === 'list' ? '#0071e3' : 'white', color: viewMode === 'list' ? 'white' : 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit' }
+            }, "\u2630 \u5217\u8868"),
+            /*#__PURE__*/React.createElement("button", {
+              onClick: function () { setViewModeAndSave('grid'); },
+              style: { padding: '5px 10px', fontSize: 12, border: 'none', background: viewMode === 'grid' ? '#0071e3' : 'white', color: viewMode === 'grid' ? 'white' : 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit' }
+            }, "\u2637 \u7F51\u683C")
+          ),
+          /*#__PURE__*/React.createElement("button", {
+            onClick: load,
+            style: { padding: '5px 12px', fontSize: 12, borderRadius: 7, border: '1px solid var(--line)', background: 'white', cursor: 'pointer', fontFamily: 'inherit' }
+          }, loading ? '刷新中…' : '↻ 刷新')
+        )
       ),
       /*#__PURE__*/React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 8, marginBottom: 10 } },
         [['待处理', rows.filter(function (r) { return !r.resolved_date; }).length, '#dc2626'],
@@ -1524,9 +1557,13 @@ function POAftersalesModule(props) {
       /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
         thresholds.map(function (d) {
           var sel = thresholdDays === d;
+          // 🆕 按天数递进加深(售后比催单更急):0无特殊色 / 1黄 / 3橙黄 / 5橙 / 7红 / 14深红 / 30(>14桶)极暗红
+          var c = d === 0 ? '#0071e3' : d <= 1 ? '#fbbf24' : d <= 3 ? '#f59e0b' : d <= 5 ? '#ea580c' : d <= 7 ? '#dc2626' : d <= 14 ? '#b91c1c' : '#7f1d1d';
           return /*#__PURE__*/React.createElement("button", {
             key: d, onClick: function () { setThresholdDays(d); },
-            style: { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: '1px solid ' + (sel ? '#0071e3' : 'var(--line)'), background: sel ? '#0071e3' : 'white', color: sel ? 'white' : 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: sel ? 600 : 500 }
+            style: sel
+              ? { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: '1px solid ' + c, background: c, color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, boxShadow: '0 1px 6px ' + c + '55' }
+              : { padding: '4px 10px', fontSize: 11, borderRadius: 14, borderLeft: '3px solid ' + c, borderTop: '1px solid var(--line)', borderRight: '1px solid var(--line)', borderBottom: '1px solid var(--line)', background: 'white', color: c, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
           }, d === 0 ? '全部' : '\u2265' + d + '\u5929');
         }),
         /*#__PURE__*/React.createElement("button", {
@@ -1534,11 +1571,51 @@ function POAftersalesModule(props) {
           style: urgentOnly
             ? { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#f97316,#dc2626)', color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }
             : { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: '1px solid var(--line)', background: 'white', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
-        }, "\uD83D\uDEA8 \u4EC5\u52A0\u6025")
+        }, "\uD83D\uDEA8 \u4EC5\u52A0\u6025"),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: function () { setUnhandledOnly(function (v) { return !v; }); },
+          style: unhandledOnly
+            ? { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: 'none', background: '#0071e3', color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }
+            : { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: '1px solid var(--line)', background: 'white', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+        }, "\uD83D\uDCED \u4EC5\u672A\u5904\u7406(\u65E0\u8DDF\u8FDB)")
       )
     ),
     loading ? /*#__PURE__*/React.createElement("div", { style: { textAlign: 'center', padding: 40, color: 'var(--ink-3)' } }, "\u52A0\u8F7D\u4E2D…") :
     filtered.length === 0 ? /*#__PURE__*/React.createElement("div", { className: "paper rounded-2xl", style: { padding: 40, textAlign: 'center', color: 'var(--ink-3)' } }, "\u6CA1\u6709\u7B26\u5408\u7B5B\u9009\u7684\u8BB0\u5F55") :
+    viewMode === 'grid' ? /*#__PURE__*/React.createElement("div", { id: 'po-af-list-top' },
+      /*#__PURE__*/React.createElement("div", { className: "paper rounded-2xl", style: { marginBottom: 10 } }, /*#__PURE__*/React.createElement(Pager, null)),
+      /*#__PURE__*/React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12, marginBottom: 10 } },
+        paged.map(function (r) {
+          var st = poStatusStyle(r.status);
+          var cover = rowThumb(r);
+          var shotCount = Array.isArray(r.screenshots) ? r.screenshots.length : 0;
+          var fuCount = Array.isArray(r.followups) ? r.followups.length : 0;
+          var days = r.created_date ? Math.floor((new Date(today) - new Date(r.created_date)) / 86400000) : null;
+          var overdue = days != null && days >= 7 && r.status !== 'resolved' && r.status !== 'cancelled';
+          return /*#__PURE__*/React.createElement("div", {
+            key: r.id, onClick: function () { setDetailRow(r); setFollowupDraft(''); setFollowupPendingImgs([]); },
+            className: "paper rounded-2xl", style: { overflow: 'hidden', cursor: 'pointer', border: overdue ? '1.5px solid #dc2626' : r.is_urgent ? '1.5px solid #f97316' : '1px solid var(--line)' }
+          },
+            /*#__PURE__*/React.createElement("div", { style: { position: 'relative', width: '100%', paddingTop: '75%', background: '#f1f5f9' } },
+              cover ? /*#__PURE__*/React.createElement("img", { src: cover, style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' } })
+                : /*#__PURE__*/React.createElement("div", { style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: '#cbd5e1' } }, "\uD83D\uDCF7"),
+              /*#__PURE__*/React.createElement("span", { style: { position: 'absolute', top: 6, right: 6, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 9, background: st.bg, color: st.color } }, poStatusLabel(r.status)),
+              r.is_urgent && /*#__PURE__*/React.createElement("span", { style: { position: 'absolute', top: 6, left: 6, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 9, background: 'linear-gradient(135deg,#f97316,#dc2626)', color: 'white' } }, "\uD83D\uDEA8"),
+              (shotCount > 0 || fuCount > 0) && /*#__PURE__*/React.createElement("span", { style: { position: 'absolute', bottom: 6, right: 6, fontSize: 10, padding: '2px 6px', borderRadius: 8, background: 'rgba(0,0,0,.55)', color: 'white' } },
+                (shotCount > 0 ? '\uD83D\uDCF7' + shotCount + ' ' : '') + (fuCount > 0 ? '\uD83D\uDCAC' + fuCount : ''))
+            ),
+            /*#__PURE__*/React.createElement("div", { style: { padding: 10 } },
+              /*#__PURE__*/React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700 } }, r.order_no || '—'),
+              /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: 'var(--ink-2)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, r.product || ''),
+              r.reason && /*#__PURE__*/React.createElement("div", { style: { fontSize: 10.5, color: '#b91c1c', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, "\u26A0 " + r.reason),
+              /*#__PURE__*/React.createElement("div", { style: { fontSize: 10, color: 'var(--ink-3)', marginTop: 4 } },
+                (r.supplier ? '\uD83C\uDFED' + r.supplier + ' ' : '') + (r.site ? '\uD83C\uDF10' + r.site + ' ' : '') + (r.created_date ? '\uD83D\uDCC5' + r.created_date : ''))
+            )
+          );
+        })
+      ),
+      /*#__PURE__*/React.createElement("div", { className: "paper rounded-2xl" }, /*#__PURE__*/React.createElement(Pager, null))
+    ) :
     /*#__PURE__*/React.createElement("div", { id: 'po-af-list-top', className: "paper rounded-2xl", style: { overflow: 'hidden' } },
       /*#__PURE__*/React.createElement(Pager, null),
       /*#__PURE__*/React.createElement("div", { style: { padding: '4px 14px 8px', fontSize: 11, color: 'var(--ink-3)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' } }, "\u672C\u9875 " + paged.length + " \u6761"),
@@ -1549,6 +1626,16 @@ function POAftersalesModule(props) {
           key: r.id,
           style: { padding: '12px 14px', borderBottom: '1px solid var(--line)', display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }
         },
+          (function () {
+            var thumb = rowThumb(r);
+            var pImgs = rowProductImages(r);
+            return thumb ? /*#__PURE__*/React.createElement("img", {
+              src: thumb, onClick: function (e) { e.stopPropagation(); viewImageGallery(pImgs.length ? pImgs : [thumb], 0); },
+              style: { width: 44, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--line)', cursor: 'pointer', flexShrink: 0 }
+            }) : /*#__PURE__*/React.createElement("div", {
+              style: { width: 44, height: 44, borderRadius: 8, background: '#f1f5f9', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#cbd5e1' }
+            }, "\uD83D\uDCF7");
+          })(),
           /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.bg, color: st.color, whiteSpace: 'nowrap' } }, poStatusLabel(r.status)),
           /*#__PURE__*/React.createElement("div", { style: { flex: '1 1 280px', minWidth: 0 } },
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } },
@@ -1711,8 +1798,15 @@ function POAftersalesModule(props) {
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', padding: 8 } }, "\u6682\u65E0\u8DDF\u8FDB\u8BB0\u5F55") :
             detailRow.followups.slice().reverse().map(function (f, i) {
               var imgs = followupImgs(f);
+              var realIdx = detailRow.followups.length - 1 - i; // 🆕 .reverse() 后 i 不是原数组下标,删除要换算回真实下标
               return /*#__PURE__*/React.createElement("div", { key: i, style: { fontSize: 12, padding: '6px 0', borderBottom: i < detailRow.followups.length - 1 ? '1px solid var(--line)' : 'none' } },
-                /*#__PURE__*/React.createElement("div", { style: { color: 'var(--ink-3)', fontSize: 10.5 } }, followupDate(f) + (followupBy(f) ? ' · ' + followupBy(f) : '')),
+                /*#__PURE__*/React.createElement("div", { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+                  /*#__PURE__*/React.createElement("div", { style: { color: 'var(--ink-3)', fontSize: 10.5 } }, followupDate(f) + (followupBy(f) ? ' · ' + followupBy(f) : '')),
+                  /*#__PURE__*/React.createElement("button", {
+                    onClick: function () { deleteFollowup(realIdx); },
+                    title: '删除这条跟进记录',
+                    style: { border: 'none', background: 'none', color: '#dc2626', fontSize: 11, cursor: 'pointer', padding: '0 2px' }
+                  }, "\uD83D\uDDD1")),
                 /*#__PURE__*/React.createElement("div", null, followupText(f)),
                 imgs.length > 0 && /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' } },
                   imgs.map(function (src, j) {
@@ -6112,7 +6206,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix382';
+var APP_VERSION = '2026.06.05-fix383';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
