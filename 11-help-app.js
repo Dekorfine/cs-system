@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix383
+// 版本 2026.06.05-fix384
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1238,6 +1238,21 @@ function POAftersalesModule(props) {
   var _s10 = useState(null), gallery = _s10[0], setGallery = _s10[1]; // {images:[], index:0} | null —— 🆕 支持多图左右切换
   var viewImage = function viewImage(src) { setGallery(src ? { images: [src], index: 0 } : null); }; // 单图预览:无导航
   var viewImageGallery = function viewImageGallery(images, startIndex) { setGallery({ images: images, index: startIndex || 0 }); }; // 多图画廊:有上一张/下一张
+  // 🆕 图片加载优化:记录已加载完成的图(避免每次切换都显示转圈),并预加载画廊内相邻的前后两张,切换时秒开
+  var _s20 = useState({}), loadedImgs = _s20[0], setLoadedImgs = _s20[1];
+  var markLoaded = function (src) { setLoadedImgs(function (m) { return m[src] ? m : _objectSpread(_objectSpread({}, m), {}, _defineProperty({}, src, true)); }); };
+  useEffect(function () {
+    if (!gallery) return;
+    var toPreload = [gallery.index - 1, gallery.index + 1].filter(function (i) { return i >= 0 && i < gallery.images.length; });
+    toPreload.forEach(function (i) {
+      var src = gallery.images[i];
+      if (!loadedImgs[src]) {
+        var im = new Image();
+        im.onload = function () { markLoaded(src); };
+        im.src = src;
+      }
+    });
+  }, [gallery]);
   var _s11 = useState(false), saving = _s11[0], setSaving = _s11[1];
   var _s12 = useState(''), followupDraft = _s12[0], setFollowupDraft = _s12[1];
   var _s13 = useState({}), agentNames = _s13[0], setAgentNames = _s13[1]; // agent_id -> 姓名(best-effort)
@@ -1385,14 +1400,16 @@ function POAftersalesModule(props) {
     var po = typeof getPoClient === 'function' ? getPoClient() : null;
     if (!po || !file) return;
     setFollowupUploading(true);
-    var ext = (file.name && file.name.split('.').pop() || 'png').toLowerCase();
-    var folder = (user && (user.id || user.name)) || 'cs';
-    var fname = folder + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
-    Promise.resolve(po.storage.from('po-screenshots').upload(fname, file, { upsert: false, contentType: file.type || 'image/png' })).then(function (res) {
-      setFollowupUploading(false);
-      if (res && res.error) { toast('图片上传失败:' + (res.error.message || res.error), 'error'); return; }
-      var url = po.storage.from('po-screenshots').getPublicUrl(fname).data.publicUrl;
-      if (url) setFollowupPendingImgs(function (prev) { return prev.concat([url]); });
+    compressImage(file).then(function (fileToUpload) {
+      var ext = (fileToUpload.name && fileToUpload.name.split('.').pop() || 'jpg').toLowerCase();
+      var folder = (user && (user.id || user.name)) || 'cs';
+      var fname = folder + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      return po.storage.from('po-screenshots').upload(fname, fileToUpload, { upsert: false, contentType: fileToUpload.type || 'image/jpeg' }).then(function (res) {
+        setFollowupUploading(false);
+        if (res && res.error) { toast('图片上传失败:' + (res.error.message || res.error), 'error'); return; }
+        var url = po.storage.from('po-screenshots').getPublicUrl(fname).data.publicUrl;
+        if (url) setFollowupPendingImgs(function (prev) { return prev.concat([url]); });
+      });
     })["catch"](function (e) { setFollowupUploading(false); toast('图片上传失败:' + (e.message || e), 'error'); });
   };
   var addFollowup = function addFollowup() {
@@ -1413,22 +1430,52 @@ function POAftersalesModule(props) {
   };
 
   var _s14 = useState(false), uploadingShot = _s14[0], setUploadingShot = _s14[1];
+  // 🆕 上传前压缩:手机拍照原图动辄几MB是"打开慢"的根本原因。等比缩到最长边≤1600px、JPEG质量0.82,体积通常降到几百KB。
+  //   压缩失败(极少数场景,比如浏览器不支持)则原图直传兜底,不阻塞上传。
+  var compressImage = function compressImage(file) {
+    return new Promise(function (resolve) {
+      if (!file.type || file.type.indexOf('image/') !== 0) { resolve(file); return; }
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var MAX = 1600;
+        var w = img.width, h = img.height;
+        if (w <= MAX && h <= MAX) { resolve(file); return; } // 已经够小,不用压缩
+        var scale = MAX / Math.max(w, h);
+        var cw = Math.round(w * scale), ch = Math.round(h * scale);
+        var canvas = document.createElement('canvas');
+        canvas.width = cw; canvas.height = ch;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, cw, ch);
+        canvas.toBlob(function (blob) {
+          if (!blob) { resolve(file); return; }
+          var newName = (file.name || 'image').replace(/\.\w+$/, '') + '.jpg';
+          resolve(new File([blob], newName, { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.82);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); resolve(file); }; // 解析失败就用原图,不阻塞
+      img.src = url;
+    });
+  };
   var uploadScreenshot = function uploadScreenshot(file) {
     if (!detailRow || !file) return;
     var po = typeof getPoClient === 'function' ? getPoClient() : null;
     if (!po) { toast('跟单库连接未就绪', 'error'); return; }
     setUploadingShot(true);
-    var ext = (file.name && file.name.split('.').pop() || 'png').toLowerCase();
-    // 🆕 路径规则按跟单侧确认:{标识}/{时间戳}_{随机6位}.ext —— 不涉及权限判断,用客服自己的 id 做文件夹名即可
-    var folder = (user && (user.id || user.name)) || 'cs';
-    var fname = folder + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
-    Promise.resolve(po.storage.from('po-screenshots').upload(fname, file, { upsert: false, contentType: file.type || 'image/png' })).then(function (res) {
-      if (res && res.error) { setUploadingShot(false); toast('上传失败:' + (res.error.message || res.error), 'error'); return; }
-      var urlData = po.storage.from('po-screenshots').getPublicUrl(fname).data;
-      var url = urlData && urlData.publicUrl;
-      if (!url) { setUploadingShot(false); toast('上传成功但取链接失败', 'error'); return; }
-      var next = (Array.isArray(detailRow.screenshots) ? detailRow.screenshots : []).concat([url]);
-      save(detailRow.id, { screenshots: next }, '✓ 截图已上传').then(function () { setUploadingShot(false); });
+    compressImage(file).then(function (fileToUpload) {
+      var ext = (fileToUpload.name && fileToUpload.name.split('.').pop() || 'jpg').toLowerCase();
+      // 🆕 路径规则按跟单侧确认:{标识}/{时间戳}_{随机6位}.ext —— 不涉及权限判断,用客服自己的 id 做文件夹名即可
+      var folder = (user && (user.id || user.name)) || 'cs';
+      var fname = folder + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+      return po.storage.from('po-screenshots').upload(fname, fileToUpload, { upsert: false, contentType: fileToUpload.type || 'image/jpeg' }).then(function (res) {
+        if (res && res.error) { setUploadingShot(false); toast('上传失败:' + (res.error.message || res.error), 'error'); return; }
+        var urlData = po.storage.from('po-screenshots').getPublicUrl(fname).data;
+        var url = urlData && urlData.publicUrl;
+        if (!url) { setUploadingShot(false); toast('上传成功但取链接失败', 'error'); return; }
+        var next = (Array.isArray(detailRow.screenshots) ? detailRow.screenshots : []).concat([url]);
+        save(detailRow.id, { screenshots: next }, '✓ 截图已上传').then(function () { setUploadingShot(false); });
+      });
     })["catch"](function (e) {
       setUploadingShot(false);
       toast('上传失败:' + (e.message || e), 'error');
@@ -1597,7 +1644,7 @@ function POAftersalesModule(props) {
             className: "paper rounded-2xl", style: { overflow: 'hidden', cursor: 'pointer', border: overdue ? '1.5px solid #dc2626' : r.is_urgent ? '1.5px solid #f97316' : '1px solid var(--line)' }
           },
             /*#__PURE__*/React.createElement("div", { style: { position: 'relative', width: '100%', paddingTop: '75%', background: '#f1f5f9' } },
-              cover ? /*#__PURE__*/React.createElement("img", { src: cover, style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' } })
+              cover ? /*#__PURE__*/React.createElement("img", { src: cover, loading: 'lazy', style: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' } })
                 : /*#__PURE__*/React.createElement("div", { style: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, color: '#cbd5e1' } }, "\uD83D\uDCF7"),
               /*#__PURE__*/React.createElement("span", { style: { position: 'absolute', top: 6, right: 6, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 9, background: st.bg, color: st.color } }, poStatusLabel(r.status)),
               r.is_urgent && /*#__PURE__*/React.createElement("span", { style: { position: 'absolute', top: 6, left: 6, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 9, background: 'linear-gradient(135deg,#f97316,#dc2626)', color: 'white' } }, "\uD83D\uDEA8"),
@@ -1630,7 +1677,7 @@ function POAftersalesModule(props) {
             var thumb = rowThumb(r);
             var pImgs = rowProductImages(r);
             return thumb ? /*#__PURE__*/React.createElement("img", {
-              src: thumb, onClick: function (e) { e.stopPropagation(); viewImageGallery(pImgs.length ? pImgs : [thumb], 0); },
+              src: thumb, loading: 'lazy', onClick: function (e) { e.stopPropagation(); viewImageGallery(pImgs.length ? pImgs : [thumb], 0); },
               style: { width: 44, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--line)', cursor: 'pointer', flexShrink: 0 }
             }) : /*#__PURE__*/React.createElement("div", {
               style: { width: 44, height: 44, borderRadius: 8, background: '#f1f5f9', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#cbd5e1' }
@@ -1751,7 +1798,7 @@ function POAftersalesModule(props) {
             var allSrcs = detailRow.screenshots.map(function (x) { return typeof x === 'string' ? x : (x.url || x.src || ''); }).filter(Boolean);
             return src ? /*#__PURE__*/React.createElement("div", { key: i, style: { position: 'relative' } },
               /*#__PURE__*/React.createElement("img", {
-                src: src, onClick: function () { viewImageGallery(allSrcs, allSrcs.indexOf(src)); },
+                src: src, loading: 'lazy', onClick: function () { viewImageGallery(allSrcs, allSrcs.indexOf(src)); },
                 style: { width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }
               }),
               /*#__PURE__*/React.createElement("button", {
@@ -1779,7 +1826,7 @@ function POAftersalesModule(props) {
             var label = p.spec || p.name || p.product || p.title || '(未命名)';
             return /*#__PURE__*/React.createElement("div", { key: i, style: { display: 'flex', gap: 8, alignItems: 'center', background: '#fafafa', borderRadius: 8, padding: 6 } },
               img ? /*#__PURE__*/React.createElement("img", {
-                src: img, onClick: function () { viewImageGallery(allImgs, allImgs.indexOf(img)); },
+                src: img, loading: 'lazy', onClick: function () { viewImageGallery(allImgs, allImgs.indexOf(img)); },
                 style: { width: 44, height: 44, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }
               }) : /*#__PURE__*/React.createElement("div", { style: { width: 44, height: 44, borderRadius: 6, background: '#eee', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#bbb' } }, "\uD83D\uDCF7"),
               /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-2)', minWidth: 0 } },
@@ -1811,7 +1858,7 @@ function POAftersalesModule(props) {
                 imgs.length > 0 && /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' } },
                   imgs.map(function (src, j) {
                     return /*#__PURE__*/React.createElement("img", {
-                      key: j, src: src, onClick: function () { viewImageGallery(imgs, j); },
+                      key: j, src: src, loading: 'lazy', onClick: function () { viewImageGallery(imgs, j); },
                       style: { width: 40, height: 40, objectFit: 'cover', borderRadius: 5, cursor: 'pointer', border: '1px solid var(--line)' }
                     });
                   })
@@ -1857,7 +1904,14 @@ function POAftersalesModule(props) {
       style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
       onClick: function (e) { if (e.target === e.currentTarget) setGallery(null); }
     },
-      /*#__PURE__*/React.createElement("img", { src: gallery.images[gallery.index], style: { maxWidth: '85vw', maxHeight: '90vh', borderRadius: 8 } }),
+      !loadedImgs[gallery.images[gallery.index]] && /*#__PURE__*/React.createElement("div", {
+        style: { position: 'absolute', color: 'rgba(255,255,255,.7)', fontSize: 13 }
+      }, "\u52A0\u8F7D\u4E2D…"),
+      /*#__PURE__*/React.createElement("img", {
+        src: gallery.images[gallery.index],
+        onLoad: function (e) { markLoaded(gallery.images[gallery.index]); },
+        style: { maxWidth: '85vw', maxHeight: '90vh', borderRadius: 8, opacity: loadedImgs[gallery.images[gallery.index]] ? 1 : 0, transition: 'opacity .15s' }
+      }),
       gallery.images.length > 1 && /*#__PURE__*/React.createElement(React.Fragment, null,
         /*#__PURE__*/React.createElement("button", {
           onClick: function (e) { e.stopPropagation(); setGallery(function (g) { return _objectSpread(_objectSpread({}, g), {}, { index: (g.index - 1 + g.images.length) % g.images.length }); }); },
@@ -6206,7 +6260,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix383';
+var APP_VERSION = '2026.06.05-fix384';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
