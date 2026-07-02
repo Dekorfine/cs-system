@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix377
+// 版本 2026.06.05-fix378
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1133,14 +1133,21 @@ CSErrorBoundary.prototype.render = function () {
 //   自己的 aftersales 表。和「工作主线」里客服自己那套售后事件是两套完全不同的数据,不共用。
 //   权限已确认:SELECT/UPDATE 开放,INSERT/DELETE 未开放 —— 本模块只做查看+编辑,不建新单、不删除。
 // ════════════════════════════════════════════════════════════════════
-var PO_AFTERSALES_STATUS_STYLE = {
-  '待处理': { bg: '#fef3c7', color: '#b45309' },
-  '处理中': { bg: '#ede9fe', color: '#6d28d9' },
-  '已解决': { bg: '#dcfce7', color: '#16a34a' },
-  '已关闭': { bg: '#f1f5f9', color: '#64748b' }
-};
+// 🆕 真实状态枚举(跟单侧核实,非猜测):key 存库(英文),label 显示(中文)。流转无限制,任意状态可改任意状态。
+var PO_AFTERSALES_STATUSES = [
+  { key: 'pending', label: '待处理', bg: '#fef3c7', color: '#b45309' },
+  { key: 'contacting', label: '沟通中', bg: '#e0f2fe', color: '#0369a1' },
+  { key: 'repairing', label: '返修中', bg: '#ede9fe', color: '#6d28d9' },
+  { key: 'resolved', label: '已解决', bg: '#dcfce7', color: '#16a34a' },
+  { key: 'cancelled', label: '已取消', bg: '#f1f5f9', color: '#64748b' }
+];
+var PO_STATUS_BY_KEY = {};
+PO_AFTERSALES_STATUSES.forEach(function (s) { PO_STATUS_BY_KEY[s.key] = s; });
 function poStatusStyle(s) {
-  return PO_AFTERSALES_STATUS_STYLE[s] || { bg: '#f1f5f9', color: '#475569' };
+  return PO_STATUS_BY_KEY[s] || { bg: '#f1f5f9', color: '#475569', label: s };
+}
+function poStatusLabel(s) {
+  return (PO_STATUS_BY_KEY[s] && PO_STATUS_BY_KEY[s].label) || s || '未知';
 }
 function POAftersalesModule(props) {
   var user = props.user,
@@ -1171,14 +1178,32 @@ function POAftersalesModule(props) {
       var data = (res && res.data) || [];
       setRows(data);
       if (onCount) onCount(data.filter(function (r) { return !r.resolved_date; }).length);
-      // best-effort 解析 agent_id -> 姓名(org_directory.staff_id 匹配;匹配不到就显示原始id前8位)
-      var po2 = typeof getPoClient === 'function' ? getPoClient() : null;
-      if (po2) {
-        Promise.resolve(po2.from('org_directory').select('staff_id,name,display_name,chinese_name,english_name')).then(function (r2) {
+      // 解析 agent_id -> 姓名。两步:① org_directory.staff_id 匹配(注意:org_directory 在 MESSAGEBUS 项目,用 getCdmClient,不是 getPoClient——之前这里连错库了);
+      //   ② 匹配不到的(理论上只有 agents.user_id 意外为空退化成姓名字符串的边界情况)直接反查跟单库自己的 agents 表兜底(跟单侧已确认:aftersales.agent_id === agents.user_id)。
+      var cdm = typeof getCdmClient === 'function' ? getCdmClient() : null;
+      if (cdm) {
+        Promise.resolve(cdm.from('org_directory').select('staff_id,name,display_name,chinese_name,english_name')).then(function (r2) {
+          var m = {};
           if (r2 && r2.data) {
-            var m = {};
             r2.data.forEach(function (e) { if (e.staff_id) m[String(e.staff_id)] = e.display_name || e.name || e.chinese_name || e.english_name; });
-            setAgentNames(m);
+          }
+          setAgentNames(m);
+          // 找出 data 里 org_directory 没覆盖到的 agent_id,反查跟单库 agents 表兜底
+          var missingIds = data.map(function (r) { return r.agent_id; }).filter(function (id) { return id && !m[String(id)]; });
+          var missing = _toConsumableArray(new Set(missingIds));
+          if (missing.length) {
+            var po3 = typeof getPoClient === 'function' ? getPoClient() : null;
+            if (po3) {
+              Promise.resolve(po3.from('agents').select('user_id,name').in('user_id', missing)).then(function (r3) {
+                if (r3 && r3.data && r3.data.length) {
+                  setAgentNames(function (prev) {
+                    var next = _objectSpread({}, prev);
+                    r3.data.forEach(function (a) { if (a.user_id && a.name) next[String(a.user_id)] = a.name; });
+                    return next;
+                  });
+                }
+              })["catch"](function () {});
+            }
           }
         })["catch"](function () {});
       }
@@ -1210,7 +1235,14 @@ function POAftersalesModule(props) {
   var filtered = useMemo(function () {
     var kw = search.trim().toLowerCase();
     return rows.filter(function (r) {
-      if (statusFilter === 'unresolved' && r.resolved_date) return false;
+      if (statusFilter === 'unresolved') {
+        var known = PO_STATUS_BY_KEY[r.status];
+        if (known) {
+          if (r.status === 'resolved' || r.status === 'cancelled') return false;
+        } else if (r.resolved_date) { // 未知/旧数据状态值,退回按 resolved_date 判断
+          return false;
+        }
+      }
       if (statusFilter !== 'unresolved' && statusFilter !== 'all' && r.status !== statusFilter) return false;
       if (siteFilter && r.site !== siteFilter) return false;
       if (supplierFilter && r.supplier !== supplierFilter) return false;
@@ -1246,7 +1278,7 @@ function POAftersalesModule(props) {
   };
 
   var markResolved = function markResolved(row) {
-    save(row.id, { status: '已解决', resolved_date: today }, '✓ 已标记为已解决');
+    save(row.id, { status: 'resolved', resolved_date: today }, '✓ 已标记为已解决');
   };
 
   var addFollowup = function addFollowup() {
@@ -1258,6 +1290,28 @@ function POAftersalesModule(props) {
     });
   };
 
+  var _s14 = useState(false), uploadingShot = _s14[0], setUploadingShot = _s14[1];
+  var uploadScreenshot = function uploadScreenshot(file) {
+    if (!detailRow || !file) return;
+    var po = typeof getPoClient === 'function' ? getPoClient() : null;
+    if (!po) { toast('跟单库连接未就绪', 'error'); return; }
+    setUploadingShot(true);
+    var ext = (file.name && file.name.split('.').pop() || 'png').toLowerCase();
+    // 🆕 路径规则按跟单侧确认:{标识}/{时间戳}_{随机6位}.ext —— 不涉及权限判断,用客服自己的 id 做文件夹名即可
+    var folder = (user && (user.id || user.name)) || 'cs';
+    var fname = folder + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+    Promise.resolve(po.storage.from('po-screenshots').upload(fname, file, { upsert: false, contentType: file.type || 'image/png' })).then(function (res) {
+      if (res && res.error) { setUploadingShot(false); toast('上传失败:' + (res.error.message || res.error), 'error'); return; }
+      var urlData = po.storage.from('po-screenshots').getPublicUrl(fname).data;
+      var url = urlData && urlData.publicUrl;
+      if (!url) { setUploadingShot(false); toast('上传成功但取链接失败', 'error'); return; }
+      var next = (Array.isArray(detailRow.screenshots) ? detailRow.screenshots : []).concat([url]);
+      save(detailRow.id, { screenshots: next }, '✓ 截图已上传').then(function () { setUploadingShot(false); });
+    })["catch"](function (e) {
+      setUploadingShot(false);
+      toast('上传失败:' + (e.message || e), 'error');
+    });
+  };
   var followupText = function followupText(f) {
     if (typeof f === 'string') return f;
     return f.text || f.note || f.content || f.message || JSON.stringify(f);
@@ -1343,7 +1397,7 @@ function POAftersalesModule(props) {
           key: r.id,
           style: { padding: '12px 14px', borderBottom: '1px solid var(--line)', display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }
         },
-          /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.bg, color: st.color, whiteSpace: 'nowrap' } }, r.status || '未知'),
+          /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.bg, color: st.color, whiteSpace: 'nowrap' } }, poStatusLabel(r.status)),
           /*#__PURE__*/React.createElement("div", { style: { flex: '1 1 280px', minWidth: 0 } },
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } },
               r.order_no || '—', r.site && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, marginLeft: 6, padding: '1px 6px', borderRadius: 8, background: '#eff6ff', color: '#1d4ed8' } }, r.site)),
@@ -1390,10 +1444,15 @@ function POAftersalesModule(props) {
         /*#__PURE__*/React.createElement("div", null,
           /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u72B6\u6001"),
           /*#__PURE__*/React.createElement("select", {
-            value: detailRow.status || '', onChange: function (e) { save(detailRow.id, { status: e.target.value }); },
+            value: detailRow.status || '', onChange: function (e) {
+              var v = e.target.value;
+              var patch = { status: v };
+              if (v === 'resolved' && !detailRow.resolved_date) patch.resolved_date = today; // 与跟单侧行为一致:改成已解决自动填今天
+              save(detailRow.id, patch);
+            },
             style: { width: '100%', padding: '6px 8px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
-          }, ['待处理', '处理中', '已解决', '已关闭'].concat(opts.statuses.filter(function (s) { return ['待处理', '处理中', '已解决', '已关闭'].indexOf(s) < 0; })).map(function (s) {
-            return /*#__PURE__*/React.createElement("option", { key: s, value: s }, s);
+          }, PO_AFTERSALES_STATUSES.concat(opts.statuses.filter(function (s) { return !PO_STATUS_BY_KEY[s]; }).map(function (s) { return { key: s, label: s }; })).map(function (s) {
+            return /*#__PURE__*/React.createElement("option", { key: s.key, value: s.key }, s.label);
           }))
         ),
         /*#__PURE__*/React.createElement("div", null,
@@ -1423,16 +1482,24 @@ function POAftersalesModule(props) {
           style: { width: '100%', minHeight: 60, padding: '6px 8px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit', resize: 'vertical' }
         })
       ),
-      Array.isArray(detailRow.screenshots) && detailRow.screenshots.length > 0 && /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
-        /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 6 } }, "\u622A\u56FE(\u53EA\u8BFB \xB7 " + detailRow.screenshots.length + " \u5F20)"),
-        /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
-          detailRow.screenshots.map(function (s, i) {
+      /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
+        /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 6 } },
+          "\u622A\u56FE" + (Array.isArray(detailRow.screenshots) && detailRow.screenshots.length ? ' · ' + detailRow.screenshots.length + ' 张' : '')),
+        /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' } },
+          Array.isArray(detailRow.screenshots) && detailRow.screenshots.map(function (s, i) {
             var src = typeof s === 'string' ? s : (s.url || s.src || '');
             return src ? /*#__PURE__*/React.createElement("img", {
               key: i, src: src, onClick: function () { setLightboxSrc(src); },
               style: { width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }
             }) : null;
-          })
+          }),
+          /*#__PURE__*/React.createElement("label", {
+            style: { width: 64, height: 64, borderRadius: 6, border: '1px dashed var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: uploadingShot ? 'wait' : 'pointer', fontSize: 20, color: 'var(--ink-3)', flexShrink: 0 }
+          }, uploadingShot ? '…' : '+',
+            /*#__PURE__*/React.createElement("input", {
+              type: 'file', accept: 'image/*', style: { display: 'none' }, disabled: uploadingShot,
+              onChange: function (e) { var f = e.target.files && e.target.files[0]; if (f) uploadScreenshot(f); e.target.value = ''; }
+            }))
         )
       ),
       Array.isArray(detailRow.products) && detailRow.products.length > 0 && /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
@@ -5807,7 +5874,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix377';
+var APP_VERSION = '2026.06.05-fix378';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
