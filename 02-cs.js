@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix375
+// 版本 2026.06.05-fix376
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -13122,26 +13122,29 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
         fontWeight: sel ? 600 : 500
       }
     }, t.label);
-  }), view === 'month' && /*#__PURE__*/React.createElement(React.Fragment, null,
+  }), /*#__PURE__*/React.createElement(React.Fragment, null,
     /*#__PURE__*/React.createElement("span", { style: { width: 1, height: 18, background: 'var(--line)', margin: '0 2px' } }),
     /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
+        setView('month');
         var y = parseInt(selectedMonth.slice(0, 4), 10), m = parseInt(selectedMonth.slice(5, 7), 10) - 1;
         if (m === 0) { m = 12; y--; }
         setSelectedMonth(y + '-' + String(m).padStart(2, '0'));
       },
       title: "\u4E0A\u4E00\u6708",
-      style: { padding: '4px 8px', fontSize: 12, borderRadius: 6, border: '1px solid var(--line)', background: 'white', cursor: 'pointer', fontFamily: 'inherit' }
+      style: { padding: '4px 8px', fontSize: 12, borderRadius: 6, border: '1px solid ' + (view === 'month' ? '#0071e3' : 'var(--line)'), background: 'white', cursor: 'pointer', fontFamily: 'inherit' }
     }, "\u2039"),
     /*#__PURE__*/React.createElement("input", {
       type: 'month',
       value: selectedMonth,
       max: today.slice(0, 7),
-      onChange: function onChange(e) { if (e.target.value) setSelectedMonth(e.target.value); },
-      style: { padding: '3px 6px', fontSize: 12, borderRadius: 6, border: '1px solid var(--line)', fontFamily: 'inherit', color: 'var(--ink-2)' }
+      onChange: function onChange(e) { if (e.target.value) { setView('month'); setSelectedMonth(e.target.value); } },
+      onClick: function onClick() { setView('month'); },
+      style: { padding: '3px 6px', fontSize: 12, borderRadius: 6, border: '1px solid ' + (view === 'month' ? '#0071e3' : 'var(--line)'), fontFamily: 'inherit', color: 'var(--ink-2)' }
     }),
     /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
+        setView('month');
         var y = parseInt(selectedMonth.slice(0, 4), 10), m = parseInt(selectedMonth.slice(5, 7), 10) + 1;
         if (m === 13) { m = 1; y++; }
         var next = y + '-' + String(m).padStart(2, '0');
@@ -13149,19 +13152,20 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
       },
       disabled: selectedMonth >= today.slice(0, 7),
       title: "\u4E0B\u4E00\u6708",
-      style: { padding: '4px 8px', fontSize: 12, borderRadius: 6, border: '1px solid var(--line)', background: 'white', cursor: selectedMonth >= today.slice(0, 7) ? 'not-allowed' : 'pointer', opacity: selectedMonth >= today.slice(0, 7) ? 0.4 : 1, fontFamily: 'inherit' }
+      style: { padding: '4px 8px', fontSize: 12, borderRadius: 6, border: '1px solid ' + (view === 'month' ? '#0071e3' : 'var(--line)'), background: 'white', cursor: selectedMonth >= today.slice(0, 7) ? 'not-allowed' : 'pointer', opacity: selectedMonth >= today.slice(0, 7) ? 0.4 : 1, fontFamily: 'inherit' }
     }, "\u203A"),
     /*#__PURE__*/React.createElement("button", {
       onClick: function onClick() {
+        setView('month');
         var y = today.slice(0, 4), m = parseInt(today.slice(5, 7), 10) - 1;
         if (m === 0) { m = 12; y = String(parseInt(y, 10) - 1); }
         setSelectedMonth(y + '-' + String(m).padStart(2, '0'));
       },
-      style: { padding: '4px 10px', fontSize: 11, borderRadius: 6, border: '1px solid var(--line)', background: selectedMonth === (function () { var y = today.slice(0, 4), m = parseInt(today.slice(5, 7), 10) - 1; if (m === 0) { m = 12; y = String(parseInt(y, 10) - 1); } return y + '-' + String(m).padStart(2, '0'); })() ? '#eff6ff' : 'white', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+      style: { padding: '4px 10px', fontSize: 11, borderRadius: 6, border: '1px solid ' + (view === 'month' ? '#0071e3' : 'var(--line)'), background: selectedMonth === (function () { var y = today.slice(0, 4), m = parseInt(today.slice(5, 7), 10) - 1; if (m === 0) { m = 12; y = String(parseInt(y, 10) - 1); } return y + '-' + String(m).padStart(2, '0'); })() ? '#eff6ff' : 'white', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
     }, "\u4E0A\u6708"),
     /*#__PURE__*/React.createElement("button", {
-      onClick: function onClick() { return setSelectedMonth(today.slice(0, 7)); },
-      style: { padding: '4px 10px', fontSize: 11, borderRadius: 6, border: '1px solid var(--line)', background: selectedMonth === today.slice(0, 7) ? '#eff6ff' : 'white', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+      onClick: function onClick() { setView('month'); setSelectedMonth(today.slice(0, 7)); },
+      style: { padding: '4px 10px', fontSize: 11, borderRadius: 6, border: '1px solid ' + (view === 'month' ? '#0071e3' : 'var(--line)'), background: selectedMonth === today.slice(0, 7) ? '#eff6ff' : 'white', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
     }, "\u672C\u6708")
   ))), /*#__PURE__*/React.createElement("div", {
     style: {
