@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix380
+// 版本 2026.06.05-fix381
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1149,6 +1149,77 @@ function poStatusStyle(s) {
 function poStatusLabel(s) {
   return (PO_STATUS_BY_KEY[s] && PO_STATUS_BY_KEY[s].label) || s || '未知';
 }
+// 🆕 原因分类树(跟单侧提供,8大类+子类)。主原因可多选,每选中一个展开其子类单选。
+//   存库格式:'主原因(子原因)、主原因2(子原因2)' —— 用中文顿号拼接。
+var PO_REASON_TREE = [
+  { icon: '\u26A0', main: '产品瑕疵', subs: ['喷漆不良/掉漆', '有划痕/磨损', '生锈/氧化', '玻璃破损/裂纹', '亚克力变形/发黄', '焊点开裂', '材质问题', '污渍/胶痕', '其他瑕疵'] },
+  { icon: '\uD83D\uDD04', main: '给错货物', subs: ['款式错误(要A给B)', '颜色错误(如白→黑)', '数量错误(要2给1)', '尺寸错误', '型号错误', '替换货未通知', '其他给错'] },
+  { icon: '\uD83E\uDDE9', main: '缺配件', subs: ['缺光源/灯泡', '缺驱动/电源', '缺遥控器', '缺安装件(螺丝/挂板)', '缺装饰件(吊坠/水晶等)', '缺连接线/灯头线', '缺说明书', '其他缺件'] },
+  { icon: '\u26A1', main: '功能故障', subs: ['电压错误(如要110V给220V)', '光源不对(如要单色给三色)', '调光不对(如要可控硅给常规)', '不亮/闪烁/不稳', '开关不灵/损坏', '蓝牙/智能控制问题', '光源亮度不达标', '色温不对', '其他功能问题'] },
+  { icon: '\uD83D\uDCE6', main: '物流损坏', subs: ['运输压破', '包装破损', '货物丢失/少箱', '运输延误', '其他物流问题'] },
+  { icon: '\uD83D\uDD27', main: '安装问题', subs: ['尺寸不符', '配件不匹配', '说明书不清/缺失', '安装结构问题', '其他安装问题'] },
+  { icon: '\uD83D\uDE15', main: '不符预期', subs: ['客户主观因素', '色差较大', '风格不符', '尺寸偏大/偏小', '材质感不符', '其他不符'] },
+  { icon: '\uD83D\uDCCC', main: '其他', subs: [] }
+];
+// 把存库字符串 '主原因(子原因)、主原因2(子原因2)' 解析回 {主原因: 子原因} 的 map
+function parseReasonString(s) {
+  var m = {};
+  (s || '').split(/[、,，]/).map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (part) {
+    var mm = part.match(/^(.+?)\((.+)\)$/);
+    if (mm) m[mm[1]] = mm[2]; else m[part] = '';
+  });
+  return m;
+}
+function reasonMapToString(m) {
+  return Object.keys(m).filter(function (k) { return m[k] !== undefined; }).map(function (k) {
+    return m[k] ? k + '(' + m[k] + ')' : k;
+  }).join('\u3001');
+}
+function ReasonTreePicker(props) {
+  var value = props.value, onChange = props.onChange;
+  var _rs = useState(function () { return parseReasonString(value); }), sel = _rs[0], setSel = _rs[1];
+  useEffect(function () { setSel(parseReasonString(value)); }, [value]); // 切换记录时重新解析
+  var toggleMain = function (main) {
+    var next = _objectSpread({}, sel);
+    if (main in next) delete next[main]; else next[main] = '';
+    setSel(next);
+    onChange(reasonMapToString(next));
+  };
+  var pickSub = function (main, sub) {
+    var next = _objectSpread(_objectSpread({}, sel), {}, _defineProperty({}, main, sel[main] === sub ? '' : sub));
+    setSel(next);
+    onChange(reasonMapToString(next));
+  };
+  return /*#__PURE__*/React.createElement("div", null,
+    /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 } },
+      PO_REASON_TREE.map(function (r) {
+        var on = r.main in sel;
+        return /*#__PURE__*/React.createElement("button", {
+          key: r.main, onClick: function () { toggleMain(r.main); },
+          style: { padding: '5px 10px', fontSize: 12, borderRadius: 14, border: '1px solid ' + (on ? '#b91c1c' : 'var(--line)'), background: on ? '#fef2f2' : 'white', color: on ? '#b91c1c' : 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: on ? 600 : 500 }
+        }, r.icon + ' ' + r.main);
+      })
+    ),
+    Object.keys(sel).map(function (main) {
+      var tree = PO_REASON_TREE.find(function (r) { return r.main === main; });
+      if (!tree || !tree.subs.length) return null;
+      return /*#__PURE__*/React.createElement("div", { key: main, style: { marginBottom: 6, paddingLeft: 8, borderLeft: '2px solid #fecaca' } },
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 10.5, color: 'var(--ink-3)', marginBottom: 4 } }, main + ' \u2192'),
+        /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 5, flexWrap: 'wrap' } },
+          tree.subs.map(function (s) {
+            var on = sel[main] === s;
+            return /*#__PURE__*/React.createElement("button", {
+              key: s, onClick: function () { pickSub(main, s); },
+              style: { padding: '3px 8px', fontSize: 11, borderRadius: 10, border: '1px solid ' + (on ? '#0071e3' : 'var(--line)'), background: on ? '#0071e3' : 'white', color: on ? 'white' : 'var(--ink-3)', cursor: 'pointer', fontFamily: 'inherit' }
+            }, s);
+          })
+        )
+      );
+    }),
+    /*#__PURE__*/React.createElement("div", { style: { fontSize: 10.5, color: 'var(--ink-3)', marginTop: 4 } }, "\u5DF2\u9009\uFF1A" + (reasonMapToString(sel) || '(未选择)'))
+  );
+}
+
 function POAftersalesModule(props) {
   var user = props.user,
     toast = props.toast,
@@ -1293,12 +1364,36 @@ function POAftersalesModule(props) {
     save(row.id, { status: 'resolved', resolved_date: today }, '✓ 已标记为已解决');
   };
 
+  var _s17 = useState([]), followupPendingImgs = _s17[0], setFollowupPendingImgs = _s17[1];
+  var _s18 = useState(false), followupUploading = _s18[0], setFollowupUploading = _s18[1];
+  var attachFollowupImg = function attachFollowupImg(file) {
+    var po = typeof getPoClient === 'function' ? getPoClient() : null;
+    if (!po || !file) return;
+    setFollowupUploading(true);
+    var ext = (file.name && file.name.split('.').pop() || 'png').toLowerCase();
+    var folder = (user && (user.id || user.name)) || 'cs';
+    var fname = folder + '/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+    Promise.resolve(po.storage.from('po-screenshots').upload(fname, file, { upsert: false, contentType: file.type || 'image/png' })).then(function (res) {
+      setFollowupUploading(false);
+      if (res && res.error) { toast('图片上传失败:' + (res.error.message || res.error), 'error'); return; }
+      var url = po.storage.from('po-screenshots').getPublicUrl(fname).data.publicUrl;
+      if (url) setFollowupPendingImgs(function (prev) { return prev.concat([url]); });
+    })["catch"](function (e) { setFollowupUploading(false); toast('图片上传失败:' + (e.message || e), 'error'); });
+  };
   var addFollowup = function addFollowup() {
     if (!detailRow || !followupDraft.trim()) return;
-    var entry = { date: new Date().toISOString(), by: (user && (user.name || user.alias)) || '客服', text: followupDraft.trim() };
+    var now = new Date();
+    // 🆕 字段对齐跟单侧真实结构:date(纯日期)+time(HH:MM)+note,而不是自造的 text/整段ISO —— 保证两边都能正确读取
+    var entry = {
+      date: now.toISOString().slice(0, 10),
+      time: now.toTimeString().slice(0, 5),
+      note: followupDraft.trim(),
+      screenshots: followupPendingImgs,
+      by: (user && (user.name || user.alias)) || '客服' // 附加字段,不影响跟单侧读取,方便客服自己追溯是谁录入
+    };
     var next = (Array.isArray(detailRow.followups) ? detailRow.followups : []).concat([entry]);
     save(detailRow.id, { followups: next, next_follow: null }, '✓ 已添加跟进').then(function (ok) {
-      if (ok) setFollowupDraft('');
+      if (ok) { setFollowupDraft(''); setFollowupPendingImgs([]); }
     });
   };
 
@@ -1497,40 +1592,41 @@ function POAftersalesModule(props) {
         ),
         /*#__PURE__*/React.createElement("button", { onClick: function () { setDetailRow(null); }, style: { border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--ink-3)' } }, "\u2715")
       ),
-      /*#__PURE__*/React.createElement("div", { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 } },
-        /*#__PURE__*/React.createElement("div", null,
-          /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u72B6\u6001"),
-          /*#__PURE__*/React.createElement("select", {
-            value: detailRow.status || '', onChange: function (e) {
-              var v = e.target.value;
-              var patch = { status: v };
-              if (v === 'resolved' && !detailRow.resolved_date) patch.resolved_date = today; // 与跟单侧行为一致:改成已解决自动填今天
-              save(detailRow.id, patch);
-            },
-            style: { width: '100%', padding: '6px 8px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
-          }, PO_AFTERSALES_STATUSES.concat(opts.statuses.filter(function (s) { return !PO_STATUS_BY_KEY[s]; }).map(function (s) { return { key: s, label: s }; })).map(function (s) {
-            return /*#__PURE__*/React.createElement("option", { key: s.key, value: s.key }, s.label);
-          }))
-        ),
-        /*#__PURE__*/React.createElement("div", null,
-          /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u4E0B\u6B21\u8DDF\u8FDB\u65E5\u671F"),
-          /*#__PURE__*/React.createElement("input", {
-            type: 'date', value: detailRow.next_follow || '',
-            onChange: function (e) { save(detailRow.id, { next_follow: e.target.value || null }); },
-            style: { width: '100%', padding: '6px 8px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+      /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
+        /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 6 } }, "\u72B6\u6001"),
+        /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+          PO_AFTERSALES_STATUSES.concat(opts.statuses.filter(function (s) { return !PO_STATUS_BY_KEY[s]; }).map(function (s) { return { key: s, label: s, bg: '#f1f5f9', color: '#475569' }; })).map(function (s) {
+            var on = detailRow.status === s.key;
+            return /*#__PURE__*/React.createElement("button", {
+              key: s.key,
+              onClick: function () {
+                var patch = { status: s.key };
+                if (s.key === 'resolved' && !detailRow.resolved_date) patch.resolved_date = today; // 与跟单侧行为一致:改成已解决自动填今天
+                save(detailRow.id, patch);
+              },
+              style: { padding: '6px 14px', fontSize: 12.5, borderRadius: 16, border: '1.5px solid ' + (on ? s.color : 'var(--line)'), background: on ? s.bg : 'white', color: on ? s.color : 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: on ? 700 : 500 }
+            }, s.label);
           })
-        ),
-        /*#__PURE__*/React.createElement("div", null,
-          /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u539F\u56E0"),
-          /*#__PURE__*/React.createElement("input", {
-            defaultValue: detailRow.reason || '', onBlur: function (e) { if (e.target.value !== detailRow.reason) save(detailRow.id, { reason: e.target.value }); },
-            style: { width: '100%', padding: '6px 8px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
-          })
-        ),
-        /*#__PURE__*/React.createElement("div", null,
-          /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u4F9B\u5E94\u5546"),
-          /*#__PURE__*/React.createElement("div", { style: { padding: '6px 8px', fontSize: 12.5, color: 'var(--ink-2)' } }, detailRow.supplier || '—')
         )
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12, maxWidth: 220 } },
+        /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u4E0B\u6B21\u8DDF\u8FDB\u65E5\u671F"),
+        /*#__PURE__*/React.createElement("input", {
+          type: 'date', value: detailRow.next_follow || '',
+          onChange: function (e) { save(detailRow.id, { next_follow: e.target.value || null }); },
+          style: { width: '100%', padding: '6px 8px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+        })
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12, fontSize: 12.5 } },
+        /*#__PURE__*/React.createElement("span", { style: { color: 'var(--ink-3)' } }, "\u4F9B\u5E94\u5546\uFF1A"),
+        /*#__PURE__*/React.createElement("span", { style: { color: 'var(--ink-2)' } }, detailRow.supplier || '—')
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
+        /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 6 } }, "\u539F\u56E0\u5206\u7C7B"),
+        /*#__PURE__*/React.createElement(ReasonTreePicker, {
+          value: detailRow.reason || '',
+          onChange: function (v) { save(detailRow.id, { reason: v }); }
+        })
       ),
       /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
         /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u539F\u56E0\u8BE6\u60C5"),
@@ -1608,12 +1704,29 @@ function POAftersalesModule(props) {
                 ));
             })
         ),
+        followupPendingImgs.length > 0 && /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 4, marginBottom: 6, flexWrap: 'wrap' } },
+          followupPendingImgs.map(function (src, i) {
+            return /*#__PURE__*/React.createElement("div", { key: i, style: { position: 'relative' } },
+              /*#__PURE__*/React.createElement("img", { src: src, style: { width: 36, height: 36, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--line)' } }),
+              /*#__PURE__*/React.createElement("button", {
+                onClick: function () { setFollowupPendingImgs(function (prev) { return prev.filter(function (_x, j) { return j !== i; }); }); },
+                style: { position: 'absolute', top: -5, right: -5, width: 14, height: 14, borderRadius: '50%', border: 'none', background: '#dc2626', color: 'white', fontSize: 9, lineHeight: '14px', cursor: 'pointer', padding: 0 }
+              }, "\u2715"));
+          })
+        ),
         /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6 } },
           /*#__PURE__*/React.createElement("input", {
             value: followupDraft, onChange: function (e) { setFollowupDraft(e.target.value); },
             onKeyDown: function (e) { if (e.key === 'Enter') addFollowup(); },
             placeholder: '添加跟进记录…', style: { flex: 1, padding: '6px 10px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
           }),
+          /*#__PURE__*/React.createElement("label", {
+            style: { padding: '6px 10px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', background: 'white', cursor: followupUploading ? 'wait' : 'pointer', fontFamily: 'inherit', color: 'var(--ink-2)' }
+          }, followupUploading ? '上传中…' : '\uD83D\uDCF7 配图',
+            /*#__PURE__*/React.createElement("input", {
+              type: 'file', accept: 'image/*', style: { display: 'none' }, disabled: followupUploading,
+              onChange: function (e) { var f = e.target.files && e.target.files[0]; if (f) attachFollowupImg(f); e.target.value = ''; }
+            })),
           /*#__PURE__*/React.createElement("button", {
             onClick: addFollowup, disabled: !followupDraft.trim() || saving,
             style: { padding: '6px 14px', fontSize: 12.5, borderRadius: 7, border: 'none', background: '#0071e3', color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }
@@ -5979,7 +6092,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix380';
+var APP_VERSION = '2026.06.05-fix381';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
