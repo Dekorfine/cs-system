@@ -1,5 +1,5 @@
 // ====== cs-system — 02-cs ======
-// 版本 2026.06.05-fix373
+// 版本 2026.06.05-fix375
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -12963,11 +12963,24 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
     _useState224 = _slicedToArray(_useState223, 2),
     view = _useState224[0],
     setView = _useState224[1]; // '7d' | 'month'
+  // 🆕 fix375:月模式支持任意月份筛选(此前硬编码只能看当月、且结束日错误固定为today)
+  var _useState223b = useState(today.slice(0, 7)),
+    _useState224b = _slicedToArray(_useState223b, 2),
+    selectedMonth = _useState224b[0],
+    setSelectedMonth = _useState224b[1]; // 'YYYY-MM'
   var _useState225 = useState(false),
     _useState226 = _slicedToArray(_useState225, 2),
     showAll = _useState226[0],
     setShowAll = _useState226[1];
-  var startDate = view === '7d' ? last7Start : monthStart;
+  var lastDayOfMonth = function lastDayOfMonth(ym) {
+    var y = parseInt(ym.slice(0, 4), 10),
+      m = parseInt(ym.slice(5, 7), 10);
+    var d = new Date(y, m, 0).getDate(); // 下月第0天 = 本月最后一天
+    return ym + '-' + String(d).padStart(2, '0');
+  };
+  var monthEndCapped = selectedMonth >= today.slice(0, 7) ? today : lastDayOfMonth(selectedMonth); // 当月不超过today,往月用月末
+  var startDate = view === '7d' ? last7Start : selectedMonth + '-01';
+  var endDate = view === '7d' ? today : monthEndCapped;
 
   // 选定的员工列表
   var empList = useMemo(function () {
@@ -12984,16 +12997,16 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
     // team — 只列有数据的员工(主管视角用 teamEmployees 收口到本组;me/one 仍用全量 employees)
     return (teamEmployees || employees).filter(function (e) {
       return live.some(function (r) {
-        return r.ownerId === e.id && r.date >= startDate;
+        return r.ownerId === e.id && r.date >= startDate && r.date <= endDate;
       });
     });
-  }, [scope, selectedEmpId, employees, teamEmployees, live, startDate]);
+  }, [scope, selectedEmpId, employees, teamEmployees, live, startDate, endDate]);
 
   // 日期范围 - 按天展开
   var days = useMemo(function () {
     var arr = [];
     var start = new Date(startDate);
-    var end = new Date(today);
+    var end = new Date(endDate);
     for (var d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       var iso = d.toISOString().slice(0, 10);
       arr.push({
@@ -13004,7 +13017,7 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
       });
     }
     return arr;
-  }, [startDate, today, view]);
+  }, [startDate, endDate, view]);
 
   // 每员工 × 每天 × 网站 聚合
   var grid = useMemo(function () {
@@ -13025,7 +13038,7 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
     });
     live.forEach(function (r) {
       if (!m[r.ownerId]) return;
-      if (r.date < startDate || r.date > today) return;
+      if (r.date < startDate || r.date > endDate) return;
       var cell = m[r.ownerId].byDay[r.date];
       if (!cell) return;
       var site = siteOf(r) || '?';
@@ -13037,7 +13050,7 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
     return Object.values(m).sort(function (a, b) {
       return b.total - a.total;
     });
-  }, [empList, days, live, startDate, today]);
+  }, [empList, days, live, startDate, endDate]);
   if (empList.length === 0) return null;
 
   // 计算热力图色彩 - 单格的颜色深浅取决于本天数量
@@ -13083,13 +13096,13 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
       color: 'var(--ink-3)'
     }
   }, "\u989C\u8272\u6DF1\u6D45=\u90AE\u4EF6\u6570\u91CF \xB7 \u6BCF\u683C\u76F4\u63A5\u663E\u793A\u7F51\u7AD9\u5206\u5E03")), /*#__PURE__*/React.createElement("div", {
-    className: "flex gap-1"
+    className: "flex items-center gap-1 flex-wrap"
   }, [{
     k: '7d',
     label: '近 7 天'
   }, {
     k: 'month',
-    label: '本月'
+    label: '\u6309\u6708'
   }].map(function (t) {
     var sel = view === t.k;
     return /*#__PURE__*/React.createElement("button", {
@@ -13109,7 +13122,48 @@ var SiteDailyBreakdown = function SiteDailyBreakdown(_ref45) {
         fontWeight: sel ? 600 : 500
       }
     }, t.label);
-  }))), /*#__PURE__*/React.createElement("div", {
+  }), view === 'month' && /*#__PURE__*/React.createElement(React.Fragment, null,
+    /*#__PURE__*/React.createElement("span", { style: { width: 1, height: 18, background: 'var(--line)', margin: '0 2px' } }),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        var y = parseInt(selectedMonth.slice(0, 4), 10), m = parseInt(selectedMonth.slice(5, 7), 10) - 1;
+        if (m === 0) { m = 12; y--; }
+        setSelectedMonth(y + '-' + String(m).padStart(2, '0'));
+      },
+      title: "\u4E0A\u4E00\u6708",
+      style: { padding: '4px 8px', fontSize: 12, borderRadius: 6, border: '1px solid var(--line)', background: 'white', cursor: 'pointer', fontFamily: 'inherit' }
+    }, "\u2039"),
+    /*#__PURE__*/React.createElement("input", {
+      type: 'month',
+      value: selectedMonth,
+      max: today.slice(0, 7),
+      onChange: function onChange(e) { if (e.target.value) setSelectedMonth(e.target.value); },
+      style: { padding: '3px 6px', fontSize: 12, borderRadius: 6, border: '1px solid var(--line)', fontFamily: 'inherit', color: 'var(--ink-2)' }
+    }),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        var y = parseInt(selectedMonth.slice(0, 4), 10), m = parseInt(selectedMonth.slice(5, 7), 10) + 1;
+        if (m === 13) { m = 1; y++; }
+        var next = y + '-' + String(m).padStart(2, '0');
+        if (next <= today.slice(0, 7)) setSelectedMonth(next); // 不允许选到未来月
+      },
+      disabled: selectedMonth >= today.slice(0, 7),
+      title: "\u4E0B\u4E00\u6708",
+      style: { padding: '4px 8px', fontSize: 12, borderRadius: 6, border: '1px solid var(--line)', background: 'white', cursor: selectedMonth >= today.slice(0, 7) ? 'not-allowed' : 'pointer', opacity: selectedMonth >= today.slice(0, 7) ? 0.4 : 1, fontFamily: 'inherit' }
+    }, "\u203A"),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() {
+        var y = today.slice(0, 4), m = parseInt(today.slice(5, 7), 10) - 1;
+        if (m === 0) { m = 12; y = String(parseInt(y, 10) - 1); }
+        setSelectedMonth(y + '-' + String(m).padStart(2, '0'));
+      },
+      style: { padding: '4px 10px', fontSize: 11, borderRadius: 6, border: '1px solid var(--line)', background: selectedMonth === (function () { var y = today.slice(0, 4), m = parseInt(today.slice(5, 7), 10) - 1; if (m === 0) { m = 12; y = String(parseInt(y, 10) - 1); } return y + '-' + String(m).padStart(2, '0'); })() ? '#eff6ff' : 'white', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+    }, "\u4E0A\u6708"),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: function onClick() { return setSelectedMonth(today.slice(0, 7)); },
+      style: { padding: '4px 10px', fontSize: 11, borderRadius: 6, border: '1px solid var(--line)', background: selectedMonth === today.slice(0, 7) ? '#eff6ff' : 'white', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+    }, "\u672C\u6708")
+  ))), /*#__PURE__*/React.createElement("div", {
     style: {
       overflowX: 'auto',
       padding: '12px 14px'
