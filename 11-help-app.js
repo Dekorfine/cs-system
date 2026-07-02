@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix381
+// 版本 2026.06.05-fix382
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1232,6 +1232,7 @@ function POAftersalesModule(props) {
   var _s6 = useState(''), supplierFilter = _s6[0], setSupplierFilter = _s6[1];
   var _s7 = useState(''), reasonFilter = _s7[0], setReasonFilter = _s7[1];
   var _s8 = useState(0), thresholdDays = _s8[0], setThresholdDays = _s8[1]; // 0=全部
+  var _s8b = useState(false), urgentOnly = _s8b[0], setUrgentOnly = _s8b[1]; // 🆕 仅加急(is_urgent)
   var _s9 = useState(null), detailRow = _s9[0], setDetailRow = _s9[1];
   var _s10 = useState(null), gallery = _s10[0], setGallery = _s10[1]; // {images:[], index:0} | null —— 🆕 支持多图左右切换
   var viewImage = function viewImage(src) { setGallery(src ? { images: [src], index: 0 } : null); }; // 单图预览:无导航
@@ -1330,6 +1331,7 @@ function POAftersalesModule(props) {
       if (siteFilter && r.site !== siteFilter) return false;
       if (supplierFilter && r.supplier !== supplierFilter) return false;
       if (reasonFilter && r.reason !== reasonFilter) return false;
+      if (urgentOnly && !r.is_urgent) return false;
       if (thresholdDays > 0) {
         var days = r.created_date ? Math.floor((new Date(today) - new Date(r.created_date)) / 86400000) : 0;
         if (days < thresholdDays) return false;
@@ -1340,7 +1342,7 @@ function POAftersalesModule(props) {
       }
       return true;
     });
-  }, [rows, search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, today]);
+  }, [rows, search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, urgentOnly, today]);
 
   var save = function save(id, patch, okMsg) {
     var po = typeof getPoClient === 'function' ? getPoClient() : null;
@@ -1447,7 +1449,7 @@ function POAftersalesModule(props) {
   var _s15 = useState(1), curPage = _s15[0], setCurPage = _s15[1];
   var _s16 = useState(function () { return parseInt(localStorage.getItem('po_af_pagesize') || '50', 10); }), pageSize = _s16[0], setPageSize = _s16[1];
   var setPageSizeAndSave = function (n) { setPageSize(n); setCurPage(1); localStorage.setItem('po_af_pagesize', String(n)); };
-  useEffect(function () { setCurPage(1); }, [search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays]); // 筛选变了回第一页
+  useEffect(function () { setCurPage(1); }, [search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, urgentOnly]); // 筛选变了回第一页
   var totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   var pageSafe = Math.min(curPage, totalPages);
   var paged = filtered.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
@@ -1526,7 +1528,13 @@ function POAftersalesModule(props) {
             key: d, onClick: function () { setThresholdDays(d); },
             style: { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: '1px solid ' + (sel ? '#0071e3' : 'var(--line)'), background: sel ? '#0071e3' : 'white', color: sel ? 'white' : 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: sel ? 600 : 500 }
           }, d === 0 ? '全部' : '\u2265' + d + '\u5929');
-        })
+        }),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: function () { setUrgentOnly(function (v) { return !v; }); },
+          style: urgentOnly
+            ? { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: 'none', background: 'linear-gradient(135deg,#f97316,#dc2626)', color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }
+            : { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: '1px solid var(--line)', background: 'white', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
+        }, "\uD83D\uDEA8 \u4EC5\u52A0\u6025")
       )
     ),
     loading ? /*#__PURE__*/React.createElement("div", { style: { textAlign: 'center', padding: 40, color: 'var(--ink-3)' } }, "\u52A0\u8F7D\u4E2D…") :
@@ -1544,7 +1552,8 @@ function POAftersalesModule(props) {
           /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.bg, color: st.color, whiteSpace: 'nowrap' } }, poStatusLabel(r.status)),
           /*#__PURE__*/React.createElement("div", { style: { flex: '1 1 280px', minWidth: 0 } },
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } },
-              r.order_no || '—', r.site && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, marginLeft: 6, padding: '1px 6px', borderRadius: 8, background: '#eff6ff', color: '#1d4ed8' } }, r.site)),
+              r.order_no || '—', r.site && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, marginLeft: 6, padding: '1px 6px', borderRadius: 8, background: '#eff6ff', color: '#1d4ed8' } }, r.site),
+              r.is_urgent && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, marginLeft: 6, padding: '1px 6px', borderRadius: 8, background: 'linear-gradient(135deg,#f97316,#dc2626)', color: 'white', fontWeight: 700 } }, "\uD83D\uDEA8 \u52A0\u6025")),
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-2)', marginTop: 2 } }, r.product || ''),
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: 'var(--ink-3)', marginTop: 2 } },
               r.reason && /*#__PURE__*/React.createElement("span", { style: { padding: '1px 6px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', marginRight: 6 } }, r.reason),
@@ -1587,10 +1596,21 @@ function POAftersalesModule(props) {
     },
       /*#__PURE__*/React.createElement("div", { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 } },
         /*#__PURE__*/React.createElement("div", null,
-          /*#__PURE__*/React.createElement("div", { style: { fontSize: 16, fontWeight: 700 } }, "\uD83D\uDD27 " + (detailRow.order_no || '—') + (detailRow.site ? ' · ' + detailRow.site : '')),
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 16, fontWeight: 700 } },
+            "\uD83D\uDD27 " + (detailRow.order_no || '—') + (detailRow.site ? ' · ' + detailRow.site : ''),
+            detailRow.is_urgent && /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, marginLeft: 8, padding: '2px 8px', borderRadius: 10, background: 'linear-gradient(135deg,#f97316,#dc2626)', color: 'white', fontWeight: 700 } }, "\uD83D\uDEA8 \u52A0\u6025")),
           /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-3)', marginTop: 2 } }, detailRow.product || '')
         ),
         /*#__PURE__*/React.createElement("button", { onClick: function () { setDetailRow(null); }, style: { border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--ink-3)' } }, "\u2715")
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
+        /*#__PURE__*/React.createElement("button", {
+          onClick: function () { save(detailRow.id, { is_urgent: !detailRow.is_urgent }, detailRow.is_urgent ? '已取消加急标记' : '\uD83D\uDEA8 已标记为加急单'); },
+          style: detailRow.is_urgent
+            ? { width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg,#f97316,#dc2626)', color: 'white', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 2px 10px rgba(220,38,38,.35)' }
+            : { width: '100%', padding: '10px', borderRadius: 10, border: '1px solid var(--line)', background: '#f8fafc', color: 'var(--ink-3)', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }
+        }, detailRow.is_urgent ? '\uD83D\uDEA8 加急单(速联达·商业快递)· 已标记' : '\u26AA \u52A0\u6025\u5355(\u901F\u8054\u8FBE\xB7\u5546\u4E1A\u5FEB\u9012)'),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 10.5, color: 'var(--ink-3)', marginTop: 4 } }, "\u901F\u8054\u8FBE\uFF1D\u5546\u4E1A\u5FEB\u9012\uFF0C\u6807\u8BB0\u540E\u4F9B\u5E94\u5546\u9700\u4F18\u5148\u5B89\u6392\u53D1\u8D27")
       ),
       /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
         /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 6 } }, "\u72B6\u6001"),
@@ -6092,7 +6112,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix381';
+var APP_VERSION = '2026.06.05-fix382';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
