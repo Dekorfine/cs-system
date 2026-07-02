@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix376
+// 版本 2026.06.05-fix377
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1127,6 +1127,358 @@ CSErrorBoundary.prototype.render = function () {
   }
   return this.props.children;
 };
+
+// ════════════════════════════════════════════════════════════════════
+// 🆕 跟单售后(POAftersalesModule)—— 独立模块,连跟单库(pyfmuknvjqfwcqvbrsvw)
+//   自己的 aftersales 表。和「工作主线」里客服自己那套售后事件是两套完全不同的数据,不共用。
+//   权限已确认:SELECT/UPDATE 开放,INSERT/DELETE 未开放 —— 本模块只做查看+编辑,不建新单、不删除。
+// ════════════════════════════════════════════════════════════════════
+var PO_AFTERSALES_STATUS_STYLE = {
+  '待处理': { bg: '#fef3c7', color: '#b45309' },
+  '处理中': { bg: '#ede9fe', color: '#6d28d9' },
+  '已解决': { bg: '#dcfce7', color: '#16a34a' },
+  '已关闭': { bg: '#f1f5f9', color: '#64748b' }
+};
+function poStatusStyle(s) {
+  return PO_AFTERSALES_STATUS_STYLE[s] || { bg: '#f1f5f9', color: '#475569' };
+}
+function POAftersalesModule(props) {
+  var user = props.user,
+    toast = props.toast,
+    onCount = props.onCount;
+  var _s1 = useState([]), rows = _s1[0], setRows = _s1[1];
+  var _s2 = useState(true), loading = _s2[0], setLoading = _s2[1];
+  var _s3 = useState(''), search = _s3[0], setSearch = _s3[1];
+  var _s4 = useState('unresolved'), statusFilter = _s4[0], setStatusFilter = _s4[1]; // 'unresolved' | 'all' | 具体状态值
+  var _s5 = useState(''), siteFilter = _s5[0], setSiteFilter = _s5[1];
+  var _s6 = useState(''), supplierFilter = _s6[0], setSupplierFilter = _s6[1];
+  var _s7 = useState(''), reasonFilter = _s7[0], setReasonFilter = _s7[1];
+  var _s8 = useState(0), thresholdDays = _s8[0], setThresholdDays = _s8[1]; // 0=全部
+  var _s9 = useState(null), detailRow = _s9[0], setDetailRow = _s9[1];
+  var _s10 = useState(null), lightboxSrc = _s10[0], setLightboxSrc = _s10[1];
+  var _s11 = useState(false), saving = _s11[0], setSaving = _s11[1];
+  var _s12 = useState(''), followupDraft = _s12[0], setFollowupDraft = _s12[1];
+  var _s13 = useState({}), agentNames = _s13[0], setAgentNames = _s13[1]; // agent_id -> 姓名(best-effort)
+  var today = new Date().toISOString().slice(0, 10);
+
+  var load = function load() {
+    var po = typeof getPoClient === 'function' ? getPoClient() : null;
+    if (!po) { toast('跟单库连接未就绪,请稍候重试', 'error'); setLoading(false); return; }
+    setLoading(true);
+    Promise.resolve(po.from('aftersales').select('*').is('deleted_at', null).order('created_date', { ascending: false }).limit(3000)).then(function (res) {
+      setLoading(false);
+      if (res && res.error) { toast('加载跟单售后失败:' + (res.error.message || res.error), 'error'); return; }
+      var data = (res && res.data) || [];
+      setRows(data);
+      if (onCount) onCount(data.filter(function (r) { return !r.resolved_date; }).length);
+      // best-effort 解析 agent_id -> 姓名(org_directory.staff_id 匹配;匹配不到就显示原始id前8位)
+      var po2 = typeof getPoClient === 'function' ? getPoClient() : null;
+      if (po2) {
+        Promise.resolve(po2.from('org_directory').select('staff_id,name,display_name,chinese_name,english_name')).then(function (r2) {
+          if (r2 && r2.data) {
+            var m = {};
+            r2.data.forEach(function (e) { if (e.staff_id) m[String(e.staff_id)] = e.display_name || e.name || e.chinese_name || e.english_name; });
+            setAgentNames(m);
+          }
+        })["catch"](function () {});
+      }
+    })["catch"](function (e) {
+      setLoading(false);
+      toast('加载跟单售后失败:' + (e.message || e), 'error');
+    });
+  };
+  useEffect(function () { load(); }, []);
+
+  var agentName = function agentName(id) {
+    if (!id) return '—';
+    return agentNames[String(id)] || (String(id).slice(0, 8) + '…');
+  };
+
+  // 动态筛选选项(不硬编码,按实际数据里出现过的值来)
+  var opts = useMemo(function () {
+    var sites = {}, suppliers = {}, reasons = {}, statuses = {};
+    rows.forEach(function (r) {
+      if (r.site) sites[r.site] = 1;
+      if (r.supplier) suppliers[r.supplier] = 1;
+      if (r.reason) reasons[r.reason] = 1;
+      if (r.status) statuses[r.status] = 1;
+    });
+    var srt = function srt(o) { return Object.keys(o).sort(); };
+    return { sites: srt(sites), suppliers: srt(suppliers), reasons: srt(reasons), statuses: srt(statuses) };
+  }, [rows]);
+
+  var filtered = useMemo(function () {
+    var kw = search.trim().toLowerCase();
+    return rows.filter(function (r) {
+      if (statusFilter === 'unresolved' && r.resolved_date) return false;
+      if (statusFilter !== 'unresolved' && statusFilter !== 'all' && r.status !== statusFilter) return false;
+      if (siteFilter && r.site !== siteFilter) return false;
+      if (supplierFilter && r.supplier !== supplierFilter) return false;
+      if (reasonFilter && r.reason !== reasonFilter) return false;
+      if (thresholdDays > 0) {
+        var days = r.created_date ? Math.floor((new Date(today) - new Date(r.created_date)) / 86400000) : 0;
+        if (days < thresholdDays) return false;
+      }
+      if (kw) {
+        var hay = [r.order_no, r.product, r.supplier, r.reason, r.reason_detail].filter(Boolean).join(' ').toLowerCase();
+        if (hay.indexOf(kw) < 0) return false;
+      }
+      return true;
+    });
+  }, [rows, search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, today]);
+
+  var save = function save(id, patch, okMsg) {
+    var po = typeof getPoClient === 'function' ? getPoClient() : null;
+    if (!po) { toast('跟单库连接未就绪', 'error'); return Promise.resolve(false); }
+    setSaving(true);
+    return Promise.resolve(po.from('aftersales').update(_objectSpread(_objectSpread({}, patch), {}, { updated_at: new Date().toISOString() })).eq('id', id)).then(function (res) {
+      setSaving(false);
+      if (res && res.error) { toast('保存失败:' + (res.error.message || res.error), 'error'); return false; }
+      setRows(function (prev) { return prev.map(function (r) { return r.id === id ? _objectSpread(_objectSpread({}, r), patch) : r; }); });
+      if (detailRow && detailRow.id === id) setDetailRow(function (d) { return _objectSpread(_objectSpread({}, d), patch); });
+      toast(okMsg || '✓ 已保存');
+      return true;
+    })["catch"](function (e) {
+      setSaving(false);
+      toast('保存失败:' + (e.message || e), 'error');
+      return false;
+    });
+  };
+
+  var markResolved = function markResolved(row) {
+    save(row.id, { status: '已解决', resolved_date: today }, '✓ 已标记为已解决');
+  };
+
+  var addFollowup = function addFollowup() {
+    if (!detailRow || !followupDraft.trim()) return;
+    var entry = { date: new Date().toISOString(), by: (user && (user.name || user.alias)) || '客服', text: followupDraft.trim() };
+    var next = (Array.isArray(detailRow.followups) ? detailRow.followups : []).concat([entry]);
+    save(detailRow.id, { followups: next, next_follow: null }, '✓ 已添加跟进').then(function (ok) {
+      if (ok) setFollowupDraft('');
+    });
+  };
+
+  var followupText = function followupText(f) {
+    if (typeof f === 'string') return f;
+    return f.text || f.note || f.content || f.message || JSON.stringify(f);
+  };
+  var followupDate = function followupDate(f) {
+    var d = f && (f.date || f.time || f.created_at);
+    return d ? String(d).slice(0, 16).replace('T', ' ') : '';
+  };
+  var followupBy = function followupBy(f) {
+    return (f && (f.by || f.author || f.name)) || '';
+  };
+
+  var thresholds = [0, 1, 3, 5, 7, 14, 30];
+
+  return /*#__PURE__*/React.createElement("div", { style: { padding: 16 } },
+    /*#__PURE__*/React.createElement("div", { className: "paper rounded-2xl", style: { padding: 16, marginBottom: 12 } },
+      /*#__PURE__*/React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, flexWrap: 'wrap', gap: 8 } },
+        /*#__PURE__*/React.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          /*#__PURE__*/React.createElement("span", { className: "font-display text-sm font-bold" }, "\uD83D\uDD27 \u8DDF\u5355\u552E\u540E"),
+          /*#__PURE__*/React.createElement("span", { className: "text-[10px]", style: { color: 'var(--ink-3)' } }, "\u6570\u636E\u6765\u81EA\u8DDF\u5355\u5E93 \xB7 \u4E0E\u4E0A\u65B9\u300C\u5DE5\u4F5C\u4E3B\u7EBF\u300D\u91CC\u7684\u552E\u540E\u4E8B\u4EF6\u65E0\u5173")
+        ),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: load,
+          style: { padding: '5px 12px', fontSize: 12, borderRadius: 7, border: '1px solid var(--line)', background: 'white', cursor: 'pointer', fontFamily: 'inherit' }
+        }, loading ? '刷新中…' : '↻ 刷新')
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 8, marginBottom: 10 } },
+        [['待处理', rows.filter(function (r) { return !r.resolved_date; }).length, '#dc2626'],
+        ['本月新增', rows.filter(function (r) { return (r.created_date || '').slice(0, 7) === today.slice(0, 7); }).length, '#0071e3'],
+        ['本月解决', rows.filter(function (r) { return (r.resolved_date || '').slice(0, 7) === today.slice(0, 7); }).length, '#16a34a'],
+        ['共记录', rows.length, 'var(--ink-2)']].map(function (c, i) {
+          return /*#__PURE__*/React.createElement("div", { key: i, style: { border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px' } },
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 22, fontWeight: 700, color: c[2] } }, c[1]),
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--ink-3)' } }, c[0]));
+        })
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 } },
+        /*#__PURE__*/React.createElement("input", {
+          value: search, onChange: function (e) { setSearch(e.target.value); },
+          placeholder: '搜索订单号/产品/供应商/原因…',
+          style: { flex: '1 1 220px', padding: '6px 10px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+        }),
+        /*#__PURE__*/React.createElement("select", {
+          value: statusFilter, onChange: function (e) { setStatusFilter(e.target.value); },
+          style: { padding: '6px 8px', fontSize: 12, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+        }, /*#__PURE__*/React.createElement("option", { value: 'unresolved' }, '未解决(默认)'),
+           /*#__PURE__*/React.createElement("option", { value: 'all' }, '全部状态'),
+           opts.statuses.map(function (s) { return /*#__PURE__*/React.createElement("option", { key: s, value: s }, s); })),
+        /*#__PURE__*/React.createElement("select", {
+          value: siteFilter, onChange: function (e) { setSiteFilter(e.target.value); },
+          style: { padding: '6px 8px', fontSize: 12, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+        }, /*#__PURE__*/React.createElement("option", { value: '' }, '全部网站'),
+           opts.sites.map(function (s) { return /*#__PURE__*/React.createElement("option", { key: s, value: s }, s); })),
+        /*#__PURE__*/React.createElement("select", {
+          value: supplierFilter, onChange: function (e) { setSupplierFilter(e.target.value); },
+          style: { padding: '6px 8px', fontSize: 12, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+        }, /*#__PURE__*/React.createElement("option", { value: '' }, '全部供应商'),
+           opts.suppliers.map(function (s) { return /*#__PURE__*/React.createElement("option", { key: s, value: s }, s); })),
+        /*#__PURE__*/React.createElement("select", {
+          value: reasonFilter, onChange: function (e) { setReasonFilter(e.target.value); },
+          style: { padding: '6px 8px', fontSize: 12, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+        }, /*#__PURE__*/React.createElement("option", { value: '' }, '全部原因'),
+           opts.reasons.map(function (s) { return /*#__PURE__*/React.createElement("option", { key: s, value: s }, s); }))
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+        thresholds.map(function (d) {
+          var sel = thresholdDays === d;
+          return /*#__PURE__*/React.createElement("button", {
+            key: d, onClick: function () { setThresholdDays(d); },
+            style: { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: '1px solid ' + (sel ? '#0071e3' : 'var(--line)'), background: sel ? '#0071e3' : 'white', color: sel ? 'white' : 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: sel ? 600 : 500 }
+          }, d === 0 ? '全部' : '\u2265' + d + '\u5929');
+        })
+      )
+    ),
+    loading ? /*#__PURE__*/React.createElement("div", { style: { textAlign: 'center', padding: 40, color: 'var(--ink-3)' } }, "\u52A0\u8F7D\u4E2D…") :
+    filtered.length === 0 ? /*#__PURE__*/React.createElement("div", { className: "paper rounded-2xl", style: { padding: 40, textAlign: 'center', color: 'var(--ink-3)' } }, "\u6CA1\u6709\u7B26\u5408\u7B5B\u9009\u7684\u8BB0\u5F55") :
+    /*#__PURE__*/React.createElement("div", { className: "paper rounded-2xl", style: { overflow: 'hidden' } },
+      /*#__PURE__*/React.createElement("div", { style: { padding: '8px 14px', fontSize: 11, color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' } }, "\u5171 " + filtered.length + " \u6761"),
+      filtered.map(function (r) {
+        var st = poStatusStyle(r.status);
+        var days = r.created_date ? Math.floor((new Date(today) - new Date(r.created_date)) / 86400000) : null;
+        return /*#__PURE__*/React.createElement("div", {
+          key: r.id,
+          style: { padding: '12px 14px', borderBottom: '1px solid var(--line)', display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }
+        },
+          /*#__PURE__*/React.createElement("span", { style: { fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: st.bg, color: st.color, whiteSpace: 'nowrap' } }, r.status || '未知'),
+          /*#__PURE__*/React.createElement("div", { style: { flex: '1 1 280px', minWidth: 0 } },
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 13, fontWeight: 600 } },
+              r.order_no || '—', r.site && /*#__PURE__*/React.createElement("span", { style: { fontSize: 10, marginLeft: 6, padding: '1px 6px', borderRadius: 8, background: '#eff6ff', color: '#1d4ed8' } }, r.site)),
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-2)', marginTop: 2 } }, r.product || ''),
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 11.5, color: 'var(--ink-3)', marginTop: 2 } },
+              r.reason && /*#__PURE__*/React.createElement("span", { style: { padding: '1px 6px', borderRadius: 8, background: '#fef2f2', color: '#b91c1c', marginRight: 6 } }, r.reason),
+              r.reason_detail || ''),
+            r.supplier && /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--ink-3)', marginTop: 2 } }, "\u4F9B\u5E94\u5546\uFF1A" + r.supplier)
+          ),
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--ink-3)', textAlign: 'right', minWidth: 90 } },
+            r.created_date && /*#__PURE__*/React.createElement("div", null, "\u53D1\u8D77 " + r.created_date + (days != null ? ' · ' + days + '天' : '')),
+            r.next_follow && /*#__PURE__*/React.createElement("div", { style: { color: '#b45309' } }, "\u4E0B\u6B21\u8DDF\u8FDB " + r.next_follow),
+            r.resolved_date && /*#__PURE__*/React.createElement("div", { style: { color: '#16a34a' } }, "\u5DF2\u89E3\u51B3 " + r.resolved_date),
+            Array.isArray(r.screenshots) && r.screenshots.length > 0 && /*#__PURE__*/React.createElement("div", null, "\uD83D\uDCCE " + r.screenshots.length)
+          ),
+          /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, flexShrink: 0 } },
+            /*#__PURE__*/React.createElement("button", {
+              onClick: function () { setDetailRow(r); setFollowupDraft(''); },
+              style: { padding: '5px 10px', fontSize: 11.5, borderRadius: 7, border: '1px solid var(--line)', background: 'white', cursor: 'pointer', fontFamily: 'inherit' }
+            }, "\u67E5\u770B/\u7F16\u8F91"),
+            !r.resolved_date && /*#__PURE__*/React.createElement("button", {
+              onClick: function () { markResolved(r); },
+              style: { padding: '5px 10px', fontSize: 11.5, borderRadius: 7, border: 'none', background: '#16a34a', color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }
+            }, "\u2713 \u6807\u8BB0\u5DF2\u89E3\u51B3")
+          )
+        );
+      })
+    ),
+    // 详情/编辑弹层
+    detailRow && /*#__PURE__*/React.createElement("div", {
+      style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+      onClick: function (e) { if (e.target === e.currentTarget) setDetailRow(null); }
+    }, /*#__PURE__*/React.createElement("div", {
+      className: "paper rounded-2xl", style: { maxWidth: 620, width: '100%', maxHeight: '86vh', overflowY: 'auto', padding: 20 }
+    },
+      /*#__PURE__*/React.createElement("div", { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 } },
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 16, fontWeight: 700 } }, "\uD83D\uDD27 " + (detailRow.order_no || '—') + (detailRow.site ? ' · ' + detailRow.site : '')),
+          /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-3)', marginTop: 2 } }, detailRow.product || '')
+        ),
+        /*#__PURE__*/React.createElement("button", { onClick: function () { setDetailRow(null); }, style: { border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: 'var(--ink-3)' } }, "\u2715")
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 } },
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u72B6\u6001"),
+          /*#__PURE__*/React.createElement("select", {
+            value: detailRow.status || '', onChange: function (e) { save(detailRow.id, { status: e.target.value }); },
+            style: { width: '100%', padding: '6px 8px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+          }, ['待处理', '处理中', '已解决', '已关闭'].concat(opts.statuses.filter(function (s) { return ['待处理', '处理中', '已解决', '已关闭'].indexOf(s) < 0; })).map(function (s) {
+            return /*#__PURE__*/React.createElement("option", { key: s, value: s }, s);
+          }))
+        ),
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u4E0B\u6B21\u8DDF\u8FDB\u65E5\u671F"),
+          /*#__PURE__*/React.createElement("input", {
+            type: 'date', value: detailRow.next_follow || '',
+            onChange: function (e) { save(detailRow.id, { next_follow: e.target.value || null }); },
+            style: { width: '100%', padding: '6px 8px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+          })
+        ),
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u539F\u56E0"),
+          /*#__PURE__*/React.createElement("input", {
+            defaultValue: detailRow.reason || '', onBlur: function (e) { if (e.target.value !== detailRow.reason) save(detailRow.id, { reason: e.target.value }); },
+            style: { width: '100%', padding: '6px 8px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+          })
+        ),
+        /*#__PURE__*/React.createElement("div", null,
+          /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u4F9B\u5E94\u5546"),
+          /*#__PURE__*/React.createElement("div", { style: { padding: '6px 8px', fontSize: 12.5, color: 'var(--ink-2)' } }, detailRow.supplier || '—')
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
+        /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 3 } }, "\u539F\u56E0\u8BE6\u60C5"),
+        /*#__PURE__*/React.createElement("textarea", {
+          defaultValue: detailRow.reason_detail || '', onBlur: function (e) { if (e.target.value !== detailRow.reason_detail) save(detailRow.id, { reason_detail: e.target.value }); },
+          style: { width: '100%', minHeight: 60, padding: '6px 8px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit', resize: 'vertical' }
+        })
+      ),
+      Array.isArray(detailRow.screenshots) && detailRow.screenshots.length > 0 && /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
+        /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 6 } }, "\u622A\u56FE(\u53EA\u8BFB \xB7 " + detailRow.screenshots.length + " \u5F20)"),
+        /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap' } },
+          detailRow.screenshots.map(function (s, i) {
+            var src = typeof s === 'string' ? s : (s.url || s.src || '');
+            return src ? /*#__PURE__*/React.createElement("img", {
+              key: i, src: src, onClick: function () { setLightboxSrc(src); },
+              style: { width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }
+            }) : null;
+          })
+        )
+      ),
+      Array.isArray(detailRow.products) && detailRow.products.length > 0 && /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
+        /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 6 } }, "\u4EA7\u54C1\u660E\u7EC6(\u53EA\u8BFB)"),
+        /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-2)', background: '#fafafa', borderRadius: 8, padding: 8 } },
+          detailRow.products.map(function (p, i) {
+            return /*#__PURE__*/React.createElement("div", { key: i }, (p.name || p.product || p.title || JSON.stringify(p)) + (p.qty ? ' ×' + p.qty : ''));
+          })
+        )
+      ),
+      /*#__PURE__*/React.createElement("div", { style: { marginBottom: 8 } },
+        /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 6 } },
+          "\u8DDF\u8FDB\u8BB0\u5F55" + (Array.isArray(detailRow.followups) ? ' (' + detailRow.followups.length + ')' : '')),
+        /*#__PURE__*/React.createElement("div", { style: { maxHeight: 160, overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 8, padding: 8, marginBottom: 8 } },
+          (!Array.isArray(detailRow.followups) || detailRow.followups.length === 0) ?
+            /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', padding: 8 } }, "\u6682\u65E0\u8DDF\u8FDB\u8BB0\u5F55") :
+            detailRow.followups.slice().reverse().map(function (f, i) {
+              return /*#__PURE__*/React.createElement("div", { key: i, style: { fontSize: 12, padding: '6px 0', borderBottom: i < detailRow.followups.length - 1 ? '1px solid var(--line)' : 'none' } },
+                /*#__PURE__*/React.createElement("div", { style: { color: 'var(--ink-3)', fontSize: 10.5 } }, followupDate(f) + (followupBy(f) ? ' · ' + followupBy(f) : '')),
+                /*#__PURE__*/React.createElement("div", null, followupText(f)));
+            })
+        ),
+        /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6 } },
+          /*#__PURE__*/React.createElement("input", {
+            value: followupDraft, onChange: function (e) { setFollowupDraft(e.target.value); },
+            onKeyDown: function (e) { if (e.key === 'Enter') addFollowup(); },
+            placeholder: '添加跟进记录…', style: { flex: 1, padding: '6px 10px', fontSize: 12.5, borderRadius: 7, border: '1px solid var(--line)', fontFamily: 'inherit' }
+          }),
+          /*#__PURE__*/React.createElement("button", {
+            onClick: addFollowup, disabled: !followupDraft.trim() || saving,
+            style: { padding: '6px 14px', fontSize: 12.5, borderRadius: 7, border: 'none', background: '#0071e3', color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }
+          }, "\u6DFB\u52A0")
+        )
+      ),
+      !detailRow.resolved_date && /*#__PURE__*/React.createElement("button", {
+        onClick: function () { markResolved(detailRow); },
+        style: { marginTop: 8, padding: '8px 16px', fontSize: 13, borderRadius: 8, border: 'none', background: '#16a34a', color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, width: '100%' }
+      }, "\u2713 \u6807\u8BB0\u4E3A\u5DF2\u89E3\u51B3")
+    )),
+    // 截图放大
+    lightboxSrc && /*#__PURE__*/React.createElement("div", {
+      style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' },
+      onClick: function () { setLightboxSrc(null); }
+    }, /*#__PURE__*/React.createElement("img", { src: lightboxSrc, style: { maxWidth: '90vw', maxHeight: '90vh', borderRadius: 8 } }))
+  );
+}
 
 var App = function App() {
   // 🆕 fix22: 联动 1+3 — 全局加载产品主表 + 自定义网站,Context 注入到所有模块
@@ -3127,6 +3479,9 @@ var App = function App() {
     _useState36 = _slicedToArray(_useState35, 2),
     quoteOpenRef = _useState36[0],
     setQuoteOpenRef = _useState36[1]; // 🆕 fix236:点报价「📄」要打开的报价id
+  var _useState36c = useState(0),
+    poAftersalesCount = _useState36c[0],
+    setPoAftersalesCount = _useState36c[1]; // 🆕 跟单售后未解决数(徽章)
   // tab 切换时写入 localStorage + URL hash
   useEffect(function () {
     localStorage.setItem('ws_active_tab', activeTab);
@@ -4073,6 +4428,14 @@ var App = function App() {
       label: '📋 工作主线',
       icon: '📋',
       badge: stats === null || stats === void 0 ? void 0 : stats.pendingEvents,
+      group: 'main'
+    }, {
+      // 🆕 跟单售后:独立模块,连跟单库(pyfmuknvjqfwcqvbrsvw)自己的 aftersales 表,和上面「工作主线」里客服自己的售后事件是两套不同数据,不要混
+      key: 'po_aftersales',
+      label: '🔧 跟单售后',
+      icon: '🔧',
+      badge: poAftersalesCount,
+      badgeColor: '#dc2626',
       group: 'main'
     }, {
       key: 'reviews',
@@ -5312,6 +5675,10 @@ var App = function App() {
     user: user,
     employees: employees,
     toast: toast
+  }), activeTab === 'po_aftersales' && /*#__PURE__*/React.createElement(POAftersalesModule, {
+    user: user,
+    toast: toast,
+    onCount: setPoAftersalesCount
   }), activeTab === 'suppliers' && /*#__PURE__*/React.createElement(SuppliersManagement, {
     toast: toast,
     user: user
@@ -5440,7 +5807,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix376';
+var APP_VERSION = '2026.06.05-fix377';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
