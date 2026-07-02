@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix379
+// 版本 2026.06.05-fix380
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1331,14 +1331,20 @@ function POAftersalesModule(props) {
   };
   var followupText = function followupText(f) {
     if (typeof f === 'string') return f;
-    return f.text || f.note || f.content || f.message || JSON.stringify(f);
+    var t = f.text || f.note || f.content || f.message;
+    return t ? t : '(无备注文字)'; // 🆕 修复:note 为空字符串时不再 dump 整段原始 JSON,给个友好占位
   };
   var followupDate = function followupDate(f) {
-    var d = f && (f.date || f.time || f.created_at);
+    if (!f || typeof f === 'string') return '';
+    if (f.date) return f.date + (f.time ? ' ' + f.time : ''); // 🆕 真实字段是 date+time 分开存的,拼起来显示
+    var d = f.created_at || f.time;
     return d ? String(d).slice(0, 16).replace('T', ' ') : '';
   };
   var followupBy = function followupBy(f) {
     return (f && (f.by || f.author || f.name)) || '';
+  };
+  var followupImgs = function followupImgs(f) { // 🆕 跟进记录自带的截图
+    return (f && Array.isArray(f.screenshots) ? f.screenshots : []).filter(Boolean);
   };
 
   var thresholds = [0, 1, 3, 5, 7, 14, 30];
@@ -1563,22 +1569,43 @@ function POAftersalesModule(props) {
       ),
       Array.isArray(detailRow.products) && detailRow.products.length > 0 && /*#__PURE__*/React.createElement("div", { style: { marginBottom: 12 } },
         /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 6 } }, "\u4EA7\u54C1\u660E\u7EC6(\u53EA\u8BFB)"),
-        /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-2)', background: '#fafafa', borderRadius: 8, padding: 8 } },
+        /*#__PURE__*/React.createElement("div", { style: { display: 'flex', flexDirection: 'column', gap: 6 } },
           detailRow.products.map(function (p, i) {
-            return /*#__PURE__*/React.createElement("div", { key: i }, (p.name || p.product || p.title || JSON.stringify(p)) + (p.qty ? ' ×' + p.qty : ''));
+            var img = p.image_url || p.image || p.img || '';
+            var allImgs = detailRow.products.map(function (x) { return x.image_url || x.image || x.img || ''; }).filter(Boolean);
+            var label = p.spec || p.name || p.product || p.title || '(未命名)';
+            return /*#__PURE__*/React.createElement("div", { key: i, style: { display: 'flex', gap: 8, alignItems: 'center', background: '#fafafa', borderRadius: 8, padding: 6 } },
+              img ? /*#__PURE__*/React.createElement("img", {
+                src: img, onClick: function () { viewImageGallery(allImgs, allImgs.indexOf(img)); },
+                style: { width: 44, height: 44, objectFit: 'cover', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }
+              }) : /*#__PURE__*/React.createElement("div", { style: { width: 44, height: 44, borderRadius: 6, background: '#eee', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#bbb' } }, "\uD83D\uDCF7"),
+              /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-2)', minWidth: 0 } },
+                /*#__PURE__*/React.createElement("div", null, label + (p.qty ? ' ×' + p.qty : '')),
+                p.sku && /*#__PURE__*/React.createElement("div", { style: { fontSize: 10.5, color: 'var(--ink-3)' } }, "SKU: " + p.sku)
+              )
+            );
           })
         )
       ),
       /*#__PURE__*/React.createElement("div", { style: { marginBottom: 8 } },
         /*#__PURE__*/React.createElement("label", { style: { fontSize: 11, color: 'var(--ink-3)', display: 'block', marginBottom: 6 } },
           "\u8DDF\u8FDB\u8BB0\u5F55" + (Array.isArray(detailRow.followups) ? ' (' + detailRow.followups.length + ')' : '')),
-        /*#__PURE__*/React.createElement("div", { style: { maxHeight: 160, overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 8, padding: 8, marginBottom: 8 } },
+        /*#__PURE__*/React.createElement("div", { style: { maxHeight: 220, overflowY: 'auto', border: '1px solid var(--line)', borderRadius: 8, padding: 8, marginBottom: 8 } },
           (!Array.isArray(detailRow.followups) || detailRow.followups.length === 0) ?
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', padding: 8 } }, "\u6682\u65E0\u8DDF\u8FDB\u8BB0\u5F55") :
             detailRow.followups.slice().reverse().map(function (f, i) {
+              var imgs = followupImgs(f);
               return /*#__PURE__*/React.createElement("div", { key: i, style: { fontSize: 12, padding: '6px 0', borderBottom: i < detailRow.followups.length - 1 ? '1px solid var(--line)' : 'none' } },
                 /*#__PURE__*/React.createElement("div", { style: { color: 'var(--ink-3)', fontSize: 10.5 } }, followupDate(f) + (followupBy(f) ? ' · ' + followupBy(f) : '')),
-                /*#__PURE__*/React.createElement("div", null, followupText(f)));
+                /*#__PURE__*/React.createElement("div", null, followupText(f)),
+                imgs.length > 0 && /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' } },
+                  imgs.map(function (src, j) {
+                    return /*#__PURE__*/React.createElement("img", {
+                      key: j, src: src, onClick: function () { viewImageGallery(imgs, j); },
+                      style: { width: 40, height: 40, objectFit: 'cover', borderRadius: 5, cursor: 'pointer', border: '1px solid var(--line)' }
+                    });
+                  })
+                ));
             })
         ),
         /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6 } },
@@ -5952,7 +5979,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix379';
+var APP_VERSION = '2026.06.05-fix380';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
