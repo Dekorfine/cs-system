@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix378
+// 版本 2026.06.05-fix379
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1162,7 +1162,9 @@ function POAftersalesModule(props) {
   var _s7 = useState(''), reasonFilter = _s7[0], setReasonFilter = _s7[1];
   var _s8 = useState(0), thresholdDays = _s8[0], setThresholdDays = _s8[1]; // 0=全部
   var _s9 = useState(null), detailRow = _s9[0], setDetailRow = _s9[1];
-  var _s10 = useState(null), lightboxSrc = _s10[0], setLightboxSrc = _s10[1];
+  var _s10 = useState(null), gallery = _s10[0], setGallery = _s10[1]; // {images:[], index:0} | null —— 🆕 支持多图左右切换
+  var viewImage = function viewImage(src) { setGallery(src ? { images: [src], index: 0 } : null); }; // 单图预览:无导航
+  var viewImageGallery = function viewImageGallery(images, startIndex) { setGallery({ images: images, index: startIndex || 0 }); }; // 多图画廊:有上一张/下一张
   var _s11 = useState(false), saving = _s11[0], setSaving = _s11[1];
   var _s12 = useState(''), followupDraft = _s12[0], setFollowupDraft = _s12[1];
   var _s13 = useState({}), agentNames = _s13[0], setAgentNames = _s13[1]; // agent_id -> 姓名(best-effort)
@@ -1213,6 +1215,16 @@ function POAftersalesModule(props) {
     });
   };
   useEffect(function () { load(); }, []);
+  useEffect(function () { // 🆕 画廊键盘导航:左右切换、Esc关闭
+    if (!gallery) return;
+    var onKey = function onKey(e) {
+      if (e.key === 'Escape') setGallery(null);
+      else if (e.key === 'ArrowLeft' && gallery.images.length > 1) setGallery(function (g) { return _objectSpread(_objectSpread({}, g), {}, { index: (g.index - 1 + g.images.length) % g.images.length }); });
+      else if (e.key === 'ArrowRight' && gallery.images.length > 1) setGallery(function (g) { return _objectSpread(_objectSpread({}, g), {}, { index: (g.index + 1) % g.images.length }); });
+    };
+    window.addEventListener('keydown', onKey);
+    return function () { window.removeEventListener('keydown', onKey); };
+  }, [gallery]);
 
   var agentName = function agentName(id) {
     if (!id) return '—';
@@ -1252,7 +1264,7 @@ function POAftersalesModule(props) {
         if (days < thresholdDays) return false;
       }
       if (kw) {
-        var hay = [r.order_no, r.product, r.supplier, r.reason, r.reason_detail].filter(Boolean).join(' ').toLowerCase();
+        var hay = [r.order_no, r.product, r.supplier, r.reason, r.reason_detail, r.site, agentName(r.agent_id)].filter(Boolean).join(' ').toLowerCase();
         if (hay.indexOf(kw) < 0) return false;
       }
       return true;
@@ -1312,6 +1324,11 @@ function POAftersalesModule(props) {
       toast('上传失败:' + (e.message || e), 'error');
     });
   };
+  var deleteScreenshot = function deleteScreenshot(idx) {
+    if (!detailRow) return;
+    var next = (detailRow.screenshots || []).filter(function (_s, i) { return i !== idx; });
+    save(detailRow.id, { screenshots: next }, '✓ 已删除截图');
+  };
   var followupText = function followupText(f) {
     if (typeof f === 'string') return f;
     return f.text || f.note || f.content || f.message || JSON.stringify(f);
@@ -1325,6 +1342,31 @@ function POAftersalesModule(props) {
   };
 
   var thresholds = [0, 1, 3, 5, 7, 14, 30];
+  // 🆕 分页:50/100 可切换,记住偏好
+  var _s15 = useState(1), curPage = _s15[0], setCurPage = _s15[1];
+  var _s16 = useState(function () { return parseInt(localStorage.getItem('po_af_pagesize') || '50', 10); }), pageSize = _s16[0], setPageSize = _s16[1];
+  var setPageSizeAndSave = function (n) { setPageSize(n); setCurPage(1); localStorage.setItem('po_af_pagesize', String(n)); };
+  useEffect(function () { setCurPage(1); }, [search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays]); // 筛选变了回第一页
+  var totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  var pageSafe = Math.min(curPage, totalPages);
+  var paged = filtered.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
+  var scrollToListTop = function () {
+    try { document.getElementById('po-af-list-top') && document.getElementById('po-af-list-top').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
+  };
+  var goPage = function (p) { setCurPage(Math.min(Math.max(1, p), totalPages)); scrollToListTop(); };
+  var Pager = function Pager() {
+    return /*#__PURE__*/React.createElement("div", { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 14px', flexWrap: 'wrap', gap: 8 } },
+      /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--ink-3)' } }, "\u5171 " + filtered.length + " \u6761 \xB7 \u7B2C " + pageSafe + "/" + totalPages + " \u9875"),
+      /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, alignItems: 'center' } },
+        /*#__PURE__*/React.createElement("button", { onClick: function () { goPage(pageSafe - 1); }, disabled: pageSafe <= 1, style: { padding: '4px 10px', fontSize: 12, borderRadius: 6, border: '1px solid var(--line)', background: 'white', cursor: pageSafe <= 1 ? 'not-allowed' : 'pointer', opacity: pageSafe <= 1 ? 0.4 : 1, fontFamily: 'inherit' } }, "\u2039 \u4E0A\u4E00\u9875"),
+        /*#__PURE__*/React.createElement("button", { onClick: function () { goPage(pageSafe + 1); }, disabled: pageSafe >= totalPages, style: { padding: '4px 10px', fontSize: 12, borderRadius: 6, border: '1px solid var(--line)', background: 'white', cursor: pageSafe >= totalPages ? 'not-allowed' : 'pointer', opacity: pageSafe >= totalPages ? 0.4 : 1, fontFamily: 'inherit' } }, "\u4E0B\u4E00\u9875 \u203A"),
+        [50, 100].map(function (n) {
+          var sel = pageSize === n;
+          return /*#__PURE__*/React.createElement("button", { key: n, onClick: function () { setPageSizeAndSave(n); }, style: { padding: '4px 10px', fontSize: 12, borderRadius: 6, border: '1px solid ' + (sel ? '#0071e3' : 'var(--line)'), background: sel ? '#0071e3' : 'white', color: sel ? 'white' : 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: sel ? 600 : 500 } }, n + '/页');
+        })
+      )
+    );
+  };
 
   return /*#__PURE__*/React.createElement("div", { style: { padding: 16 } },
     /*#__PURE__*/React.createElement("div", { className: "paper rounded-2xl", style: { padding: 16, marginBottom: 12 } },
@@ -1388,9 +1430,10 @@ function POAftersalesModule(props) {
     ),
     loading ? /*#__PURE__*/React.createElement("div", { style: { textAlign: 'center', padding: 40, color: 'var(--ink-3)' } }, "\u52A0\u8F7D\u4E2D…") :
     filtered.length === 0 ? /*#__PURE__*/React.createElement("div", { className: "paper rounded-2xl", style: { padding: 40, textAlign: 'center', color: 'var(--ink-3)' } }, "\u6CA1\u6709\u7B26\u5408\u7B5B\u9009\u7684\u8BB0\u5F55") :
-    /*#__PURE__*/React.createElement("div", { className: "paper rounded-2xl", style: { overflow: 'hidden' } },
-      /*#__PURE__*/React.createElement("div", { style: { padding: '8px 14px', fontSize: 11, color: 'var(--ink-3)', borderBottom: '1px solid var(--line)' } }, "\u5171 " + filtered.length + " \u6761"),
-      filtered.map(function (r) {
+    /*#__PURE__*/React.createElement("div", { id: 'po-af-list-top', className: "paper rounded-2xl", style: { overflow: 'hidden' } },
+      /*#__PURE__*/React.createElement(Pager, null),
+      /*#__PURE__*/React.createElement("div", { style: { padding: '4px 14px 8px', fontSize: 11, color: 'var(--ink-3)', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)' } }, "\u672C\u9875 " + paged.length + " \u6761"),
+      paged.map(function (r) {
         var st = poStatusStyle(r.status);
         var days = r.created_date ? Math.floor((new Date(today) - new Date(r.created_date)) / 86400000) : null;
         return /*#__PURE__*/React.createElement("div", {
@@ -1411,7 +1454,14 @@ function POAftersalesModule(props) {
             r.created_date && /*#__PURE__*/React.createElement("div", null, "\u53D1\u8D77 " + r.created_date + (days != null ? ' · ' + days + '天' : '')),
             r.next_follow && /*#__PURE__*/React.createElement("div", { style: { color: '#b45309' } }, "\u4E0B\u6B21\u8DDF\u8FDB " + r.next_follow),
             r.resolved_date && /*#__PURE__*/React.createElement("div", { style: { color: '#16a34a' } }, "\u5DF2\u89E3\u51B3 " + r.resolved_date),
-            Array.isArray(r.screenshots) && r.screenshots.length > 0 && /*#__PURE__*/React.createElement("div", null, "\uD83D\uDCCE " + r.screenshots.length)
+            Array.isArray(r.screenshots) && r.screenshots.length > 0 && /*#__PURE__*/React.createElement("div", {
+              style: { cursor: 'pointer', textDecoration: 'underline dotted' },
+              onClick: function (e) {
+                e.stopPropagation();
+                var srcs = r.screenshots.map(function (x) { return typeof x === 'string' ? x : (x.url || x.src || ''); }).filter(Boolean);
+                viewImageGallery(srcs, 0);
+              }
+            }, "\uD83D\uDCCE " + r.screenshots.length)
           ),
           /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, flexShrink: 0 } },
             /*#__PURE__*/React.createElement("button", {
@@ -1425,6 +1475,7 @@ function POAftersalesModule(props) {
           )
         );
       })
+      , /*#__PURE__*/React.createElement(Pager, null)
     ),
     // 详情/编辑弹层
     detailRow && /*#__PURE__*/React.createElement("div", {
@@ -1488,10 +1539,18 @@ function POAftersalesModule(props) {
         /*#__PURE__*/React.createElement("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' } },
           Array.isArray(detailRow.screenshots) && detailRow.screenshots.map(function (s, i) {
             var src = typeof s === 'string' ? s : (s.url || s.src || '');
-            return src ? /*#__PURE__*/React.createElement("img", {
-              key: i, src: src, onClick: function () { setLightboxSrc(src); },
-              style: { width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }
-            }) : null;
+            var allSrcs = detailRow.screenshots.map(function (x) { return typeof x === 'string' ? x : (x.url || x.src || ''); }).filter(Boolean);
+            return src ? /*#__PURE__*/React.createElement("div", { key: i, style: { position: 'relative' } },
+              /*#__PURE__*/React.createElement("img", {
+                src: src, onClick: function () { viewImageGallery(allSrcs, allSrcs.indexOf(src)); },
+                style: { width: 64, height: 64, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--line)', cursor: 'pointer' }
+              }),
+              /*#__PURE__*/React.createElement("button", {
+                onClick: function (e) { e.stopPropagation(); deleteScreenshot(i); },
+                title: '删除这张截图',
+                style: { position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', border: 'none', background: '#dc2626', color: 'white', fontSize: 11, lineHeight: '18px', cursor: 'pointer', padding: 0 }
+              }, "\u2715")
+            ) : null;
           }),
           /*#__PURE__*/React.createElement("label", {
             style: { width: 64, height: 64, borderRadius: 6, border: '1px dashed var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: uploadingShot ? 'wait' : 'pointer', fontSize: 20, color: 'var(--ink-3)', flexShrink: 0 }
@@ -1540,10 +1599,29 @@ function POAftersalesModule(props) {
       }, "\u2713 \u6807\u8BB0\u4E3A\u5DF2\u89E3\u51B3")
     )),
     // 截图放大
-    lightboxSrc && /*#__PURE__*/React.createElement("div", {
-      style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' },
-      onClick: function () { setLightboxSrc(null); }
-    }, /*#__PURE__*/React.createElement("img", { src: lightboxSrc, style: { maxWidth: '90vw', maxHeight: '90vh', borderRadius: 8 } }))
+    gallery && /*#__PURE__*/React.createElement("div", {
+      style: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,.85)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+      onClick: function (e) { if (e.target === e.currentTarget) setGallery(null); }
+    },
+      /*#__PURE__*/React.createElement("img", { src: gallery.images[gallery.index], style: { maxWidth: '85vw', maxHeight: '90vh', borderRadius: 8 } }),
+      gallery.images.length > 1 && /*#__PURE__*/React.createElement(React.Fragment, null,
+        /*#__PURE__*/React.createElement("button", {
+          onClick: function (e) { e.stopPropagation(); setGallery(function (g) { return _objectSpread(_objectSpread({}, g), {}, { index: (g.index - 1 + g.images.length) % g.images.length }); }); },
+          style: { position: 'fixed', left: 20, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: 'white', fontSize: 22, cursor: 'pointer' }
+        }, "\u2039"),
+        /*#__PURE__*/React.createElement("button", {
+          onClick: function (e) { e.stopPropagation(); setGallery(function (g) { return _objectSpread(_objectSpread({}, g), {}, { index: (g.index + 1) % g.images.length }); }); },
+          style: { position: 'fixed', right: 20, top: '50%', transform: 'translateY(-50%)', width: 44, height: 44, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: 'white', fontSize: 22, cursor: 'pointer' }
+        }, "\u203A"),
+        /*#__PURE__*/React.createElement("div", {
+          style: { position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', color: 'white', fontSize: 13, background: 'rgba(0,0,0,.4)', padding: '4px 12px', borderRadius: 12 }
+        }, (gallery.index + 1) + ' / ' + gallery.images.length)
+      ),
+      /*#__PURE__*/React.createElement("button", {
+        onClick: function () { setGallery(null); },
+        style: { position: 'fixed', top: 20, right: 24, width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,.15)', color: 'white', fontSize: 18, cursor: 'pointer' }
+      }, "\u2715")
+    )
   );
 }
 
@@ -5874,7 +5952,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix378';
+var APP_VERSION = '2026.06.05-fix379';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
