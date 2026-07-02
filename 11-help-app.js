@@ -1,5 +1,5 @@
 // ====== cs-system — 11-help-app ======
-// 版本 2026.06.05-fix384
+// 版本 2026.06.05-fix385
 // 预编译切片
 //
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
@@ -1234,6 +1234,7 @@ function POAftersalesModule(props) {
   var _s8 = useState(0), thresholdDays = _s8[0], setThresholdDays = _s8[1]; // 0=全部
   var _s8b = useState(false), urgentOnly = _s8b[0], setUrgentOnly = _s8b[1]; // 🆕 仅加急(is_urgent)
   var _s8c = useState(false), unhandledOnly = _s8c[0], setUnhandledOnly = _s8c[1]; // 🆕 仅未处理(从没有任何跟进记录)
+  var _s8d = useState('none'), monthOnly = _s8d[0], setMonthOnly = _s8d[1]; // 🆕 统计卡片点击筛选:'none'|'new'(本月新增)|'resolved'(本月解决)
   var _s9 = useState(null), detailRow = _s9[0], setDetailRow = _s9[1];
   var _s10 = useState(null), gallery = _s10[0], setGallery = _s10[1]; // {images:[], index:0} | null —— 🆕 支持多图左右切换
   var viewImage = function viewImage(src) { setGallery(src ? { images: [src], index: 0 } : null); }; // 单图预览:无导航
@@ -1262,10 +1263,21 @@ function POAftersalesModule(props) {
     var po = typeof getPoClient === 'function' ? getPoClient() : null;
     if (!po) { toast('跟单库连接未就绪,请稍候重试', 'error'); setLoading(false); return; }
     setLoading(true);
-    Promise.resolve(po.from('aftersales').select('*').is('deleted_at', null).order('created_date', { ascending: false }).limit(3000)).then(function (res) {
+    // 🆕 修复"只有1000条"截断:Supabase/PostgREST 单次查询默认硬上限1000条,.limit(3000)请求不到那么多、会被静默截断。
+    //   改成按1000条一批循环拉取,直到某批不足1000条(=取完了),保证全量数据,不会漏筛选/漏搜索。
+    var BATCH = 1000;
+    var allRows = [];
+    var fetchBatch = function (from) {
+      return Promise.resolve(po.from('aftersales').select('*').is('deleted_at', null).order('created_date', { ascending: false }).range(from, from + BATCH - 1)).then(function (res) {
+        if (res && res.error) throw res.error;
+        var batch = (res && res.data) || [];
+        allRows = allRows.concat(batch);
+        if (batch.length === BATCH) return fetchBatch(from + BATCH); // 还有更多,继续拉
+        return allRows;
+      });
+    };
+    fetchBatch(0).then(function (data) {
       setLoading(false);
-      if (res && res.error) { toast('加载跟单售后失败:' + (res.error.message || res.error), 'error'); return; }
-      var data = (res && res.data) || [];
       setRows(data);
       if (onCount) onCount(data.filter(function (r) { return !r.resolved_date; }).length);
       // 解析 agent_id -> 姓名。两步:① org_directory.staff_id 匹配(注意:org_directory 在 MESSAGEBUS 项目,用 getCdmClient,不是 getPoClient——之前这里连错库了);
@@ -1360,6 +1372,8 @@ function POAftersalesModule(props) {
       if (reasonFilter && r.reason !== reasonFilter) return false;
       if (urgentOnly && !r.is_urgent) return false;
       if (unhandledOnly && Array.isArray(r.followups) && r.followups.length > 0) return false;
+      if (monthOnly === 'new' && (r.created_date || '').slice(0, 7) !== today.slice(0, 7)) return false;
+      if (monthOnly === 'resolved' && (r.resolved_date || '').slice(0, 7) !== today.slice(0, 7)) return false;
       if (thresholdDays > 0) {
         var days = r.created_date ? Math.floor((new Date(today) - new Date(r.created_date)) / 86400000) : 0;
         if (days < thresholdDays) return false;
@@ -1370,7 +1384,7 @@ function POAftersalesModule(props) {
       }
       return true;
     });
-  }, [rows, search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, urgentOnly, unhandledOnly, today]);
+  }, [rows, search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, urgentOnly, unhandledOnly, monthOnly, today]);
 
   var save = function save(id, patch, okMsg) {
     var po = typeof getPoClient === 'function' ? getPoClient() : null;
@@ -1517,7 +1531,7 @@ function POAftersalesModule(props) {
   // 🆕 列表/网格视图切换,记住偏好
   var _s19 = useState(function () { return localStorage.getItem('po_af_viewmode') || 'list'; }), viewMode = _s19[0], setViewMode = _s19[1];
   var setViewModeAndSave = function (m) { setViewMode(m); localStorage.setItem('po_af_viewmode', m); };
-  useEffect(function () { setCurPage(1); }, [search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, urgentOnly, unhandledOnly]); // 筛选变了回第一页
+  useEffect(function () { setCurPage(1); }, [search, statusFilter, siteFilter, supplierFilter, reasonFilter, thresholdDays, urgentOnly, unhandledOnly, monthOnly]); // 筛选变了回第一页
   var totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   var pageSafe = Math.min(curPage, totalPages);
   var paged = filtered.slice((pageSafe - 1) * pageSize, pageSafe * pageSize);
@@ -1564,11 +1578,24 @@ function POAftersalesModule(props) {
         )
       ),
       /*#__PURE__*/React.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 8, marginBottom: 10 } },
-        [['待处理', rows.filter(function (r) { return !r.resolved_date; }).length, '#dc2626'],
-        ['本月新增', rows.filter(function (r) { return (r.created_date || '').slice(0, 7) === today.slice(0, 7); }).length, '#0071e3'],
-        ['本月解决', rows.filter(function (r) { return (r.resolved_date || '').slice(0, 7) === today.slice(0, 7); }).length, '#16a34a'],
-        ['共记录', rows.length, 'var(--ink-2)']].map(function (c, i) {
-          return /*#__PURE__*/React.createElement("div", { key: i, style: { border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px' } },
+        [['待处理', rows.filter(function (r) { return !r.resolved_date; }).length, '#dc2626', function () {
+          setStatusFilter('unresolved'); setSiteFilter(''); setSupplierFilter(''); setReasonFilter(''); setThresholdDays(0); setUrgentOnly(false); setUnhandledOnly(false); setMonthOnly('none'); setSearch('');
+        }],
+        ['本月新增', rows.filter(function (r) { return (r.created_date || '').slice(0, 7) === today.slice(0, 7); }).length, '#0071e3', function () {
+          setStatusFilter('all'); setSiteFilter(''); setSupplierFilter(''); setReasonFilter(''); setThresholdDays(0); setUrgentOnly(false); setUnhandledOnly(false); setMonthOnly('new'); setSearch('');
+        }],
+        ['本月解决', rows.filter(function (r) { return (r.resolved_date || '').slice(0, 7) === today.slice(0, 7); }).length, '#16a34a', function () {
+          setStatusFilter('all'); setSiteFilter(''); setSupplierFilter(''); setReasonFilter(''); setThresholdDays(0); setUrgentOnly(false); setUnhandledOnly(false); setMonthOnly('resolved'); setSearch('');
+        }],
+        ['共记录', rows.length, 'var(--ink-2)', function () {
+          setStatusFilter('all'); setSiteFilter(''); setSupplierFilter(''); setReasonFilter(''); setThresholdDays(0); setUrgentOnly(false); setUnhandledOnly(false); setMonthOnly('none'); setSearch('');
+        }]].map(function (c, i) {
+          return /*#__PURE__*/React.createElement("div", {
+            key: i, onClick: c[3],
+            style: { border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer' },
+            onMouseEnter: function (e) { e.currentTarget.style.borderColor = c[2] === 'var(--ink-2)' ? '#94a3b8' : c[2]; },
+            onMouseLeave: function (e) { e.currentTarget.style.borderColor = 'var(--line)'; }
+          },
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 22, fontWeight: 700, color: c[2] } }, c[1]),
             /*#__PURE__*/React.createElement("div", { style: { fontSize: 11, color: 'var(--ink-3)' } }, c[0]));
         })
@@ -1624,7 +1651,11 @@ function POAftersalesModule(props) {
           style: unhandledOnly
             ? { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: 'none', background: '#0071e3', color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }
             : { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: '1px solid var(--line)', background: 'white', color: 'var(--ink-2)', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }
-        }, "\uD83D\uDCED \u4EC5\u672A\u5904\u7406(\u65E0\u8DDF\u8FDB)")
+        }, "\uD83D\uDCED \u4EC5\u672A\u5904\u7406(\u65E0\u8DDF\u8FDB)"),
+        monthOnly !== 'none' && /*#__PURE__*/React.createElement("button", {
+          onClick: function () { setMonthOnly('none'); },
+          style: { padding: '4px 10px', fontSize: 11, borderRadius: 14, border: 'none', background: '#7c3aed', color: 'white', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }
+        }, (monthOnly === 'new' ? '\u672C\u6708\u65B0\u589E' : '\u672C\u6708\u5DF2\u89E3\u51B3') + ' \u2715')
       )
     ),
     loading ? /*#__PURE__*/React.createElement("div", { style: { textAlign: 'center', padding: 40, color: 'var(--ink-3)' } }, "\u52A0\u8F7D\u4E2D…") :
@@ -6260,7 +6291,7 @@ var App = function App() {
 };
 
 // 📦 版本日志 - 用户用来确认加载的是哪个版本
-var APP_VERSION = '2026.06.05-fix384';
+var APP_VERSION = '2026.06.05-fix385';
 
 // ════════════════════════════════════════════════════════════════════
 // 📦 版本历史 (数据驱动 · 用于帮助中心展示)
